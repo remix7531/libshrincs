@@ -1,0 +1,130 @@
+{
+  "nodes": {
+    "flake-parts": {
+      "inputs": {
+        "nixpkgs-lib": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1782949081,
+        "narHash": "sha256-vp6Y/Grm98ESt6ceOkWiHWyZRDV3J1RID4w+6NWK9yA=",
+        "owner": "hercules-ci",
+        "repo": "flake-parts",
+        "rev": "17c9d6cdfc60c64f4ee8d306f9bc0b4ccb51481e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "hercules-ci",
+        "repo": "flake-parts",
+        "type": "github"
+      }
+    },
+    "flake-utils": {
+      "inputs": {
+        "systems": "systems"
+      },
+      "locked": {
+        "lastModified": 1731533236,
+        "narHash": "sha256-l0KFg5HjrsfsO/JpG+r7fRrqm12kzFHyUHqHCVpMMbI=",
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "rev": "11707dc2f618dd54ca8739b309ec4fc024de578b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "type": "github"
+      }
+    },
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1783427417,
+        "narHash": "sha256-OLg5lbgv9nc+IShDS2WrrnIY9DCfRXWD5hxfS4x1Huk=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "1350febcfa4d9894e2254f42ab903859b2cad193",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "pytanque": {
+      "inputs": {
+        "flake-utils": [
+          "rocq-mcp",
+          "flake-utils"
+        ],
+        "nixpkgs": [
+          "rocq-mcp",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1779018200,
+        "narHash": "sha256-o28Z7p2A2ocSdJawML8Qe19JTRkKNLV9T5Utgs8QIC0=",
+        "owner": "remix7531",
+        "repo": "pytanque",
+        "rev": "77763f3d99c6cc2eccab3e35518d6a7a3be5e2c1",
+        "type": "github"
+      },
+      "original": {
+        "owner": "remix7531",
+        "ref": "feat/nix-flake",
+        "repo": "pytanque",
+        "type": "github"
+      }
+    },
+    "rocq-mcp": {
+      "inputs": {
+        "flake-utils": "flake-utils",
+        "nixpkgs": [
+          "nixpkgs"
+        ],
+        "pytanque": "pytanque"
+      },
+      "locked": {
+        "lastModified": 1782297313,
+        "narHash": "sha256-V5cP3iG4CeJRKxPUOGcU4AlLuxyeEaUY1sBTHZuUS7s=",
+        "owner": "remix7531",
+        "repo": "rocq-mcp",
+        "rev": "25576dc461cb8b2892acbdaa11ec5536bc0e76e6",
+        "type": "github"
+      },
+      "original": {
+        "owner": "remix7531",
+        "ref": "develop",
+        "repo": "rocq-mcp",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "flake-parts": "flake-parts",
+        "nixpkgs": "nixpkgs",
+        "rocq-mcp": "rocq-mcp"
+      }
+    },
+    "systems": {
+      "locked": {
+        "lastModified": 1681028828,
+        "narHash": "sha256-Vy1rq5AaRuLzOxct8nz4T6wlgyUR7zLU309k9mBC768=",
+        "owner": "nix-systems",
+        "repo": "default",
+        "rev": "da67096a3b9bf56a91d16901293e51ba5b49a27e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-systems",
+        "repo": "default",
+        "type": "github"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}

@@ -1,0 +1,23 @@
+# wots+fv clang-tidy configuration.
+#
+# Enables bugprone, cert, performance, readability.  Disables a few
+# checks that don't fit a crypto primitive:
+#   bugprone-easily-swappable-parameters      uint8_t* triples are unavoidable here
+#   readability-magic-numbers                 SHA-256 / WOTS+ live on constants
+#   readability-identifier-length             a..h for SHA-256 state matches FIPS 180-4
+#   readability-function-cognitive-complexity SHA-256 round body is what it is
+#   readability-non-const-parameter           mis-detects writes via getrandom/fread
+
+Checks: >
+  -*,
+  bugprone-*,
+  cert-*,
+  performance-*,
+  readability-*,
+  -bugprone-easily-swappable-parameters,
+  -readability-magic-numbers,
+  -readability-identifier-length,
+  -readability-function-cognitive-complexity,
+  -readability-non-const-parameter,
+WarningsAsErrors: '*'
+HeaderFilterRegex: '^(include|src|test|ocaml)/'

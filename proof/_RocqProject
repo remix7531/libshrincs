@@ -1,0 +1,136 @@
+-Q model Model
+-Q vst Vst
+-Q ssprove Sec
+-Q assumptions Assumptions
+-arg -w -arg -deprecated-from-Coq,-notation-overridden,-ambiguous-paths
+# -deprecated-from-Coq exists SOLELY for the three clightgen-generated
+# files (vst/clight/*.v, `From Coq Require ...`); hand-written files
+# must not need it -- the codebase is otherwise deprecation-clean.
+
+# The lib/ subdirectory of ssprove nests naturally as Sec.lib, so no
+# nested override -Q lines are needed -- which also avoids the
+# "previously bound to ...; remapped" load-path warnings the old nested
+# overrides emitted on every coqc invocation.
+
+model/machine.v
+model/fin.v
+model/math/chain.v
+model/math/encoding.v
+model/bounded.v
+model/byte.v
+model/address.v
+model/sha256.v
+model/iteration.v
+model/wots.v
+model/theory/address.v
+model/theory/wots.v
+model/correct/wots.v
+
+vst/clight/sha256.v
+vst/clight/wots.v
+vst/clight/thash.v
+vst/model/wots.v
+vst/theory/pure.v
+vst/contract/radrs.v
+vst/contract/repr.v
+vst/contract/public.v
+vst/contract/lemmas/data_at.v
+vst/tactics/slot.v
+vst/contract/lemmas/cancel_hints.v
+vst/contract/lemmas/byte_ok.v
+vst/contract/lemmas/lengths.v
+vst/contract/lemmas/arith_counter.v
+vst/tactics/adrs_store.v
+vst/contract/lemmas/arith_nibble.v
+vst/contract/lemmas/arith_xor.v
+vst/contract/lemmas/arith.v
+vst/contract/lemmas/chain_blocks.v
+vst/contract/lemmas/shrincs_wots_verify.v
+vst/contract/lemmas.v
+vst/contract/helpers_libc.v
+vst/contract/helpers_thash.v
+vst/contract/helpers_wots.v
+vst/contract/helpers.v
+vst/contract/trusted.v
+vst/contract/gprog.v
+
+vst/verif/body_shrincs_memset.v
+vst/verif/body_shrincs_memcpy.v
+vst/verif/body_shrincs_ct_memcmp.v
+vst/verif/body_shrincs_panic.v
+vst/verif/body_shrincs_adrs_put32.v
+vst/verif/body_shrincs_thash.v
+vst/verif/body_shrincs_wots_t_sf.v
+vst/verif/body_shrincs_wots_h_grind.v
+vst/verif/body_shrincs_wots_derive_sk.v
+vst/verif/body_shrincs_wots_chain_iter.v
+vst/verif/body_shrincs_wots_chain_from_seed.v
+vst/verif/body_shrincs_wots_map_digest.v
+vst/verif/body_shrincs_wots_grind_to_constant_sum.v
+vst/verif/body_shrincs_wots_pubkey_gen.v
+vst/verif/body_shrincs_wots_sign.v
+vst/verif/body_shrincs_wots_pubkey_from_sig.v
+vst/verif/body_shrincs_wots_verify.v
+vst/verif/all_bodies.v
+
+# --- ssprove: Lib (reusable hash-based-signature library slice) ---
+ssprove/lib/prelude.v
+ssprove/lib/fin_fin.v
+ssprove/lib/sig/scheme.v
+ssprove/lib/sig/kots.v
+ssprove/lib/sig/eucma.v
+ssprove/lib/games/thf.v
+ssprove/lib/games/smtcr.v
+ssprove/lib/games/smpre.v
+ssprove/lib/games/smud.v
+ssprove/lib/games/stcrp.v
+ssprove/lib/games/prf.v
+ssprove/lib/games/prf_derive.v
+ssprove/lib/toolkit/sample_seq.v
+ssprove/lib/toolkit/relational_rules.v
+ssprove/lib/toolkit/hop_tactics.v
+ssprove/lib/chain/core.v
+ssprove/lib/chain/ud.v
+
+ssprove/bridge.v
+
+# --- ssprove: WOTS+C scheme + one-time security proof ---
+ssprove/addressing.v
+ssprove/wots/addressing.v
+ssprove/wots/params.v
+ssprove/wots/scheme.v
+ssprove/wots/games.v
+ssprove/wots/analysis.v
+# shared hop substrate (intermediate games + pure pickers/bridges) so the
+# hops below type-check in parallel instead of through a serial Require chain
+ssprove/wots/hop/intermediates.v
+# the per-assumption hops (one reduction each); the chain hop is split
+# into its shared substrate + the SM-TCR and SM-PRE halves
+ssprove/wots/hop/grind.v
+ssprove/wots/hop/compress.v
+ssprove/wots/hop/chain_common.v
+ssprove/wots/hop/chain_tcr.v
+ssprove/wots/hop/chain_pre.v
+ssprove/wots/hop/ud.v
+ssprove/wots/hop/prf.v
+ssprove/wots/kots_link.v
+# the per-hop advantage-bound lemmas (split out for parallel checking)
+ssprove/wots/bound/grind.v
+ssprove/wots/bound/compress.v
+ssprove/wots/bound/chain_tcr.v
+ssprove/wots/bound/chain_pre.v
+ssprove/wots/bound/prf.v
+ssprove/wots/theorem.v
+ssprove/wots/instantiation.v
+ssprove/axioms.v
+ssprove/wots/model_bridge.v
+
+# --- assumption audit ---
+# The three per-tree probe files assumptions/{model,ssprove,vst}.v are
+# intentionally NOT in the default build: ssprove.v is a ~35s serial
+# `Print Assumptions` tail on the headline theorem, and vst.v an
+# axiom-fetch-heavy compile over the whole VST body-proof surface.
+# `make audit` / assumptions/check.sh recompiles each standalone (gate 3),
+# so the audit is unaffected; `-Q assumptions Assumptions` above is kept
+# so those standalone compiles resolve (and so editor tooling reading
+# this file resolves them too).

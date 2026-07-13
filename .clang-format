@@ -1,0 +1,71 @@
+# clang-format configuration for libshrincs -- a 2026-modern C style for
+# crypto code, applied wholesale rather than hand-tuned to preserve every
+# pre-formatter convention.
+#
+# Design choices that matter here, not just LLVM defaults:
+#   - PointerAlignment: Right (`uint8_t *p`, not `uint8_t* p`) -- this is
+#     the C-correct reading (C's declarator grammar binds `*` to the
+#     declared name: `int* p, q;` misleadingly suggests both are
+#     pointers), not just inherited habit.
+#   - AlignConsecutiveMacros/Enums stay ON: #define/enum tables (ADRS
+#     offsets, byte-size constants) change rarely, so aligning them costs
+#     little diff churn and reads like a spec table.
+#   - AlignConsecutiveAssignments/Declarations stay OFF (the LLVM
+#     default): these apply *inside function bodies*, where lines get
+#     added/edited/removed often -- forced alignment there means editing
+#     one variable name reflows every sibling declaration, which is
+#     exactly the diff-noise failure mode modern formatters (rustfmt,
+#     gofmt) deliberately avoid for that class of code.
+#   - ReflowComments: false -- hand-wrapped documentation prose (ADRS
+#     byte-layout diagrams, buffer-composition comments) is content, not
+#     incidental whitespace; don't let the formatter rewrap it.
+
+BasedOnStyle: LLVM
+Language: Cpp
+
+IndentWidth: 4
+UseTab: Never
+ColumnLimit: 120
+
+# Function definitions get their opening brace on its own line; every other
+# brace (if/for/while/switch/struct/enum) stays K&R-attached.
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterFunction: true
+  AfterControlStatement: false
+  AfterEnum: false
+  AfterStruct: false
+  AfterUnion: false
+  AfterExternBlock: false
+  BeforeElse: false
+  BeforeWhile: false
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  IndentBraces: false
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortBlocksOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+
+PointerAlignment: Right
+DerivePointerAlignment: false
+
+SpaceBeforeParens: ControlStatements
+SpacesInParentheses: false
+SpaceAfterCStyleCast: false
+
+IndentCaseLabels: true
+SpaceBeforeCaseColon: false
+
+AlignConsecutiveMacros: true
+AlignConsecutiveAssignments: false
+AlignConsecutiveDeclarations: false
+AlignTrailingComments: true
+AlignEscapedNewlines: Left
+
+ReflowComments: false
+SortIncludes: false
+IncludeBlocks: Preserve
+
+BinPackArguments: false
+BinPackParameters: false
