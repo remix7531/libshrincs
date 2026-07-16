@@ -2,6 +2,13 @@
 -Q vst Vst
 -Q ssprove Sec
 -Q assumptions Assumptions
+# vendored FXMSS proof (self-contained snapshot under its original logical
+# names; see fxmss/README.md). These roots are disjoint from Sec/Model/Vst/
+# Assumptions above, and fxmss/examples is not under fxmss/hbs, so HBS.Examples
+# does not shadow HBS -- no load-path remap warnings.
+-Q fxmss/hbs HBS
+-Q fxmss/examples HBS.Examples
+-Q fxmss/shrincs SHRINCS
 -arg -w -arg -deprecated-from-Coq,-notation-overridden,-ambiguous-paths
 # -deprecated-from-Coq exists SOLELY for the three clightgen-generated
 # files (vst/clight/*.v, `From Coq Require ...`); hand-written files
@@ -124,6 +131,74 @@ ssprove/wots/theorem.v
 ssprove/wots/instantiation.v
 ssprove/axioms.v
 ssprove/wots/model_bridge.v
+
+# --- vendored FXMSS proof (self-contained; see fxmss/README.md) ---
+# Copied verbatim from verified-spec-2 under original HBS / HBS.Examples /
+# SHRINCS logical names (zero import rewrites), isolated from the native Sec.*
+# tree whose WOTS+C interface diverged. Entry: SHRINCS.FXMSS.Theorem.FXMSS_secure.
+# HBS framework closure:
+fxmss/hbs/Math/BinTree.v
+fxmss/hbs/Math/Merkle.v
+fxmss/hbs/Math/Chain.v
+fxmss/hbs/Math/Encoding.v
+fxmss/hbs/Prelude.v
+fxmss/hbs/Games/THF.v
+fxmss/hbs/Games/PRF.v
+fxmss/hbs/Games/SMTCR.v
+fxmss/hbs/Games/SMPRE.v
+fxmss/hbs/Games/SMUD.v
+fxmss/hbs/Games/STCRP.v
+fxmss/hbs/Games/TCRX.v
+fxmss/hbs/Toolkit/SampleSeq.v
+fxmss/hbs/Toolkit/ROPlus.v
+fxmss/hbs/Toolkit/Reprogram.v
+fxmss/hbs/Sig/Scheme.v
+fxmss/hbs/Sig/KOTS.v
+# FixedSumOTS -- the W+C one-time-signature abstraction the FXMSS leaf reduces to:
+fxmss/examples/FixedSumOTS/Scheme.v
+fxmss/examples/FixedSumOTS/Games.v
+fxmss/examples/FixedSumOTS/Analysis.v
+fxmss/examples/FixedSumOTS/UDHop.v
+fxmss/examples/FixedSumOTS/TCRHop.v
+fxmss/examples/FixedSumOTS/PREHop.v
+# SHRINCS addressing + WOTS+C leaf (closure):
+fxmss/shrincs/Addressing.v
+fxmss/shrincs/WOTSC/Scheme.v
+fxmss/shrincs/WOTSC/Games.v
+fxmss/shrincs/WOTSC/Analysis.v
+fxmss/shrincs/WOTSC/GrindHop.v
+fxmss/shrincs/WOTSC/CompressHop.v
+fxmss/shrincs/WOTSC/ChainHop.v
+fxmss/shrincs/WOTSC/ZeroGames.v
+fxmss/shrincs/WOTSC/ZeroChainHop.v
+# FXMSS scheme + EU-CMA proof:
+fxmss/shrincs/FXMSS/Scheme.v
+fxmss/shrincs/FXMSS/Games.v
+fxmss/shrincs/FXMSS/PRFHop.v
+fxmss/shrincs/FXMSS/ReproHop.v
+fxmss/shrincs/FXMSS/ConnectHop.v
+fxmss/shrincs/FXMSS/DigestHop.v
+fxmss/shrincs/FXMSS/DigestHopBound_g4indep.v
+fxmss/shrincs/FXMSS/DigestHopBound_eq.v
+fxmss/shrincs/FXMSS/DigestHopBound_diff.v
+fxmss/shrincs/FXMSS/DigestHopBound.v
+fxmss/shrincs/FXMSS/LateGames.v
+fxmss/shrincs/FXMSS/GrindAssertHop.v
+fxmss/shrincs/FXMSS/TreeHop.v
+fxmss/shrincs/FXMSS/TreeHopProof.v
+fxmss/shrincs/FXMSS/TCRXHopProof.v
+fxmss/shrincs/FXMSS/LeafReduction.v
+fxmss/shrincs/FXMSS/LeafKM.v
+fxmss/shrincs/FXMSS/Leaf2Common.v
+fxmss/shrincs/FXMSS/Leaf2Games.v
+fxmss/shrincs/FXMSS/Leaf2Compress.v
+fxmss/shrincs/FXMSS/Leaf2ChainTCR.v
+fxmss/shrincs/FXMSS/Leaf2ChainPRE.v
+fxmss/shrincs/FXMSS/Leaf2Grind.v
+fxmss/shrincs/FXMSS/Leaf2UD.v
+fxmss/shrincs/FXMSS/Leaf2Theorem.v
+fxmss/shrincs/FXMSS/FinalHop.v
+fxmss/shrincs/FXMSS/Theorem.v
 
 # --- assumption audit ---
 # The three per-tree probe files assumptions/{model,ssprove,vst}.v are
