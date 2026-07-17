@@ -7,8 +7,8 @@
 #   make test         C library + self-consistency / tamper tests + SHA-256 KATs
 #   make extract      run clightgen (C -> Clight AST) for vst-prove
 #   make vst-prove    VST / Rocq proofs (implies extract)
-#   make ssprove-prove  SSProve / Rocq one-time-security proof
-#   make prove        both proofs
+#   make ssprove-prove  SSProve / Rocq WOTS+C and FXMSS security proofs
+#   make prove        all proof trees
 #   make audit        vst-prove + ssprove-prove + the combined honesty gate
 #                      (assumptions/check.sh: per-tree gates + trust-surface report)
 #   make check        full CI gate: static + sanitizers + CompCert + ctgrind +

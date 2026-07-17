@@ -1,9 +1,9 @@
-# Vendored FXMSS proof
+# FXMSS proof and compatibility boundary
 
-A **self-contained, vendored snapshot** of the complete EU-CMA security proof for
-**FXMSS** — the fixed/counter-schedule unbalanced XMSS of WOTS+C leaves — copied
-verbatim from the `verified-spec-2` development. It is kept deliberately isolated from
-libshrincs's native `Sec.*` proof tree.
+The complete EU-CMA security proof for **FXMSS**, the fixed/counter-schedule
+unbalanced XMSS of WOTS+C leaves.  It originated in `verified-spec-2` and
+retains its original logical roots, while compatible generic definitions are
+imported from libshrincs rather than duplicated.
 
 ## Entry theorem
 
@@ -13,16 +13,25 @@ telescoping sum of the per-primitive reduction terms (PRF over the secret-key se
 over the message randomizer, digest reprogramming, digest, grind, the leaf terms, tree
 SM-TCR, and TCRX), assembled from the per-hop lemmas in this tree.
 
-## Why this is separate from `Sec.*`
+## Compatibility boundary
 
-libshrincs's native WOTS+C proof (`Sec.wots.*`) is a re-engineered development whose
-public interface diverged from the WOTS+C that the FXMSS proof is written against
-(`SHRINCS.WOTSC.*`): different definition names and types, a different `Addressing`, and
-no `FixedSumOTS` leaf-OTS abstraction (the interface the FXMSS leaf reduction targets).
-FXMSS therefore cannot compile against `Sec.wots`/`Sec.lib` without a full re-derivation.
-Rather than duplicate that effort now, this tree vendors FXMSS together with the exact
-dependencies it needs, under their **original logical names**, so every import resolves
-with zero rewrites.
+`Prelude`, `Sig.{Scheme,KOTS}`, `Games.{THF,PRF,SMTCR,SMPRE,SMUD,STCRP}`,
+and `Toolkit.SampleSeq` are compatibility exports of native `Sec.lib`
+modules; they contain no duplicate definitions.  The adaptive PRF game needed
+by FXMSS lives in `Sec.lib.games.prf_adaptive`.
+
+The retained modules are the minimal incompatible closure.  TCRX, random-oracle
+reprogramming, and Merkle-tree machinery have no native counterpart.
+`FixedSumOTS` and the WOTS+C hop files expose banked relational invariants used
+directly by the multi-leaf proof.  Native `Sec.wots.hop.*` fixes one anchor in
+`wc_params`; FXMSS instead proves multi-instance hops over up to `n_max`
+independently addressed leaves.  Replacing those files requires generalizing
+the native library's reductions, not merely changing imports.
+
+The FXMSS address encoder now follows `Model.address`'s canonical 22-byte flat
+view, payload placement, and stateful tags 16, 17, 18, 21, and 22.  Its fields
+remain abstract `nat`s; a concrete model bridge must discharge the bounds that
+`Model.address.adrs` enforces intrinsically.
 
 ## Layout & logical names
 
@@ -30,7 +39,7 @@ Mapped in `proof/_RocqProject` (roots disjoint from `Sec`/`Model`/`Vst`/`Assumpt
 
 | directory         | logical root   | contents |
 |-------------------|----------------|----------|
-| `fxmss/hbs/`       | `HBS`          | the SSProve/HBS framework closure — `Prelude`, `Math.{BinTree,Merkle,Chain,Encoding}`, `Sig.{Scheme,KOTS}`, `Games.{THF,PRF,SMTCR,SMPRE,SMUD,STCRP,TCRX}`, `Toolkit.{SampleSeq,ROPlus,Reprogram}` |
+| `fxmss/hbs/`       | `HBS`          | native compatibility exports plus the FXMSS-only framework closure |
 | `fxmss/examples/`  | `HBS.Examples` | `FixedSumOTS.*` — the generic Winternitz-with-checksum one-time signature the FXMSS leaf reduces to (WOTS+C is proved to *be* a `FixedSumOTS`) |
 | `fxmss/shrincs/`   | `SHRINCS`      | `Addressing`, the WOTS+C leaf (`WOTSC/*`, import-closure only), and the FXMSS proof (`FXMSS/*`) |
 
@@ -61,15 +70,11 @@ Its `Print Assumptions` cone is the classical/SSProve baseline already whitelist
 extensionality, indefinite description, strict-Prop proof irrelevance, the real-number
 carrier, and mathcomp-analysis's `realsum.__admitted__interchange_psum`).
 
-A standalone probe `proof/assumptions/fxmss.v` runs `Print Assumptions FXMSS_secure` for
-manual/CI review. It is intentionally **not** wired into `make audit`'s automated gate:
-doing so requires an `[fxmss]` section in `proof/assumptions/allowed.txt`, which — per
-libshrincs `AGENTS.md` — needs explicit approval, even though it would only repeat the
-existing `[ssprove]` baseline names.
+A standalone probe `proof/assumptions/fxmss.v` runs `Print Assumptions
+FXMSS_secure` during `make audit`.  Its cone is checked against the existing
+`[ssprove]` classical baseline; no allowlist entry or trust anchor is added.
 
-## TODO: reconciliation
-
-Longer term, FXMSS should be ported into `Sec.fxmss.*`, reusing the native `Sec.wots`
-WOTS+C and `Sec.lib` framework (adding the missing Merkle-tree and `FixedSumOTS` machinery
-under `Sec.lib`), retiring this vendored tree. That is a substantial re-derivation — the
-WOTS+C interface must be re-targeted lemma-by-lemma — and is intentionally deferred.
+Further consolidation requires an anchor-indexed generalization of the native
+WOTS+C hop interfaces.  That should be done in `Sec.lib` before the banked
+multi-leaf reductions are moved, so the existing single-anchor proof remains
+small and reviewable.

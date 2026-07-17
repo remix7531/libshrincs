@@ -2351,7 +2351,7 @@ simplify_eq_rel arg.
        re-establish pr_inv with CS' = rcons CS ((t,(sg,md)),us) via RPr_qupd +
        qflat_rcons (new offset ofs = size(qflat pp 0 CS); rpr_cnt += lnpq ds =
        npq ds = size(lchain_block) via size_lchain_block).  b-independent:
-       transcribe the SAME block to R_cpre_leaf_real's LCOMMIT admit. *)
+       the same block applies to [R_cpre_leaf_real]'s LCOMMIT branch. *)
   destruct arg as [t md]. rewrite /rr_commit. ssprove_code_simpl; simpl.
   eapply r_get_remember_lhs => lrev. eapply r_get_remember_rhs => rrev.
   eapply (r_fact (rrev = lrev)).

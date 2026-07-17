@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Honesty gate for the three libshrincs proof trees (model, ssprove, vst).
+# Honesty gate for the four libshrincs proof trees (model, ssprove, fxmss,
+# vst).
 # Run inside `nix develop`, via `make audit` or standalone once the trees are
 # built:  nix develop -c bash proof/assumptions/check.sh
 #
@@ -136,9 +137,10 @@ gate2_vst() {
 # Gate 3: compile the tree's Print Assumptions probe, extract the axiom names
 # (stripping the opaque-proof-fetch log first -- see the header KNOWN TRAP), and
 # diff against the tree's allowed.txt section.
-#   tree   -- "model" | "ssprove" | "vst"   qflags -- -Q load-path flags for coqc
+#   tree -- probe/tree name; qflags -- coqc load paths; allow_section --
+#   optional allowlist section when a tree shares another tree's baseline.
 gate3_assumptions() {
-  local tree="$1" qflags="$2"
+  local tree="$1" qflags="$2" allow_section="${3:-$1}"
   local probe="$ASSUMPTIONS_DIR/$tree.v"
 
   local ok=1
@@ -157,9 +159,17 @@ gate3_assumptions() {
     | sort -u > "$ASSUMPTIONS_DIR/$tree.found"
 
   if [ -s "$ASSUMPTIONS_DIR/$tree.found" ]; then
+    local found_for_diff="$ASSUMPTIONS_DIR/$tree.found"
+    if [ "$tree" = fxmss ] && [ "$allow_section" = ssprove ]; then
+      found_for_diff="$ASSUMPTIONS_DIR/$tree.normalized"
+      sed \
+        -e 's/^Axioms\.R$/R/' \
+        -e 's/^FunctionalExtensionality\.functional_extensionality_dep$/functional_extensionality_dep/' \
+        "$ASSUMPTIONS_DIR/$tree.found" | sort -u > "$found_for_diff"
+    fi
     local extra
-    if extra=$(comm -23 "$ASSUMPTIONS_DIR/$tree.found" \
-                 <(section_entries "$tree" | cut -f1 | sort -u)); [ -n "$extra" ]; then
+    if extra=$(comm -23 "$found_for_diff" \
+                 <(section_entries "$allow_section" | cut -f1 | sort -u)); [ -n "$extra" ]; then
       echo "FAIL: $tree assumptions outside the allowed baseline:"
       echo "$extra"
       ok=0
@@ -195,6 +205,11 @@ CLASSICAL_VST=(
 
 is_classical() {
   local name="$1" arrname="$2"
+  case "$name" in
+    Axioms.R) name=R ;;
+    FunctionalExtensionality.functional_extensionality_dep)
+      name=functional_extensionality_dep ;;
+  esac
   local -n arr="$arrname"
   local x
   for x in ${arr[@]+"${arr[@]}"}; do
@@ -225,6 +240,9 @@ print_trust_surface() {
   printf '%-8s  %-42s  %s\n' "ssprove" "(classical baseline, ${#CLASSICAL_SSPROVE[@]} entries)" \
     "SSProve/mathcomp-analysis library axioms -- excluded middle, choice, prop/functional extensionality, proof irrelevance, one admitted realsum lemma"
   print_trust_surface_rows ssprove CLASSICAL_SSPROVE
+  printf '%-8s  %-42s  %s\n' "fxmss" "(shared SSProve classical baseline)" \
+    "FXMSS_secure adds no project-local axiom or parameter"
+  print_trust_surface_rows fxmss CLASSICAL_SSPROVE
   printf '%-8s  %-42s  %s\n' "vst" "(classical baseline, ${#CLASSICAL_VST[@]} entries)" \
     "CompCert/Coq-stdlib library axioms -- excluded middle, extensionality, UIP, classical reals decidability"
   print_trust_surface_rows vst CLASSICAL_VST
@@ -246,6 +264,15 @@ gate1_proof_gaps ssprove "$ASSUMPTIONS_DIR" || tree_fail=1
 gate2_ssprove || tree_fail=1
 gate3_assumptions ssprove "-Q model Model -Q ssprove Sec -Q assumptions Assumptions" || tree_fail=1
 [ "$tree_fail" = 0 ] && echo "ssprove  gates 0-3 green" || fail=1
+
+tree_fail=0
+gate0_build_freshness fxmss || tree_fail=1
+gate1_proof_gaps fxmss || tree_fail=1
+gate2_confined fxmss 'a^' fxmss || tree_fail=1
+gate3_assumptions fxmss \
+  "-Q model Model -Q ssprove Sec -Q fxmss/hbs HBS -Q fxmss/examples HBS.Examples -Q fxmss/shrincs SHRINCS -Q assumptions Assumptions" \
+  ssprove || tree_fail=1
+[ "$tree_fail" = 0 ] && echo "fxmss    gates 0-3 green" || fail=1
 
 tree_fail=0
 gate0_build_freshness vst || tree_fail=1

@@ -1639,8 +1639,7 @@ Qed.
    [th_eval_chtw]; the ideal route collapses to [ret false] (SMB false).
 
    Historical design notes (iteration 2 -> 3), kept for provenance:
-   the two perfects below WERE the ONLY remaining Admitted.  EVERYTHING they
-   need is banked Qed above (all compile-verified: `coqc EXIT 0`):
+   The two perfect lemmas below use the banked facts established above:
 
    NEW THIS PASS (all Qed):
      - size helpers: [size_l_rrdigS], [wendsEl];
