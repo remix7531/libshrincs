@@ -164,6 +164,7 @@ fxmss/examples/FixedSumOTS/TCRHop.v
 fxmss/examples/FixedSumOTS/PREHop.v
 # SHRINCS addressing + WOTS+C leaf (closure):
 fxmss/shrincs/Addressing.v
+ssprove/fxmss/address_bridge.v
 fxmss/shrincs/WOTSC/Scheme.v
 fxmss/shrincs/WOTSC/Games.v
 fxmss/shrincs/WOTSC/Analysis.v
@@ -174,6 +175,7 @@ fxmss/shrincs/WOTSC/ZeroGames.v
 fxmss/shrincs/WOTSC/ZeroChainHop.v
 # FXMSS scheme + EU-CMA proof:
 fxmss/shrincs/FXMSS/Scheme.v
+ssprove/fxmss/scheme_bridge.v
 fxmss/shrincs/FXMSS/Games.v
 fxmss/shrincs/FXMSS/PRFHop.v
 fxmss/shrincs/FXMSS/ReproHop.v
