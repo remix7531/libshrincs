@@ -59,6 +59,10 @@ Import PackageNotation.
 
 Section FXMSSTCRXHopProof.
 
+Context {w l : nat}.
+Local Notation adrs_sf := (Addressing.adrs_sf l w).
+Local Notation adrs_sf_ch := (Addressing.adrs_sf_ch l w).
+
 (** Same section context as FXMSS/TreeHop.v + FXMSS/LateGames.v. *)
 Context (PP N D M R : choice_type).
 Context (F : PP -> adrs_sf -> N -> N).
@@ -66,8 +70,9 @@ Context (Tl : PP -> adrs_sf -> seq N -> N).
 Context (Hgrind : PP -> adrs_sf -> D * nat -> nat).
 Context (Htree : PP -> adrs_sf -> N * N -> N).
 Context (dPP : dist PP) (dN : dist N) (dR : dist R) (dD : dist D).
-Context (w l S_wn c_max : nat).
+Context (S_wn c_max : nat).
 Context (h_sf : nat).
+Context (Hh : (h_sf <= 64)%N).
 Context (q_s q_h n_max : nat).
 Context (q_f : nat).
 
@@ -84,11 +89,11 @@ Local Notation tshape := (shape_of h_sf).
 Local Notation spath := (sign_path h_sf).
 Local Notation posid := (pos_id h_sf).
 Local Notation nhash := (node_hash PP N Htree h_sf).
-Local Notation valtree := (value_tree_x PP N F Tl w l h_sf).
-Local Notation fxroot := (fx_root_x PP N F Tl Htree w l h_sf).
+Local Notation valtree := (value_tree_x PP N F Tl h_sf).
+Local Notation fxroot := (fx_root_x PP N F Tl Htree h_sf).
 
 (** Internal-node tweak (TreeHop.v's [tnode_tw]). *)
-Local Notation tnode := (tnode_tw h_sf).
+Local Notation tnode := (@tnode_tw w l h_sf).
 
 (* ------------------------------------------------------------------ *)
 (** ** The thf [Txc] for the structure hop (PROOF_PLAN.md "Structure hop")
@@ -135,14 +140,15 @@ Definition paired (t : adrs_sf_ch) : bool :=
 
 Definition omega (t : adrs_sf_ch) : adrs_sf_ch :=
   match decode_tweak t with
-  | AdrTree z i => encode_adrs (AdrPk z i)
-  | AdrPk z i => encode_adrs (AdrTree z i)
+  | address.Fxmss z i => encode_adrs (address.Wc_pk z i)
+  | address.Wc_pk z i => encode_adrs (address.Fxmss z i)
   | a => encode_adrs a
   end.
 
 (** The two committed tweak families: internal nodes at [AdrTree],
     anchors at [AdrPk] (both keyed by [pos_id]). *)
-Local Notation panchor p := (encode_adrs (AdrPk (posid p).1 (posid p).2)).
+Local Notation panchor p :=
+  (@encode_adrs l w (@wotsc_pk_adrs l w (posid p))).
 
 (** [tnode q = encode_adrs (AdrTree (h_sf - size q) (idx_of_path q))];
     spelled in [pos_id] form to match [panchor]. *)
@@ -176,8 +182,8 @@ Proof. by rewrite /= /tnode_tw decode_tweakK. Qed.
 (** XQUERY's [th_eval] answer at an encoded [AdrPk] tweak with [inr]
     message is the anchor compression [Tl]. *)
 Lemma th_eval_xanchor pp (zi : nat * nat) (ends : seq N) :
-  th_eval Txc pp (encode_adrs (AdrPk zi.1 zi.2)) (inr ends)
-  = Tl pp (AdrPk zi.1 zi.2) ends.
+  th_eval Txc pp (encode_adrs (wotsc_pk_adrs zi)) (inr ends)
+  = Tl pp (wotsc_pk_adrs zi) ends.
 Proof. by rewrite /= decode_tweakK. Qed.
 
 (** [Cxc]'s F-member at an encoded chain address. *)
@@ -198,8 +204,8 @@ Proof. by rewrite {1}/tc_eval /= decode_tweakK. Qed.
     [anchor_val] = the value-tree leaf fn; [tval] = the bottom-up
     value of a shape-subtree; [tval_root = fxroot]. *)
 
-Local Notation fpk_of zi := (pk_of PP N F Tl w l zi.1 zi.2).
-Local Notation fchain_ends zi := (chain_ends PP N F w l zi.1 zi.2).
+Local Notation fpk_of zi := (pk_of PP N F Tl zi.1 zi.2).
+Local Notation fchain_ends zi := (chain_ends PP N F zi.1 zi.2).
 Local Notation cadrs zi i pos := (wotsc_chain_adrs zi i pos).
 Local Notation padrs zi := (wotsc_pk_adrs zi).
 Local Notation gadrs zi := (wotsc_grind_adrs zi).
@@ -277,10 +283,10 @@ Proof. by rewrite /pk_of; case: zi. Qed.
     the TCR-X collisions across the [AdrTree]/[AdrPk] partner tweaks. *)
 
 Local Notation fxcaseN :=
-  (fxcase PP N D F Tl Hgrind Htree w l h_sf).
+  (fxcase PP N D F Tl Hgrind Htree h_sf).
 Local Notation fxvermd :=
-  (fx_verify_md PP N D F Tl Hgrind Htree w l S_wn h_sf).
-Local Notation frecover := (recover_anchor PP N D F Tl Hgrind w l).
+  (fx_verify_md PP N D F Tl Hgrind Htree S_wn h_sf).
+Local Notation frecover := (recover_anchor PP N D F Tl Hgrind).
 
 (** The verify equation extracted from [fxvermd] (TreeHop's
     [fxvermd_val_ap]; restated locally). *)
@@ -445,7 +451,7 @@ Definition x_slot_grind (sp : seq bool) (sd : chMap 'nat D) (j : nat) :
   match getm sd j with
   | Some d =>
       hs ← x_grind (posid (spath sp j)) d (iota 0 c_max) ;;
-      ret (has (grind_prp w l S_wn) hs)
+      ret (has (@grind_prp w l S_wn) hs)
   | None => ret true
   end.
 
@@ -600,22 +606,32 @@ Definition xtag (x : adrs_sf_ch) : nat * (nat * nat) :=
   (adrs_type (decode_tweak x), adrs_keypair (decode_tweak x)).
 
 Lemma xtag_tnode (q : seq bool) :
-  xtag (tnode q) = (TY_TREE_SF, posid q).
-Proof. by rewrite /xtag /tnode_tw decode_tweakK /adrs_keypair /pos_id. Qed.
+  size q <= h_sf -> xtag (tnode q) = (TY_TREE_SF, posid q).
+Proof.
+move=> hq.
+rewrite /xtag /tnode_tw decode_tweakK /pos_id.
+rewrite (tree_node_adrs_keypair l w _ _ (path_anchor_bounded h_sf q Hh hq)).
+by [].
+Qed.
 
 Lemma xtag_panchor (p : seq bool) :
-  xtag (panchor p) = (TY_WOTS_PK_SF, posid p).
-Proof. by rewrite /xtag decode_tweakK /adrs_keypair /pos_id. Qed.
+  size p <= h_sf -> xtag (panchor p) = (TY_WOTS_PK_SF, posid p).
+Proof.
+move=> hp.
+rewrite /xtag decode_tweakK.
+rewrite (wotsc_pk_adrs_keypair l w _ (path_anchor_bounded h_sf p Hh hp)).
+by [].
+Qed.
 
 (** [xtag] is injective on the committed tweaks of a wf shape: same tag
     forces same family (type) and same position ([pos_id] inj). *)
 Lemma omega_xtag_panchor (p : seq bool) :
-  xtag (omega (panchor p)) = (TY_TREE_SF, posid p).
-Proof. by rewrite omega_panchor xtag_tnode. Qed.
+  size p <= h_sf -> xtag (omega (panchor p)) = (TY_TREE_SF, posid p).
+Proof. by move=> hp; rewrite omega_panchor (xtag_tnode p hp). Qed.
 
 Lemma omega_xtag_tnode (q : seq bool) :
-  xtag (omega (tnode q)) = (TY_WOTS_PK_SF, posid q).
-Proof. by rewrite omega_tnode xtag_panchor. Qed.
+  size q <= h_sf -> xtag (omega (tnode q)) = (TY_WOTS_PK_SF, posid q).
+Proof. by move=> hq; rewrite omega_tnode (xtag_panchor q hq). Qed.
 
 (* ------------------------------------------------------------------ *)
 (** ** The combined tweak-tag list and its uniqueness
@@ -698,14 +714,25 @@ Lemma tagmap_consb (X : nat) (pos : seq bool) (b : bool) (f : seq (seq bool)) :
 Proof. by rewrite -map_comp; apply/eq_map => r /=; rewrite cat_rcons. Qed.
 
 Lemma map_xtag_xunder (pos : seq bool) (t : bt unit) :
+  (size pos + bt_depth t <= h_sf)%N ->
   perm_eq [seq xtag x | x <- xunder pos t]
     ([seq (TY_WOTS_PK_SF, posid (pos ++ p)) | p <- leaf_paths t]
      ++ [seq (TY_TREE_SF, posid (pos ++ q)) | q <- internal_paths t]).
 Proof.
-elim: t pos => [[]|tl IHl tr IHr] pos.
-- by rewrite /= cats0 xtag_panchor.
-- rewrite [xunder _ _]/= [leaf_paths (BNode _ _)]/= [internal_paths (BNode _ _)]/=.
-  rewrite !map_cat /= xtag_tnode.
+elim: t pos => [[]|tl IHl tr IHr] pos hdepth.
+- have hpos : (size pos <= h_sf)%N by move: hdepth; rewrite /= addn0.
+  by rewrite /= cats0 (xtag_panchor pos hpos).
+- have hpos : (size pos <= h_sf)%N :=
+	    leq_trans (leq_addr (maxn (bt_depth tl) (bt_depth tr)).+1 (size pos))
+      hdepth.
+  have hleft : (size (rcons pos false) + bt_depth tl <= h_sf)%N.
+    apply: leq_trans hdepth.
+	    by rewrite size_rcons /= addSn addnS ltnS leq_add2l leq_maxl.
+  have hright : (size (rcons pos true) + bt_depth tr <= h_sf)%N.
+    apply: leq_trans hdepth.
+	    by rewrite size_rcons /= addSn addnS ltnS leq_add2l leq_maxr.
+  rewrite [xunder _ _]/= [leaf_paths (BNode _ _)]/= [internal_paths (BNode _ _)]/=.
+  rewrite !map_cat /= (xtag_tnode pos hpos).
   rewrite [in [seq _ | _ <- [seq false :: _ | _ <- internal_paths tl] ++ _]]map_cat.
   rewrite !tagmap_consb cats0.
   set Ll := [seq xtag x | x <- xunder (rcons pos false) tl].
@@ -719,7 +746,7 @@ elim: t pos => [[]|tl IHl tr IHr] pos.
     by rewrite -catA perm_cat2l perm_cat2l.
   apply: (perm_trans (y := ((LA ++ LB) ++ (RA ++ RB)) ++
                            [:: (TY_TREE_SF, posid pos)])).
-    rewrite perm_cat2r; apply: perm_cat; [exact: IHl | exact: IHr].
+    rewrite perm_cat2r; apply: perm_cat; [exact: IHl hleft | exact: IHr hright].
   (* reorder [(LA++LB)++(RA++RB)++[node]] to [(LA++RA)++[node]++(LB++RB)] *)
   rewrite -!catA -cat1s.
   rewrite perm_cat2l (perm_catCA LB RA (RB ++ [:: (TY_TREE_SF, posid pos)])).
@@ -729,14 +756,25 @@ Qed.
 
 (** The partner tags: [map (xtag \o omega)] swaps the two types. *)
 Lemma map_xtag_omega_xunder (pos : seq bool) (t : bt unit) :
+  (size pos + bt_depth t <= h_sf)%N ->
   perm_eq [seq xtag (omega x) | x <- xunder pos t]
     ([seq (TY_TREE_SF, posid (pos ++ p)) | p <- leaf_paths t]
      ++ [seq (TY_WOTS_PK_SF, posid (pos ++ q)) | q <- internal_paths t]).
 Proof.
-elim: t pos => [[]|tl IHl tr IHr] pos.
-- by rewrite /= cats0 omega_xtag_panchor.
-- rewrite [xunder _ _]/= [leaf_paths (BNode _ _)]/= [internal_paths (BNode _ _)]/=.
-  rewrite !map_cat /= omega_xtag_tnode.
+elim: t pos => [[]|tl IHl tr IHr] pos hdepth.
+- have hpos : (size pos <= h_sf)%N by move: hdepth; rewrite /= addn0.
+  by rewrite /= cats0 (omega_xtag_panchor pos hpos).
+- have hpos : (size pos <= h_sf)%N :=
+	    leq_trans (leq_addr (maxn (bt_depth tl) (bt_depth tr)).+1 (size pos))
+      hdepth.
+  have hleft : (size (rcons pos false) + bt_depth tl <= h_sf)%N.
+    apply: leq_trans hdepth.
+	    by rewrite size_rcons /= addSn addnS ltnS leq_add2l leq_maxl.
+  have hright : (size (rcons pos true) + bt_depth tr <= h_sf)%N.
+    apply: leq_trans hdepth.
+	    by rewrite size_rcons /= addSn addnS ltnS leq_add2l leq_maxr.
+  rewrite [xunder _ _]/= [leaf_paths (BNode _ _)]/= [internal_paths (BNode _ _)]/=.
+  rewrite !map_cat /= (omega_xtag_tnode pos hpos).
   rewrite [in [seq _ | _ <- [seq false :: _ | _ <- internal_paths tl] ++ _]]map_cat.
   rewrite !tagmap_consb cats0.
   set Ll := [seq xtag (omega x) | x <- xunder (rcons pos false) tl].
@@ -749,7 +787,7 @@ elim: t pos => [[]|tl IHl tr IHr] pos.
     by rewrite -catA perm_cat2l perm_cat2l.
   apply: (perm_trans (y := ((LA ++ LB) ++ (RA ++ RB)) ++
                            [:: (TY_WOTS_PK_SF, posid pos)])).
-    rewrite perm_cat2r; apply: perm_cat; [exact: IHl | exact: IHr].
+    rewrite perm_cat2r; apply: perm_cat; [exact: IHl hleft | exact: IHr hright].
   rewrite -!catA -cat1s.
   rewrite perm_cat2l (perm_catCA LB RA (RB ++ [:: (TY_WOTS_PK_SF, posid pos)])).
   rewrite perm_cat2l.
@@ -870,7 +908,7 @@ Lemma decode_tnode (r : seq bool) :
 Proof. by rewrite /tnode_tw decode_tweakK /pos_id. Qed.
 
 Lemma decode_panchor (r : seq bool) :
-  decode_tweak (panchor r) = AdrPk (posid r).1 (posid r).2.
+  decode_tweak (panchor r) = @wotsc_pk_adrs l w (posid r).
 Proof. by rewrite decode_tweakK /pos_id. Qed.
 
 (** Recover a committed tweak from its decode (it is in [encode_adrs]'s
@@ -906,19 +944,30 @@ have decode (z : adrs_sf_ch) :
       by rewrite mem_cat hpin.
     + exists q; first by rewrite hq cat0s omega_tnode eqxx orbT.
       by rewrite mem_cat hqin orbT.
-have [rx hrx _] := decode x hx.
-have [ry hry _] := decode y hy.
+have [rx hrx hrxmem] := decode x hx.
+have [ry hry hrymem] := decode y hy.
+have hsx : (size rx <= h_sf)%N.
+  move: hrxmem; rewrite mem_cat => /orP[].
+  - exact: leaf_path_size.
+  - exact: int_path_size.
+have hsy : (size ry <= h_sf)%N.
+  move: hrymem; rewrite mem_cat => /orP[].
+  - exact: leaf_path_size.
+  - exact: int_path_size.
 (* [xtag = (adrs_type, adrs_keypair)]; on a committed tweak it is the
    constructor (type) + the position [posid r].  Equal [xtag] thus
    forces SAME family (TREE != PK) and SAME [posid], pinning the tweak
    ([tnode]/[panchor] are injective in [posid]). *)
 move: hxy.
-case/orP: hrx => /eqP ->; case/orP: hry => /eqP ->;
-  rewrite /xtag ?decode_tnode ?decode_panchor /adrs_keypair /=.
-- rewrite /tnode_tw /pos_id /=; by move=> -[] -> ->.
-- by [].
-- by [].
-- rewrite /pos_id /=; by move=> -[] -> ->.
+case/orP: hrx => /eqP ->; case/orP: hry => /eqP ->.
+- rewrite (xtag_tnode rx hsx) (xtag_tnode ry hsy) => htag.
+  have hpos := congr1 snd htag.
+  by rewrite (posid_inj_all sp rx ry hrxmem hrymem hpos).
+- by rewrite (xtag_tnode rx hsx) (xtag_panchor ry hsy).
+- by rewrite (xtag_panchor rx hsx) (xtag_tnode ry hsy).
+- rewrite (xtag_panchor rx hsx) (xtag_panchor ry hsy) => htag.
+  have hpos := congr1 snd htag.
+  by rewrite (posid_inj_all sp rx ry hrxmem hrymem hpos).
 Qed.
 
 Lemma xunder_omega_uniq sp :
@@ -935,8 +984,10 @@ have hperm :
      ++ ([seq (TY_TREE_SF, posid p) | p <- leaf_paths (tshape sp)]
          ++ [seq (TY_WOTS_PK_SF, posid q) | q <- internal_paths (tshape sp)])).
   apply: perm_cat.
-  - exact: (map_xtag_xunder [::] (tshape sp)).
-  - exact: (map_xtag_omega_xunder [::] (tshape sp)).
+	  - apply: (map_xtag_xunder [::] (tshape sp)).
+	    by rewrite /= add0n; exact: wf_shape_of.
+	  - apply: (map_xtag_omega_xunder [::] (tshape sp)).
+	    by rewrite /= add0n; exact: wf_shape_of.
 by rewrite (perm_uniq hperm) full_tags_uniq.
 Qed.
 
@@ -955,20 +1006,20 @@ Local Notation Lrt := (fx_rt_loc M R).
 Local Notation Lsd := (fx_sd_loc D).
 Local Notation LateLocs0 := (LateLocs PP N D M R).
 Local Notation gen5 :=
-  (gen5_body PP N D R F Tl Hgrind Htree dPP dN dR dD w l S_wn c_max
+  (gen5_body PP N D R F Tl Hgrind Htree dPP dN dR dD S_wn c_max
      h_sf n_max).
 Local Notation sign5 :=
-  (sign5_body PP N D M R F Tl Hgrind Htree dR dD w l S_wn c_max h_sf q_s).
+  (sign5_body PP N D M R F Tl Hgrind Htree dR dD S_wn c_max h_sf q_s).
 Local Notation hash5 := (hash5_body PP N D M R dD q_h).
 Local Notation fillc := (fill_code D dD).
-Local Notation sdgrind := (sd_grindable PP D Hgrind w l S_wn c_max h_sf).
-Local Notation skeys := (sample_keys N dN l).
+Local Notation sdgrind := (sd_grindable PP D Hgrind S_wn c_max h_sf).
+Local Notation skeys := (@sample_keys l N dN).
 Local Notation keepC := (keepColl N).
 Local Notation keepNone := (keepNone N).
 Local Notation fverdN :=
-  (fverd PP N D M R F Tl Hgrind Htree w l S_wn h_sf).
+  (fverd PP N D M R F Tl Hgrind Htree S_wn h_sf).
 Local Notation forge_keep :=
-  (forge_keep_body PP N D M R F Tl Hgrind Htree dD w l S_wn h_sf q_f).
+  (forge_keep_body PP N D M R F Tl Hgrind Htree dD S_wn h_sf q_f).
 
 (** Keep the M5 leaf-id selectors folded under [simpl] so the SIGN-bullet
     [case:] scrutinees ([leaf_okP …], [lidx …]) match the goal verbatim. *)
@@ -991,11 +1042,11 @@ Definition xindex (sp : seq bool) (z : adrs_sf_ch) : nat :=
     (fcomplete zi pp md ws) = recover_anchor pp zi md ws]. *)
 Definition fcomplete (zi : nat * nat) (pp : PP) (md : D) (ws : seq N * nat) :
     seq N :=
-  complete_ends PP N F w l zi.1 zi.2 pp
-    (digest_of PP D Hgrind w l zi.1 zi.2 pp md ws.2) ws.1.
+  complete_ends PP N F zi.1 zi.2 pp
+    (digest_of PP D Hgrind zi.1 zi.2 pp md ws.2) ws.1.
 
 Lemma recover_fcomplete (zi : nat * nat) (pp : PP) (md : D) (ws : seq N * nat) :
-  frecover pp zi md ws = Tl pp (AdrPk zi.1 zi.2) (fcomplete zi pp md ws).
+  frecover pp zi md ws = Tl pp (wotsc_pk_adrs zi) (fcomplete zi pp md ws).
 Proof. by rewrite /recover_anchor /fcomplete /wotsc_pk_adrs; case: zi. Qed.
 
 (* ------------------------------------------------------------------ *)
@@ -1397,11 +1448,11 @@ move=> zi d cs; elim: cs => [|c cs IH] rv tw tg c0 k1 h /=.
   by rewrite collq_xH_E' /= in h *.
 Qed.
 
-Local Notation gprp := (grind_prp w l S_wn).
+Local Notation gprp := (@grind_prp w l S_wn).
 Local Notation ffind_ctr zi :=
-  (find_ctr PP D Hgrind w l S_wn c_max zi.1 zi.2).
+  (find_ctr PP D Hgrind S_wn c_max zi.1 zi.2).
 Local Notation fgood_ctr zi :=
-  (good_ctr PP D Hgrind w l S_wn zi.1 zi.2).
+  (good_ctr PP D Hgrind S_wn zi.1 zi.2).
 
 Lemma has_grind_find_ctr pp (zi : nat * nat) (d : D) :
   has gprp [seq Hgrind pp (gadrs zi) (d, c) | c <- iota 0 c_max]
@@ -1420,7 +1471,7 @@ Lemma r_xslot_grind_spec (b : bool) {B : choiceType} (pp : PP)
          (c0 : raw_code B) (k1 : 'bool -> raw_code B),
   ⊢ ⦃ λ '(s0, s1), xblk (Some pp) rv tw tg (s0, s1) ⦄
      c0 ≈ k1 (match getm sd j with
-              | Some d => slot_grindable PP D Hgrind w l S_wn c_max
+              | Some d => slot_grindable PP D Hgrind S_wn c_max
                             h_sf pp sp j d
               | None => true
               end) ⦃ post ⦄ ->
@@ -1433,7 +1484,7 @@ case E: (getm sd j) => [d|]; rewrite E /= in h.
 - rewrite code_link_bind bind_assoc.
   eapply (r_xgrind_spec b pp post (posid (spath sp j)) d (iota 0 c_max)).
   rewrite code_link_ret_bind has_grind_find_ctr.
-  rewrite -/(slot_grindable PP D Hgrind w l S_wn c_max h_sf pp sp j d).
+  rewrite -/(slot_grindable PP D Hgrind S_wn c_max h_sf pp sp j d).
   exact: h.
 - by rewrite code_link_ret_bind; exact: h.
 Qed.
@@ -1444,7 +1495,7 @@ Lemma r_xgcheck_spec (b : bool) {B : choiceType} (pp : PP)
          (c0 : raw_code B) (k1 : 'bool -> raw_code B),
   ⊢ ⦃ λ '(s0, s1), xblk (Some pp) rv tw tg (s0, s1) ⦄
      c0 ≈ k1 (all (fun j => match getm sd j with
-                | Some d => slot_grindable PP D Hgrind w l S_wn c_max
+                | Some d => slot_grindable PP D Hgrind S_wn c_max
                               h_sf pp sp j d
                 | None => true
                 end) js) ⦃ post ⦄ ->
@@ -1657,7 +1708,6 @@ move=> hsz.
 rewrite (fcends_chain_ends pp (posid pos) _ hsz).
 rewrite /th_eval /= decode_tweakK.
 rewrite -/(pos_id h_sf pos).
-rewrite -[AdrPk (posid pos).1 (posid pos).2]/(wotsc_pk_adrs (posid pos)).
 by rewrite anchor_pk.
 Qed.
 
@@ -2376,10 +2426,10 @@ Qed.
 (** ** The two [perfect] lemmas *)
 
 Local Notation G7 b :=
-  (G7f PP N D M R F Tl Hgrind Htree dPP dN dR dD w l S_wn c_max h_sf
+  (G7f PP N D M R F Tl Hgrind Htree dPP dN dR dD S_wn c_max h_sf
      q_s q_h n_max q_f b).
 Local Notation G8 b :=
-  (G8f PP N D M R F Tl Hgrind Htree dPP dN dR dD w l S_wn c_max h_sf
+  (G8f PP N D M R F Tl Hgrind Htree dPP dN dR dD S_wn c_max h_sf
      q_s q_h n_max q_f b).
 
 Lemma R_x_real (b : bool) :
@@ -2431,7 +2481,7 @@ simplify_eq_rel arg.
   eapply r_scheme_bind; first exact: prog_valid.
   move=> x1; cbv beta.
   rewrite code_link_bind (code_link_scheme _ _ _ _
-             (sample_keys_valid N dN l emptym [interface] _)).
+             (@sample_keys_valid l N dN emptym [interface] _)).
   eapply (r_sample_keys_size (size (leaf_paths (tshape arg)))).
   move=> xss hxsz hkeys; cbv beta.
   rewrite code_link_bind (code_link_scheme _ _ _ _
@@ -2503,7 +2553,7 @@ simplify_eq_rel arg.
     ssprove_sync. { x_put_pre. }
     ssprove_sync. { x_put_pre. }
     ssprove_sync. { x_put_pre. }
-    case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+	    case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _
              (lidx h_sf (getSome v vSome).2.1 arg.2) r d) => [sg|].
     + ssprove_sync. { x_put_pre. }
       ssprove_sync. { x_put_pre. }
@@ -2516,7 +2566,7 @@ simplify_eq_rel arg.
   ssprove_sync. { x_put_pre. }
   ssprove_sync. { x_put_pre. }
   ssprove_sync. { x_put_pre. }
-  case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+	  case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _
            (lidx h_sf (getSome v vSome).2.1 arg.2) r d) => [sg|].
   + ssprove_sync. { x_put_pre. }
     ssprove_sync. { x_put_pre. }
@@ -2636,7 +2686,7 @@ simplify_eq_rel arg.
   eapply r_scheme_bind; first exact: prog_valid.
   move=> x1; cbv beta.
   rewrite code_link_bind (code_link_scheme _ _ _ _
-             (sample_keys_valid N dN l emptym [interface] _)).
+             (@sample_keys_valid l N dN emptym [interface] _)).
   eapply (r_sample_keys_size (size (leaf_paths (tshape arg)))).
   move=> xss hxsz hkeys; cbv beta.
   rewrite code_link_bind (code_link_scheme _ _ _ _
@@ -2708,7 +2758,7 @@ simplify_eq_rel arg.
     ssprove_sync. { x_put_pre. }
     ssprove_sync. { x_put_pre. }
     ssprove_sync. { x_put_pre. }
-    case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+	    case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _
              (lidx h_sf (getSome v vSome).2.1 arg.2) r d) => [sg|].
     + ssprove_sync. { x_put_pre. }
       ssprove_sync. { x_put_pre. }
@@ -2721,7 +2771,7 @@ simplify_eq_rel arg.
   ssprove_sync. { x_put_pre. }
   ssprove_sync. { x_put_pre. }
   ssprove_sync. { x_put_pre. }
-  case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+	  case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _
            (lidx h_sf (getSome v vSome).2.1 arg.2) r d) => [sg|].
   + ssprove_sync. { x_put_pre. }
     ssprove_sync. { x_put_pre. }

@@ -117,19 +117,27 @@ Import PackageNotation.
 (* ------------------------------------------------------------------ *)
 (** ** Decoding tweaks (shared by all three thf instances)
 
-    [th_eval] must be total on the encoded tweak space [adrs_sf_ch];
-    [decode_tweak] is [decode_adrs] with an arbitrary default on the
-    non-canonical tuples (never reached: the scheme and all
-    reductions evaluate at encoded addresses only, where
-    [decode_tweakK] cancels). *)
+    The native tweak space is exactly finite, so decoding is total and
+    bijective.  There is no non-canonical tuple and no dummy branch. *)
 
-Definition decode_tweak (t : adrs_sf_ch) : adrs_sf :=
-  odflt (AdrGrind 0 0) (decode_adrs t).
+Section DecodeTweak.
+
+Context {w l : nat}.
+Local Notation adrs_sf := (Addressing.adrs_sf l w).
+Local Notation adrs_sf_ch := (Addressing.adrs_sf_ch l w).
+
+Definition decode_tweak (t : adrs_sf_ch) : adrs_sf := decode_adrs t.
 
 Lemma decode_tweakK : cancel encode_adrs decode_tweak.
-Proof. by move=> a; rewrite /decode_tweak encode_adrsK. Qed.
+Proof. exact: encode_adrsK. Qed.
+
+End DecodeTweak.
 
 Section WOTSCGames.
+
+Context {w l : nat}.
+Local Notation adrs_sf := (Addressing.adrs_sf l w).
+Local Notation adrs_sf_ch := (Addressing.adrs_sf_ch l w).
 
 (** Same section context as SHRINCS.WOTSC.Scheme, plus the dummy
     message sampler [dM] (consumed ONLY by [Tgr]'s [th_dM] record
@@ -139,20 +147,22 @@ Context (F : PP -> adrs_sf -> N -> N).
 Context (Tl : PP -> adrs_sf -> seq N -> N).
 Context (Hgrind : PP -> adrs_sf -> M * nat -> nat).
 Context (dPP : dist PP) (dN : dist N) (dM : dist M).
-Context (w l S_wn c_max : nat).
+Context (S_wn c_max : nat).
 Context (zstar istar : nat).
 
 (** Shorthands for the section-instantiated scheme operations. *)
 Local Notation gadrs := (grind_adrs zstar istar).
 Local Notation cadrs := (chain_adrs zstar istar).
 Local Notation padrs := (pk_adrs zstar istar).
-Local Notation wdigest := (digest_of PP M Hgrind w l zstar istar).
-Local Notation wgood := (good_ctr PP M Hgrind w l S_wn zstar istar).
-Local Notation wfind_ctr := (find_ctr PP M Hgrind w l S_wn c_max zstar istar).
-Local Notation wpk_of := (pk_of PP N F Tl w l zstar istar).
-Local Notation wsign := (sign_digits PP N F l zstar istar).
-Local Notation wcends := (complete_ends PP N F w l zstar istar).
-Local Notation wverify := (verify_sig PP N M F Tl Hgrind w l S_wn zstar istar).
+Local Notation wdigest := (digest_of PP M Hgrind zstar istar).
+Local Notation wgood := (good_ctr PP M Hgrind S_wn zstar istar).
+Local Notation wfind_ctr :=
+  (find_ctr PP M Hgrind S_wn c_max zstar istar).
+Local Notation wpk_of := (pk_of PP N F Tl zstar istar).
+Local Notation wsign := (sign_digits PP N F zstar istar).
+Local Notation wcends := (complete_ends PP N F zstar istar).
+Local Notation wverify :=
+  (verify_sig PP N M F Tl Hgrind S_wn zstar istar).
 
 (* ------------------------------------------------------------------ *)
 (** ** The three thf instances (th_* choices in the header) *)
@@ -226,7 +236,8 @@ Definition Cgr : thf_coll Tgr :=
 
 Definition grind_enc (m : M) (c : nat) : M * nat := (m, c).
 
-Definition grind_prp (x : nat) : bool := valid_digest w S_wn (digits_w w l x).
+Definition grind_prp (x : nat) : bool :=
+  @valid_digest w S_wn (digits_w w l x).
 
 (** STCRP's in-oracle search at the encoded grinding address is the
     scheme's grinding ([find_ctr]); in particular the counter stored
@@ -236,7 +247,11 @@ Lemma grind_search_find_ctr pp (m : M) :
   ohead [seq i <- iota 0 c_max
         | grind_prp (th_eval Tgr pp (encode_adrs gadrs) (grind_enc m i))]
   = wfind_ctr pp m.
-Proof. by rewrite /find_ctr; congr ohead; apply: eq_filter. Qed.
+Proof.
+rewrite /find_ctr; congr ohead; apply: eq_filter => i.
+rewrite /grind_prp /good_ctr /digest_of /= decode_tweakK.
+by [].
+Qed.
 
 (* ------------------------------------------------------------------ *)
 (** ** The address-wrapped chain hash
@@ -262,7 +277,7 @@ Proof. by []. Qed.
 (** ** G0w: the flat valid-commit known-message game *)
 
 Local Notation WC :=
-  (WOTSC PP N M F Tl Hgrind dPP dN w l S_wn c_max zstar istar).
+  (WOTSC PP N M F Tl Hgrind dPP dN S_wn c_max zstar istar).
 
 Definition g0w_pk_loc := mkloc 300 (None : option (Pk WC)).
 Definition g0w_log_loc := mkloc 301 ([::] : seq (Msg WC)).
@@ -301,7 +316,8 @@ Lemma G0w_sign_verifies pp (xs : seq N) (m : M) :
      odflt 0 (wfind_ctr pp m)).
 Proof.
 move=> hxs; case E: (wfind_ctr pp m) => [c|] // _ /=.
-by rewrite (verify_sign _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ hxs E).
+by rewrite (verify_sign PP N M F Tl Hgrind S_wn c_max zstar istar
+  pp xs m c hxs E).
 Qed.
 
 (* ------------------------------------------------------------------ *)
@@ -337,7 +353,7 @@ Lemma find_ctr_isSome_good pp (m : M) :
   isSome (wfind_ctr pp m) -> wgood pp m (odflt 0 (wfind_ctr pp m)).
 Proof.
 case E: (wfind_ctr pp m) => [c|] //= _.
-exact: (find_ctr_good _ _ _ _ _ _ _ _ _ _ _ _ E).
+exact: (find_ctr_good PP M Hgrind S_wn c_max zstar istar pp m c E).
 Qed.
 
 End WOTSCGames.

@@ -90,6 +90,10 @@ Import PackageNotation.
 
 Section FXMSSTreeHop.
 
+Context {w l : nat}.
+Local Notation adrs_sf := (Addressing.adrs_sf l w).
+Local Notation adrs_sf_ch := (Addressing.adrs_sf_ch l w).
+
 (** Same section context as FXMSS/LateGames.v. *)
 Context (PP N D M R : choice_type).
 Context (F : PP -> adrs_sf -> N -> N).
@@ -97,8 +101,9 @@ Context (Tl : PP -> adrs_sf -> seq N -> N).
 Context (Hgrind : PP -> adrs_sf -> D * nat -> nat).
 Context (Htree : PP -> adrs_sf -> N * N -> N).
 Context (dPP : dist PP) (dN : dist N) (dR : dist R) (dD : dist D).
-Context (w l S_wn c_max : nat).
+Context (S_wn c_max : nat).
 Context (h_sf : nat).
+Context (Hh : (h_sf <= 64)%N).
 Context (q_s q_h n_max : nat).
 Context (q_f : nat).
 
@@ -108,13 +113,13 @@ Context (q_f : nat).
 Local Notation tshape := (shape_of h_sf).
 Local Notation posid := (pos_id h_sf).
 Local Notation nhash := (node_hash PP N Htree h_sf).
-Local Notation valtree := (value_tree_x PP N F Tl w l h_sf).
-Local Notation fxroot := (fx_root_x PP N F Tl Htree w l h_sf).
+Local Notation valtree := (value_tree_x PP N F Tl h_sf).
+Local Notation fxroot := (fx_root_x PP N F Tl Htree h_sf).
 Local Notation fxvermd :=
-  (fx_verify_md PP N D F Tl Hgrind Htree w l S_wn h_sf).
-Local Notation frecover := (recover_anchor PP N D F Tl Hgrind w l).
+  (fx_verify_md PP N D F Tl Hgrind Htree S_wn h_sf).
+Local Notation frecover := (recover_anchor PP N D F Tl Hgrind).
 Local Notation fxcaseN :=
-  (fxcase PP N D F Tl Hgrind Htree w l h_sf).
+  (fxcase PP N D F Tl Hgrind Htree h_sf).
 
 (* ------------------------------------------------------------------ *)
 (** ** The thf [Th] for the tree-node hash (PROOF_PLAN.md "Tree hop")
@@ -284,7 +289,7 @@ move=> hp hq.
 rewrite /tnode_tw => /encode_adrs_inj he.
 have hps := internal_path_size sp p hp.
 have hqs := internal_path_size sp q hq.
-exact: (@node_adrs_inj h_sf p q hps hqs he).
+exact: (@node_adrs_inj w l h_sf p q Hh hps hqs he).
 Qed.
 
 (** The committed tweak list is duplicate-free. *)

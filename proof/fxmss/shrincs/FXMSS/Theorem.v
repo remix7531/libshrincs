@@ -49,6 +49,8 @@
     the static gate and exchangeability are Prop/def content).
 
     Side conditions carried as honest premises (none faked premise-free):
+    - [Hh : h_sf <= 64] — exact representability of FXMSS tree positions in
+      the library's finite address type;
     - [hw : 0 < w], [Hdeg : S_wn != l*w.-1], [Hrange : Hgrind < w^l]
       — the leaf-hop data/degeneracy conditions (Leaf2Theorem.Leaf_hop);
     - [n_ug]/[Hug] — the per-anchor ungrindable-digest count bound feeding the
@@ -83,6 +85,10 @@ Import GRing.Theory Num.Theory Order.POrderTheory.
 
 Section FXMSSTheorem.
 
+Context {w l : nat}.
+Local Notation adrs_sf := (Addressing.adrs_sf l w).
+Local Notation adrs_sf_ch := (Addressing.adrs_sf_ch l w).
+
 (** The shared data context.  [D]/[R] are fixed to the finite prefix-sampler
     families the reprogramming (repro) and digest hops require. *)
 Context (PP N M Ks Kp : choice_type).
@@ -98,7 +104,7 @@ Context (PRFmsg : Kp -> nat * nat -> M -> R).
 Context (dPP : dist PP) (dKs : dist Ks) (dKp : dist Kp) (dN : dist N).
 Local Notation dD := (rp_dPfx d_n).
 Local Notation dR := (rp_dPfx r_n).
-Context (w l S_wn c_max : nat).
+Context (S_wn c_max : nat).
 Context (h_sf : nat).
 Context (q_s q_h n_max : nat).
 Context (q_f : nat).
@@ -111,53 +117,53 @@ Local Notation IG := (I_G0fL PP N D M R).
 
 Local Notation G0F b :=
   (G0f PP N D M R Ks Kp F Tl Hgrind Htree PRFf PRFmsg dPP dKs dKp dD
-     w l S_wn c_max h_sf q_s q_h n_max q_f b).
+     S_wn c_max h_sf q_s q_h n_max q_f b).
 Local Notation G1F b :=
   (G1f PP N D M R Kp F Tl Hgrind Htree PRFmsg dPP dKp dN dD
-     w l S_wn c_max h_sf q_s q_h n_max q_f b).
+     S_wn c_max h_sf q_s q_h n_max q_f b).
 Local Notation G2F b :=
   (G2f PP N D M R F Tl Hgrind Htree dPP dN dR dD
-     w l S_wn c_max h_sf q_s q_h n_max q_f b).
+     S_wn c_max h_sf q_s q_h n_max q_f b).
 Local Notation G2C b :=
   (ReproHop.G2c PP N D M R F Tl Hgrind Htree dPP dN dR dD
-     w l S_wn c_max h_sf q_s q_h n_max q_f b).
+     S_wn c_max h_sf q_s q_h n_max q_f b).
 Local Notation G3C b :=
   (ReproHop.G3c PP N D M R F Tl Hgrind Htree dPP dN dR dD
-     w l S_wn c_max h_sf q_s q_h n_max q_f b).
+     S_wn c_max h_sf q_s q_h n_max q_f b).
 Local Notation G4C b :=
   (DigestHop.G4c PP N D M R F Tl Hgrind Htree dPP dN dR dD
-     w l S_wn c_max h_sf q_s q_h n_max q_f b).
+     S_wn c_max h_sf q_s q_h n_max q_f b).
 Local Notation G5F b :=
   (LateGames.G5f PP N D M R F Tl Hgrind Htree dPP dN dR dD
-     w l S_wn c_max h_sf q_s q_h n_max q_f b).
+     S_wn c_max h_sf q_s q_h n_max q_f b).
 Local Notation G6F b :=
   (LateGames.G6f PP N D M R F Tl Hgrind Htree dPP dN dR dD
-     w l S_wn c_max h_sf q_s q_h n_max q_f b).
+     S_wn c_max h_sf q_s q_h n_max q_f b).
 Local Notation G7F b :=
   (LateGames.G7f PP N D M R F Tl Hgrind Htree dPP dN dR dD
-     w l S_wn c_max h_sf q_s q_h n_max q_f b).
+     S_wn c_max h_sf q_s q_h n_max q_f b).
 Local Notation G8F b :=
   (LateGames.G8f PP N D M R F Tl Hgrind Htree dPP dN dR dD
-     w l S_wn c_max h_sf q_s q_h n_max q_f b).
+     S_wn c_max h_sf q_s q_h n_max q_f b).
 
 (* ------------------------------------------------------------------ *)
 (** ** Assumption games + reductions of each hop. *)
 
-Local Notation PGF := (PRF_game (Kf PP N Ks PRFf dKs dN) (q_prf l n_max)).
+Local Notation PGF := (PRF_game (Kf PP N Ks PRFf dKs dN) (@q_prf l n_max)).
 Local Notation PGM := (PRF_game (Kpm M R Kp PRFmsg dKp dR) (q_prfm q_s)).
 Local Notation Rprf b :=
   (PRFHop.R_prf PP N D M R Ks Kp F Tl Hgrind Htree PRFf PRFmsg
-     dPP dKs dKp dN dD w l S_wn c_max h_sf q_s q_h n_max q_f b).
+     dPP dKs dKp dN dD S_wn c_max h_sf q_s q_h n_max q_f b).
 Local Notation Rprfm b :=
   (PRFHop.R_prfm PP N D M R Kp F Tl Hgrind Htree PRFmsg
-     dPP dKp dN dR dD w l S_wn c_max h_sf q_s q_h n_max q_f m0 b).
+     dPP dKp dN dR dD S_wn c_max h_sf q_s q_h n_max q_f m0 b).
 
 Local Notation SMTg :=
   (SMTCR_game (TreeHop.Th PP N Htree dPP dN)
      (TreeHop.Cth PP N D F Tl Hgrind Htree dPP dN) (n_max - 1)).
 Local Notation Rtree b :=
   (TreeHopProof.R_tree PP N D M R F Tl Hgrind Htree dPP dN dR dD
-     w l S_wn c_max h_sf q_s q_h n_max q_f n0 b).
+     S_wn c_max h_sf q_s q_h n_max q_f n0 b).
 
 Local Notation TCRXg :=
   (TCRX_game (TCRXHopProof.Txc PP N Tl Htree dPP dN)
@@ -165,7 +171,7 @@ Local Notation TCRXg :=
      TCRXHopProof.paired TCRXHopProof.omega (2 * n_max - 1)).
 Local Notation Rx b :=
   (TCRXHopProof.R_x PP N D M R F Tl Hgrind Htree dPP dN dR dD
-     w l S_wn c_max h_sf q_s q_h n_max q_f n0 b).
+     S_wn c_max h_sf q_s q_h n_max q_f n0 b).
 
 (** Leaf-hop challenge THFs / collections / reductions (Leaf2Theorem's). *)
 Local Notation TFn  := (Tf  PP N F dPP dN).
@@ -177,20 +183,20 @@ Local Notation CPn  := (Leaf2Compress.CPl_leaf PP N D F Tl Hgrind Htree dPP dN).
 Local Notation CTn  := (Leaf2ChainTCR.CFl_leaf PP N D F Tl Hgrind Htree dPP dN).
 Local Notation CPRn := (Leaf2ChainPRE.CFl_leaf PP N D F Tl Hgrind Htree dPP dN).
 Local Notation gencn := (grind_enc D).
-Local Notation gprpn := (grind_prp w l S_wn).
+Local Notation gprpn := (@grind_prp w l S_wn).
 Local Notation RGRl :=
-  (Leaf2Grind.R_gr_leaf PP N D F Tl Hgrind Htree dPP dN dD w l S_wn c_max n_max n0).
+  (Leaf2Grind.R_gr_leaf PP N D F Tl Hgrind Htree dPP dN dD S_wn c_max n_max n0).
 Local Notation RCPl :=
-  (Leaf2Compress.R_cp_leaf PP N D F Tl Hgrind Htree dPP dN w l S_wn c_max n_max n0).
+  (Leaf2Compress.R_cp_leaf PP N D F Tl Hgrind Htree dPP dN S_wn c_max n_max n0).
 Local Notation RCTl :=
-  (Leaf2ChainTCR.R_ctcr_leaf PP N D F Tl Hgrind Htree dPP dN w l S_wn c_max n_max n0).
+  (Leaf2ChainTCR.R_ctcr_leaf PP N D F Tl Hgrind Htree dPP dN S_wn c_max n_max n0).
 Local Notation RPRl :=
-  (Leaf2ChainPRE.R_cpre_leaf PP N D F Tl Hgrind Htree dPP dN w l S_wn c_max n_max n0).
+  (Leaf2ChainPRE.R_cpre_leaf PP N D F Tl Hgrind Htree dPP dN S_wn c_max n_max n0).
 Local Notation RUDl b s :=
-  (Leaf2UD.R_ud_leaf PP N D F Tl Hgrind Htree dPP dN w l S_wn c_max n_max n0 b s).
+  (Leaf2UD.R_ud_leaf PP N D F Tl Hgrind Htree dPP dN S_wn c_max n_max n0 b s).
 Local Notation Rleaf b :=
   (LeafKM.R_leaf_km PP N D M R F Tl Hgrind Htree dN dR dD
-     w l S_wn c_max h_sf q_s q_h n_max q_f n0 d0 b).
+     S_wn c_max h_sf q_s q_h n_max q_f n0 d0 b).
 
 (* ------------------------------------------------------------------ *)
 (** ** The single-leg bound (right-nested to match the telescope peel). *)
@@ -220,8 +226,9 @@ Theorem FXMSS_secure
     (n_ug : nat)
     (Hug : forall (pp : PP) (zi : nat * nat),
         ((\sum_(y : 'I_d_n.+1)
-            (~~ isSome (find_ctr PP D Hgrind w l S_wn c_max zi.1 zi.2 pp y)
+            (~~ isSome (find_ctr PP D Hgrind S_wn c_max zi.1 zi.2 pp y)
              : nat)) <= n_ug)%N)
+    (Hh : (h_sf <= 64)%N)
     (hw : (0 < w)%N)
     (Hdeg : S_wn != (l * w.-1)%N)
     (Hrange : forall (pp' : PP) (a : adrs_sf) (x : D * nat), (Hgrind pp' a x < w ^ l)%N)
@@ -233,24 +240,24 @@ Proof.
 have leg : forall b, (Adv (G0F b) (G8F b) A <= fxmss_leg A n_ug b)%R.
 { move=> b.
   have hPRFf := PRFHop.PRFf_hop PP N D M R Ks Kp F Tl Hgrind Htree PRFf PRFmsg
-                 dPP dKs dKp dN dD w l S_wn c_max h_sf q_s q_h n_max q_f b A VA.
+                 dPP dKs dKp dN dD S_wn c_max h_sf q_s q_h n_max q_f Hh b A VA.
   have hPRFm := PRFHop.PRFmsg_hop PP N D M R Kp F Tl Hgrind Htree PRFmsg
-                 dPP dKp dN dR dD w l S_wn c_max h_sf q_s q_h n_max q_f m0 b A VA.
+                 dPP dKp dN dR dD S_wn c_max h_sf q_s q_h n_max q_f m0 b A VA.
   have hCon := ConnectHop.G2f_G2c PP N D M R F Tl Hgrind Htree dPP dN dR dD
-                 w l S_wn c_max h_sf q_s q_h n_max q_f b.
+                 S_wn c_max h_sf q_s q_h n_max q_f b.
   have hRep := ReproHop.Repro_hop PP N D M r_n F Tl Hgrind Htree dPP dN dD
                  (DigestHopBound_diff.dDu_ll d_n)
-                 w l S_wn c_max h_sf q_s q_h n_max q_f b A VA.
+                 S_wn c_max h_sf q_s q_h n_max q_f b A VA.
   have hDig := DigestHopBound.Digest_hop PP N M R d_n F Tl Hgrind Htree dPP dN dR
-                 w l S_wn c_max h_sf q_s q_h n_max q_f b A VA.
+                 S_wn c_max h_sf q_s q_h n_max q_f b A VA.
   have hGr := GrindAssertHop.Grind_hop PP N M R d_n F Tl Hgrind Htree dPP dN dR
-                 w l S_wn c_max h_sf q_s q_h n_max q_f n_ug Hug b A VA.
+                 S_wn c_max h_sf q_s q_h n_max q_f n_ug Hug b A VA.
   have hLeaf := Leaf2Theorem.Leaf_hop PP N D M R F Tl Hgrind Htree dPP dN dR dD
-                 w l S_wn c_max h_sf q_s q_h n_max q_f n0 d0 hw Hdeg Hrange b A VA.
+                 S_wn c_max h_sf q_s q_h n_max q_f n0 d0 Hh hw Hdeg Hrange b A VA.
   have hTree := TreeHopProof.Tree_hop PP N D M R F Tl Hgrind Htree dPP dN dR dD
-                 w l S_wn c_max h_sf q_s q_h n_max q_f n0 b A VA.
+                 S_wn c_max h_sf Hh q_s q_h n_max q_f n0 b A VA.
   have hTcrx := TCRXHopProof.Tcrx_hop PP N D M R F Tl Hgrind Htree dPP dN dR dD
-                 w l S_wn c_max h_sf q_s q_h n_max q_f n0 b A VA.
+                 S_wn c_max h_sf Hh q_s q_h n_max q_f n0 b A VA.
   rewrite /fxmss_leg.
   (* PRFf *)
   eapply le_trans; first exact: (Adv_triangle (G2 := G1F b)).
@@ -279,7 +286,7 @@ have leg : forall b, (Adv (G0F b) (G8F b) A <= fxmss_leg A n_ug b)%R.
   by rewrite hTcrx. }
 (* Assemble: down b=true, Final_hop cap to G8f false (Adv = 0), up b=false. *)
 have hfin := FinalHop.Final_hop PP N D M R F Tl Hgrind Htree dPP dN dR dD
-               w l S_wn c_max h_sf q_s q_h n_max q_f A VA.
+               S_wn c_max h_sf q_s q_h n_max q_f A VA.
 eapply le_trans; first exact: (Adv_triangle (G2 := G8F true)).
 apply: lerD; first exact: (leg true).
 eapply le_trans; first exact: (Adv_triangle (G2 := G8F false)).

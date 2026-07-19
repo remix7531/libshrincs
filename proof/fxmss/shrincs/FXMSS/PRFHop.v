@@ -115,6 +115,10 @@ Section FXMSSPRFHop.
 
 (** Same section context as FXMSS.Games, plus the pin inhabitant
     [m0] (header). *)
+Context {w l : nat}.
+Local Notation adrs_sf := (Addressing.adrs_sf l w).
+Local Notation adrs_sf_ch := (Addressing.adrs_sf_ch l w).
+
 Context (PP N D M R Ks Kp : choice_type).
 Context (F : PP -> adrs_sf -> N -> N).
 Context (Tl : PP -> adrs_sf -> seq N -> N).
@@ -124,16 +128,18 @@ Context (PRFf : PP -> Ks -> adrs_sf -> N).
 Context (PRFmsg : Kp -> nat * nat -> M -> R).
 Context (dPP : dist PP) (dKs : dist Ks) (dKp : dist Kp).
 Context (dN : dist N) (dR : dist R) (dD : dist D).
-Context (w l S_wn c_max : nat).
+Context (S_wn c_max : nat).
 Context (h_sf : nat).
 Context (q_s q_h n_max : nat).
 Context (q_f : nat).
 Context (m0 : M).
+Context (Hh : (h_sf <= 64)%N).
 
 (* ------------------------------------------------------------------ *)
 (** ** Shorthands *)
 
 Local Notation tshape := (shape_of h_sf).
+Local Notation enc := (@encode_adrs l w).
 Local Notation spath := (sign_path h_sf).
 Local Notation posid := (pos_id h_sf).
 Local Notation KF := (Kf PP N Ks PRFf dKs dN).
@@ -144,21 +150,21 @@ Local Notation ROIN := (RoIn PP N M R).
 (** M5 lift: the leaf-id validator and slot selector (Games.v). *)
 Local Notation flok sp zi := (leaf_okP h_sf sp zi).
 Local Notation flidx sp zi := (lidx h_sf sp zi).
-Local Notation fxroot := (fx_root_x PP N F Tl Htree w l h_sf).
-Local Notation fxsignx := (fx_sign_x PP N D R F Tl Hgrind Htree w l S_wn c_max h_sf).
-Local Notation fxvermd := (fx_verify_md PP N D F Tl Hgrind Htree w l S_wn h_sf).
-Local Notation fleaf_sks := (leaf_sks PP N Ks PRFf l h_sf).
-Local Notation fleaf_sk := (leaf_sk PP N Ks PRFf l).
-Local Notation skeys := (sample_keys N dN l).
+Local Notation fxroot := (fx_root_x PP N F Tl Htree h_sf).
+Local Notation fxsignx := (fx_sign_x PP N D R F Tl Hgrind Htree S_wn c_max h_sf).
+Local Notation fxvermd := (fx_verify_md PP N D F Tl Hgrind Htree S_wn h_sf).
+Local Notation fleaf_sks := (leaf_sks PP N Ks PRFf h_sf).
+Local Notation fleaf_sk := (leaf_sk PP N Ks PRFf).
+Local Notation skeys := (@sample_keys l N dN).
 Local Notation G0F b :=
   (G0f PP N D M R Ks Kp F Tl Hgrind Htree PRFf PRFmsg dPP dKs dKp dD
-     w l S_wn c_max h_sf q_s q_h n_max q_f b).
+     S_wn c_max h_sf q_s q_h n_max q_f b).
 Local Notation G1F b :=
   (G1f PP N D M R Kp F Tl Hgrind Htree PRFmsg dPP dKp dN dD
-     w l S_wn c_max h_sf q_s q_h n_max q_f b).
+     S_wn c_max h_sf q_s q_h n_max q_f b).
 Local Notation G2F b :=
   (G2f PP N D M R F Tl Hgrind Htree dPP dN dR dD
-     w l S_wn c_max h_sf q_s q_h n_max q_f b).
+     S_wn c_max h_sf q_s q_h n_max q_f b).
 
 Local Notation Lst := (fx_st_loc PP N).
 Local Notation Lkp := (fx_kp_loc Kp).
@@ -194,23 +200,29 @@ Qed.
 (** The PRF_f pin (a GRIND-type address) differs from every honest
     PRF_f query point (PRF-type addresses). *)
 Lemma pin_pt_neqf (pp pp' : PP) (zi : nat * nat) (j : nat) :
-  (((pp, encode_adrs (wotsc_prf_adrs zi j))
-     == (pp', encode_adrs (AdrGrind 0 0)))%B) = false.
+  (((pp, enc (wotsc_prf_adrs zi j))
+     == (pp', enc (wotsc_grind_adrs (0, 0))))%B) = false.
 Proof.
 apply/eqP => e.
-by case: (encode_adrs_inj _ _ (congr1 snd e)).
+move/encode_adrs_inj: (congr1 snd e).
+rewrite /wotsc_prf_adrs.
+case: Stdlib.ZArith.ZArith_dec.Z_lt_dec => Hcount; by [].
 Qed.
 
 (** Honest PRF_f query points are pairwise distinct (the
     distinct-inputs side of the lazy-table bridge). *)
 Lemma prf_pt_inj (pp : PP) (p p' : seq bool) (j j' : nat) :
-  size p <= h_sf -> size p' <= h_sf ->
-  (pp, encode_adrs (wotsc_prf_adrs (posid p) j))
-    = (pp, encode_adrs (wotsc_prf_adrs (posid p') j')) ->
+  size p <= h_sf -> size p' <= h_sf -> j < l -> j' < l ->
+  (pp, enc (wotsc_prf_adrs (posid p) j))
+    = (pp, enc (wotsc_prf_adrs (posid p') j')) ->
   p = p' /\ j = j'.
 Proof.
-move=> hp hp' epp.
-move/encode_adrs_inj: (congr1 snd epp) => /AdrPrf_inj [e1 e2 e3].
+move=> hp hp' hj hj' epp.
+move/encode_adrs_inj: (congr1 snd epp) => he.
+have [e1 e2 e3] := @AdrPrf_inj l w
+  (posid p).1 (posid p).2 j (posid p').1 (posid p').2 j'
+  (pos_id_bounded h_sf p Hh hp) (pos_id_bounded h_sf p' Hh hp')
+  (component_bounded_lt l j hj) (component_bounded_lt l j' hj') he.
 have e : posid p = posid p'.
   by rewrite (surjective_pairing (posid p)) (surjective_pairing (posid p'))
        e1 e2.
@@ -257,7 +269,7 @@ Fixpoint eval_chain (pp : PP) (zi : nat * nat) (js : seq nat) :
   | [::] => ret [::]
   | j :: js' =>
       x ← (call [ EVAL ] : { (PP × adrs_sf_ch) ~> N }
-             (pp, encode_adrs (wotsc_prf_adrs zi j))) ;;
+             (pp, enc (wotsc_prf_adrs zi j))) ;;
       xs ← eval_chain pp zi js' ;;
       ret (x :: xs)
   end.
@@ -316,7 +328,7 @@ Definition rp_gen_body (sp : 'list 'bool) : raw_code (PP × N) :=
    #assert (size (leaf_paths (tshape sp)) <= n_max)%N ;;
    pp ← dPP ;;
    _ ← (call [ EVAL ] : { (PP × adrs_sf_ch) ~> N }
-          (pp, encode_adrs (AdrGrind 0 0))) ;;
+          (pp, enc (wotsc_grind_adrs (0, 0)))) ;;
    kp ← dKp ;;
    xss ← eval_anchors pp (leaf_paths (tshape sp)) ;;
    #put rp_kp_loc := Some kp ;;
@@ -1174,7 +1186,7 @@ simplify_eq_rel arg.
   { by move=> s0 s1 h; exact: G2r_set_key h. }
   simpl.
   rewrite (code_link_scheme _ _ _ _
-             (sample_keys_valid N dN l emptym [interface] _)).
+             (@sample_keys_valid l N dN emptym [interface] _)).
   eapply (r_scheme_bind (skeys (size (leaf_paths (tshape arg)))));
     first exact: sample_keys_valid.
   move=> xss; cbv beta.
@@ -1947,7 +1959,7 @@ simplify_eq_rel arg.
   { by move=> s0 s1 h; exact: G2i_set_tab_pin h. }
   simpl.
   rewrite (code_link_scheme _ _ _ _
-             (sample_keys_valid N dN l emptym [interface] _)).
+             (@sample_keys_valid l N dN emptym [interface] _)).
   eapply (r_scheme_bind (skeys (size (leaf_paths (tshape arg)))));
     first exact: sample_keys_valid.
   move=> xss; cbv beta.
@@ -2701,16 +2713,22 @@ Qed.
 
 (** Chain-index injectivity of the PRF_f query points. *)
 Lemma prf_pt_inj_j (pp pp' : PP) (zi zi' : nat * nat) (j j' : nat) :
-  (pp, encode_adrs (wotsc_prf_adrs zi j))
-    = (pp', encode_adrs (wotsc_prf_adrs zi' j')) -> j = j'.
+  j < l -> j' < l ->
+  (pp, enc (wotsc_prf_adrs zi j))
+    = (pp', enc (wotsc_prf_adrs zi' j')) -> j = j'.
 Proof.
-by move=> e; move/encode_adrs_inj: (congr1 snd e) => /AdrPrf_inj [_ _ e3].
+move=> hj hj' e.
+move/encode_adrs_inj: (congr1 snd e) => ea.
+move: (congr1 (@adrs_chain l w) ea).
+rewrite (wotsc_prf_adrs_chain l w zi j (component_bounded_lt l j hj))
+  (wotsc_prf_adrs_chain l w zi' j' (component_bounded_lt l j' hj')).
+exact: id.
 Qed.
 
 (** The real-side chain value: one anchor's EVAL images are the
     scheme's [leaf_sk]. *)
 Lemma eval_chain_valueE (pp : PP) (k : Ks) (zi : nat * nat) :
-  [seq kh_eval KF k (pp, encode_adrs (wotsc_prf_adrs zi j)) | j <- iota 0 l]
+  [seq kh_eval KF k (pp, enc (wotsc_prf_adrs zi j)) | j <- iota 0 l]
   = fleaf_sk pp k zi.
 Proof.
 rewrite /leaf_sk.
@@ -2733,7 +2751,7 @@ Lemma r_eval_chain_real {A B : choiceType} (c0 : raw_code A)
   (c + size js <= q_prf)%N ->
   (⊢ ⦃ λ '(s0, s1), G1r (Some k) (c + size js) (s0, s1) ⦄
      c0
-   ≈ k1 [seq kh_eval KF k (pp, encode_adrs (wotsc_prf_adrs zi j)) | j <- js]
+   ≈ k1 [seq kh_eval KF k (pp, enc (wotsc_prf_adrs zi j)) | j <- js]
      ⦃ post ⦄) ->
   ⊢ ⦃ λ '(s0, s1), G1r (Some k) c (s0, s1) ⦄
      c0 ≈ bind (code_link (eval_chain pp zi js) (PGF true)) k1 ⦃ post ⦄.
@@ -2795,12 +2813,13 @@ Lemma r_eval_chain_ideal {B : choiceType}
     (T : {fmap kh_M KF -> kh_N KF}) (c : nat) :
   size js = n ->
   uniq js ->
+  all (fun j => j < l) js ->
   (c + size js <= q_prf)%N ->
   (forall j, j \in js ->
-     getm T (pp, encode_adrs (wotsc_prf_adrs zi j)) = None) ->
+     getm T (pp, enc (wotsc_prf_adrs zi j)) = None) ->
   (forall (xs : seq N) (T' : {fmap kh_M KF -> kh_N KF}),
      (forall pt, pt \notin
-        [seq (pp, encode_adrs (wotsc_prf_adrs zi j)) | j <- js] ->
+        [seq (pp, enc (wotsc_prf_adrs zi j)) | j <- js] ->
         getm T' pt = getm T pt) ->
      ⊢ ⦃ λ '(s0, s1), G1i T' (c + size js) (s0, s1) ⦄
         k0 xs ≈ k1 xs ⦃ post ⦄) ->
@@ -2808,12 +2827,13 @@ Lemma r_eval_chain_ideal {B : choiceType}
      bind (sample_seq dN n) k0
    ≈ bind (code_link (eval_chain pp zi js) (PGF false)) k1 ⦃ post ⦄.
 Proof.
-elim: js n T c k0 k1 => [|j js IH] n T c k0 k1 hn hu hb hfresh hk.
+elim: js n T c k0 k1 => [|j js IH] n T c k0 k1 hn hu hall hb hfresh hk.
 - case: n hn => [|n] // _.
   rewrite /= addn0 in hk.
   by apply: (hk [::] T).
 - case: n hn => [|n] // [hn].
   case/andP: hu => hj hu.
+  case/andP: hall => hjl hall.
   simpl.
   rewrite !bind_assoc.
   rewrite resolve_evf_f.
@@ -2837,9 +2857,9 @@ elim: js n T c k0 k1 => [|j js IH] n T c k0 k1 hn hu hb hfresh hk.
   eapply (r_scheme_bind dN); first exact: prog_valid.
   move=> x; cbv beta.
   eapply (r_put_bind_rhs (prf_tab_loc KF)
-            (setm T (pp, encode_adrs (wotsc_prf_adrs zi j)) x) _
+            (setm T (pp, enc (wotsc_prf_adrs zi j)) x) _
             (λ '(s0, s1),
-               G1i (setm T (pp, encode_adrs (wotsc_prf_adrs zi j)) x)
+               G1i (setm T (pp, enc (wotsc_prf_adrs zi j)) x)
                  c.+1 (s0, s1))).
   { by move=> s0 s1 h; exact: G1i_set_tab h. }
   simpl.
@@ -2849,11 +2869,14 @@ elim: js n T c k0 k1 => [|j js IH] n T c k0 k1 hn hu hb hfresh hk.
   eapply IH.
   + exact: hn.
   + exact: hu.
+  + exact: hall.
   + exact: hb.
   + move=> j' hj'.
     rewrite setmE.
-    case: eqP => [e | _].
-    * by move/prf_pt_inj_j: e => e; rewrite -e hj' in hj.
+	    case: eqP => [e | _].
+	    * have hj'l : j' < l := allP hall j' hj'.
+	      have ej := prf_pt_inj_j pp pp zi zi j' j hj'l hjl e.
+	      by rewrite -ej hj' in hj.
     * by apply: hfresh; rewrite in_cons hj' orbT.
   + move=> xs T' hoff.
     apply: (hk (x :: xs) T').
@@ -2872,7 +2895,7 @@ Lemma r_eval_anchors_ideal {B : choiceType}
   all (fun p => size p <= h_sf) ps ->
   (c + size ps * l <= q_prf)%N ->
   (forall p j, p \in ps -> (j < l)%N ->
-     getm T (pp, encode_adrs (wotsc_prf_adrs (posid p) j)) = None) ->
+     getm T (pp, enc (wotsc_prf_adrs (posid p) j)) = None) ->
   (forall (xss : seq (seq N)) (T' : {fmap kh_M KF -> kh_N KF}),
      ⊢ ⦃ λ '(s0, s1), G1i T' (c + size ps * l) (s0, s1) ⦄
         k0 xss ≈ k1 xss ⦃ post ⦄) ->
@@ -2892,6 +2915,8 @@ elim: ps T c k0 k1 => [|p ps IH] T c k0 k1 hu hall hb hfresh hk.
   eapply (r_eval_chain_ideal _ _ _ pp (posid p) l (iota 0 l) T c).
   + exact: size_iota.
   + exact: iota_uniq.
+  + apply/allP => j.
+    by rewrite mem_iota add0n => /andP[].
   + rewrite size_iota.
     apply: (leq_trans _ hb).
     exact: leq_addr.
@@ -2910,9 +2935,11 @@ elim: ps T c k0 k1 => [|p ps IH] T c k0 k1 hu hall hb hfresh hk.
     * move=> p' j' hp' hjl.
       rewrite hoff.
       + by apply: hfresh hjl; rewrite in_cons hp' orbT.
-      + apply/negP => /mapP[j0 _ e].
+      + apply/negP => /mapP[j0 hj0 e].
         have hszp' : size p' <= h_sf by move/allP: hall; apply.
-        case: (prf_pt_inj pp p' p j' j0 hszp' hszp e) => ep _.
+        have hj0l : j0 < l.
+          by move: hj0; rewrite mem_iota add0n => /andP[].
+        case: (prf_pt_inj pp p' p j' j0 hszp' hszp hjl hj0l e) => ep _.
         rewrite ep in hp'.
         by rewrite hp' in hp.
     * move=> xss T''.
@@ -3451,9 +3478,9 @@ simplify_eq_rel arg.
   eapply r_scheme_bind; first exact: prog_valid.
   move=> y0; cbv beta.
   eapply (r_put_bind_rhs (prf_tab_loc KF)
-            (setm emptym (pp, encode_adrs (AdrGrind 0 0)) y0) _
+            (setm emptym (pp, enc (wotsc_grind_adrs (0, 0))) y0) _
             (λ '(s0, s1),
-               G1i (setm emptym (pp, encode_adrs (AdrGrind 0 0)) y0) 1
+               G1i (setm emptym (pp, enc (wotsc_grind_adrs (0, 0))) y0) 1
                  (s0, s1))).
   { by move=> s0 s1 h; exact: G1i_set_tab h. }
   simpl.

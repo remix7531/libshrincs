@@ -18,18 +18,22 @@ Opaque fx_root_x fx_sign_x fx_verify_md sample_keys leaf_paths shape_of
   sign_path pos_id.
 
 Section FXMSSDigestBound.
+
+Context {w l : nat}.
+Local Notation adrs_sf := (Addressing.adrs_sf l w).
+Local Notation adrs_sf_ch := (Addressing.adrs_sf_ch l w).
 Context (PP N M R : choice_type) (d_n : nat).
 Context (F : PP -> adrs_sf -> N -> N) (Tl : PP -> adrs_sf -> seq N -> N).
 Context (Hgrind : PP -> adrs_sf -> (chFin d_n.+1) * nat -> nat).
 Context (Htree : PP -> adrs_sf -> N * N -> N).
 Context (dPP : dist PP) (dN : dist N) (dR : dist R).
-Context (w l S_wn c_max h_sf q_s q_h n_max q_f : nat).
+Context (S_wn c_max h_sf q_s q_h n_max q_f : nat).
 Local Notation Dfin := (chFin d_n.+1).
 Local Notation dDu := (rp_dPfx d_n).
 
-Local Notation G3C b := (ReproHop.G3c PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu w l S_wn c_max h_sf q_s q_h n_max q_f b).
-Local Notation G4M b := (G4m PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu w l S_wn c_max h_sf q_s q_h n_max q_f b).
-Local Notation G4C b := (G4c PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu w l S_wn c_max h_sf q_s q_h n_max q_f b).
+Local Notation G3C b := (ReproHop.G3c PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu S_wn c_max h_sf q_s q_h n_max q_f b).
+Local Notation G4M b := (G4m PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu S_wn c_max h_sf q_s q_h n_max q_f b).
+Local Notation G4C b := (G4c PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu S_wn c_max h_sf q_s q_h n_max q_f b).
 
 Local Notation Lsd := (fx_sd_loc Dfin).
 Local Notation IG := (I_G0fL PP N Dfin M R).
@@ -211,23 +215,23 @@ by rewrite /Db divr_ge0 ?ler0n // mulr_ge0 ?ler0n.
 Qed.
 
 (* Specialised resolve/step lemmas (section context applied). *)
-Local Notation Rg4m_gen := (resolve_g4m_gen PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu w l S_wn c_max h_sf q_s q_h n_max q_f).
-Local Notation Rg4c_gen := (resolve_g4c_gen PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu w l S_wn c_max h_sf q_s q_h n_max q_f).
-Local Notation Rg4m_sign := (resolve_g4m_sign PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu w l S_wn c_max h_sf q_s q_h n_max q_f).
-Local Notation Rg4c_sign := (resolve_g4c_sign PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu w l S_wn c_max h_sf q_s q_h n_max q_f).
-Local Notation Rg4m_hash := (resolve_g4m_hash PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu w l S_wn c_max h_sf q_s q_h n_max q_f).
-Local Notation Rg4c_hash := (resolve_g4c_hash PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu w l S_wn c_max h_sf q_s q_h n_max q_f).
-Local Notation Rg4m_forge := (resolve_g4m_forge PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu w l S_wn c_max h_sf q_s q_h n_max q_f).
-Local Notation Rg4c_forge := (resolve_g4c_forge PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu w l S_wn c_max h_sf q_s q_h n_max q_f).
+Local Notation Rg4m_gen := (resolve_g4m_gen PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu S_wn c_max h_sf q_s q_h n_max q_f).
+Local Notation Rg4c_gen := (resolve_g4c_gen PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu S_wn c_max h_sf q_s q_h n_max q_f).
+Local Notation Rg4m_sign := (resolve_g4m_sign PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu S_wn c_max h_sf q_s q_h n_max q_f).
+Local Notation Rg4c_sign := (resolve_g4c_sign PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu S_wn c_max h_sf q_s q_h n_max q_f).
+Local Notation Rg4m_hash := (resolve_g4m_hash PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu S_wn c_max h_sf q_s q_h n_max q_f).
+Local Notation Rg4c_hash := (resolve_g4c_hash PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu S_wn c_max h_sf q_s q_h n_max q_f).
+Local Notation Rg4m_forge := (resolve_g4m_forge PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu S_wn c_max h_sf q_s q_h n_max q_f).
+Local Notation Rg4c_forge := (resolve_g4c_forge PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu S_wn c_max h_sf q_s q_h n_max q_f).
 
-Local Notation Sgen := (@gen4_step PP N Dfin R F Tl Htree dPP dN dR dDu w l h_sf n_max).
-Local Notation Ssign := (@sign4_step PP N Dfin M R F Tl Hgrind Htree dR dDu w l S_wn c_max h_sf q_s).
+Local Notation Sgen := (@gen4_step w l PP N Dfin R F Tl Htree dPP dN dR dDu h_sf n_max).
+Local Notation Ssign := (@sign4_step w l PP N Dfin M R F Tl Hgrind Htree dR dDu S_wn c_max h_sf q_s).
 Local Notation Shash := (@hash_step PP N Dfin M R dDu q_h).
-Local Notation Sfg4m := (@forge3_step PP N Dfin M R F Tl Hgrind Htree dDu w l S_wn h_sf q_f).
-Local Notation Sfg4c := (@forge4c_step PP N Dfin M R F Tl Hgrind Htree dDu w l S_wn h_sf q_f).
+Local Notation Sfg4m := (@forge3_step w l PP N Dfin M R F Tl Hgrind Htree dDu S_wn h_sf q_f).
+Local Notation Sfg4c := (@forge4c_step w l PP N Dfin M R F Tl Hgrind Htree dDu S_wn h_sf q_f).
 
 Local Notation sfin h st qv sc us lg mp tb mz r md :=
-  (sign_fin PP N Dfin M R F Tl Hgrind Htree w l S_wn c_max h_sf
+  (sign_fin PP N Dfin M R F Tl Hgrind Htree S_wn c_max h_sf
      h st qv sc us lg mp tb mz r md).
 
 (* ------------------------------------------------------------------ *)
@@ -238,7 +242,7 @@ Lemma sfin_sd (h : heap) st qv sc us lg mp tb mz r md :
   sdm (sfin h st qv sc us lg mp tb mz r md).2 = sdm h.
 Proof.
 rewrite sign_finE /=.
-case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => [sg|];
+case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => [sg|];
   by do ? (rewrite (get_set_heap_neq _ _ _ Lsd); last by []).
 Qed.
 
@@ -246,7 +250,7 @@ Lemma sfin_st (h : heap) st qv sc us lg mp tb mz r md :
   get_heap (sfin h st qv sc us lg mp tb mz r md).2 Lst = get_heap h Lst.
 Proof.
 rewrite sign_finE /=.
-case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => [sg|];
+case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => [sg|];
   by do ? (rewrite (get_set_heap_neq _ _ _ Lst); last by []).
 Qed.
 
@@ -254,7 +258,7 @@ Lemma sfin_hc (h : heap) st qv sc us lg mp tb mz r md :
   hcc (sfin h st qv sc us lg mp tb mz r md).2 = hcc h.
 Proof.
 rewrite sign_finE /=.
-case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => [sg|];
+case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => [sg|];
   by do ? (rewrite (get_set_heap_neq _ _ _ fx_hcnt_loc); last by []).
 Qed.
 
@@ -262,7 +266,7 @@ Lemma sfin_fc (h : heap) st qv sc us lg mp tb mz r md :
   fcc (sfin h st qv sc us lg mp tb mz r md).2 = fcc h.
 Proof.
 rewrite sign_finE /=.
-case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => [sg|];
+case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => [sg|];
   by do ? (rewrite (get_set_heap_neq _ _ _ fx_fcnt_loc); last by []).
 Qed.
 
@@ -271,7 +275,7 @@ Lemma sfin_rom (h : heap) st qv sc us lg mp tb mz r md :
   = setm mp (r, (st.1, (mz.2, mz.1))) md.
 Proof.
 rewrite sign_finE /=.
-case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => [sg|];
+case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => [sg|];
   do ? (rewrite (get_set_heap_neq _ _ _ Lrom); last by []);
   by rewrite get_set_heap_eq.
 Qed.
@@ -280,7 +284,7 @@ Lemma sfin_tb (h : heap) st qv sc us lg mp tb mz r md :
   tbl (sfin h st qv sc us lg mp tb mz r md).2 = setm tb (mz.2, mz.1) r.
 Proof.
 rewrite sign_finE /=.
-case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => [sg|];
+case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => [sg|];
   do ? (rewrite (get_set_heap_neq _ _ _ Lrt); last by []);
   by rewrite get_set_heap_eq.
 Qed.
@@ -342,8 +346,8 @@ Lemma DIG_gen (b : bool) {T' : choiceType}
        `| dfst (Pr_code (code_link (k v) (G4M b)) h) z
         - dfst (Pr_code (code_link (k v) (G4C b)) h) z | <= Db h)
     (h : heap) (hinv : D_inv h) (z : T') :
-  `| dfst (Pr_code (bind (gen4_body PP N Dfin R F Tl Htree dPP dN dR dDu w l h_sf n_max x) (fun v => code_link (k v) (G4M b))) h) z
-   - dfst (Pr_code (bind (gen4_body PP N Dfin R F Tl Htree dPP dN dR dDu w l h_sf n_max x) (fun v => code_link (k v) (G4C b))) h) z | <= Db h.
+  `| dfst (Pr_code (bind (gen4_body PP N Dfin R F Tl Htree dPP dN dR dDu h_sf n_max x) (fun v => code_link (k v) (G4M b))) h) z
+   - dfst (Pr_code (bind (gen4_body PP N Dfin R F Tl Htree dPP dN dR dDu h_sf n_max x) (fun v => code_link (k v) (G4C b))) h) z | <= Db h.
 Proof.
 rewrite Sgen Sgen.
 case Eg: (~~ isSome (get_heap h Lst)
@@ -356,7 +360,7 @@ apply: dlet_diff_le; first exact: Db_ge0. move=> pp.
 apply: dlet_diff_le; first exact: Db_ge0. move=> xn.
 apply: dlet_diff_le; first exact: Db_ge0. move=> xr.
 apply: dlet_diff_le; first exact: Db_ge0. move=> xss.
-set v0 := (pp, fx_root_x PP N F Tl Htree w l h_sf pp x xss).
+set v0 := (pp, fx_root_x PP N F Tl Htree h_sf pp x xss).
 set vst := Some (v0, (x, xss)).
 set h1 := set_heap h Lst vst.
 set Bp := ((q_h - hcc h) + (q_f - fcc h))%N.
@@ -421,8 +425,8 @@ Lemma DIG_sign (b : bool) {T' : choiceType}
        `| dfst (Pr_code (code_link (k v) (G4M b)) h) z
         - dfst (Pr_code (code_link (k v) (G4C b)) h) z | <= Db h)
     (h : heap) (hinv : D_inv h) (z : T') :
-  `| dfst (Pr_code (bind (sign4_body PP N Dfin M R F Tl Hgrind Htree dR dDu w l S_wn c_max h_sf q_s mz) (fun v => code_link (k v) (G4M b))) h) z
-   - dfst (Pr_code (bind (sign4_body PP N Dfin M R F Tl Hgrind Htree dR dDu w l S_wn c_max h_sf q_s mz) (fun v => code_link (k v) (G4C b))) h) z | <= Db h.
+  `| dfst (Pr_code (bind (sign4_body PP N Dfin M R F Tl Hgrind Htree dR dDu S_wn c_max h_sf q_s mz) (fun v => code_link (k v) (G4M b))) h) z
+   - dfst (Pr_code (bind (sign4_body PP N Dfin M R F Tl Hgrind Htree dR dDu S_wn c_max h_sf q_s mz) (fun v => code_link (k v) (G4C b))) h) z | <= Db h.
 Proof.
 rewrite Ssign Ssign.
 case Esc: ((get_heap h fx_scnt_loc < q_s)%N); last first.
@@ -913,11 +917,11 @@ case Erx: (getm (rom h) (fgpt PP N M R st m sg)) => [md0|].
     (uniform_split_le d_n
        (fun md : Dfin =>
           dfst (Pr_code (code_link
-             (k (fgverd PP N Dfin M R F Tl Hgrind Htree w l S_wn h_sf st
+             (k (fgverd PP N Dfin M R F Tl Hgrind Htree S_wn h_sf st
                    (get_heap h (fx_log_loc M)) m sg md)) (G4M true)) (ff md)))
        (fun md : Dfin =>
           dfst (Pr_code (code_link
-             (k (fgverd PP N Dfin M R F Tl Hgrind Htree w l S_wn h_sf st
+             (k (fgverd PP N Dfin M R F Tl Hgrind Htree S_wn h_sf st
                    (get_heap h (fx_log_loc M)) m sg md
                  && ~~ coll_ev Dfin M R (sdm h) (tbl h) (sg.1.1, m) sg.1.2 md))
                 (G4C true)) (ff md)))

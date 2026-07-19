@@ -179,6 +179,10 @@ Section FXMSSGames.
     [q_s] (signing), [q_h] (adversary HASH), [n_max] (anchor cap),
     [q_f] (FORGE calls; header). *)
 
+Context {w l : nat}.
+Local Notation adrs_sf := (Addressing.adrs_sf l w).
+Local Notation adrs_sf_ch := (Addressing.adrs_sf_ch l w).
+
 Context (PP N D M R Ks Kp : choice_type).
 Context (F : PP -> adrs_sf -> N -> N).
 Context (Tl : PP -> adrs_sf -> seq N -> N).
@@ -189,7 +193,7 @@ Context (PRFf : PP -> Ks -> adrs_sf -> N).
 Context (PRFmsg : Kp -> nat * nat -> M -> R).
 Context (dPP : dist PP) (dKs : dist Ks) (dKp : dist Kp).
 Context (dN : dist N) (dR : dist R) (dD : dist D).
-Context (w l S_wn c_max : nat).
+Context (S_wn c_max : nat).
 Context (h_sf : nat).
 Context (q_s q_h n_max : nat).
 Context (q_f : nat).
@@ -199,19 +203,19 @@ Local Notation tshape := (shape_of h_sf).
 Local Notation spath := (sign_path h_sf).
 Local Notation posid := (pos_id h_sf).
 Local Notation nhash := (node_hash PP N Htree h_sf).
-Local Notation fleaf_sk := (leaf_sk PP N Ks PRFf l).
-Local Notation fpk_of zi := (pk_of PP N F Tl w l zi.1 zi.2).
-Local Notation fvalue_tree := (value_tree PP N Ks F Tl PRFf w l h_sf).
-Local Notation ffx_root := (fx_root PP N Ks F Tl Htree PRFf w l h_sf).
+Local Notation fleaf_sk := (leaf_sk PP N Ks PRFf).
+Local Notation fpk_of zi := (pk_of PP N F Tl zi.1 zi.2).
+Local Notation fvalue_tree := (value_tree PP N Ks F Tl PRFf h_sf).
+Local Notation ffx_root := (fx_root PP N Ks F Tl Htree PRFf h_sf).
 Local Notation fsign_sig zi :=
-  (sign_sig PP N D F Hgrind w l S_wn c_max zi.1 zi.2).
-Local Notation fwots_checks := (wots_checks PP N D Hgrind w l S_wn).
-Local Notation frecover := (recover_anchor PP N D F Tl Hgrind w l).
+  (sign_sig PP N D F Hgrind S_wn c_max zi.1 zi.2).
+Local Notation fwots_checks := (wots_checks PP N D Hgrind S_wn).
+Local Notation frecover := (recover_anchor PP N D F Tl Hgrind).
 Local Notation ffx_sign :=
   (fx_sign PP N D M R Ks Kp F Tl Hgrind Htree Hmsg PRFf PRFmsg
-     w l S_wn c_max h_sf).
+     S_wn c_max h_sf).
 Local Notation ffx_verify :=
-  (fx_verify PP N D M R F Tl Hgrind Htree Hmsg w l S_wn h_sf).
+  (fx_verify PP N D M R F Tl Hgrind Htree Hmsg S_wn h_sf).
 
 (* ------------------------------------------------------------------ *)
 (** ** The khf instances under attack (PROOF_PLAN.md hops 1-2)
@@ -365,9 +369,9 @@ have hsubv : subtree_at (value_tree_x pp sp xss) p
   rewrite /value_tree_x subtree_at_posmap hsub /=.
   by rewrite index_sign_path.
 have hval := val_ap_correct E2 hsubv.
-have hver := verify_sign_sig PP N D F Tl Hgrind w l S_wn c_max zi.1 zi.2
+have hver := verify_sign_sig PP N D F Tl Hgrind S_wn c_max zi.1 zi.2
                pp (nth [::] xss q) md ws hxs E1.
-rewrite (verify_sigE PP N D F Tl Hgrind w l S_wn) in hver.
+rewrite (verify_sigE PP N D F Tl Hgrind S_wn) in hver.
 move/andP: hver => [hchecks /eqP hrec].
 rewrite /fx_verify_md; apply/and4P; split.
 - by rewrite /zi /pos_id /= leq_subr.

@@ -81,6 +81,10 @@ Import PackageNotation.
 
 Section ZeroChainHop.
 
+Context {w l : nat}.
+Local Notation adrs_sf := (Addressing.adrs_sf l w).
+Local Notation adrs_sf_ch := (Addressing.adrs_sf_ch l w).
+
 (** Same section context as WOTSC.ZeroGames, plus the SM-PRE
     pre-commitment inhabitant [n0] (data only; PREHop's documented
     side condition, consumed by the KFORGE gadget). *)
@@ -89,12 +93,14 @@ Context (F : PP -> adrs_sf -> N -> N).
 Context (Tl : PP -> adrs_sf -> seq N -> N).
 Context (Hgrind : PP -> adrs_sf -> M * nat -> nat).
 Context (dPP : dist PP) (dN : dist N).
-Context (w l S_wn c_max : nat).
+Context (S_wn c_max : nat).
 Context (zstar istar : nat).
 Context (n0 : N).
+Context (Hanchor : anchor_bounded (zstar, istar)).
+Context (hw : (0 < w)%N).
 
 Local Notation WC :=
-  (WOTSC PP N M F Tl Hgrind dPP dN w l S_wn c_max zstar istar).
+  (WOTSC PP N M F Tl Hgrind dPP dN S_wn c_max zstar istar).
 Local Notation FW := (Fw PP N F zstar istar).
 Local Notation cf := (chainf PP N F zstar istar).
 Local Notation TP := (Tpk PP N Tl dPP dN).
@@ -106,29 +112,30 @@ Local Notation SMP b := (SMPRE_game TF CF l b).
 Local Notation gadrs := (grind_adrs zstar istar).
 Local Notation cadrs := (chain_adrs zstar istar).
 Local Notation padrs := (pk_adrs zstar istar).
-Local Notation gtw := (encode_adrs gadrs).
-Local Notation ptw := (encode_adrs padrs).
-Local Notation ctw i k := (encode_adrs (cadrs i k)).
-Local Notation wdigest := (digest_of PP M Hgrind w l zstar istar).
-Local Notation wcends := (complete_ends PP N F w l zstar istar).
-Local Notation wverify := (verify_sig PP N M F Tl Hgrind w l S_wn zstar istar).
+Local Notation gtw := (@encode_adrs l w gadrs).
+Local Notation ptw := (@encode_adrs l w padrs).
+Local Notation ctw i k := (@encode_adrs l w (cadrs i k)).
+Local Notation wdigest := (digest_of PP M Hgrind zstar istar).
+Local Notation wcends := (complete_ends PP N F zstar istar).
+Local Notation wverify :=
+  (verify_sig PP N M F Tl Hgrind S_wn zstar istar).
 Local Notation wsigs := (sigs_of PP N FW).
-Local Notation wtw := (wotsc_tweak zstar istar).
+Local Notation wtw := (@wotsc_tweak w l zstar istar).
 Local Notation wq' := (wq N zstar istar).
 Local Notation zpreq := (pre_queries N).
 Local Notation zdig := (nseq l w.-1).
-Local Notation zsel' := (zsel w).
+Local Notation zsel' := (@zsel w).
 Local Notation zchains := (pr_chains PP N F dPP dN zstar istar).
 
 Local Notation IKZ :=
-  (I_KZ PP N M F Tl Hgrind dPP dN w l S_wn c_max zstar istar).
+  (I_KZ PP N M F Tl Hgrind dPP dN S_wn c_max zstar istar).
 Local Notation zpk :=
-  (zpk_loc PP N M F Tl Hgrind dPP dN w l S_wn c_max zstar istar).
+  (zpk_loc PP N M F Tl Hgrind dPP dN S_wn c_max zstar istar).
 Local Notation zsg := (zsg_loc N).
 Local Notation G1Z b :=
-  (G1z PP N M F Tl Hgrind dPP dN w l S_wn c_max zstar istar b).
+  (G1z PP N M F Tl Hgrind dPP dN S_wn c_max zstar istar b).
 Local Notation GZM :=
-  (Gzmid PP N M F Tl Hgrind dPP dN w l S_wn c_max zstar istar).
+  (Gzmid PP N M F Tl Hgrind dPP dN S_wn c_max zstar istar).
 
 (** SM-TCR / SM-PRE game-internal locations. *)
 Local Notation cpp_loc := (tcr_pp_loc TP).
@@ -158,8 +165,8 @@ Qed.
 Lemma zpre_indexE (i : nat) :
   0 < w.-1 -> i <= l -> pre_index zdig i = i.
 Proof.
-move=> hw hi.
-by rewrite /pre_index take_nseq // /npq count_nseq /= hw mul1n.
+move=> hw' hi.
+by rewrite /pre_index take_nseq // /npq count_nseq /= hw' mul1n.
 Qed.
 
 (** THE PRE-win packaging (ZeroGames' analysis composed for the
@@ -182,9 +189,9 @@ Lemma zpre_win pp (us : seq N) (mst : M) (sgst : seq N * nat)
         = FW pp (i, w.-2) ui].
 Proof.
 move=> hus hver hends hsel hqy.
-have [hisz hlt] := zselP w (wdigest pp mst sgst.2) i hsel.
+have [hisz hlt] := @zselP w (wdigest pp mst sgst.2) i hsel.
 have hszd : size (wdigest pp mst sgst.2) = l
-  := size_digest_of PP M Hgrind w l zstar istar pp mst sgst.2.
+  := size_digest_of PP M Hgrind zstar istar pp mst sgst.2.
 have hil : i < l by rewrite -hszd.
 have hw1 : 0 < w.-1 := leq_ltn_trans (leq0n _) hlt.
 move: (hver); rewrite /verify_sig => /and3P[_ /eqP hsy _].
@@ -203,11 +210,11 @@ have hsi : nth y (wsigs pp 0 zdig us) i = sig_of_root PP N FW pp i w.-1 ui
   := qnth_nth y _ _ _ hqs.
 have hsrE : sig_of_root PP N FW pp i w.-1 ui = FW pp (i, w.-2) ui.
 { by rewrite -[w.-1](prednK hw1). }
-have hch := zends_nth PP N F w l zstar istar pp
+have hch := zends_nth PP N F zstar istar pp
               (wdigest pp mst sgst.2) sgst.1 (wsigs pp 0 zdig us) y i
               hszd hsy hsg hil hends.
 rewrite (qnth_nth y _ _ _ hqy) hsi hsrE in hch.
-exact: (zmeet_preimage PP N F w zstar istar pp i
+exact: (zmeet_preimage PP N F zstar istar pp i
           (nth 0 (wdigest pp mst sgst.2) i) y (FW pp (i, w.-2) ui)
           hlt hch).
 Qed.
@@ -389,7 +396,7 @@ Qed.
 Lemma zc_collq_F_E (pp : PP) (i k : nat) (x : N) :
   (if tc_eval CP pp (ctw i k) (inl x) is inl y then y else x)
   = F pp (cadrs i k) x.
-Proof. by []. Qed.
+Proof. by rewrite /tc_eval /Cpk /= decode_tweakK. Qed.
 
 (* ------------------------------------------------------------------ *)
 (** *** The invariant *)
@@ -1228,6 +1235,8 @@ Qed.
 Lemma r_zpquery (b : bool) {B : choiceType} (pp : PP)
     (i k : nat) (Q : seq ((nat * nat) * N))
     (k0 k1 : N -> raw_code B) (post : postcond B B) :
+  i < l -> k < w.-1 ->
+  all (λ t : nat * nat, (t.1 < l) && (t.2 < w.-1)) (unzip1 Q) ->
   size Q < l ->
   (i, k) \notin unzip1 Q ->
   (forall x : N,
@@ -1236,7 +1245,7 @@ Lemma r_zpquery (b : bool) {B : choiceType} (pp : PP)
   ⊢ ⦃ λ '(s0, s1), zpblk (Some pp) false Q (s0, s1) ⦄
      bind dN k0 ≈ bind (resolve (SMP b) zp_pqo (ctw i k)) k1 ⦃ post ⦄.
 Proof.
-move=> hbud hfresh h.
+move=> hi hk hQr hbud hfresh h.
 rewrite (resolve_zp_pq b (ctw i k)).
 eapply (r_get_bind_rhs prv_loc false).
   { by move=> s0 s1 [_ _ h' _ _]. }
@@ -1250,7 +1259,9 @@ eapply r_bind_assertD_rhs.
   { by move=> s0 s1 _; rewrite size_map /unzip1 size_map hbud. }
 move=> _.
 eapply r_bind_assertD_rhs.
-  { by move=> s0 s1 _; exact: wtw_notin hfresh. }
+  move=> s0 s1 _; apply: (@wtw_notin w l zstar istar
+    (i, k) (unzip1 Q) Hanchor hi hk _ hfresh).
+  by move=> t' /(allP hQr) /andP[h1 h2]; split.
 move=> _.
 rewrite bind_assoc.
 eapply r_scheme_bind; first exact: prog_valid.
@@ -1262,6 +1273,8 @@ eapply r_put2_bind_rhs.
   { by move=> s0 s1 hpre; exact: (zpblk_qupd pp Q (i, k) x s0 s1 hpre). }
 eapply (r_get_bind_rhs ppp_loc (Some pp)).
   { by move=> s0 s1 [_ h' _ _ _]. }
+simpl.
+rewrite (@th_eval_wtw w l PP N F dPP dN zstar istar pp (i, k) x).
 exact: (h x).
 Qed.
 
@@ -1271,6 +1284,9 @@ Qed.
 Lemma r_zpchains_spec (b : bool) {B : choiceType} (pp : PP)
     (post : postcond B B) :
   forall ds st (Q : seq ((nat * nat) * N)) (K0 K1 : chList N -> raw_code B),
+  (st + size ds <= l)%N ->
+  all (λ d : nat, d < w) ds ->
+  all (λ t : nat * nat, (t.1 < l) && (t.2 < w.-1)) (unzip1 Q) ->
   (size Q + npq ds <= l)%N ->
   all (λ t : nat * nat, t.1 < st) (unzip1 Q) ->
   (forall us, size us = size ds ->
@@ -1281,10 +1297,14 @@ Lemma r_zpchains_spec (b : bool) {B : choiceType} (pp : PP)
      bind (sample_sig_roots PP N FW dN pp st ds) K0
    ≈ bind (code_link (zchains st ds) (SMP b)) K1 ⦃ post ⦄.
 Proof.
-elim=> [|d ds IH] st Q K0 K1 hbud hfresh h.
+elim=> [|d ds IH] st Q K0 K1 hst hds hQr hbud hfresh h.
 - by move: (h [::] erefl); rewrite cats0.
-- rewrite /= code_link_bind.
-  case: d hbud h => [|d'] hbud h.
+- move: hst => /=; rewrite addnS => hst2.
+  have hstl : st < l := leq_ltn_trans (leq_addr _ _) hst2.
+  have hstds : st.+1 + size ds <= l := hst2.
+  move: hds => /= /andP[hd0 hds'].
+  rewrite /= code_link_bind.
+  case: d hd0 hbud h => [|d'] hd0 hbud h.
   + (* d = 0 : both sides sample the value locally *)
     rewrite (code_link_scheme _ _ _ _ (prog_valid dN)).
     rewrite !bind_assoc.
@@ -1298,6 +1318,7 @@ elim=> [|d ds IH] st Q K0 K1 hbud hfresh h.
       move: (h (u :: us)); rewrite /= hus => /(_ erefl).
       by [].
   + (* d = d'.+1 : the sigma PQUERY *)
+    have hdw1 : d'.+1 <= w.-1 by rewrite -ltnS prednK.
     rewrite bind_assoc.
     simpl.
     rewrite !bind_assoc.
@@ -1309,6 +1330,8 @@ elim=> [|d ds IH] st Q K0 K1 hbud hfresh h.
       simpl.
       rewrite (code_link_bind (zchains st.+1 ds)) !bind_assoc.
       eapply IH => //.
+      -- rewrite /unzip1 map_rcons all_rcons hQr /=.
+         by rewrite hstl hdw1.
       -- by move: hbud; rewrite size_rcons /npq /= addnS addSn.
       -- rewrite /unzip1 map_rcons all_rcons; apply/andP; split.
          ++ by rewrite /= ltnSn.
@@ -1398,8 +1421,12 @@ simplify_eq_rel arg.
   eapply r_put_rhs_weak.
     { move=> s0 s1 hpre; exact: (zpblk_set_pp pp _ _ _ _ hpre). }
   (* the chains: lhs re-rooted sampling, rhs hidden PQUERY samples *)
-  eapply (r_zpchains_spec true pp _ zdig 0 [::]) => //.
-    { by rewrite /= (npq_le l zdig size_zdig). }
+  eapply (r_zpchains_spec true pp _ zdig 0 [::]).
+  - by rewrite add0n size_zdig.
+  - by rewrite all_nseq ltn_predL hw orbT.
+  - by [].
+  - by rewrite /= (npq_le l zdig size_zdig).
+  - by [].
   move=> us hus.
   cbv beta.
   simpl.
@@ -1476,9 +1503,9 @@ simplify_eq_rel arg.
             ** (* dead: the forged signature has l chain values *)
                eapply (r_fact False); last by [].
                move=> s0 s1 _.
-               have [hisz _] := zselP w (wdigest pk.1 mst sgst.2) i E3.
+               have [hisz _] := @zselP w (wdigest pk.1 mst sgst.2) i E3.
                have hszd : size (wdigest pk.1 mst sgst.2) = l
-                 := size_digest_of PP M Hgrind w l zstar istar
+                 := size_digest_of PP M Hgrind zstar istar
                       pk.1 mst sgst.2.
                have hver : wverify pk.1 pk.2 mst sgst by rewrite E0.
                move: hver; rewrite /verify_sig => /and3P[_ /eqP hsy _].
@@ -1587,8 +1614,12 @@ simplify_eq_rel arg.
   eapply r_put_rhs_weak.
     { move=> s0 s1 hpre; exact: (zpblk_set_pp pp _ _ _ _ hpre). }
   (* the chains: lhs re-rooted sampling, rhs hidden PQUERY samples *)
-  eapply (r_zpchains_spec false pp _ zdig 0 [::]) => //.
-    { by rewrite /= (npq_le l zdig size_zdig). }
+  eapply (r_zpchains_spec false pp _ zdig 0 [::]).
+  - by rewrite add0n size_zdig.
+  - by rewrite all_nseq ltn_predL hw orbT.
+  - by [].
+  - by rewrite /= (npq_le l zdig size_zdig).
+  - by [].
   move=> us hus.
   cbv beta.
   simpl.
@@ -1638,9 +1669,9 @@ simplify_eq_rel arg.
             move=> s0 s1 _.
             have hver : wverify pk.1 pk.2 mst sgst by rewrite E0.
             move: hver; rewrite /verify_sig => /and3P[hvd _ _].
-            exact: (zsel_dead w l S_wn (wdigest pk.1 mst sgst.2)
+            exact: (@zsel_dead w l S_wn (wdigest pk.1 mst sgst.2)
                       Hdeg hvd
-                      (size_digest_of PP M Hgrind w l zstar istar
+                      (size_digest_of PP M Hgrind zstar istar
                          pk.1 mst sgst.2) E3).
          ++ case E4: (qnth sgst.1 i) => [y|]; last first.
             ** apply r_ret => s0 s1 hpre; split=> //.

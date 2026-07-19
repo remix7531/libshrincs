@@ -42,18 +42,22 @@ Import Num.Theory Order.POrderTheory GRing.Theory.
 #[local] Open Scope ring_scope.
 
 Section FXMSSGrindAssert.
+
+Context {w l : nat}.
+Local Notation adrs_sf := (Addressing.adrs_sf l w).
+Local Notation adrs_sf_ch := (Addressing.adrs_sf_ch l w).
 Context (PP N M R : choice_type) (d_n : nat).
 Context (F : PP -> adrs_sf -> N -> N) (Tl : PP -> adrs_sf -> seq N -> N).
 Context (Hgrind : PP -> adrs_sf -> (chFin d_n.+1) * nat -> nat).
 Context (Htree : PP -> adrs_sf -> N * N -> N).
 Context (dPP : dist PP) (dN : dist N) (dR : dist R).
-Context (w l S_wn c_max h_sf q_s q_h n_max q_f : nat).
+Context (S_wn c_max h_sf q_s q_h n_max q_f : nat).
 Local Notation Dfin := (chFin d_n.+1).
 Local Notation dDu := (rp_dPfx d_n).
 
-Local Notation G4M b := (G4m PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu w l S_wn c_max h_sf q_s q_h n_max q_f b).
-Local Notation G4C b := (G4c PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu w l S_wn c_max h_sf q_s q_h n_max q_f b).
-Local Notation G5F b := (LateGames.G5f PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu w l S_wn c_max h_sf q_s q_h n_max q_f b).
+Local Notation G4M b := (G4m PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu S_wn c_max h_sf q_s q_h n_max q_f b).
+Local Notation G4C b := (G4c PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu S_wn c_max h_sf q_s q_h n_max q_f b).
+Local Notation G5F b := (LateGames.G5f PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu S_wn c_max h_sf q_s q_h n_max q_f b).
 
 Local Notation IG := (I_G0fL PP N Dfin M R).
 Local Notation FXSIG := (FxSig N R).
@@ -64,17 +68,17 @@ Local Notation RTK := (('nat × 'nat) × M).
 Local Notation tshape := (shape_of h_sf).
 Local Notation spath := (sign_path h_sf).
 Local Notation posid := (pos_id h_sf).
-Local Notation skeys := (sample_keys N dN l).
-Local Notation fxroot := (fx_root_x PP N F Tl Htree w l h_sf).
+Local Notation skeys := (@sample_keys l N dN).
+Local Notation fxroot := (fx_root_x PP N F Tl Htree h_sf).
 Local Notation fxsignx :=
-  (fx_sign_x PP N Dfin R F Tl Hgrind Htree w l S_wn c_max h_sf).
+  (fx_sign_x PP N Dfin R F Tl Hgrind Htree S_wn c_max h_sf).
 Local Notation flok sp zi := (leaf_okP h_sf sp zi).
 Local Notation flidx sp zi := (lidx h_sf sp zi).
 
 Local Notation sgrind :=
-  (LateGames.slot_grindable PP Dfin Hgrind w l S_wn c_max h_sf).
+  (LateGames.slot_grindable PP Dfin Hgrind S_wn c_max h_sf).
 Local Notation sdgrind :=
-  (LateGames.sd_grindable PP Dfin Hgrind w l S_wn c_max h_sf).
+  (LateGames.sd_grindable PP Dfin Hgrind S_wn c_max h_sf).
 
 Local Notation Lst := (fx_st_loc PP N).
 Local Notation Llog := (fx_log_loc M).
@@ -97,14 +101,14 @@ Local Notation sdm h := (get_heap h Lsd).
 
 (* Pure finishers / points. *)
 Local Notation sfin h st qv sc us lg mp tb mz r md :=
-  (sign_fin PP N Dfin M R F Tl Hgrind Htree w l S_wn c_max h_sf
+  (sign_fin PP N Dfin M R F Tl Hgrind Htree S_wn c_max h_sf
      h st qv sc us lg mp tb mz r md).
 Local Notation fgptx st m sg := (fgpt PP N M R st m sg).
 Local Notation fgverdx :=
-  (fgverd PP N Dfin M R F Tl Hgrind Htree w l S_wn h_sf).
+  (fgverd PP N Dfin M R F Tl Hgrind Htree S_wn h_sf).
 Local Notation collev := (DigestHop.coll_ev Dfin M R).
 Local Notation Fvrd :=
-  (LateGames.fverd PP N Dfin M R F Tl Hgrind Htree w l S_wn h_sf).
+  (LateGames.fverd PP N Dfin M R F Tl Hgrind Htree S_wn h_sf).
 
 (* ------------------------------------------------------------------ *)
 (** ** Pure layer: grindable-slot closure *)
@@ -136,13 +140,13 @@ Opaque fx_root_x fx_sign_x fx_verify_md sample_keys leaf_paths shape_of
 Lemma resolve_g5_gen (b : bool) (sp : 'list 'bool) :
   resolve (G5F b) (DigestHop.geno PP N) sp
   = LateGames.gen5_body PP N Dfin R F Tl Hgrind Htree dPP dN dR dDu
-      w l S_wn c_max h_sf n_max sp.
+      S_wn c_max h_sf n_max sp.
 Proof. by rewrite /LateGames.G5f /LateGames.Gkeep /resolve /= coerce_kleisliE. Qed.
 
 Lemma resolve_g5_sign (b : bool) (mz : M × ('nat × 'nat)) :
   resolve (G5F b) (DigestHop.sgo N M R) mz
   = LateGames.sign5_body PP N Dfin M R F Tl Hgrind Htree dR dDu
-      w l S_wn c_max h_sf q_s mz.
+      S_wn c_max h_sf q_s mz.
 Proof. by rewrite /LateGames.G5f /LateGames.Gkeep /resolve /= coerce_kleisliE. Qed.
 
 Lemma resolve_g5_hash (b : bool) (x : ROIN) :
@@ -153,7 +157,7 @@ Proof. by rewrite /LateGames.G5f /LateGames.Gkeep /resolve /= coerce_kleisliE. Q
 Lemma resolve_g5_forge (b : bool) (m : M) (sg : FXSIG) :
   resolve (G5F b) (DigestHop.fgo N M R) (m, sg)
   = LateGames.forge_keep_body PP N Dfin M R F Tl Hgrind Htree dDu
-      w l S_wn h_sf q_f (fun _ => true) b m sg.
+      S_wn h_sf q_f (fun _ => true) b m sg.
 Proof. by rewrite /LateGames.G5f /LateGames.Gkeep /resolve /= coerce_kleisliE. Qed.
 
 (* ------------------------------------------------------------------ *)
@@ -166,7 +170,7 @@ Context {T' : choiceType}.
 Lemma gen5_step (sp : 'list 'bool) {k : _ -> raw_code T'} {h : heap}
     {z : T'} :
   dfst (Pr_code (bind (LateGames.gen5_body PP N Dfin R F Tl Hgrind Htree
-                         dPP dN dR dDu w l S_wn c_max h_sf n_max sp) k) h) z
+                         dPP dN dR dDu S_wn c_max h_sf n_max sp) k) h) z
   = if ~~ isSome (get_heap h Lst)
        && (size (leaf_paths (tshape sp)) <= n_max)%N
     then (\dlet_(pp <- Pr_fst dPP)
@@ -205,7 +209,7 @@ Qed.
 Lemma sign5_step (mz : M × ('nat × 'nat)) {k : _ -> raw_code T'}
     {h : heap} {z : T'} :
   dfst (Pr_code (bind (LateGames.sign5_body PP N Dfin M R F Tl Hgrind Htree
-                         dR dDu w l S_wn c_max h_sf q_s mz) k) h) z
+                         dR dDu S_wn c_max h_sf q_s mz) k) h) z
   = if (scv h < q_s)%N then
       match get_heap h Lst with
       | None => 0
@@ -265,7 +269,7 @@ Qed.
 Lemma forge5_step (keep : fcase (A:=N) -> bool) (b : bool) (m : M)
     (sg : FXSIG) {k : _ -> raw_code T'} {h : heap} {z : T'} :
   dfst (Pr_code (bind (LateGames.forge_keep_body PP N Dfin M R F Tl Hgrind
-                         Htree dDu w l S_wn h_sf q_f keep b m sg) k) h) z
+                         Htree dDu S_wn h_sf q_f keep b m sg) k) h) z
   = if (fcc h < q_f)%N then
       match get_heap h Lst with
       | None => 0
@@ -346,7 +350,7 @@ Lemma forge4c_stepb (b : bool) (m : M) (sg : FXSIG)
     else 0.
 Proof.
 rewrite (resolve_g4c_forge PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu
-           w l S_wn c_max h_sf q_s q_h n_max q_f b m sg).
+           S_wn c_max h_sf q_s q_h n_max q_f b m sg).
 rewrite /DigestHop.forge4cf_body. cbn [bind].
 rewrite Pr_code_get.
 case E1: ((fcc h < q_f)%N); last first.
@@ -386,7 +390,7 @@ Section GrindAdversary.
 Context (n_ug : nat).
 Context (Hug : forall (pp : PP) (zi : nat * nat),
   ((\sum_(y : 'I_d_n.+1)
-     (~~ isSome (find_ctr PP Dfin Hgrind w l S_wn c_max zi.1 zi.2 pp y)
+     (~~ isSome (find_ctr PP Dfin Hgrind S_wn c_max zi.1 zi.2 pp y)
       : nat)) <= n_ug)%N).
 
 Context (LA : Locations).
@@ -395,7 +399,7 @@ Context (sepL : fseparate LA (loc (G4M false))).
 (** The adversary's locations avoid the game locations. *)
 Local Notation advloc_neq :=
   (dadvloc_neq PP N M R d_n F Tl Hgrind Htree dPP dN dR
-     w l S_wn c_max h_sf q_s q_h n_max q_f LA sepL).
+     S_wn c_max h_sf q_s q_h n_max q_f LA sepL).
 
 (* Seal the composition/evaluation machinery and the game packages. *)
 Opaque code_link Pr_code resolve G4m G4c LateGames.Gkeep LateGames.G5f.
@@ -426,11 +430,11 @@ Definition G_inv (h : heap) : Prop :=
   end.
 
 (* Specialised resolve/step lemma shorthands. *)
-Local Notation Rg4c_gen := (resolve_g4c_gen PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu w l S_wn c_max h_sf q_s q_h n_max q_f).
-Local Notation Rg4c_sign := (resolve_g4c_sign PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu w l S_wn c_max h_sf q_s q_h n_max q_f).
-Local Notation Rg4c_hash := (resolve_g4c_hash PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu w l S_wn c_max h_sf q_s q_h n_max q_f).
-Local Notation Sgen := (@gen4_step PP N Dfin R F Tl Htree dPP dN dR dDu w l h_sf n_max).
-Local Notation Ssign := (@sign4_step PP N Dfin M R F Tl Hgrind Htree dR dDu w l S_wn c_max h_sf q_s).
+Local Notation Rg4c_gen := (resolve_g4c_gen PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu S_wn c_max h_sf q_s q_h n_max q_f).
+Local Notation Rg4c_sign := (resolve_g4c_sign PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu S_wn c_max h_sf q_s q_h n_max q_f).
+Local Notation Rg4c_hash := (resolve_g4c_hash PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu S_wn c_max h_sf q_s q_h n_max q_f).
+Local Notation Sgen := (@gen4_step w l PP N Dfin R F Tl Htree dPP dN dR dDu h_sf n_max).
+Local Notation Ssign := (@sign4_step w l PP N Dfin M R F Tl Hgrind Htree dR dDu S_wn c_max h_sf q_s).
 Local Notation Shash := (@hash_step PP N Dfin M R dDu q_h).
 
 (* ------------------------------------------------------------------ *)
@@ -479,8 +483,8 @@ Lemma GA_gen (b : bool) {T' : choiceType}
        `| dfst (Pr_code (code_link (k v) (G4C b)) h) z
         - dfst (Pr_code (code_link (k v) (G5F b)) h) z | <= Gb h)
     (h : heap) (hinv : G_inv h) (z : T') :
-  `| dfst (Pr_code (bind (gen4_body PP N Dfin R F Tl Htree dPP dN dR dDu w l h_sf n_max x) (fun v => code_link (k v) (G4C b))) h) z
-   - dfst (Pr_code (bind (LateGames.gen5_body PP N Dfin R F Tl Hgrind Htree dPP dN dR dDu w l S_wn c_max h_sf n_max x) (fun v => code_link (k v) (G5F b))) h) z | <= Gb h.
+  `| dfst (Pr_code (bind (gen4_body PP N Dfin R F Tl Htree dPP dN dR dDu h_sf n_max x) (fun v => code_link (k v) (G4C b))) h) z
+   - dfst (Pr_code (bind (LateGames.gen5_body PP N Dfin R F Tl Hgrind Htree dPP dN dR dDu S_wn c_max h_sf n_max x) (fun v => code_link (k v) (G5F b))) h) z | <= Gb h.
 Proof.
 rewrite Sgen gen5_step.
 rewrite fill_lg.
@@ -496,7 +500,7 @@ apply: dlet_diff_le; first exact: eps_g_ge0. move=> pp.
 apply: dlet_diff_le; first exact: eps_g_ge0. move=> x1.
 apply: dlet_diff_le; first exact: eps_g_ge0. move=> x2.
 apply: dlet_diff_le; first exact: eps_g_ge0. move=> xss.
-set v0 := (pp, fx_root_x PP N F Tl Htree w l h_sf pp x xss).
+set v0 := (pp, fx_root_x PP N F Tl Htree h_sf pp x xss).
 set vst := Some (v0, (x, xss)).
 set h1 := set_heap h Lst vst.
 have hKeq : forall sd, sdgrind pp x sd ->
@@ -528,7 +532,7 @@ Lemma sfin5_st (h : heap) st qv sc us lg mp tb mz r md :
   get_heap (sfin h st qv sc us lg mp tb mz r md).2 Lst = get_heap h Lst.
 Proof.
 rewrite sign_finE /=.
-case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => [sg|];
+case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => [sg|];
   by do ? (rewrite (get_set_heap_neq _ _ _ Lst); last by []).
 Qed.
 
@@ -536,7 +540,7 @@ Lemma sfin5_us (h : heap) st qv sc us lg mp tb mz r md :
   usv (sfin h st qv sc us lg mp tb mz r md).2 = setm us mz.2 Datatypes.tt.
 Proof.
 rewrite sign_finE /=.
-case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => [sg|];
+case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => [sg|];
   do ? (rewrite (get_set_heap_neq _ _ _ fx_used_loc); last by []);
   by rewrite get_set_heap_eq.
 Qed.
@@ -545,7 +549,7 @@ Lemma sfin5_tb (h : heap) st qv sc us lg mp tb mz r md :
   tbl (sfin h st qv sc us lg mp tb mz r md).2 = setm tb (mz.2, mz.1) r.
 Proof.
 rewrite sign_finE /=.
-case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => [sg|];
+case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => [sg|];
   do ? (rewrite (get_set_heap_neq _ _ _ Lrt); last by []);
   by rewrite get_set_heap_eq.
 Qed.
@@ -556,8 +560,8 @@ Lemma GA_sign (b : bool) {T' : choiceType}
        `| dfst (Pr_code (code_link (k v) (G4C b)) h) z
         - dfst (Pr_code (code_link (k v) (G5F b)) h) z | <= Gb h)
     (h : heap) (hinv : G_inv h) (z : T') :
-  `| dfst (Pr_code (bind (sign4_body PP N Dfin M R F Tl Hgrind Htree dR dDu w l S_wn c_max h_sf q_s mz) (fun v => code_link (k v) (G4C b))) h) z
-   - dfst (Pr_code (bind (LateGames.sign5_body PP N Dfin M R F Tl Hgrind Htree dR dDu w l S_wn c_max h_sf q_s mz) (fun v => code_link (k v) (G5F b))) h) z | <= Gb h.
+  `| dfst (Pr_code (bind (sign4_body PP N Dfin M R F Tl Hgrind Htree dR dDu S_wn c_max h_sf q_s mz) (fun v => code_link (k v) (G4C b))) h) z
+   - dfst (Pr_code (bind (LateGames.sign5_body PP N Dfin M R F Tl Hgrind Htree dR dDu S_wn c_max h_sf q_s mz) (fun v => code_link (k v) (G5F b))) h) z | <= Gb h.
 Proof.
 rewrite Ssign sign5_step.
 case Esc: ((scv h < q_s)%N); last first.
@@ -752,7 +756,7 @@ Opaque code_link Pr_code resolve.
 Theorem Grind_hop (n_ug : nat)
     (Hug : forall (pp : PP) (zi : nat * nat),
       ((\sum_(y : 'I_d_n.+1)
-         (~~ isSome (find_ctr PP Dfin Hgrind w l S_wn c_max zi.1 zi.2 pp y)
+         (~~ isSome (find_ctr PP Dfin Hgrind S_wn c_max zi.1 zi.2 pp y)
           : nat)) <= n_ug)%N)
     (b : bool) (A : nom_package)
     (VA : ValidPackage (loc A) (I_G0fL PP N Dfin M R) A_export A) :

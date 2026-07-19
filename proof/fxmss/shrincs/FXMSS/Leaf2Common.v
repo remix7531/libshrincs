@@ -40,6 +40,7 @@ Set Warnings "-notation-overridden,-ambiguous-paths,-notation-incompatible-prefi
 From HBS Require Import Prelude Math.BinTree Math.Merkle Math.Chain Math.Encoding
   Sig.Scheme Games.THF Games.SMTCR Toolkit.SampleSeq.
 From HBS.Examples Require Import FixedSumOTS.Games FixedSumOTS.TCRHop.
+From Model Require Import fin.
 From SHRINCS Require Import Addressing WOTSC.Scheme WOTSC.Games
   FXMSS.Scheme FXMSS.Games FXMSS.LateGames FXMSS.TreeHop
   FXMSS.LeafReduction FXMSS.LeafKM.
@@ -52,6 +53,10 @@ Import PackageNotation.
 
 Section Leaf2Common.
 
+Context {w l : nat}.
+Local Notation adrs_sf := (Addressing.adrs_sf l w).
+Local Notation adrs_sf_ch := (Addressing.adrs_sf_ch l w).
+
 (** Same DATA-ONLY section context as FXMSS/LeafKM.v. *)
 Context (PP N D M R : choice_type).
 Context (F : PP -> adrs_sf -> N -> N).
@@ -59,8 +64,9 @@ Context (Tl : PP -> adrs_sf -> seq N -> N).
 Context (Hgrind : PP -> adrs_sf -> D * nat -> nat).
 Context (Htree : PP -> adrs_sf -> N * N -> N).
 Context (dPP : dist PP) (dN : dist N) (dR : dist R) (dD : dist D).
-Context (w l S_wn c_max : nat).
+Context (S_wn c_max : nat).
 Context (h_sf : nat).
+Context (Hh : (h_sf <= 64)%N).
 Context (q_s q_h n_max : nat).
 Context (q_f : nat).
 Context (n0 : N) (d0 : D).
@@ -70,9 +76,71 @@ Context (n0 : N) (d0 : D).
 
 Local Notation tshape := (shape_of h_sf).
 Local Notation posid := (pos_id h_sf).
-Local Notation panchor p := (encode_adrs (AdrPk (posid p).1 (posid p).2)).
+Local Notation panchor p :=
+  (@encode_adrs l w (@wotsc_pk_adrs l w (posid p))).
 Local Notation lchaintw p c pos :=
-  (encode_adrs (AdrChain (posid p).1 (posid p).2 c pos)).
+  (@encode_adrs l w (@wotsc_chain_adrs l w (posid p) c pos)).
+
+(* ------------------------------------------------------------------ *)
+(** ** Finite-address projection facts *)
+
+Lemma l2_fin256_bounded (z : fin (BinInt.Z.of_nat 256)) :
+  BinInt.Z.lt (BinInt.Z.of_nat (BinInt.Z.to_nat (fin_val z)))
+    (BinInt.Z.of_nat 256).
+Proof.
+have [hz0 hz256] := fin_range z.
+by rewrite Znat.Z2Nat.id.
+Qed.
+
+Lemma l2_layer_bounded (z : fin address.hypertree_layers) :
+  BinInt.Z.lt (BinInt.Z.of_nat (BinInt.Z.to_nat (fin_val z)))
+    (BinInt.Z.of_nat 256).
+Proof.
+have [hz0 _] := fin_range z.
+rewrite Znat.Z2Nat.id //.
+exact: (address.fin6_lt_256 z).2.
+Qed.
+
+Lemma l2_fin64_bounded
+    (i : fin (BinInt.Z.pow (BinInt.Z.of_nat 2) (BinInt.Z.of_nat 64))) :
+  BinInt.Z.lt (BinInt.Z.of_nat (BinInt.Z.to_nat (fin_val i)))
+    (BinInt.Z.pow (BinInt.Z.of_nat 2) (BinInt.Z.of_nat 64)).
+Proof.
+have [hi0 hi64] := fin_range i.
+by rewrite Znat.Z2Nat.id.
+Qed.
+
+Lemma l2_lcoord_bounded (t : adrs_sf_ch) :
+  anchor_bounded (@LeafKM.lcoord w l t).
+Proof.
+rewrite /LeafKM.lcoord /anchor_bounded /adrs_keypair
+  /adrs_height /adrs_index.
+case: (decode_tweak t) => * /=; split;
+  first [exact: l2_fin256_bounded | exact: l2_layer_bounded |
+         exact: l2_fin64_bounded].
+Qed.
+
+Lemma l2_lcoord_chain (zi : nat * nat) (c pos : nat) :
+  anchor_bounded zi ->
+  component_bounded l c -> component_bounded w.-1 pos ->
+  @LeafKM.lcoord w l
+      (@encode_adrs l w (@wotsc_chain_adrs l w zi c pos)) = zi.
+Proof.
+move=> hzi hc hpos.
+rewrite /LeafKM.lcoord decode_tweakK
+  (wotsc_chain_adrsE l w zi c pos hzi hc hpos).
+case: zi hzi => z i hzi.
+cbv [Addressing.adrs_keypair Addressing.adrs_height Addressing.adrs_index].
+by rewrite !Znat.Nat2Z.id.
+Qed.
+
+Lemma l2_lcoord_pk (zi : nat * nat) :
+  anchor_bounded zi ->
+  @LeafKM.lcoord w l (@encode_adrs l w (@wotsc_pk_adrs l w zi)) = zi.
+Proof.
+move=> hzi; rewrite /LeafKM.lcoord decode_tweakK.
+exact: (wotsc_pk_adrs_keypair l w zi hzi).
+Qed.
 
 (* ------------------------------------------------------------------ *)
 (** ** Leaf-path size bound (LeafReduction's [leaf_path_size], re-derived
@@ -97,7 +165,13 @@ Lemma l2_panchor_inj sp (p q : seq bool) :
   p \in leaf_paths (tshape sp) -> q \in leaf_paths (tshape sp) ->
   panchor p = panchor q -> p = q.
 Proof.
-move=> hp hq /encode_adrs_inj /AdrPk_inj [e1 e2].
+move=> hp hq /encode_adrs_inj he.
+have hps := l2_leaf_path_size sp p hp.
+have hqs := l2_leaf_path_size sp q hq.
+have [e1 e2] := @AdrPk_inj l w (posid p).1 (posid p).2
+  (posid q).1 (posid q).2
+  (path_anchor_bounded h_sf p Hh hps)
+  (path_anchor_bounded h_sf q Hh hqs) he.
 apply: (pos_id_inj h_sf p q (l2_leaf_path_size sp p hp)
           (l2_leaf_path_size sp q hq)).
 by rewrite [posid p]surjective_pairing [posid q]surjective_pairing e1 e2.
@@ -109,10 +183,20 @@ Qed.
     [pos_id_inj]) the multi-target chain reductions need. *)
 Lemma l2_chain_inj sp (p q : seq bool) (c pos c' pos' : nat) :
   p \in leaf_paths (tshape sp) -> q \in leaf_paths (tshape sp) ->
+  component_bounded l c -> component_bounded w.-1 pos ->
+  component_bounded l c' -> component_bounded w.-1 pos' ->
   lchaintw p c pos = lchaintw q c' pos' ->
   [/\ p = q, c = c' & pos = pos'].
 Proof.
-move=> hp hq /encode_adrs_inj /AdrChain_inj [e1 e2 e3 e4].
+move=> hp hq hc hpos hc' hpos' /encode_adrs_inj he.
+have hps := l2_leaf_path_size sp p hp.
+have hqs := l2_leaf_path_size sp q hq.
+have [e1 e2 e3 e4] := @AdrChain_inj l w
+  (posid p).1 (posid p).2 c pos
+  (posid q).1 (posid q).2 c' pos'
+  (path_anchor_bounded h_sf p Hh hps)
+  (path_anchor_bounded h_sf q Hh hqs)
+  hc hpos hc' hpos' he.
 have hpq : p = q.
   apply: (pos_id_inj h_sf p q (l2_leaf_path_size sp p hp)
             (l2_leaf_path_size sp q hq)).
@@ -130,9 +214,13 @@ Proof. by move=> hp hq hne /(l2_panchor_inj sp p q hp hq). Qed.
 
 Lemma l2_chain_neq sp (p q : seq bool) (c pos c' pos' : nat) :
   p \in leaf_paths (tshape sp) -> q \in leaf_paths (tshape sp) ->
+  component_bounded l c -> component_bounded w.-1 pos ->
+  component_bounded l c' -> component_bounded w.-1 pos' ->
   (p, c, pos) <> (q, c', pos') -> lchaintw p c pos <> lchaintw q c' pos'.
 Proof.
-move=> hp hq hne /(l2_chain_inj sp p q c pos c' pos' hp hq) [ep ec epos].
+move=> hp hq hc hpos hc' hpos' hne.
+move=> /(l2_chain_inj sp p q c pos c' pos' hp hq
+  hc hpos hc' hpos') [ep ec epos].
 by apply: hne; rewrite ep ec epos.
 Qed.
 

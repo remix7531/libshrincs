@@ -54,6 +54,10 @@ Import PackageNotation.
 
 Section FXMSSLateGames.
 
+Context {w l : nat}.
+Local Notation adrs_sf := (Addressing.adrs_sf l w).
+Local Notation adrs_sf_ch := (Addressing.adrs_sf_ch l w).
+
 (** Same section context as FXMSS/DigestHop.v. *)
 Context (PP N D M R : choice_type).
 Context (F : PP -> adrs_sf -> N -> N).
@@ -61,7 +65,7 @@ Context (Tl : PP -> adrs_sf -> seq N -> N).
 Context (Hgrind : PP -> adrs_sf -> D * nat -> nat).
 Context (Htree : PP -> adrs_sf -> N * N -> N).
 Context (dPP : dist PP) (dN : dist N) (dR : dist R) (dD : dist D).
-Context (w l S_wn c_max : nat).
+Context (S_wn c_max : nat).
 Context (h_sf : nat).
 Context (q_s q_h n_max : nat).
 Context (q_f : nat).
@@ -79,14 +83,14 @@ Local Notation flidx sp zi := (lidx h_sf sp zi).
 Local Notation FXSIG := (FxSig N R).
 Local Notation FXST := (FxSt PP N).
 Local Notation ROIN := (RoIn PP N M R).
-Local Notation valtree := (value_tree_x PP N F Tl w l h_sf).
-Local Notation fxroot := (fx_root_x PP N F Tl Htree w l h_sf).
+Local Notation valtree := (value_tree_x PP N F Tl h_sf).
+Local Notation fxroot := (fx_root_x PP N F Tl Htree h_sf).
 Local Notation fxsignx :=
-  (fx_sign_x PP N D R F Tl Hgrind Htree w l S_wn c_max h_sf).
+  (fx_sign_x PP N D R F Tl Hgrind Htree S_wn c_max h_sf).
 Local Notation fxvermd :=
-  (fx_verify_md PP N D F Tl Hgrind Htree w l S_wn h_sf).
-Local Notation frecover := (recover_anchor PP N D F Tl Hgrind w l).
-Local Notation skeys := (sample_keys N dN l).
+  (fx_verify_md PP N D F Tl Hgrind Htree S_wn h_sf).
+Local Notation frecover := (recover_anchor PP N D F Tl Hgrind).
+Local Notation skeys := (@sample_keys l N dN).
 
 Local Notation Lst := (fx_st_loc PP N).
 Local Notation Llog := (fx_log_loc M).
@@ -138,7 +142,7 @@ Qed.
 
 Definition slot_grindable (pp : PP) (sp : seq bool) (j : nat) (d : D) :
     bool :=
-  isSome (find_ctr PP D Hgrind w l S_wn c_max (posid (spath sp j)).1
+  isSome (find_ctr PP D Hgrind S_wn c_max (posid (spath sp j)).1
             (posid (spath sp j)).2 pp d).
 
 Definition sd_grindable (pp : PP) (sp : seq bool) (sd : chMap 'nat D) :

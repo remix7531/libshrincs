@@ -20,13 +20,12 @@
     carrier, and mathcomp-analysis's realsum.__admitted__interchange_psum) --
     with NO new axiom, parameter, or trust anchor.
 
-    Standalone, like assumptions/{model,ssprove,vst}.v: excluded from the
-    default build (not in _RocqProject).  NOTE: this probe is deliberately NOT
-    wired into `make audit` / check.sh gate 3 -- doing so needs an `[fxmss]`
-    section in assumptions/allowed.txt, which per AGENTS.md requires explicit
-    approval (it would only repeat the existing `[ssprove]` baseline names).
-    To review the cone manually, compile this file standalone against the
-    project's -Q maps, e.g. from proof/:
+    Like assumptions/{model,ssprove,vst}.v, this probe is excluded from the
+    default build (not in _RocqProject) and compiled by `make audit` / check.sh
+    gate 3.  FXMSS is checked against the existing `[ssprove]` baseline, so no
+    `[fxmss]` allowlist section or additional trust anchor is needed.  To review
+    the cone manually, compile this file standalone against the project's -Q
+    maps, e.g. from proof/:
       rocq c $(rocq makefile -f _RocqProject -o /dev/null; echo) assumptions/fxmss.v
     or simply `coqc` with the four `-Q` maps from _RocqProject. *)
 

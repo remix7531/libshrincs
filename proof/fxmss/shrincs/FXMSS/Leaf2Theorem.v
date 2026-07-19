@@ -59,6 +59,10 @@ Import GRing.Theory Num.Theory Order.POrderTheory.
 
 Section Leaf2Theorem.
 
+Context {w l : nat}.
+Local Notation adrs_sf := (Addressing.adrs_sf l w).
+Local Notation adrs_sf_ch := (Addressing.adrs_sf_ch l w).
+
 (** The full shared DATA-ONLY section context (identical to the five
     Leaf2* sub-bound files and to LeafKM). *)
 Context (PP N D M R : choice_type).
@@ -67,13 +71,13 @@ Context (Tl : PP -> adrs_sf -> seq N -> N).
 Context (Hgrind : PP -> adrs_sf -> D * nat -> nat).
 Context (Htree : PP -> adrs_sf -> N * N -> N).
 Context (dPP : dist PP) (dN : dist N) (dR : dist R) (dD : dist D).
-Context (w l S_wn c_max : nat).
+Context (S_wn c_max : nat).
 Context (h_sf : nat).
 Context (q_s q_h n_max : nat).
 Context (q_f : nat).
 Context (n0 : N) (d0 : D).
 
-Local Notation IKM := (I_MIW_km PP N D).
+Local Notation IKM := (@I_MIW_km w l PP N D).
 Local Notation IG  := (I_G0fL PP N D M R).
 
 (** Challenge THFs. *)
@@ -89,22 +93,22 @@ Local Notation CTn  := (Leaf2ChainTCR.CFl_leaf PP N D F Tl Hgrind Htree dPP dN).
 Local Notation CPRn := (Leaf2ChainPRE.CFl_leaf PP N D F Tl Hgrind Htree dPP dN).
 Local Notation CUDn := (CUD_leaf PP N D F Tl Hgrind Htree dPP dN).
 Local Notation genc := (grind_enc D).
-Local Notation gprp := (grind_prp w l S_wn).
+Local Notation gprp := (@grind_prp w l S_wn).
 
 (** The multi-leaf reductions. *)
-Local Notation RGR := (R_gr_leaf   PP N D F Tl Hgrind Htree dPP dN dD w l S_wn c_max n_max n0).
-Local Notation RCP := (R_cp_leaf   PP N D F Tl Hgrind Htree dPP dN    w l S_wn c_max n_max n0).
-Local Notation RCT := (R_ctcr_leaf PP N D F Tl Hgrind Htree dPP dN    w l S_wn c_max n_max n0).
-Local Notation RPR := (R_cpre_leaf PP N D F Tl Hgrind Htree dPP dN    w l S_wn c_max n_max n0).
-Local Notation RUD b s := (R_ud_leaf PP N D F Tl Hgrind Htree dPP dN  w l S_wn c_max n_max n0 b s).
+Local Notation RGR := (R_gr_leaf   PP N D F Tl Hgrind Htree dPP dN dD S_wn c_max n_max n0).
+Local Notation RCP := (R_cp_leaf   PP N D F Tl Hgrind Htree dPP dN    S_wn c_max n_max n0).
+Local Notation RCT := (R_ctcr_leaf PP N D F Tl Hgrind Htree dPP dN    S_wn c_max n_max n0).
+Local Notation RPR := (R_cpre_leaf PP N D F Tl Hgrind Htree dPP dN    S_wn c_max n_max n0).
+Local Notation RUD b s := (R_ud_leaf PP N D F Tl Hgrind Htree dPP dN  S_wn c_max n_max n0 b s).
 
 (** The endpoint + intermediate games of the ladder. *)
-Local Notation MIWkm b := (MIW_kmS PP N D F Tl Hgrind Htree dPP dN w l S_wn c_max n_max b).
-Local Notation G1lg    := (G1l     PP N D F Tl Hgrind Htree dPP dN w l S_wn c_max n_max).
-Local Notation GM1     := (Glmid1  PP N D F Tl Hgrind Htree dPP dN w l S_wn c_max n_max).
-Local Notation GM2     := (Glmid2  PP N D F Tl Hgrind Htree dPP dN w l S_wn c_max n_max).
-Local Notation GM3     := (Glmid3  PP N D F Tl Hgrind Htree dPP dN w l S_wn c_max n_max).
-Local Notation G1lg'   := (G1l'    PP N D F Tl Hgrind Htree dPP dN w l S_wn c_max n_max).
+Local Notation MIWkm b := (MIW_kmS PP N D F Tl Hgrind Htree dPP dN S_wn c_max n_max b).
+Local Notation G1lg    := (G1l     PP N D F Tl Hgrind Htree dPP dN S_wn c_max n_max).
+Local Notation GM1     := (Glmid1  PP N D F Tl Hgrind Htree dPP dN S_wn c_max n_max).
+Local Notation GM2     := (Glmid2  PP N D F Tl Hgrind Htree dPP dN S_wn c_max n_max).
+Local Notation GM3     := (Glmid3  PP N D F Tl Hgrind Htree dPP dN S_wn c_max n_max).
+Local Notation G1lg'   := (G1l'    PP N D F Tl Hgrind Htree dPP dN S_wn c_max n_max).
 
 (* ================================================================== *)
 (** ** [Leaf_MIW_km_bound]: the assembled multi-leaf leaf-hop bound. *)
@@ -123,12 +127,12 @@ Theorem Leaf_MIW_km_bound
               + (AdvOf (SMPRE_game TFn CPRn (n_max * l)) (B ∘ RPR)
                  + \sum_(0 <= s < w.-2) AdvOf (SMUD_game TFn CUDn (n_max * l)) (B ∘ RUD false s))))).
 Proof.
-have hGR := sub_gr   PP N D F Tl Hgrind Htree dPP dN dD w l S_wn c_max n_max n0 Hrange B VB.
-have hCP := sub_cp   PP N D F Tl Hgrind Htree dPP dN    w l S_wn c_max n_max n0 B VB.
-have hCT := sub_ctcr PP N D F Tl Hgrind Htree dPP dN    w l S_wn c_max n_max n0 B VB.
-have hPR := sub_cpre PP N D F Tl Hgrind Htree dPP dN    w l S_wn c_max n_max n0 d0 Hdeg B VB.
-have hUD1 := sub_ud_up   PP N D F Tl Hgrind Htree dPP dN w l S_wn c_max n_max n0 hw B VB.
-have hUD0 := sub_ud_down PP N D F Tl Hgrind Htree dPP dN w l S_wn c_max n_max n0 hw B VB.
+have hGR := sub_gr   PP N D F Tl Hgrind Htree dPP dN dD S_wn c_max n_max n0 hw Hrange B VB.
+have hCP := sub_cp   PP N D F Tl Hgrind Htree dPP dN    S_wn c_max n_max n0 B VB.
+have hCT := sub_ctcr PP N D F Tl Hgrind Htree dPP dN    S_wn c_max n_max n0 hw B VB.
+have hPR := sub_cpre PP N D F Tl Hgrind Htree dPP dN    S_wn c_max n_max n0 d0 Hdeg hw B VB.
+have hUD1 := sub_ud_up   PP N D F Tl Hgrind Htree dPP dN S_wn c_max n_max n0 hw B VB.
+have hUD0 := sub_ud_down PP N D F Tl Hgrind Htree dPP dN S_wn c_max n_max n0 hw B VB.
 (* Front-peel the RIGHT-nested RHS along the ladder
      MIW_kmS true -> G1l -> Glmid1 -> Glmid2 -> Glmid3 -> G1l' -> MIW_kmS false
    with Adv_triangle + lerD.  No [set] and no [!addrA]: [set] does a
@@ -155,13 +159,14 @@ Qed.
 (* ================================================================== *)
 
 Local Notation G5f' b :=
-  (G5f PP N D M R F Tl Hgrind Htree dPP dN dR dD w l S_wn c_max h_sf q_s q_h n_max q_f b).
+  (G5f PP N D M R F Tl Hgrind Htree dPP dN dR dD S_wn c_max h_sf q_s q_h n_max q_f b).
 Local Notation G6f' b :=
-  (G6f PP N D M R F Tl Hgrind Htree dPP dN dR dD w l S_wn c_max h_sf q_s q_h n_max q_f b).
+  (G6f PP N D M R F Tl Hgrind Htree dPP dN dR dD S_wn c_max h_sf q_s q_h n_max q_f b).
 Local Notation Rleaf b :=
-  (R_leaf_km PP N D M R F Tl Hgrind Htree dN dR dD w l S_wn c_max h_sf q_s q_h n_max q_f n0 d0 b).
+  (R_leaf_km PP N D M R F Tl Hgrind Htree dN dR dD S_wn c_max h_sf q_s q_h n_max q_f n0 d0 b).
 
 Theorem Leaf_hop
+    (Hh : (h_sf <= 64)%N)
     (hw : (0 < w)%N)
     (Hdeg : S_wn != (l * w.-1)%N)
     (Hrange : forall (pp' : PP) (a : adrs_sf) (x : D * nat), (Hgrind pp' a x < w ^ l)%N)
@@ -176,7 +181,7 @@ Theorem Leaf_hop
                  + \sum_(0 <= s < w.-2) AdvOf (SMUD_game TFn CUDn (n_max * l)) ((A ∘ Rleaf b) ∘ RUD false s))))).
 Proof.
 rewrite (Leaf_to_MIW_kmS PP N D M R F Tl Hgrind Htree dPP dN dR dD
-           w l S_wn c_max h_sf q_s q_h n_max q_f n0 d0 b A VA).
+           S_wn c_max h_sf Hh q_s q_h n_max q_f n0 d0 b A VA).
 have VB : ValidPackage (loc (A ∘ Rleaf b)%sep) IKM A_export (A ∘ Rleaf b)%sep.
 { eapply valid_sep_link_weak;
     [exact: VA | exact: (pack_valid (Rleaf b)) | exact: fsubmapxx]. }

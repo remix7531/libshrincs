@@ -127,6 +127,10 @@ Proof. by rewrite /qnth -map_drop; case: (drop i s). Qed.
 
 Section ChainHop.
 
+Context {w l : nat}.
+Local Notation adrs_sf := (Addressing.adrs_sf l w).
+Local Notation adrs_sf_ch := (Addressing.adrs_sf_ch l w).
+
 (** Same section context as WOTSC.Games minus the dummy message
     sampler [dM] (only [Tgr] needs it), plus the hash-domain
     inhabitant [n0] for the pre-commitment PCHECK gadget of [R_cpre]
@@ -136,12 +140,14 @@ Context (F : PP -> adrs_sf -> N -> N).
 Context (Tl : PP -> adrs_sf -> seq N -> N).
 Context (Hgrind : PP -> adrs_sf -> M * nat -> nat).
 Context (dPP : dist PP) (dN : dist N).
-Context (w l S_wn c_max : nat).
+Context (S_wn c_max : nat).
 Context (zstar istar : nat).
 Context (n0 : N).
+Context (Hanchor : anchor_bounded (zstar, istar)).
+Context (hw : (0 < w)%N).
 
 Local Notation WC :=
-  (WOTSC PP N M F Tl Hgrind dPP dN w l S_wn c_max zstar istar).
+  (WOTSC PP N M F Tl Hgrind dPP dN S_wn c_max zstar istar).
 Local Notation TF := (Tf PP N F dPP dN).
 Local Notation CF := (Cf PP N M F Tl Hgrind dPP dN).
 Local Notation SMT b := (SMTCR_game TF CF (p_tcr l w) b).
@@ -151,18 +157,20 @@ Local Notation cadrs := (chain_adrs zstar istar).
 Local Notation padrs := (pk_adrs zstar istar).
 Local Notation gtw := (encode_adrs gadrs).
 Local Notation ctw i k := (encode_adrs (cadrs i k)).
-Local Notation wtw := (wotsc_tweak zstar istar).
+Local Notation wtw := (@wotsc_tweak w l zstar istar).
 Local Notation FW := (Fw PP N F zstar istar).
 Local Notation cfW := (HBS.Examples.FixedSumOTS.Scheme.chainf PP N FW).
-Local Notation wdigest := (digest_of PP M Hgrind w l zstar istar).
-Local Notation wfind_ctr := (find_ctr PP M Hgrind w l S_wn c_max zstar istar).
-Local Notation wgood := (good_ctr PP M Hgrind w l S_wn zstar istar).
-Local Notation wcends := (complete_ends PP N F w l zstar istar).
-Local Notation wverify := (verify_sig PP N M F Tl Hgrind w l S_wn zstar istar).
+Local Notation wdigest := (digest_of PP M Hgrind zstar istar).
+Local Notation wfind_ctr :=
+  (find_ctr PP M Hgrind S_wn c_max zstar istar).
+Local Notation wgood := (good_ctr PP M Hgrind S_wn zstar istar).
+Local Notation wcends := (complete_ends PP N F zstar istar).
+Local Notation wverify :=
+  (verify_sig PP N M F Tl Hgrind S_wn zstar istar).
 Local Notation wsigs := (sigs_of PP N FW).
 Local Notation wends := (ends_of PP N FW w).
-Local Notation wpick := (cp_pick w l S_wn c_max).
-Local Notation vdigest := (valid_digest w S_wn).
+Local Notation wpick := (@cp_pick w l S_wn c_max).
+Local Notation vdigest := (@valid_digest w S_wn).
 Local Notation wcommitq := (commit_queries PP N FW w).
 Local Notation wpreq := (pre_queries N).
 Local Notation wtcr_dec := (tcr_decision PP N FW l w).
@@ -172,16 +180,16 @@ Local Notation fsverify :=
 Local Notation fsvalid := (valid_msg l w S_wn).
 Local Notation efs := (ends_from_sig PP N FW l w).
 Local Notation GM2 :=
-  (Gmid2 PP N M F Tl Hgrind dPP dN w l S_wn c_max zstar istar).
+  (Gmid2 PP N M F Tl Hgrind dPP dN S_wn c_max zstar istar).
 Local Notation G1W :=
-  (G1w PP N M F Tl Hgrind dPP dN w l S_wn c_max zstar istar).
+  (G1w PP N M F Tl Hgrind dPP dN S_wn c_max zstar istar).
 
 Local Notation pk_loc' :=
-  (g0w_pk_loc PP N M F Tl Hgrind dPP dN w l S_wn c_max zstar istar).
+  (g0w_pk_loc PP N M F Tl Hgrind dPP dN S_wn c_max zstar istar).
 Local Notation log_loc' :=
-  (g0w_log_loc PP N M F Tl Hgrind dPP dN w l S_wn c_max zstar istar).
+  (g0w_log_loc PP N M F Tl Hgrind dPP dN S_wn c_max zstar istar).
 Local Notation sig_loc' :=
-  (g0w_sig_loc PP N M F Tl Hgrind dPP dN w l S_wn c_max zstar istar).
+  (g0w_sig_loc PP N M F Tl Hgrind dPP dN S_wn c_max zstar istar).
 Local Notation tpp_loc := (tcr_pp_loc TF).
 Local Notation ttgts_loc := (tcr_tgts_loc TF).
 Local Notation ttws_loc := (tcr_tws_loc TF).
@@ -209,11 +217,21 @@ Lemma unzip1_wq (Q : seq qentry) :
   unzip1 [seq wq q | q <- Q] = [seq wtw t | t <- unzip1 Q].
 Proof. by rewrite /unzip1 -!map_comp; apply: eq_map => q. Qed.
 
-(** Freshness transfers along the injective re-tagging. *)
+(** Freshness transfers along the injective re-tagging for representable
+    chain coordinates. *)
 Lemma wtw_notin (t : nat * nat) (ts : seq (nat * nat)) :
+  anchor_bounded (zstar, istar) ->
+  t.1 < l -> t.2 < w.-1 ->
+  (forall t', t' \in ts -> t'.1 < l /\ t'.2 < w.-1) ->
   t \notin ts -> wtw t \notin [seq wtw t' | t' <- ts].
 Proof.
-by move=> h; rewrite (mem_map (wotsc_tweak_inj zstar istar)).
+move=> ha ht1 ht2 hts hnotin.
+apply/negP => /mapP[t' ht' e].
+have [ht'1 ht'2] := hts t' ht'.
+have heq : t = t' :=
+  @wotsc_tweak_inj w l zstar istar t t'
+    ha ht1 ht'1 ht2 ht'2 e.
+by move: ht'; rewrite -heq (negbTE hnotin).
 Qed.
 
 (** [th_eval Tf] at a re-tagged chain tweak is the wrapped chain
@@ -288,11 +306,11 @@ Lemma wtcr_decisionP pp (m mstar : M) (c cstar : nat) (us ystar : seq N) :
 Proof.
 move=> hgood hus hvd' hys hends hned.
 have hvm : fsvalid (wdigest pp m c)
-  := vdigest_valid_msg PP M Hgrind w l S_wn zstar istar pp m c hgood.
+  := vdigest_valid_msg PP M Hgrind S_wn zstar istar pp m c hgood.
 have hvm' : fsvalid (wdigest pp mstar cstar)
-  := vdigest_valid_msg PP M Hgrind w l S_wn zstar istar pp mstar cstar hvd'.
+  := vdigest_valid_msg PP M Hgrind S_wn zstar istar pp mstar cstar hvd'.
 have hd : size (wdigest pp m c) = l
-  := size_digest_of PP M Hgrind w l zstar istar pp m c.
+  := size_digest_of PP M Hgrind zstar istar pp m c.
 have hver : fsverify pp
     (ends_of PP N FW w pp 0 (wdigest pp m c)
        (wsigs pp 0 (wdigest pp m c) us))
@@ -321,9 +339,9 @@ Lemma wpre_decisionP pp (m mstar : M) (c cstar : nat) (us ystar : seq N) :
 Proof.
 move=> hgood hus hvd' hys hends hned.
 have hvm : fsvalid (wdigest pp m c)
-  := vdigest_valid_msg PP M Hgrind w l S_wn zstar istar pp m c hgood.
+  := vdigest_valid_msg PP M Hgrind S_wn zstar istar pp m c hgood.
 have hvm' : fsvalid (wdigest pp mstar cstar)
-  := vdigest_valid_msg PP M Hgrind w l S_wn zstar istar pp mstar cstar hvd'.
+  := vdigest_valid_msg PP M Hgrind S_wn zstar istar pp mstar cstar hvd'.
 have hver : fsverify pp
     (efs pp (wdigest pp m c) (wsigs pp 0 (wdigest pp m c) us))
     (wdigest pp mstar cstar) ystar.
@@ -348,9 +366,9 @@ Lemma wclassify_some pp (m mstar : M) (c cstar : nat) (us ystar : seq N) :
 Proof.
 move=> hgood hus hvd' hys hends hned.
 have hvm : fsvalid (wdigest pp m c)
-  := vdigest_valid_msg PP M Hgrind w l S_wn zstar istar pp m c hgood.
+  := vdigest_valid_msg PP M Hgrind S_wn zstar istar pp m c hgood.
 have hvm' : fsvalid (wdigest pp mstar cstar)
-  := vdigest_valid_msg PP M Hgrind w l S_wn zstar istar pp mstar cstar hvd'.
+  := vdigest_valid_msg PP M Hgrind S_wn zstar istar pp mstar cstar hvd'.
 have hver : fsverify pp
     (efs pp (wdigest pp m c) (wsigs pp 0 (wdigest pp m c) us))
     (wdigest pp mstar cstar) ystar.
@@ -643,7 +661,7 @@ Qed.
 Lemma ct_collq_H_E pp (m : M) (c : nat) :
   (if tc_eval CF pp gtw (inr (m, c)) is inr h then h else 0)
   = Hgrind pp gadrs (m, c).
-Proof. by []. Qed.
+Proof. by rewrite /tc_eval /Cf /= decode_tweakK. Qed.
 
 (* ------------------------------------------------------------------ *)
 (** *** The invariant (header) *)
@@ -812,6 +830,8 @@ Qed.
 Lemma r_ctquery_known (b : bool) {B : choiceType} (pp : PP)
     (i k : nat) (x : N) (Q : seq qentry)
     (c0 : raw_code B) (k1 : N -> raw_code B) (post : postcond B B) :
+  i < l -> k < w.-1 ->
+  all (λ t : nat * nat, (t.1 < l) && (t.2 < w.-1)) (unzip1 Q) ->
   size Q < p_tcr l w ->
   (i, k) \notin unzip1 Q ->
   ⊢ ⦃ λ '(s0, s1), tblk (Some pp) false (rcons Q ((i, k), x)) (s0, s1) ⦄
@@ -819,7 +839,7 @@ Lemma r_ctquery_known (b : bool) {B : choiceType} (pp : PP)
   ⊢ ⦃ λ '(s0, s1), tblk (Some pp) false Q (s0, s1) ⦄
      c0 ≈ bind (resolve (SMT b) ct_tqo (ctw i k, x)) k1 ⦃ post ⦄.
 Proof.
-move=> hbud hfresh h.
+move=> hi hk hQr hbud hfresh h.
 rewrite (resolve_ct_tq b (ctw i k) x).
 eapply (r_get_bind_rhs trev_loc false).
   by move=> s0 s1 [_ _ h' _ _].
@@ -833,7 +853,8 @@ eapply r_bind_assertD_rhs.
   by move=> s0 s1 _; rewrite size_map /unzip1 size_map hbud.
 move=> _.
 eapply r_bind_assertD_rhs.
-  by move=> s0 s1 _; exact: wtw_notin hfresh.
+  move=> s0 s1 _; apply: (wtw_notin (i, k) (unzip1 Q) Hanchor hi hk _ hfresh).
+  by move=> t' /(allP hQr) /andP[h1 h2]; split.
 move=> _.
 eapply (r_get_bind_rhs ttgts_loc (qmap_from 0 [seq wq q | q <- Q])).
   by move=> s0 s1 [_ _ _ _ h'].
@@ -842,6 +863,8 @@ eapply r_put2_bind_rhs.
   by move=> s0 s1 hpre; exact: (tblk_qupd pp Q (i, k) x s0 s1 hpre).
 eapply (r_get_bind_rhs tpp_loc (Some pp)).
   by move=> s0 s1 [_ h' _ _ _].
+simpl.
+rewrite (th_eval_wtw pp (i, k) x).
 exact: h.
 Qed.
 
@@ -852,6 +875,9 @@ Lemma r_ctwalk_spec (b : bool) {B : choiceType} (pp : PP)
     (post : postcond B B) :
   forall n i k (x : N) (Q : seq qentry) (c0 : raw_code B)
          (k1 : N -> raw_code B),
+  i < l ->
+  (k + n <= w.-1)%N ->
+  all (λ t : nat * nat, (t.1 < l) && (t.2 < w.-1)) (unzip1 Q) ->
   (size Q + n <= p_tcr l w)%N ->
   all (tlt i k) (unzip1 Q) ->
   ⊢ ⦃ λ '(s0, s1), tblk (Some pp) false
@@ -860,13 +886,17 @@ Lemma r_ctwalk_spec (b : bool) {B : choiceType} (pp : PP)
   ⊢ ⦃ λ '(s0, s1), tblk (Some pp) false Q (s0, s1) ⦄
      c0 ≈ bind (code_link (ct_walk i k n x) (SMT b)) k1 ⦃ post ⦄.
 Proof.
-elim=> [|n IH] i k x Q c0 k1 hbud hfresh h.
+elim=> [|n IH] i k x Q c0 k1 hi hkn hQr hbud hfresh h.
 - by move: h; rewrite cats0.
 - rewrite /= bind_assoc.
+  have hk : k < w.-1 by apply: leq_trans hkn; rewrite addnS ltnS leq_addr.
   eapply r_ctquery_known => //.
   + by apply: leq_trans hbud; rewrite addnS ltnS leq_addr.
   + exact: tlt_notin hfresh.
   + apply: IH => //.
+    * by rewrite addSnnS.
+    * rewrite /unzip1 map_rcons all_rcons hQr /=.
+      by rewrite hi hk.
     * by rewrite size_rcons addSnnS.
     * rewrite /unzip1 map_rcons all_rcons; apply/andP; split.
       -- by rewrite /tlt /= ltnn eqxx ltnSn.
@@ -882,6 +912,9 @@ Lemma r_ctchains_spec (b : bool) {B : choiceType} (pp : PP)
     (post : postcond B B) :
   forall ds st (Q : seq qentry) (K0 : chList N -> raw_code B)
          (K1 : chList N * chList N -> raw_code B),
+  (st + size ds <= l)%N ->
+  all (λ d : nat, d < w) ds ->
+  all (λ t : nat * nat, (t.1 < l) && (t.2 < w.-1)) (unzip1 Q) ->
   (size Q + nqs w ds <= p_tcr l w)%N ->
   all (λ t : nat * nat, t.1 < st) (unzip1 Q) ->
   (forall us, size us = size ds ->
@@ -894,15 +927,20 @@ Lemma r_ctchains_spec (b : bool) {B : choiceType} (pp : PP)
      bind (sample_sig_roots PP N FW dN pp st ds) K0
    ≈ bind (code_link (ct_chains st ds) (SMT b)) K1 ⦃ post ⦄.
 Proof.
-elim=> [|d ds IH] st Q K0 K1 hbud hfresh h.
+elim=> [|d ds IH] st Q K0 K1 hst hds hQr hbud hfresh h.
 - by move: (h [::] erefl); rewrite cats0.
-- rewrite /= code_link_bind.
+- move: hst => /=; rewrite addnS => hst2.
+  have hstl : st < l := leq_ltn_trans (leq_addr _ _) hst2.
+  have hstds : st.+1 + size ds <= l := hst2.
+  move: hds => /= /andP[hd0 hds'].
+  rewrite /= code_link_bind.
   rewrite (code_link_scheme _ _ _ _ (prog_valid dN)).
   rewrite !bind_assoc.
   eapply r_scheme_bind; first exact: prog_valid.
   move=> u; cbv beta; rewrite !bind_assoc.
-  case: d hbud h => [|d'] hbud h.
+  case: d hd0 hbud h => [|d'] hd0 hbud h.
   + (* d = 0 : no sigma query, walk from the root itself *)
+    have hkn0 : 0 + (w.-1 - 0) <= w.-1 by rewrite add0n subn0.
     rewrite code_link_bind bind_assoc /=.
     rewrite code_link_bind bind_assoc.
     eapply (r_ctwalk_spec b pp post (w.-1 - 0) st 0 u Q) => //.
@@ -911,6 +949,12 @@ elim=> [|d ds IH] st Q K0 K1 hbud hfresh h.
     * exact: all_lt_tlt.
     * rewrite (code_link_bind (ct_chains st.+1 ds)) bind_assoc.
       eapply IH => //.
+      -- rewrite unzip1_cat all_cat; apply/andP; split; first exact: hQr.
+         apply/allP => t ht; apply/andP; split.
+         ++ by move: (allP (walkq_tweak1 PP N FW pp st 0 (w.-1 - 0) u) t ht)
+              => /eqP ->.
+         ++ exact: (allP (walkq_tweak2 PP N FW pp st 0
+                       (w.-1 - 0) u w.-1 hkn0) t ht).
       -- by rewrite size_cat size_walkq -addnA.
       -- rewrite unzip1_cat all_cat; apply/andP; split.
          ++ by apply: sub_all hfresh => t /= /ltnW; rewrite ltnS.
@@ -920,6 +964,8 @@ elim=> [|d ds IH] st Q K0 K1 hbud hfresh h.
          move: (h (u :: us)); rewrite /= hus => /(_ erefl).
          by rewrite (commit_queries_cons PP N FW) /chain_queries /= catA.
   + (* d = d'.+1 : sigma query first *)
+    have hdw1 : d'.+1 <= w.-1 by rewrite -ltnS prednK.
+    have hkn1 : d'.+1 + (w.-1 - d'.+1) <= w.-1 by rewrite subnKC.
     rewrite code_link_bind bind_assoc /=.
     rewrite bind_assoc.
     eapply r_ctquery_known => //.
@@ -930,6 +976,8 @@ elim=> [|d ds IH] st Q K0 K1 hbud hfresh h.
                     (FW pp (st, d') u))) bind_assoc.
       eapply (r_ctwalk_spec b pp post (w.-1 - d'.+1) st d'.+1
                 (FW pp (st, d') u) (rcons Q ((st, d'), u))) => //.
+      -- rewrite /unzip1 map_rcons all_rcons hQr /=.
+         by rewrite hstl hdw1.
       -- rewrite size_rcons addSnnS; apply: leq_trans hbud.
          by rewrite leq_add2l /nqs /= /nq /= add1n addSn ltnS leq_addr.
       -- rewrite /unzip1 map_rcons all_rcons; apply/andP; split.
@@ -937,6 +985,16 @@ elim=> [|d ds IH] st Q K0 K1 hbud hfresh h.
          ++ exact: all_lt_tlt.
       -- rewrite /= (code_link_bind (ct_chains st.+1 ds)) bind_assoc.
          eapply IH => //.
+         ++ rewrite unzip1_cat all_cat; apply/andP; split.
+            ** rewrite /unzip1 map_rcons all_rcons hQr /=.
+               by rewrite hstl hdw1.
+            ** apply/allP => t ht; apply/andP; split.
+               --- by move: (allP (walkq_tweak1 PP N FW pp st d'.+1
+                             (w.-1 - d'.+1) (FW pp (st, d') u)) t ht)
+                     => /eqP ->.
+               --- exact: (allP (walkq_tweak2 PP N FW pp st d'.+1
+                             (w.-1 - d'.+1) (FW pp (st, d') u)
+                             w.-1 hkn1) t ht).
          ++ rewrite size_cat size_rcons size_walkq.
             apply: leq_trans hbud.
             by rewrite addSnnS -addnA leq_add2l /nqs /= /nq /= add1n.
@@ -1058,21 +1116,25 @@ simplify_eq_rel arg.
   eapply (r_ctgrind_spec true pp m).
   cbv beta.
   rewrite code_link_assertD
-          (cp_pick_map PP M Hgrind w l S_wn c_max zstar istar).
+          (@cp_pick_map w l PP M Hgrind S_wn c_max zstar istar).
   refine (r_assertD _ _ _ _ _ _ _ _).
     { by move=> ? _; case: (wfind_ctr pp m). }
   move=> e1 _.
   move: e1; case E: (wfind_ctr pp m) => [c|] /= e1; last by [].
-  rewrite !(digestE PP M Hgrind w l zstar istar).
+  rewrite !(digestE PP M Hgrind zstar istar).
   (* the chains: lhs re-rooted sampling, rhs TQUERY-committed walks *)
   rewrite (code_link_bind (ct_chains 0 (wdigest pp m c))).
+  have hszd : size (wdigest pp m c) = l
+    := size_digest_of PP M Hgrind zstar istar pp m c.
   eapply (r_ctchains_spec true pp _ (wdigest pp m c) 0 [::]) => //.
-    { by rewrite /= (nqs_le l w _
-        (size_digest_of PP M Hgrind w l zstar istar pp m c)). }
+    { by rewrite add0n hszd. }
+    { by have /andP[hwf _] := find_ctr_good PP M Hgrind S_wn c_max
+          zstar istar pp m c E; exact: hwf. }
+    { by rewrite /= (nqs_le l w _ hszd). }
   move=> us hus.
   cbv beta iota.
-  rewrite (wendsE PP N F w l zstar istar pp _ _
-            (size_digest_of PP M Hgrind w l zstar istar pp m c)).
+  rewrite (wendsE PP N F zstar istar pp _ _
+            (size_digest_of PP M Hgrind zstar istar pp m c)).
   simpl.
   (* GETPP: reveal pp, flip the phase; then the pure pk compression *)
   rewrite (resolve_ct_gp true Datatypes.tt).
@@ -1083,8 +1145,8 @@ simplify_eq_rel arg.
   eapply r_put_rhs_weak.
     { move=> s0 s1 hpre; exact: (tblk_set_rev _ _ _ _ hpre). }
   apply: r_ct_tail => //.
-  - exact: (find_ctr_good PP M Hgrind w l S_wn c_max zstar istar pp m c E).
-  - by rewrite hus (size_digest_of PP M Hgrind w l zstar istar).
+  - exact: (find_ctr_good PP M Hgrind S_wn c_max zstar istar pp m c E).
+  - by rewrite hus (size_digest_of PP M Hgrind zstar istar).
 - (* KFORGE *)
   destruct arg as [mst sgst].
   simpl.
@@ -1267,20 +1329,24 @@ simplify_eq_rel arg.
   eapply (r_ctgrind_spec false pp m).
   cbv beta.
   rewrite code_link_assertD
-          (cp_pick_map PP M Hgrind w l S_wn c_max zstar istar).
+          (@cp_pick_map w l PP M Hgrind S_wn c_max zstar istar).
   refine (r_assertD _ _ _ _ _ _ _ _).
     { by move=> ? _; case: (wfind_ctr pp m). }
   move=> e1 _.
   move: e1; case E: (wfind_ctr pp m) => [c|] /= e1; last by [].
-  rewrite !(digestE PP M Hgrind w l zstar istar).
+  rewrite !(digestE PP M Hgrind zstar istar).
   rewrite (code_link_bind (ct_chains 0 (wdigest pp m c))).
+  have hszd : size (wdigest pp m c) = l
+    := size_digest_of PP M Hgrind zstar istar pp m c.
   eapply (r_ctchains_spec false pp _ (wdigest pp m c) 0 [::]) => //.
-    { by rewrite /= (nqs_le l w _
-        (size_digest_of PP M Hgrind w l zstar istar pp m c)). }
+    { by rewrite add0n hszd. }
+    { by have /andP[hwf _] := find_ctr_good PP M Hgrind S_wn c_max
+          zstar istar pp m c E; exact: hwf. }
+    { by rewrite /= (nqs_le l w _ hszd). }
   move=> us hus.
   cbv beta iota.
-  rewrite (wendsE PP N F w l zstar istar pp _ _
-            (size_digest_of PP M Hgrind w l zstar istar pp m c)).
+  rewrite (wendsE PP N F zstar istar pp _ _
+            (size_digest_of PP M Hgrind zstar istar pp m c)).
   simpl.
   rewrite (resolve_ct_gp false Datatypes.tt).
   eapply (r_get_bind_rhs tpp_loc (Some pp)).
@@ -1290,8 +1356,8 @@ simplify_eq_rel arg.
   eapply r_put_rhs_weak.
     { move=> s0 s1 hpre; exact: (tblk_set_rev _ _ _ _ hpre). }
   apply: r_ct_tail => //.
-  - exact: (find_ctr_good PP M Hgrind w l S_wn c_max zstar istar pp m c E).
-  - by rewrite hus (size_digest_of PP M Hgrind w l zstar istar).
+  - exact: (find_ctr_good PP M Hgrind S_wn c_max zstar istar pp m c E).
+  - by rewrite hus (size_digest_of PP M Hgrind zstar istar).
 - (* KFORGE *)
   destruct arg as [mst sgst].
   simpl.
@@ -1734,6 +1800,8 @@ Qed.
 Lemma r_prquery (b : bool) {B : choiceType} (pp : PP)
     (i k : nat) (Q : seq qentry)
     (k0 k1 : N -> raw_code B) (post : postcond B B) :
+  i < l -> k < w.-1 ->
+  all (λ t : nat * nat, (t.1 < l) && (t.2 < w.-1)) (unzip1 Q) ->
   size Q < l ->
   (i, k) \notin unzip1 Q ->
   (forall x : N,
@@ -1742,7 +1810,7 @@ Lemma r_prquery (b : bool) {B : choiceType} (pp : PP)
   ⊢ ⦃ λ '(s0, s1), pblk (Some pp) false Q (s0, s1) ⦄
      bind dN k0 ≈ bind (resolve (SMP b) pr_pqo (ctw i k)) k1 ⦃ post ⦄.
 Proof.
-move=> hbud hfresh h.
+move=> hi hk hQr hbud hfresh h.
 rewrite (resolve_pr_pq b (ctw i k)).
 eapply (r_get_bind_rhs prev_loc false).
   by move=> s0 s1 [_ _ h' _ _].
@@ -1756,7 +1824,8 @@ eapply r_bind_assertD_rhs.
   by move=> s0 s1 _; rewrite size_map /unzip1 size_map hbud.
 move=> _.
 eapply r_bind_assertD_rhs.
-  by move=> s0 s1 _; exact: wtw_notin hfresh.
+  move=> s0 s1 _; apply: (wtw_notin (i, k) (unzip1 Q) Hanchor hi hk _ hfresh).
+  by move=> t' /(allP hQr) /andP[h1 h2]; split.
 move=> _.
 rewrite bind_assoc.
 eapply r_scheme_bind; first exact: prog_valid.
@@ -1768,6 +1837,8 @@ eapply r_put2_bind_rhs.
   by move=> s0 s1 hpre; exact: (pblk_qupd pp Q (i, k) x s0 s1 hpre).
 eapply (r_get_bind_rhs ppp_loc (Some pp)).
   by move=> s0 s1 [_ h' _ _ _].
+simpl.
+rewrite (th_eval_wtw pp (i, k) x).
 exact: (h x).
 Qed.
 
@@ -1781,6 +1852,9 @@ Qed.
 Lemma r_prchains_spec (b : bool) {B : choiceType} (pp : PP)
     (post : postcond B B) :
   forall ds st (Q : seq qentry) (K0 K1 : chList N -> raw_code B),
+  (st + size ds <= l)%N ->
+  all (λ d : nat, d < w) ds ->
+  all (λ t : nat * nat, (t.1 < l) && (t.2 < w.-1)) (unzip1 Q) ->
   (size Q + npq ds <= l)%N ->
   all (λ t : nat * nat, t.1 < st) (unzip1 Q) ->
   (forall us, size us = size ds ->
@@ -1791,10 +1865,14 @@ Lemma r_prchains_spec (b : bool) {B : choiceType} (pp : PP)
      bind (sample_sig_roots PP N FW dN pp st ds) K0
    ≈ bind (code_link (pr_chains st ds) (SMP b)) K1 ⦃ post ⦄.
 Proof.
-elim=> [|d ds IH] st Q K0 K1 hbud hfresh h.
+elim=> [|d ds IH] st Q K0 K1 hst hds hQr hbud hfresh h.
 - by move: (h [::] erefl); rewrite cats0.
-- rewrite /= code_link_bind.
-  case: d hbud h => [|d'] hbud h.
+- move: hst => /=; rewrite addnS => hst2.
+  have hstl : st < l := leq_ltn_trans (leq_addr _ _) hst2.
+  have hstds : st.+1 + size ds <= l := hst2.
+  move: hds => /= /andP[hd0 hds'].
+  rewrite /= code_link_bind.
+  case: d hd0 hbud h => [|d'] hd0 hbud h.
   + (* d = 0 : both sides sample the value locally *)
     rewrite (code_link_scheme _ _ _ _ (prog_valid dN)).
     rewrite !bind_assoc.
@@ -1808,6 +1886,7 @@ elim=> [|d ds IH] st Q K0 K1 hbud hfresh h.
       move: (h (u :: us)); rewrite /= hus => /(_ erefl).
       by [].
   + (* d = d'.+1 : the sigma PQUERY *)
+    have hdw1 : d'.+1 <= w.-1 by rewrite -ltnS prednK.
     rewrite bind_assoc.
     simpl.
     rewrite !bind_assoc.
@@ -1819,6 +1898,8 @@ elim=> [|d ds IH] st Q K0 K1 hbud hfresh h.
       simpl.
       rewrite (code_link_bind (pr_chains st.+1 ds)) !bind_assoc.
       eapply IH => //.
+      -- rewrite /unzip1 map_rcons all_rcons hQr /=.
+         by rewrite hstl hdw1.
       -- by move: hbud; rewrite size_rcons /npq /= addnS addSn.
       -- rewrite /unzip1 map_rcons all_rcons; apply/andP; split.
          ++ by rewrite /= ltnSn.
@@ -1927,17 +2008,21 @@ simplify_eq_rel arg.
   eapply (r_prgrind_spec true pp m).
   cbv beta.
   rewrite code_link_assertD
-          (cp_pick_map PP M Hgrind w l S_wn c_max zstar istar).
+          (@cp_pick_map w l PP M Hgrind S_wn c_max zstar istar).
   refine (r_assertD _ _ _ _ _ _ _ _).
     { by move=> ? _; case: (wfind_ctr pp m). }
   move=> e1 _.
   move: e1; case E: (wfind_ctr pp m) => [c|] /= e1; last by [].
-  rewrite !(digestE PP M Hgrind w l zstar istar).
+  rewrite !(digestE PP M Hgrind zstar istar).
   (* the chains: lhs re-rooted sampling, rhs hidden PQUERY samples *)
   rewrite (code_link_bind (pr_chains 0 (wdigest pp m c))).
+  have hszd : size (wdigest pp m c) = l
+    := size_digest_of PP M Hgrind zstar istar pp m c.
   eapply (r_prchains_spec true pp _ (wdigest pp m c) 0 [::]) => //.
-    { by rewrite /= (npq_le l _
-        (size_digest_of PP M Hgrind w l zstar istar pp m c)). }
+    { by rewrite add0n hszd. }
+    { by have /andP[hwf _] := find_ctr_good PP M Hgrind S_wn c_max
+          zstar istar pp m c E; exact: hwf. }
+    { by rewrite /= (npq_le l _ hszd). }
   move=> us hus.
   cbv beta.
   simpl.
@@ -1950,8 +2035,8 @@ simplify_eq_rel arg.
   eapply r_put_rhs_weak.
     { move=> s0 s1 hpre; exact: (pblk_set_rev _ _ _ _ hpre). }
   apply: r_pr_tail => //.
-  - exact: (find_ctr_good PP M Hgrind w l S_wn c_max zstar istar pp m c E).
-  - by rewrite hus (size_digest_of PP M Hgrind w l zstar istar).
+  - exact: (find_ctr_good PP M Hgrind S_wn c_max zstar istar pp m c E).
+  - by rewrite hus (size_digest_of PP M Hgrind zstar istar).
 - (* KFORGE *)
   destruct arg as [mst sgst].
   simpl.
@@ -2153,16 +2238,20 @@ simplify_eq_rel arg.
   eapply (r_prgrind_spec false pp m).
   cbv beta.
   rewrite code_link_assertD
-          (cp_pick_map PP M Hgrind w l S_wn c_max zstar istar).
+          (@cp_pick_map w l PP M Hgrind S_wn c_max zstar istar).
   refine (r_assertD _ _ _ _ _ _ _ _).
     { by move=> ? _; case: (wfind_ctr pp m). }
   move=> e1 _.
   move: e1; case E: (wfind_ctr pp m) => [c|] /= e1; last by [].
-  rewrite !(digestE PP M Hgrind w l zstar istar).
+  rewrite !(digestE PP M Hgrind zstar istar).
   rewrite (code_link_bind (pr_chains 0 (wdigest pp m c))).
+  have hszd : size (wdigest pp m c) = l
+    := size_digest_of PP M Hgrind zstar istar pp m c.
   eapply (r_prchains_spec false pp _ (wdigest pp m c) 0 [::]) => //.
-    { by rewrite /= (npq_le l _
-        (size_digest_of PP M Hgrind w l zstar istar pp m c)). }
+    { by rewrite add0n hszd. }
+    { by have /andP[hwf _] := find_ctr_good PP M Hgrind S_wn c_max
+          zstar istar pp m c E; exact: hwf. }
+    { by rewrite /= (npq_le l _ hszd). }
   move=> us hus.
   cbv beta.
   simpl.
@@ -2174,8 +2263,8 @@ simplify_eq_rel arg.
   eapply r_put_rhs_weak.
     { move=> s0 s1 hpre; exact: (pblk_set_rev _ _ _ _ hpre). }
   apply: r_pr_tail => //.
-  - exact: (find_ctr_good PP M Hgrind w l S_wn c_max zstar istar pp m c E).
-  - by rewrite hus (size_digest_of PP M Hgrind w l zstar istar).
+  - exact: (find_ctr_good PP M Hgrind S_wn c_max zstar istar pp m c E).
+  - by rewrite hus (size_digest_of PP M Hgrind zstar istar).
 - (* KFORGE: lhs is [ret false]; everything on the rhs is one-sided *)
   destruct arg as [mst sgst].
   simpl.

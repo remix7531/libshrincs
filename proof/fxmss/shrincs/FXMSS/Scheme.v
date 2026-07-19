@@ -268,6 +268,9 @@ Section FXMSSScheme.
     digest space (the 2n-bit output of Hmsg^sf, = the WOTS+C message
     space), user message space, digest randomness space, secret-seed
     space (SKseed), PRF-key space (SKprf). *)
+Context {w l : nat}.
+Local Notation adrs_sf := (Addressing.adrs_sf l w).
+
 Context (PP N D M R Ks Kp : choice_type).
 
 (** WOTS+C leaf layer (wotsc.tex; SHRINCS.WOTSC.Scheme). *)
@@ -296,13 +299,13 @@ Context (dPP : dist PP) (dKs : dist Ks) (dKp : dist Kp).
 (** WOTS+C parameters (wotsc.tex; see WOTSC.Scheme header) and the
     declared imaginary-tree height h_sf (xmss.tex: nodes are
     (z, i) with z <= h_sf, i < 2^(h_sf - z)). *)
-Context (w l S_wn c_max : nat).
+Context (S_wn c_max : nat).
 Context (h_sf : nat).
 
 (** Leaf-layer shorthand: the WOTS+C signing function of the
     instance anchored at (z, i). *)
 Local Notation wsign_sig z i :=
-  (sign_sig PP N D F Hgrind w l S_wn c_max z i).
+  (sign_sig PP N D F Hgrind S_wn c_max z i).
 
 (* ------------------------------------------------------------------ *)
 (** ** Positions, addresses, node hash *)
@@ -328,13 +331,21 @@ have hsz : size p = size q by rewrite -(subKn hp) e1 (subKn hq).
 by rewrite -[p]path_of_idx_of_path -[q]path_of_idx_of_path hsz e2.
 Qed.
 
+Lemma pos_id_bounded (p : seq bool) :
+  h_sf <= 64 -> size p <= h_sf -> anchor_bounded (pos_id p).
+Proof. exact: path_anchor_bounded. Qed.
+
 Lemma node_adrs_inj (p q : seq bool) :
-  size p <= h_sf -> size q <= h_sf ->
-  tree_node_adrs (h_sf - size p) (idx_of_path p)
-    = tree_node_adrs (h_sf - size q) (idx_of_path q) ->
+  h_sf <= 64 -> size p <= h_sf -> size q <= h_sf ->
+  @tree_node_adrs l w (h_sf - size p) (idx_of_path p)
+    = @tree_node_adrs l w (h_sf - size q) (idx_of_path q) ->
   p = q.
 Proof.
-move=> hp hq [e1 e2].
+move=> hh hp hq he.
+have [e1 e2] := @AdrTree_inj l w
+  (h_sf - size p) (idx_of_path p)
+  (h_sf - size q) (idx_of_path q)
+  (pos_id_bounded p hh hp) (pos_id_bounded q hh hq) he.
 by apply: pos_id_inj => //; rewrite /pos_id e1 e2.
 Qed.
 
@@ -392,7 +403,7 @@ Proof. by rewrite size_map size_iota. Qed.
 
 (** Compressed WOTS+C public key of the anchor at zi. *)
 Definition leaf_pk (pp : PP) (ks : Ks) (zi : nat * nat) : N :=
-  pk_of PP N F Tl w l zi.1 zi.2 pp (leaf_sk pp ks zi).
+  pk_of PP N F Tl zi.1 zi.2 pp (leaf_sk pp ks zi).
 
 (* ------------------------------------------------------------------ *)
 (** ** The value tree and the root *)
@@ -450,8 +461,8 @@ Definition fx_sign (pp : PP) (ks : Ks) (kp : Kp) (sp : seq bool) (q : nat)
 Definition recover_anchor (pp : PP) (zi : nat * nat) (md : D)
     (ws : seq N * nat) : N :=
   Tl pp (wotsc_pk_adrs zi)
-     (complete_ends PP N F w l zi.1 zi.2 pp
-        (digest_of PP D Hgrind w l zi.1 zi.2 pp md ws.2) ws.1).
+     (complete_ends PP N F zi.1 zi.2 pp
+        (digest_of PP D Hgrind zi.1 zi.2 pp md ws.2) ws.1).
 
 (** The WOTS+C-side checks of the flexible verifier: digest (at the
     signature's counter) in the post-grinding space, and exactly l
@@ -459,7 +470,7 @@ Definition recover_anchor (pp : PP) (zi : nat * nat) (md : D)
     |sigma_tree| length equation, header). *)
 Definition wots_checks (pp : PP) (zi : nat * nat) (md : D)
     (ws : seq N * nat) : bool :=
-  valid_digest w S_wn (digest_of PP D Hgrind w l zi.1 zi.2 pp md ws.2)
+  @valid_digest w S_wn (digest_of PP D Hgrind zi.1 zi.2 pp md ws.2)
   && (size ws.1 == l).
 
 (** Bridge to WOTSC.Scheme's verifier: verify_sig against a root is
@@ -467,7 +478,7 @@ Definition wots_checks (pp : PP) (zi : nat * nat) (md : D)
     files rewrite along this to reuse the P5 analysis. *)
 Lemma verify_sigE (pp : PP) (rt : N) (zi : nat * nat) (md : D)
     (ws : seq N * nat) :
-  verify_sig PP N D F Tl Hgrind w l S_wn zi.1 zi.2 pp rt md ws
+  verify_sig PP N D F Tl Hgrind S_wn zi.1 zi.2 pp rt md ws
   = wots_checks pp zi md ws && (recover_anchor pp zi md ws == rt).
 Proof. by rewrite /verify_sig /wots_checks /recover_anchor andbA. Qed.
 
@@ -540,7 +551,7 @@ have hsubv : subtree_at (value_tree pp ks t) p
 have hval := val_ap_correct E2 hsubv.
 (* leaf: the honest WOTS+C signature verifies to the honest leaf pk *)
 have hxs : size (leaf_sk pp ks zi) = l := size_leaf_sk pp ks zi.
-have hver := verify_sign_sig PP N D F Tl Hgrind w l S_wn c_max zi.1 zi.2
+have hver := verify_sign_sig PP N D F Tl Hgrind S_wn c_max zi.1 zi.2
                pp (leaf_sk pp ks zi) md ws hxs E1.
 rewrite verify_sigE in hver.
 move/andP: hver => [hchecks /eqP hrec].

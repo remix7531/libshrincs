@@ -28,10 +28,14 @@ directly by the multi-leaf proof.  Native `Sec.wots.hop.*` fixes one anchor in
 independently addressed leaves.  Replacing those files requires generalizing
 the native library's reductions, not merely changing imports.
 
-The FXMSS address encoder now follows `Model.address`'s canonical 22-byte flat
-view, payload placement, and stateful tags 16, 17, 18, 21, and 22.  Its fields
-remain abstract `nat`s; a concrete model bridge must discharge the bounds that
-`Model.address.adrs` enforces intrinsically.
+FXMSS and the native WOTS+C development now use the same dependent address
+type, `Model.address.adrs`, and the same finite SSProve encoding from
+`Sec.addressing`.  The compatibility facade accepts the copied proof's `nat`
+coordinates through exact-or-zero smart constructors; every use that relies on
+injectivity proves the corresponding field bounds.  In particular,
+`FXMSS_secure` carries `h_sf <= 64`, and the scheme's path and chain invariants
+establish all remaining representability facts.  There is no parallel FXMSS
+address type or model-bridge layer.
 
 ## Layout & logical names
 

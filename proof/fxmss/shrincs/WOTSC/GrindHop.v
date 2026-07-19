@@ -88,6 +88,9 @@ Import PackageNotation.
 
 Section GrindHop.
 
+Context {w l : nat}.
+Local Notation adrs_sf := (Addressing.adrs_sf l w).
+
 (** Same section context as WOTSC.Games (the dummy sampler [dM] is
     consumed only by [Tgr]'s record fields, see header). *)
 Context (PP N M : choice_type).
@@ -95,32 +98,35 @@ Context (F : PP -> adrs_sf -> N -> N).
 Context (Tl : PP -> adrs_sf -> seq N -> N).
 Context (Hgrind : PP -> adrs_sf -> M * nat -> nat).
 Context (dPP : dist PP) (dN : dist N) (dM : dist M).
-Context (w l S_wn c_max : nat).
+Context (S_wn c_max : nat).
 Context (zstar istar : nat).
 
 Local Notation WC :=
-  (WOTSC PP N M F Tl Hgrind dPP dN w l S_wn c_max zstar istar).
+  (WOTSC PP N M F Tl Hgrind dPP dN S_wn c_max zstar istar).
 Local Notation TG := (Tgr PP M Hgrind dPP dM).
 Local Notation CG := (Cgr PP N M F Tl Hgrind dPP dM).
 Local Notation genc := (grind_enc M).
-Local Notation gprp := (grind_prp w l S_wn).
+Local Notation gprp := (@grind_prp w l S_wn).
 Local Notation STB b := (STCRP_game TG CG M genc gprp c_max 1 b).
 Local Notation gadrs := (grind_adrs zstar istar).
 Local Notation padrs := (pk_adrs zstar istar).
 Local Notation gtw := (encode_adrs gadrs).
 Local Notation FW := (Fw PP N F zstar istar).
-Local Notation wdigest := (digest_of PP M Hgrind w l zstar istar).
-Local Notation wfind_ctr := (find_ctr PP M Hgrind w l S_wn c_max zstar istar).
-Local Notation wcends := (complete_ends PP N F w l zstar istar).
-Local Notation wverify := (verify_sig PP N M F Tl Hgrind w l S_wn zstar istar).
-Local Notation G1W := (G1w PP N M F Tl Hgrind dPP dN w l S_wn c_max zstar istar).
+Local Notation wdigest := (digest_of PP M Hgrind zstar istar).
+Local Notation wfind_ctr :=
+  (find_ctr PP M Hgrind S_wn c_max zstar istar).
+Local Notation wcends := (complete_ends PP N F zstar istar).
+Local Notation wverify :=
+  (verify_sig PP N M F Tl Hgrind S_wn zstar istar).
+Local Notation G1W :=
+  (G1w PP N M F Tl Hgrind dPP dN S_wn c_max zstar istar).
 
 Local Notation pk_loc' :=
-  (g0w_pk_loc PP N M F Tl Hgrind dPP dN w l S_wn c_max zstar istar).
+  (g0w_pk_loc PP N M F Tl Hgrind dPP dN S_wn c_max zstar istar).
 Local Notation log_loc' :=
-  (g0w_log_loc PP N M F Tl Hgrind dPP dN w l S_wn c_max zstar istar).
+  (g0w_log_loc PP N M F Tl Hgrind dPP dN S_wn c_max zstar istar).
 Local Notation sig_loc' :=
-  (g0w_sig_loc PP N M F Tl Hgrind dPP dN w l S_wn c_max zstar istar).
+  (g0w_sig_loc PP N M F Tl Hgrind dPP dN S_wn c_max zstar istar).
 Local Notation pp_loc' := (stcr_pp_loc TG).
 Local Notation tgts_loc' := (stcr_tgts_loc TG M).
 Local Notation tws_loc' := (stcr_tws_loc TG).
@@ -303,7 +309,7 @@ Qed.
     [decode_tweakK]-computation). *)
 Lemma digest_resE (pp : PP) (m : M) (c : nat) :
   digits_w w l (th_eval TG pp gtw (genc m c)) = wdigest pp m c.
-Proof. by []. Qed.
+Proof. by rewrite /grind_enc th_evalE_Tgr /digest_of. Qed.
 
 (* ------------------------------------------------------------------ *)
 (** ** The invariant (header) *)
@@ -472,6 +478,7 @@ Qed.
 (** ** THE real-side equivalence *)
 
 Lemma R_gr_real
+    (hw : (0 < w)%N)
     (Hrange : forall (pp' : PP) (a : adrs_sf) (x : M * nat),
         Hgrind pp' a x < w ^ l) :
   perfect (I_KOTS WC) (G1W true)
@@ -530,7 +537,7 @@ simplify_eq_rel arg.
     { move=> s0 s1 hpre; exact: (gblk_set_pp pp _ _ _ _ _ hpre). }
   simpl.
   (* the in-oracle search is find_ctr: split on its outcome *)
-  have hfc := grind_search_find_ctr PP M Hgrind dPP dM w l S_wn c_max
+  have hfc := @grind_search_find_ctr w l PP M Hgrind dPP dM S_wn c_max
                 zstar istar pp m.
   case E: [seq i <- iota 0 c_max | gprp (th_eval TG pp gtw (genc m i))]
     => [|c crest]; rewrite E /= in hfc.
@@ -639,8 +646,8 @@ simplify_eq_rel arg.
           by case: hmatch => mm [cc [sgg [_ _ hpo _ _]]]. }
       simpl.
       have hne : mst != m := notin_log_neq M m mst hfresh.
-      have hcol := wdigest_inj PP M Hgrind w l zstar istar pk.1
-                     mst sgst.2 m c Hrange (eqP E1).
+      have hcol := @wdigest_inj w l PP M Hgrind zstar istar pk.1
+                     mst sgst.2 m c hw Hrange (eqP E1).
       rewrite /grind_enc !th_evalE_Tgr hne hcol eqxx /=.
       apply r_ret => s0 s1 hpre; split=> //.
       by case: hpre => [[[[[[hinv _] _] _] _] _] _].
@@ -704,7 +711,7 @@ simplify_eq_rel arg.
   eapply r_put_bind_rhs.
     { move=> s0 s1 hpre; exact: (gblk_set_pp pp _ _ _ _ _ hpre). }
   simpl.
-  have hfc := grind_search_find_ctr PP M Hgrind dPP dM w l S_wn c_max
+  have hfc := @grind_search_find_ctr w l PP M Hgrind dPP dM S_wn c_max
                 zstar istar pp m.
   case E: [seq i <- iota 0 c_max | gprp (th_eval TG pp gtw (genc m i))]
     => [|c crest]; rewrite E /= in hfc.

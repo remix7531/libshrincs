@@ -47,6 +47,10 @@ Import PackageNotation.
 
 Section FXMSSFinalHop.
 
+Context {w l : nat}.
+Local Notation adrs_sf := (Addressing.adrs_sf l w).
+Local Notation adrs_sf_ch := (Addressing.adrs_sf_ch l w).
+
 (** Same DATA section context as FXMSS/TreeHopProof.v (NO assumed
     perfect/Adv premises). *)
 Context (PP N D M R : choice_type).
@@ -55,7 +59,7 @@ Context (Tl : PP -> adrs_sf -> seq N -> N).
 Context (Hgrind : PP -> adrs_sf -> D * nat -> nat).
 Context (Htree : PP -> adrs_sf -> N * N -> N).
 Context (dPP : dist PP) (dN : dist N) (dR : dist R) (dD : dist D).
-Context (w l S_wn c_max : nat).
+Context (S_wn c_max : nat).
 Context (h_sf : nat).
 Context (q_s q_h n_max : nat).
 Context (q_f : nat).
@@ -68,12 +72,12 @@ Local Notation FXSIG := (FxSig N R).
 Local Notation LateLocs0 := (LateLocs PP N D M R).
 Local Notation keepN := (keepNone N).
 Local Notation forge_keep :=
-  (forge_keep_body PP N D M R F Tl Hgrind Htree dD w l S_wn h_sf q_f).
+  (forge_keep_body PP N D M R F Tl Hgrind Htree dD S_wn h_sf q_f).
 Local Notation fverdN :=
-  (fverd PP N D M R F Tl Hgrind Htree w l S_wn h_sf).
+  (fverd PP N D M R F Tl Hgrind Htree S_wn h_sf).
 
 Local Notation G8 b :=
-  (G8f PP N D M R F Tl Hgrind Htree dPP dN dR dD w l S_wn c_max h_sf
+  (G8f PP N D M R F Tl Hgrind Htree dPP dN dR dD S_wn c_max h_sf
      q_s q_h n_max q_f b).
 
 (* ------------------------------------------------------------------ *)

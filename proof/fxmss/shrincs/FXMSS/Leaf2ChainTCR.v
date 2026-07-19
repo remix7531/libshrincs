@@ -44,6 +44,10 @@ Import GRing.Theory Num.Theory Order.POrderTheory.
 
 Section Leaf2ChainTCR.
 
+Context {w l : nat}.
+Local Notation adrs_sf := (Addressing.adrs_sf l w).
+Local Notation adrs_sf_ch := (Addressing.adrs_sf_ch l w).
+
 (** Same DATA-ONLY section context as FXMSS/Leaf2Games.v. *)
 Context (PP N D M R : choice_type).
 Context (F : PP -> adrs_sf -> N -> N).
@@ -51,8 +55,9 @@ Context (Tl : PP -> adrs_sf -> seq N -> N).
 Context (Hgrind : PP -> adrs_sf -> D * nat -> nat).
 Context (Htree : PP -> adrs_sf -> N * N -> N).
 Context (dPP : dist PP) (dN : dist N) (dR : dist R) (dD : dist D).
-Context (w l S_wn c_max : nat).
+Context (S_wn c_max : nat).
 Context (h_sf : nat).
+Context (Hh : (h_sf <= 64)%N).
 Context (q_s q_h n_max : nat).
 Context (q_f : nat).
 Context (n0 : N) (d0 : D).
@@ -60,7 +65,8 @@ Context (n0 : N) (d0 : D).
 (* ------------------------------------------------------------------ *)
 (** ** Shorthands.  [lcoord] (= adrs_keypair o decode) from Leaf2Games. *)
 
-Local Notation IKM  := (I_MIW_km PP N D).
+Local Notation lcoord t := (@LeafKM.lcoord w l t).
+Local Notation IKM  := (@I_MIW_km w l PP N D).
 
 (** The leaf SM-TCR(F) target THF: F at the chain address (decoded tweak). *)
 Local Notation TFl := (Tf PP N F dPP dN).
@@ -86,22 +92,25 @@ Local Notation IMP := (I_SMTCR TFl CFl_leaf).
 Local Notation qF := (n_max * p_tcr l w)%N.
 
 (** Coordinate-level tweaks. *)
-Local Notation gtw_of t := (encode_adrs (wotsc_pk_adrs (lcoord t))).
-Local Notation grtw_of t := (encode_adrs (wotsc_grind_adrs (lcoord t))).
-Local Notation chtw_of zi i k := (encode_adrs (wotsc_chain_adrs zi i k)).
+Local Notation gtw_of t :=
+  (@encode_adrs l w (@wotsc_pk_adrs l w (lcoord t))).
+Local Notation grtw_of t :=
+  (@encode_adrs l w (@wotsc_grind_adrs l w (lcoord t))).
+Local Notation chtw_of zi i k :=
+  (@encode_adrs l w (@wotsc_chain_adrs l w zi i k)).
 
-Local Notation gprp := (grind_prp w l S_wn).
+Local Notation gprp := (@grind_prp w l S_wn).
 
 (** Inlined re-root digit / pk (= Leaf2Games.rr_digit / rr_pk at zi = lcoord t). *)
 Definition l_rrdig (zi : nat * nat) (pp : PP) (md : D) : seq nat :=
-  match find_ctr PP D Hgrind w l S_wn c_max zi.1 zi.2 pp md with
-  | Some c => digest_of PP D Hgrind w l zi.1 zi.2 pp md c
+  match find_ctr PP D Hgrind S_wn c_max zi.1 zi.2 pp md with
+  | Some c => digest_of PP D Hgrind zi.1 zi.2 pp md c
   | None => nseq l w.-1
   end.
 
 Definition l_rrpk (zi : nat * nat) (pp : PP) (md : D) (sg : seq N) : N :=
   Tl pp (wotsc_pk_adrs zi)
-     (complete_ends PP N F w l zi.1 zi.2 pp (l_rrdig zi pp md) sg).
+     (complete_ends PP N F zi.1 zi.2 pp (l_rrdig zi pp md) sg).
 
 (** The SLOT-KEYED static digit / pk (= Leaf2Games.rr_digitS / rr_pkS at
     zi = lcoord t).  LIFT: the [j < q_s] budget wrapper is DROPPED (every
@@ -113,7 +122,7 @@ Definition l_rrdigS (zi : nat * nat) (pp : PP) (md : D) (j : nat) : seq nat :=
 Definition l_rrpkS (zi : nat * nat) (pp : PP) (md : D) (j : nat)
     (sg : seq N) : N :=
   Tl pp (wotsc_pk_adrs zi)
-     (complete_ends PP N F w l zi.1 zi.2 pp (l_rrdigS zi pp md j) sg).
+     (complete_ends PP N F zi.1 zi.2 pp (l_rrdigS zi pp md j) sg).
 
 (* ------------------------------------------------------------------ *)
 (** ** Import opsigs. *)
@@ -234,23 +243,23 @@ Local Notation RCTLocs :=
 Definition lct_v (pp : PP) (t0 : adrs_sf_ch) (sg : 'list N) (md0 : D)
     (copt : 'option 'nat) (j : nat)
     (mw : D × (('list N) × 'nat)) : bool :=
-  let fdv := digest_of PP D Hgrind w l (lcoord t0).1 (lcoord t0).2 pp mw.1 mw.2.2 in
+  let fdv := digest_of PP D Hgrind (lcoord t0).1 (lcoord t0).2 pp mw.1 mw.2.2 in
   let rdg := l_rrdigS (lcoord t0) pp md0 j in
-  let vchecks := wots_checks PP N D Hgrind w l S_wn pp (lcoord t0) mw.1 mw.2 in
+  let vchecks := wots_checks PP N D Hgrind S_wn pp (lcoord t0) mw.1 mw.2 in
   let verok := (vchecks
-                && (recover_anchor PP N D F Tl Hgrind w l pp (lcoord t0) mw.1 mw.2
+                && (recover_anchor PP N D F Tl Hgrind pp (lcoord t0) mw.1 mw.2
                     == l_rrpkS (lcoord t0) pp md0 j sg))%B in
   let gate := (~~ isSome copt || (mw.1 != md0))%B in
   let ghit := (isSome copt && (fdv == rdg))%B in
-  let fcv := complete_ends PP N F w l (lcoord t0).1 (lcoord t0).2 pp fdv mw.2.1 in
-  let rcv := complete_ends PP N F w l (lcoord t0).1 (lcoord t0).2 pp rdg sg in
+  let fcv := complete_ends PP N F (lcoord t0).1 (lcoord t0).2 pp fdv mw.2.1 in
+  let rcv := complete_ends PP N F (lcoord t0).1 (lcoord t0).2 pp rdg sg in
   (verok && gate && ~~ ghit && (fcv == rcv))%B.
 
 (** The chain-TCR decision at the leaf coordinate (= P_gm3S's null
     discriminant, at the slot-keyed digit). *)
 Definition lct_dec (pp : PP) (t0 : adrs_sf_ch) (sg : 'list N) (md0 : D)
     (j : nat) (mw : D × (('list N) × 'nat)) : option (nat * N) :=
-  let fdv := digest_of PP D Hgrind w l (lcoord t0).1 (lcoord t0).2 pp mw.1 mw.2.2 in
+  let fdv := digest_of PP D Hgrind (lcoord t0).1 (lcoord t0).2 pp mw.1 mw.2.2 in
   let rdg := l_rrdigS (lcoord t0) pp md0 j in
   tcr_decision PP N (Fw PP N F (lcoord t0).1 (lcoord t0).2) l w pp rdg fdv sg mw.2.1.
 
@@ -400,13 +409,13 @@ Check (fun (B : nom_package) => B ∘ R_ctcr_leaf).
 (* ------------------------------------------------------------------ *)
 (** ** The CHAIN-TCR sub-bound (ladder step Glmid2 -> Glmid3). *)
 
-Local Notation GM2 := (Glmid2 PP N D F Tl Hgrind Htree dPP dN w l S_wn c_max n_max).
-Local Notation GM3 := (Glmid3 PP N D F Tl Hgrind Htree dPP dN w l S_wn c_max n_max).
+Local Notation GM2 := (Glmid2 PP N D F Tl Hgrind Htree dPP dN S_wn c_max n_max).
+Local Notation GM3 := (Glmid3 PP N D F Tl Hgrind Htree dPP dN S_wn c_max n_max).
 Local Notation SMB b := (SMTCR_game TFl CFl_leaf qF b).
 
 Local Notation Lpp := (miw_pp_loc PP).
-Local Notation Ltg := (mkm_tgts_loc N D).
-Local Notation Ltw := miw_tws_loc.
+Local Notation Ltg := (@mkm_tgts_loc w l N D).
+Local Notation Ltw := (@miw_tws_loc w l).
 Local Notation Lrv := miw_rev_loc.
 Local Notation Lsl := miw_slog_loc.
 Local Notation Spp := (tcr_pp_loc TFl).
@@ -419,8 +428,8 @@ Local Notation cfWl zi := (HBS.Examples.FixedSumOTS.Scheme.chainf PP N (FWl zi))
 Local Notation wsigs zi := (sigs_of PP N (FWl zi)).
 Local Notation wends zi := (ends_of PP N (FWl zi) w).
 Local Notation lfind zi pp md :=
-  (find_ctr PP D Hgrind w l S_wn c_max zi.1 zi.2 pp md).
-Local Notation lcompl zi pp ds sg := (complete_ends PP N F w l zi.1 zi.2 pp ds sg).
+  (find_ctr PP D Hgrind S_wn c_max zi.1 zi.2 pp md).
+Local Notation lcompl zi pp ds sg := (complete_ends PP N F zi.1 zi.2 pp ds sg).
 Local Notation lcq zi pp ds sg := (commit_queries PP N (FWl zi) w pp 0 ds sg).
 
 (* ================================================================== *)
@@ -580,8 +589,8 @@ Proof.
 rewrite /lct_pick lct_zip_filter /find_ctr.
 have hf :
   [seq c <- iota 0 c_max
-   | grind_prp w l S_wn (Hgrind pp (wotsc_grind_adrs zi) (md, c))]
-  = [seq c <- iota 0 c_max | good_ctr PP D Hgrind w l S_wn zi.1 zi.2 pp md c].
+   | @grind_prp w l S_wn (Hgrind pp (wotsc_grind_adrs zi) (md, c))]
+  = [seq c <- iota 0 c_max | good_ctr PP D Hgrind S_wn zi.1 zi.2 pp md c].
   by apply: eq_filter => c;
      rewrite /grind_prp /good_ctr /valid_digest /digest_of.
 by rewrite hf.
@@ -617,34 +626,43 @@ Lemma th_eval_chtw (pp : PP) (zi : nat * nat) (i k : nat) (x : N) :
 Proof. by rewrite (th_evalE_Tf PP N F dPP dN). Qed.
 
 (** The leaf coordinate of an encoded chain tweak is its anchor. *)
-Lemma lcoord_chtw (zi : nat * nat) (i k : nat) : lcoord (chtw_of zi i k) = zi.
-Proof.
-by rewrite /lcoord decode_tweakK /wotsc_chain_adrs /adrs_keypair; case: zi.
-Qed.
+Lemma lcoord_chtw (zi : nat * nat) (i k : nat) :
+  anchor_bounded zi ->
+  component_bounded l i ->
+  component_bounded w.-1 k ->
+  lcoord (chtw_of zi i k) = zi.
+Proof. exact: l2_lcoord_chain. Qed.
 
 (** The leaf coordinate of an encoded pk-anchor tweak is its anchor. *)
 Lemma lcoord_pkadr (zi : nat * nat) :
-  lcoord (encode_adrs (wotsc_pk_adrs zi)) = zi.
-Proof.
-by rewrite /lcoord decode_tweakK /wotsc_pk_adrs /adrs_keypair; case: zi.
-Qed.
+  anchor_bounded zi -> lcoord (encode_adrs (wotsc_pk_adrs zi)) = zi.
+Proof. exact: l2_lcoord_pk. Qed.
 
 (** Cross-leaf chain-tweak distinctness from coordinate distinctness: if two
     leaf coordinates differ, all their chain tweaks differ. *)
 Lemma chtw_neq_of_coord (zi zj : nat * nat) (i k i' k' : nat) :
+  anchor_bounded zi -> anchor_bounded zj ->
+  component_bounded l i -> component_bounded w.-1 k ->
+  component_bounded l i' -> component_bounded w.-1 k' ->
   zi <> zj -> chtw_of zi i k <> chtw_of zj i' k'.
 Proof.
-move=> hne /encode_adrs_inj /AdrChain_inj [e1 e2 _ _].
+move=> hzi hzj hi hk hi' hk' hne /encode_adrs_inj he.
+have [e1 e2 _ _] :=
+  @AdrChain_inj l w zi.1 zi.2 i k zj.1 zj.2 i' k'
+    hzi hzj hi hk hi' hk' he.
 by apply: hne; rewrite [zi]surjective_pairing [zj]surjective_pairing e1 e2.
 Qed.
 
 (** A chain tweak at coordinate [zi] is fresh w.r.t. any tweak list all of
     whose entries have a coordinate different from [zi] (cross-leaf freshness). *)
 Lemma chtw_notin_coord (zi : nat * nat) (i k : nat) (tws : seq adrs_sf_ch) :
+  anchor_bounded zi ->
+  component_bounded l i ->
+  component_bounded w.-1 k ->
   all (fun tw => lcoord tw != zi) tws -> chtw_of zi i k \notin tws.
 Proof.
-move=> /allP h; apply/negP => hin.
-by move: (h _ hin); rewrite lcoord_chtw eqxx.
+move=> hzi hi hk /allP h; apply/negP => hin.
+by move: (h _ hin); rewrite (lcoord_chtw zi i k hzi hi hk) eqxx.
 Qed.
 
 (* ================================================================== *)
@@ -700,6 +718,65 @@ Local Notation ptcr := (p_tcr l w).
 Definition lwq (zi : nat * nat) (q : (nat * nat) * N) : (adrs_sf_ch × N) :=
   (chtw_of zi q.1.1 q.1.2, q.2).
 
+Definition absQ_bounded (Q : seq ((nat * nat) * N)) : bool :=
+  all (fun ik => ((ik.1 < l)%N && (ik.2 < w.-1)%N)) (unzip1 Q).
+
+Lemma absQ_bounded_rcons (Q : seq ((nat * nat) * N)) i k x :
+  absQ_bounded Q -> (i < l)%N -> (k < w.-1)%N ->
+  absQ_bounded (rcons Q ((i, k), x)).
+Proof.
+by rewrite /absQ_bounded /unzip1 map_rcons all_rcons => -> -> ->.
+Qed.
+
+Lemma absQ_bounded_walk (pp : PP) (zi : nat * nat) i k n x :
+  (i < l)%N -> (k + n <= w.-1)%N ->
+  absQ_bounded (walkq PP N (FWl zi) pp i k n x).
+Proof.
+move=> hi hkn; rewrite /absQ_bounded; apply/allP => ik hik.
+apply/andP; split.
+- move: (allP (walkq_tweak1 PP N (FWl zi) pp i k n x) _ hik).
+  by move/eqP=> ->.
+- exact: (allP (walkq_tweak2 PP N (FWl zi) pp i k n x w.-1 hkn) _ hik).
+Qed.
+
+Lemma absQ_bounded_cat (Q Q' : seq ((nat * nat) * N)) :
+  absQ_bounded Q -> absQ_bounded Q' -> absQ_bounded (Q ++ Q').
+Proof.
+by rewrite /absQ_bounded /unzip1 map_cat all_cat => -> ->.
+Qed.
+
+Lemma absQ_bounded_chain (pp : PP) (zi : nat * nat) i d u :
+  (i < l)%N -> (d < w)%N ->
+  absQ_bounded (chain_queries PP N (FWl zi) w pp i d u).
+Proof.
+move=> hi; case: d => [|d'] hd.
+- have hkn0 : (0 + (w.-1 - 0) <= w.-1)%N by rewrite add0n subn0.
+  rewrite /chain_queries /=.
+  exact: (absQ_bounded_walk pp zi i 0 (w.-1 - 0) u hi hkn0).
+- have hw0 : (0 < w)%N := leq_trans (ltn0Sn d') (ltnW hd).
+  have hdw1 : (d'.+1 <= w.-1)%N by rewrite -ltnS (prednK hw0).
+  have hkn1 : (d'.+1 + (w.-1 - d'.+1) <= w.-1)%N by rewrite subnKC.
+  apply: absQ_bounded_cat.
+  + by rewrite /absQ_bounded /= hi hdw1.
+  + exact: (absQ_bounded_walk pp zi i d'.+1 (w.-1 - d'.+1)
+      (FWl zi pp (i, d') u) hi hkn1).
+Qed.
+
+Lemma absQ_bounded_commit (pp : PP) (zi : nat * nat) ds :
+  forall st us,
+  (st + size ds <= l)%N ->
+  all (fun d => (d < w)%N) ds ->
+  size us = size ds ->
+  absQ_bounded (commit_queries PP N (FWl zi) w pp st ds us).
+Proof.
+elim: ds => [|d ds IH] st [|u us] //= hst /andP[hd hds] [hus].
+rewrite (commit_queries_cons PP N (FWl zi)); apply: absQ_bounded_cat.
+- apply: absQ_bounded_chain => //.
+  by apply: leq_trans hst; rewrite addnS ltnS leq_addr.
+- apply: IH => //.
+  by move: hst; rewrite addnS.
+Qed.
+
 Lemma unzip1_lwq (zi : nat * nat) (Q : seq ((nat * nat) * N)) :
   unzip1 [seq lwq zi q | q <- Q] = [seq chtw_of zi q.1.1 q.1.2 | q <- Q].
 Proof. by rewrite /unzip1 -map_comp. Qed.
@@ -712,11 +789,22 @@ Proof. by rewrite /lwq /= th_eval_chtw -surjective_pairing. Qed.
     committed chain positions. *)
 Lemma lwq_notin_self (zi : nat * nat) (i k : nat)
     (absQ : seq ((nat * nat) * N)) :
+  anchor_bounded zi ->
+  component_bounded l i ->
+  component_bounded w.-1 k ->
+  absQ_bounded absQ ->
   (i, k) \notin unzip1 absQ ->
   chtw_of zi i k \notin unzip1 [seq lwq zi q | q <- absQ].
 Proof.
-rewrite unzip1_lwq => hni; apply/negP => /mapP[q hq].
-move/encode_adrs_inj/AdrChain_inj => [_ _ ei ek].
+rewrite unzip1_lwq => hzi hi hk /allP hbounds hni; apply/negP => /mapP[q hq].
+have hqmem : q.1 \in unzip1 absQ.
+  by apply/mapP; exists q.
+case/andP: (hbounds _ hqmem) => hqi hqk.
+move/encode_adrs_inj => he.
+have [_ _ ei ek] :=
+  @AdrChain_inj l w zi.1 zi.2 i k zi.1 zi.2 q.1.1 q.1.2
+    hzi hzi hi hk (component_bounded_lt l q.1.1 hqi)
+    (component_bounded_lt w.-1 q.1.2 hqk) he.
 move/negP: hni; apply; apply/mapP; exists q => //.
 by rewrite [q.1]surjective_pairing -ei -ek.
 Qed.
@@ -724,13 +812,18 @@ Qed.
 (** Cross-leaf + within-leaf freshness of a new chain tweak. *)
 Lemma lwq_notin (zi : nat * nat) (i k : nat) (Qpre : seq (adrs_sf_ch × N))
     (absQ : seq ((nat * nat) * N)) :
+  anchor_bounded zi ->
+  component_bounded l i ->
+  component_bounded w.-1 k ->
+  absQ_bounded absQ ->
   all (fun tw => lcoord tw != zi) (unzip1 Qpre) ->
   (i, k) \notin unzip1 absQ ->
   chtw_of zi i k \notin unzip1 (Qpre ++ [seq lwq zi q | q <- absQ]).
 Proof.
-move=> hpre hself; rewrite /unzip1 map_cat mem_cat negb_or; apply/andP; split.
-- exact: (chtw_notin_coord zi i k _ hpre).
-- exact: (lwq_notin_self zi i k absQ hself).
+move=> hzi hi hk hb hpre hself.
+rewrite /unzip1 map_cat mem_cat negb_or; apply/andP; split.
+- exact: (chtw_notin_coord zi i k _ hzi hi hk hpre).
+- exact: (lwq_notin_self zi i k absQ hzi hi hk hb hself).
 Qed.
 
 (** Size of the chain commit list of one leaf. *)
@@ -750,7 +843,9 @@ Proof. by rewrite size_cat size_map. Qed.
 (** [gtw_of] is injective on the leaf coordinate. *)
 Lemma gtw_lcoord (t x : adrs_sf_ch) : gtw_of t = gtw_of x -> lcoord t = lcoord x.
 Proof.
-move/encode_adrs_inj/AdrPk_inj => [e1 e2].
+move/encode_adrs_inj => he.
+have [e1 e2] := @AdrPk_inj l w (lcoord t).1 (lcoord t).2
+  (lcoord x).1 (lcoord x).2 (l2_lcoord_bounded t) (l2_lcoord_bounded x) he.
 by rewrite [lcoord t]surjective_pairing [lcoord x]surjective_pairing e1 e2.
 Qed.
 
@@ -1054,6 +1149,10 @@ Lemma r_lctquery_known (b : bool) {B : choiceType} (pp : PP) (zi : nat * nat)
     (absQ : seq ((nat * nat) * N))
     (c0 : raw_code B) (k1 : N -> raw_code B) (post : postcond B B) :
   (size (Qpre ++ [seq lwq zi q | q <- absQ]) < qF)%N ->
+  anchor_bounded zi ->
+  component_bounded l i ->
+  component_bounded w.-1 k ->
+  absQ_bounded absQ ->
   all (fun tw => lcoord tw != zi) (unzip1 Qpre) ->
   (i, k) \notin unzip1 absQ ->
   ⊢ ⦃ λ '(s0, s1), lctblk (Some pp) lsl ltw ltg rtg cnt0
@@ -1063,7 +1162,7 @@ Lemma r_lctquery_known (b : bool) {B : choiceType} (pp : PP) (zi : nat * nat)
          (Qpre ++ [seq lwq zi q | q <- absQ]) (s0, s1) ⦄
      c0 ≈ bind (resolve (SMB b) lct_tqo (chtw_of zi i k, x)) k1 ⦃ post ⦄.
 Proof.
-move=> hbud hpre hself h.
+move=> hbud hzi hi hk hqb hpre hself h.
 rewrite (resolve_lct_tq b (chtw_of zi i k) x).
 eapply (r_get_bind_rhs Srv false).
   by move=> s0 s1; exact: lctblk_Srv.
@@ -1077,7 +1176,7 @@ eapply r_bind_assertD_rhs.
   by move=> s0 s1 _; rewrite size_map.
 move=> _.
 eapply r_bind_assertD_rhs.
-  by move=> s0 s1 _; exact: lwq_notin.
+  by move=> s0 s1 _; exact: (lwq_notin zi i k Qpre absQ hzi hi hk hqb hpre hself).
 move=> _.
 eapply (r_get_bind_rhs Stg (qmap_from 0 (Qpre ++ [seq lwq zi q | q <- absQ]))).
   by move=> s0 s1; exact: lctblk_Stg.
@@ -1106,6 +1205,10 @@ Lemma r_lctwalk_spec (b : bool) {B : choiceType} (pp : PP) (zi : nat * nat)
     lsl ltw ltg rtg cnt0 (post : postcond B B) :
   forall n i k (x : N) (Qpre : seq (adrs_sf_ch × N))
          (absQ : seq ((nat * nat) * N)) (c0 : raw_code B) (k1 : N -> raw_code B),
+  anchor_bounded zi ->
+  (i < l)%N ->
+  (k + n <= w.-1)%N ->
+  absQ_bounded absQ ->
   (size (Qpre ++ [seq lwq zi q | q <- absQ]) + n <= qF)%N ->
   all (fun tw => lcoord tw != zi) (unzip1 Qpre) ->
   all (tlt i k) (unzip1 absQ) ->
@@ -1117,13 +1220,19 @@ Lemma r_lctwalk_spec (b : bool) {B : choiceType} (pp : PP) (zi : nat * nat)
          (Qpre ++ [seq lwq zi q | q <- absQ]) (s0, s1) ⦄
      c0 ≈ bind (code_link (lct_walk zi i k n x) (SMB b)) k1 ⦃ post ⦄.
 Proof.
-elim=> [|n IH] i k x Qpre absQ c0 k1 hbud hpre hfresh h.
+elim=> [|n IH] i k x Qpre absQ c0 k1 hzi hi hkn hb hbud hpre hfresh h.
 - by move: h; rewrite cats0.
 - rewrite /= bind_assoc.
   eapply (r_lctquery_known b pp zi lsl ltw ltg rtg cnt0 i k x Qpre absQ) => //.
   + by apply: leq_trans hbud; rewrite addnS ltnS leq_addr.
+  + exact: component_bounded_lt.
+  + apply: component_bounded_lt.
+    by apply: leq_trans hkn; rewrite addnS ltnS leq_addr.
   + exact: tlt_notin hfresh.
   + apply: IH => //.
+    * by move: hkn; rewrite addnS addSn.
+    * apply: absQ_bounded_rcons => //.
+      by apply: leq_trans hkn; rewrite addnS ltnS leq_addr.
     * by move: hbud; rewrite map_rcons -rcons_cat size_rcons addSn -addnS.
     * rewrite /unzip1 map_rcons all_rcons; apply/andP; split.
       -- by rewrite /tlt /= ltnn eqxx ltnSn.
@@ -1136,6 +1245,10 @@ Lemma r_lctchains_spec (b : bool) {B : choiceType} (pp : PP) (zi : nat * nat)
   forall ds st (Qpre : seq (adrs_sf_ch × N)) (absQ : seq ((nat * nat) * N))
          (K0 : chList N -> raw_code B)
          (K1 : chList N * chList N -> raw_code B),
+  anchor_bounded zi ->
+  (st + size ds <= l)%N ->
+  all (λ d : nat, (d < w)%N) ds ->
+  absQ_bounded absQ ->
   (size (Qpre ++ [seq lwq zi q | q <- absQ]) + nqs w ds <= qF)%N ->
   all (fun tw => lcoord tw != zi) (unzip1 Qpre) ->
   all (λ t : nat * nat, (t.1 < st)%N) (unzip1 absQ) ->
@@ -1152,14 +1265,19 @@ Lemma r_lctchains_spec (b : bool) {B : choiceType} (pp : PP) (zi : nat * nat)
      bind (sample_sig_roots PP N (FWl zi) dN pp st ds) K0
    ≈ bind (code_link (lct_chains zi st ds) (SMB b)) K1 ⦃ post ⦄.
 Proof.
-elim=> [|d ds IH] st Qpre absQ K0 K1 hbud hpre hfresh h.
+elim=> [|d ds IH] st Qpre absQ K0 K1 hzi hst hds hQr hbud hpre hfresh h.
 - by move: (h [::] erefl); rewrite cats0.
-- rewrite /= code_link_bind (code_link_scheme _ _ _ _ (prog_valid dN)) !bind_assoc.
+- move: hst => /=; rewrite addnS => hst2.
+  have hstl : (st < l)%N := leq_ltn_trans (leq_addr _ _) hst2.
+  have hstds : (st.+1 + size ds <= l)%N := hst2.
+  move: hds => /= /andP[hd0 hds'].
+  rewrite /= code_link_bind (code_link_scheme _ _ _ _ (prog_valid dN)) !bind_assoc.
   eapply r_scheme_bind; first exact: prog_valid.
   move=> u; cbv beta; rewrite !bind_assoc.
-  case: d hbud h => [|d'] hbud h.
+  case: d hd0 hbud h => [|d'] hd0 hbud h.
   + rewrite code_link_bind bind_assoc /=.
     rewrite code_link_bind bind_assoc.
+    have hkn0 : (0 + (w.-1 - 0) <= w.-1)%N by rewrite add0n subn0.
     eapply (r_lctwalk_spec b pp zi lsl ltw ltg rtg cnt0 post
               (w.-1 - 0) st 0 u Qpre absQ) => //.
     * apply: leq_trans hbud.
@@ -1167,6 +1285,8 @@ elim=> [|d ds IH] st Qpre absQ K0 K1 hbud hpre hfresh h.
     * exact: all_lt_tlt.
     * rewrite (code_link_bind (lct_chains zi st.+1 ds)) bind_assoc.
       eapply IH => //.
+      -- apply: absQ_bounded_cat; first exact: hQr.
+         exact: (absQ_bounded_walk pp zi st 0 (w.-1 - 0) u hstl hkn0).
       -- by move: hbud; rewrite !size_lwqQ size_cat size_walkq
            /nqs /= /nq /= -!addnA.
       -- rewrite /unzip1 map_cat all_cat; apply/andP; split.
@@ -1178,15 +1298,21 @@ elim=> [|d ds IH] st Qpre absQ K0 K1 hbud hpre hfresh h.
          by rewrite (commit_queries_cons PP N (FWl zi)) /chain_queries /= catA.
   + rewrite code_link_bind bind_assoc /=.
     rewrite bind_assoc.
+    have hw0 : (0 < w)%N := leq_trans (ltn0Sn d') (ltnW hd0).
+    have hdw1 : (d'.+1 <= w.-1)%N by rewrite -ltnS (prednK hw0).
+    have hkn1 : (d'.+1 + (w.-1 - d'.+1) <= w.-1)%N by rewrite subnKC.
     eapply (r_lctquery_known b pp zi lsl ltw ltg rtg cnt0 st d' u Qpre absQ) => //.
     * apply: leq_trans hbud.
       by rewrite -addn1 leq_add2l /nqs /= /nq /=.
+    * exact: component_bounded_lt.
+    * exact: component_bounded_lt.
     * exact: lt_notin.
     * rewrite /= (code_link_bind (lct_walk zi st d'.+1 (w.-1 - d'.+1)
                     (FWl zi pp (st, d') u))) bind_assoc.
       eapply (r_lctwalk_spec b pp zi lsl ltw ltg rtg cnt0 post
                 (w.-1 - d'.+1) st d'.+1 (FWl zi pp (st, d') u) Qpre
                 (rcons absQ ((st, d'), u))) => //.
+      -- apply: absQ_bounded_rcons => //.
       -- apply: leq_trans _ hbud.
          rewrite !size_lwqQ size_rcons /nqs /= /nq /= add1n -!addnA.
          by rewrite leq_add2l addSn ltn_add2l leq_addr.
@@ -1195,6 +1321,10 @@ elim=> [|d ds IH] st Qpre absQ K0 K1 hbud hpre hfresh h.
          ++ exact: all_lt_tlt.
       -- rewrite (code_link_bind (lct_chains zi st.+1 ds)) bind_assoc.
          eapply IH => //.
+         ++ apply: absQ_bounded_cat.
+            ** apply: absQ_bounded_rcons => //.
+            ** exact: (absQ_bounded_walk pp zi st d'.+1
+                  (w.-1 - d'.+1) (FWl zi pp (st, d') u) hstl hkn1).
          ++ by move: hbud; rewrite !size_lwqQ size_cat size_rcons size_walkq
               /nqs /= /nq /= add1n addSn -!addnA addnS.
          ++ rewrite /unzip1 map_cat all_cat; apply/andP; split.
@@ -1215,8 +1345,18 @@ Qed.
 Lemma size_l_rrdigS (zi : nat * nat) pp md j : size (l_rrdigS zi pp md j) = l.
 Proof.
 rewrite /l_rrdigS /l_rrdig;
-  case: (find_ctr PP D Hgrind w l S_wn c_max zi.1 zi.2 pp md)
+  case: (find_ctr PP D Hgrind S_wn c_max zi.1 zi.2 pp md)
   => [c|]; [exact: size_digest_of | exact: size_nseq].
+Qed.
+
+Lemma wf_l_rrdigS (hw : (0 < w)%N) (zi : nat * nat) pp md j :
+  wf_digits w (l_rrdigS zi pp md j).
+Proof.
+rewrite /l_rrdigS /l_rrdig.
+case E: (find_ctr PP D Hgrind S_wn c_max zi.1 zi.2 pp md) => [c|].
+- by move: (find_ctr_good PP D Hgrind S_wn c_max zi.1 zi.2 pp md c E)
+    => /andP[h1 _].
+- by rewrite /wf_digits all_nseq ltn_predL hw orbT.
 Qed.
 
 Lemma wendsEl (zi : nat * nat) pp (ds : seq nat) (ys : seq N) :
@@ -1224,7 +1364,7 @@ Lemma wendsEl (zi : nat * nat) pp (ds : seq nat) (ys : seq N) :
 Proof.
 move=> h.
 by rewrite (ends_of_from_sig PP N (FWl zi) l w pp ds ys h)
-   (wcendsE PP N F w l zi.1 zi.2).
+   (wcendsE PP N F zi.1 zi.2).
 Qed.
 
 (** Qcoord_ok extends to a new leaf whose block sits entirely at its
@@ -1243,10 +1383,17 @@ Qed.
 
 (** The re-tagged commit list of one leaf sits entirely at its coordinate. *)
 Lemma all_lcoord_blk (zi : nat * nat) (Q : seq ((nat * nat) * N)) :
+  anchor_bounded zi ->
+  absQ_bounded Q ->
   all (fun tw => lcoord tw == zi) (unzip1 [seq lwq zi q | q <- Q]).
 Proof.
-rewrite unzip1_lwq; apply/allP => tw /mapP[q _ ->].
-by rewrite /= lcoord_chtw.
+move=> hzi /allP hb; rewrite unzip1_lwq; apply/allP => tw /mapP[q hq ->].
+have hqmem : q.1 \in unzip1 Q by apply/mapP; exists q.
+case/andP: (hb _ hqmem) => hqi hqk.
+rewrite /= (lcoord_chtw zi q.1.1 q.1.2 hzi
+  (component_bounded_lt l q.1.1 hqi)
+  (component_bounded_lt w.-1 q.1.2 hqk)) eqxx.
+by [].
 Qed.
 
 (** The multi-target invariant extends by one leaf: block at absolute
@@ -1287,7 +1434,7 @@ Qed.
 (** The Glmid2 win predicate IS [lct_v] at the stored [find_ctr]. *)
 Lemma P_gm2_E (pp : PP) (t0 : adrs_sf_ch) (sg : 'list N) (md0 : D)
     (j : nat) (mw : D × (('list N) × 'nat)) :
-  P_gm2S PP N D F Tl Hgrind w l S_wn c_max pp t0 sg md0 j mw
+  P_gm2S PP N D F Tl Hgrind S_wn c_max pp t0 sg md0 j mw
   = lct_v pp t0 sg md0 (lfind (lcoord t0) pp md0) j mw.
 Proof.
 rewrite /P_gm2S /lct_v /grind_hitS /LeafKM.gateL /l_rrpkS /l_rrdigS /l_rrdig
@@ -1299,7 +1446,7 @@ Qed.
     discriminant. *)
 Lemma P_gm3_E (pp : PP) (t0 : adrs_sf_ch) (sg : 'list N) (md0 : D)
     (j : nat) (mw : D × (('list N) × 'nat)) :
-  P_gm3S PP N D F Tl Hgrind w l S_wn c_max pp t0 sg md0 j mw
+  P_gm3S PP N D F Tl Hgrind S_wn c_max pp t0 sg md0 j mw
   = lct_v pp t0 sg md0 (lfind (lcoord t0) pp md0) j mw
     && ~~ isSome (lct_dec pp t0 sg md0 j mw).
 Proof.
@@ -1439,7 +1586,7 @@ Qed.
 
 (** The COMMIT tail: store on both sides (root already = [rr_pkS]); the
     invariant is re-established with the extended target list [Q']. *)
-Lemma r_lct_tail (pp : PP) (t : adrs_sf_ch) (md : D)
+Lemma r_lct_tail (hw : (0 < w)%N) (pp : PP) (t : adrs_sf_ch) (md : D)
     (ltws : seq adrs_sf_ch) (us : seq N) (lsl : seq nat)
     (ltg : {fmap nat -> (adrs_sf_ch × ('list N × D))})
     (rtg : {fmap nat -> (adrs_sf_ch × (('list N × D) × (('option 'nat) × 'nat)))})
@@ -1511,7 +1658,12 @@ apply: ct_invI.
     rewrite size_rcons mulSn addnC; apply: leq_add=> //.
     exact: (nqs_le l w _ (size_l_rrdigS (lcoord t) pp md (size ltws))).
   + split.
-    * apply: Qcoord_ok_rcons; [exact: hQcoord | exact: all_lcoord_blk].
+    * apply: Qcoord_ok_rcons; first exact: hQcoord.
+      apply: all_lcoord_blk; first exact: l2_lcoord_bounded.
+      apply: absQ_bounded_commit.
+      -- by rewrite add0n size_l_rrdigS.
+      -- exact: wf_l_rrdigS.
+      -- by rewrite hus size_l_rrdigS.
     * exact: (RCTrel_qupd pp t md us (size ltws) ltg rtg Q hus hRCT).
 Qed.
 
@@ -1519,22 +1671,22 @@ Qed.
     [wtcr_decisionP] at the arbitrary leaf coordinate [zi]. *)
 Lemma l2_tcr_win (zi : nat * nat) (pp : PP) (md0 : D) (c : nat) (us : seq N)
     (mdf : D) (cf : nat) (sgstar : seq N) (jc : nat) (u : N) :
-  find_ctr PP D Hgrind w l S_wn c_max zi.1 zi.2 pp md0 = Some c ->
+  find_ctr PP D Hgrind S_wn c_max zi.1 zi.2 pp md0 = Some c ->
   size us = l ->
-  valid_digest w S_wn (digest_of PP D Hgrind w l zi.1 zi.2 pp mdf cf) ->
+  @valid_digest w S_wn (digest_of PP D Hgrind zi.1 zi.2 pp mdf cf) ->
   (size sgstar == l)%B ->
-  lcompl zi pp (digest_of PP D Hgrind w l zi.1 zi.2 pp mdf cf) sgstar
-  = lcompl zi pp (digest_of PP D Hgrind w l zi.1 zi.2 pp md0 c)
-      (wsigs zi pp 0 (digest_of PP D Hgrind w l zi.1 zi.2 pp md0 c) us) ->
-  digest_of PP D Hgrind w l zi.1 zi.2 pp mdf cf
-    != digest_of PP D Hgrind w l zi.1 zi.2 pp md0 c ->
+  lcompl zi pp (digest_of PP D Hgrind zi.1 zi.2 pp mdf cf) sgstar
+  = lcompl zi pp (digest_of PP D Hgrind zi.1 zi.2 pp md0 c)
+      (wsigs zi pp 0 (digest_of PP D Hgrind zi.1 zi.2 pp md0 c) us) ->
+  digest_of PP D Hgrind zi.1 zi.2 pp mdf cf
+    != digest_of PP D Hgrind zi.1 zi.2 pp md0 c ->
   tcr_decision PP N (FWl zi) l w pp
-    (digest_of PP D Hgrind w l zi.1 zi.2 pp md0 c)
-    (digest_of PP D Hgrind w l zi.1 zi.2 pp mdf cf)
-    (wsigs zi pp 0 (digest_of PP D Hgrind w l zi.1 zi.2 pp md0 c) us)
+    (digest_of PP D Hgrind zi.1 zi.2 pp md0 c)
+    (digest_of PP D Hgrind zi.1 zi.2 pp mdf cf)
+    (wsigs zi pp 0 (digest_of PP D Hgrind zi.1 zi.2 pp md0 c) us)
     sgstar = Some (jc, u) ->
   exists t v,
-    [/\ qnth (lcq zi pp (digest_of PP D Hgrind w l zi.1 zi.2 pp md0 c) us) jc
+    [/\ qnth (lcq zi pp (digest_of PP D Hgrind zi.1 zi.2 pp md0 c) us) jc
         = Some (t, v),
         u != v & FWl zi pp t u = FWl zi pp t v].
 Proof.
@@ -1550,29 +1702,29 @@ have hAC : forall (n st : nat) (ds : seq nat) (ys : seq N),
   case: ds => [|d ds]; case: ys => [|y ys] => //=.
   apply/andP; split; last exact: IH.
   by rewrite /HBS.Examples.FixedSumOTS.Scheme.chain_check eqxx.
-have hvmr : valid_msg l w S_wn (digest_of PP D Hgrind w l zi.1 zi.2 pp md0 c).
-  apply: (vdigest_valid_msg PP D Hgrind w l S_wn zi.1 zi.2 pp md0 c).
-  exact: (find_ctr_good PP D Hgrind w l S_wn c_max zi.1 zi.2 pp md0 c hfc).
-have hvmf : valid_msg l w S_wn (digest_of PP D Hgrind w l zi.1 zi.2 pp mdf cf).
-  exact: (vdigest_valid_msg PP D Hgrind w l S_wn zi.1 zi.2 pp mdf cf hvd).
+have hvmr : valid_msg l w S_wn (digest_of PP D Hgrind zi.1 zi.2 pp md0 c).
+  apply: (vdigest_valid_msg PP D Hgrind S_wn zi.1 zi.2 pp md0 c).
+  exact: (find_ctr_good PP D Hgrind S_wn c_max zi.1 zi.2 pp md0 c hfc).
+have hvmf : valid_msg l w S_wn (digest_of PP D Hgrind zi.1 zi.2 pp mdf cf).
+  exact: (vdigest_valid_msg PP D Hgrind S_wn zi.1 zi.2 pp mdf cf hvd).
 have hverify : HBS.Examples.FixedSumOTS.Scheme.verify_sig PP N (FWl zi) l w S_wn pp
     (ends_of PP N (FWl zi) w pp 0
-       (digest_of PP D Hgrind w l zi.1 zi.2 pp md0 c)
-       (wsigs zi pp 0 (digest_of PP D Hgrind w l zi.1 zi.2 pp md0 c) us))
-    (digest_of PP D Hgrind w l zi.1 zi.2 pp mdf cf) sgstar.
+       (digest_of PP D Hgrind zi.1 zi.2 pp md0 c)
+       (wsigs zi pp 0 (digest_of PP D Hgrind zi.1 zi.2 pp md0 c) us))
+    (digest_of PP D Hgrind zi.1 zi.2 pp mdf cf) sgstar.
   rewrite (ends_of_from_sig PP N (FWl zi) l w pp _ _
-             (size_digest_of PP D Hgrind w l zi.1 zi.2 pp md0 c)).
-  rewrite -(wcendsE PP N F w l zi.1 zi.2).
-  rewrite -hends (wcendsE PP N F w l zi.1 zi.2).
+             (size_digest_of PP D Hgrind zi.1 zi.2 pp md0 c)).
+  rewrite -(wcendsE PP N F zi.1 zi.2).
+  rewrite -hends (wcendsE PP N F zi.1 zi.2).
   rewrite /HBS.Examples.FixedSumOTS.Scheme.verify_sig hvmf hsz /=
           /HBS.Examples.FixedSumOTS.Games.ends_from_sig.
   exact: (hAC l 0 _ sgstar).
-have hnin : digest_of PP D Hgrind w l zi.1 zi.2 pp mdf cf \notin
-              [:: digest_of PP D Hgrind w l zi.1 zi.2 pp md0 c].
+have hnin : digest_of PP D Hgrind zi.1 zi.2 pp mdf cf \notin
+              [:: digest_of PP D Hgrind zi.1 zi.2 pp md0 c].
   by rewrite inE hne.
 have H := tcr_decisionP PP N (FWl zi) l w S_wn pp
-          (digest_of PP D Hgrind w l zi.1 zi.2 pp md0 c)
-          (digest_of PP D Hgrind w l zi.1 zi.2 pp mdf cf) us sgstar
+          (digest_of PP D Hgrind zi.1 zi.2 pp md0 c)
+          (digest_of PP D Hgrind zi.1 zi.2 pp mdf cf) us sgstar
           hvmr hus hverify hnin.
 rewrite hdec in H.
 exact: H.
@@ -1586,12 +1738,12 @@ Lemma lct_dec_digit (pp : PP) (t0 : adrs_sf_ch) (sg : seq N) (md0 : D)
     (j : nat) (mw : D × (('list N) × 'nat)) (jc : nat) (u : N) :
   lct_dec pp t0 sg md0 j mw = Some (jc, u) ->
   exists c,
-    find_ctr PP D Hgrind w l S_wn c_max (lcoord t0).1 (lcoord t0).2 pp md0 = Some c
+    find_ctr PP D Hgrind S_wn c_max (lcoord t0).1 (lcoord t0).2 pp md0 = Some c
     /\ l_rrdigS (lcoord t0) pp md0 j
-      = digest_of PP D Hgrind w l (lcoord t0).1 (lcoord t0).2 pp md0 c.
+      = digest_of PP D Hgrind (lcoord t0).1 (lcoord t0).2 pp md0 c.
 Proof.
 rewrite /lct_dec /l_rrdigS /l_rrdig.
-case: (find_ctr PP D Hgrind w l S_wn c_max (lcoord t0).1 (lcoord t0).2 pp md0)
+case: (find_ctr PP D Hgrind S_wn c_max (lcoord t0).1 (lcoord t0).2 pp md0)
   => [c|]; last by rewrite tcr_allmax_none.
 by move=> _; exists c.
 Qed.
@@ -1602,21 +1754,21 @@ Qed.
     distinctness (the guarded [~~ grind_hitS]). *)
 Lemma lct_v_true_facts (pp : PP) (t0 : adrs_sf_ch) (sg : seq N) (md0 : D)
     (j : nat) (mw : D × (('list N) × 'nat)) (c : nat) :
-  find_ctr PP D Hgrind w l S_wn c_max (lcoord t0).1 (lcoord t0).2 pp md0 = Some c ->
+  find_ctr PP D Hgrind S_wn c_max (lcoord t0).1 (lcoord t0).2 pp md0 = Some c ->
   lct_v pp t0 sg md0 (lfind (lcoord t0) pp md0) j mw ->
-  [/\ valid_digest w S_wn
-        (digest_of PP D Hgrind w l (lcoord t0).1 (lcoord t0).2 pp mw.1 mw.2.2),
+  [/\ @valid_digest w S_wn
+        (digest_of PP D Hgrind (lcoord t0).1 (lcoord t0).2 pp mw.1 mw.2.2),
       (size mw.2.1 == l)%B,
-      complete_ends PP N F w l (lcoord t0).1 (lcoord t0).2 pp
-        (digest_of PP D Hgrind w l (lcoord t0).1 (lcoord t0).2 pp mw.1 mw.2.2) mw.2.1
-      = complete_ends PP N F w l (lcoord t0).1 (lcoord t0).2 pp
-        (digest_of PP D Hgrind w l (lcoord t0).1 (lcoord t0).2 pp md0 c) sg
-    & digest_of PP D Hgrind w l (lcoord t0).1 (lcoord t0).2 pp mw.1 mw.2.2
-      != digest_of PP D Hgrind w l (lcoord t0).1 (lcoord t0).2 pp md0 c].
+      complete_ends PP N F (lcoord t0).1 (lcoord t0).2 pp
+        (digest_of PP D Hgrind (lcoord t0).1 (lcoord t0).2 pp mw.1 mw.2.2) mw.2.1
+      = complete_ends PP N F (lcoord t0).1 (lcoord t0).2 pp
+        (digest_of PP D Hgrind (lcoord t0).1 (lcoord t0).2 pp md0 c) sg
+    & digest_of PP D Hgrind (lcoord t0).1 (lcoord t0).2 pp mw.1 mw.2.2
+      != digest_of PP D Hgrind (lcoord t0).1 (lcoord t0).2 pp md0 c].
 Proof.
 move=> hfc.
 have hrdg : l_rrdigS (lcoord t0) pp md0 j
-          = digest_of PP D Hgrind w l (lcoord t0).1 (lcoord t0).2 pp md0 c.
+          = digest_of PP D Hgrind (lcoord t0).1 (lcoord t0).2 pp md0 c.
   by rewrite /l_rrdigS /l_rrdig hfc.
 rewrite /lct_v hrdg.
 have hlf : isSome (lfind (lcoord t0) pp md0) by rewrite hfc.
@@ -1757,7 +1909,8 @@ Qed.
 
    No structural mismatch found: the settled basis behaves exactly as the design
    claims. *)
-Lemma R_ctcr_leaf_real : perfect IKM GM2 (R_ctcr_leaf ∘ SMB true).
+Lemma R_ctcr_leaf_real (hw : (0 < w)%N) :
+  perfect IKM GM2 (R_ctcr_leaf ∘ SMB true).
 Proof.
 ssprove_share. eapply prove_perfect.
 eapply (eq_rel_perf_ind _ _ ct_inv).
@@ -1802,6 +1955,10 @@ simplify_eq_rel arg.
   eapply (r_lctchains_spec true pp (lcoord t) (get_heap s0 Lsl) ltws
             (get_heap s0 Ltg) (get_heap s1 rct_tgts_loc) (size Q) _
             (l_rrdigS (lcoord t) pp md (size ltws)) 0 Q [::]).
+  { exact: l2_lcoord_bounded. }
+  { by rewrite add0n size_l_rrdigS. }
+  { exact: wf_l_rrdigS. }
+  { by []. }
   { rewrite cats0.
     apply: (leq_trans (leq_add hsizeb
               (nqs_le l w _ (size_l_rrdigS (lcoord t) pp md (size ltws))))).
@@ -1812,7 +1969,7 @@ simplify_eq_rel arg.
   eapply (r_get_rhs_known Spp (Some pp)). { move=> a b; exact: lctblk_Spp. }
   cbv beta iota. rewrite decode_tweakK.
   rewrite (wendsEl (lcoord t) pp _ _ (size_l_rrdigS (lcoord t) pp md (size ltws))).
-  apply: (r_lct_tail pp t md ltws us (get_heap s0 Lsl) (get_heap s0 Ltg)
+  apply: (r_lct_tail hw pp t md ltws us (get_heap s0 Lsl) (get_heap s0 Ltg)
             (get_heap s1 rct_tgts_loc) Q).
   { by rewrite hus size_l_rrdigS. }
   { exact: hQcoord. } { exact: hRCT. } { exact: hsizeb. }
@@ -1922,24 +2079,24 @@ simplify_eq_rel arg.
              have hsgc := hsgus.
              move: Edec; rewrite /lct_dec hrdg hsgc => Edec2.
              have hends' : lcompl (lcoord t0) pp
-                 (digest_of PP D Hgrind w l (lcoord t0).1 (lcoord t0).2 pp mw.1 mw.2.2)
+                 (digest_of PP D Hgrind (lcoord t0).1 (lcoord t0).2 pp mw.1 mw.2.2)
                  mw.2.1
                = lcompl (lcoord t0) pp
-                 (digest_of PP D Hgrind w l (lcoord t0).1 (lcoord t0).2 pp md0 c)
+                 (digest_of PP D Hgrind (lcoord t0).1 (lcoord t0).2 pp md0 c)
                  (wsigs (lcoord t0) pp 0
-                    (digest_of PP D Hgrind w l (lcoord t0).1 (lcoord t0).2 pp md0 c) us).
+                    (digest_of PP D Hgrind (lcoord t0).1 (lcoord t0).2 pp md0 c) us).
                by rewrite hends hsgc.
              have [tw [v [hqn hnev hcol]]] :=
                l2_tcr_win (lcoord t0) pp md0 c us mw.1 mw.2.2 mw.2.1 jc u
                  hfc hus hvd hsz hends' hne Edec2.
              have hszlcq : size (lcq (lcoord t0) pp
-                 (digest_of PP D Hgrind w l (lcoord t0).1 (lcoord t0).2 pp md0 c) us)
-               = nqs w (digest_of PP D Hgrind w l (lcoord t0).1 (lcoord t0).2 pp md0 c).
+                 (digest_of PP D Hgrind (lcoord t0).1 (lcoord t0).2 pp md0 c) us)
+               = nqs w (digest_of PP D Hgrind (lcoord t0).1 (lcoord t0).2 pp md0 c).
                apply: size_lcq.
-               by rewrite hus (size_digest_of PP D Hgrind w l
+               by rewrite hus (size_digest_of PP D Hgrind
                     (lcoord t0).1 (lcoord t0).2 pp md0 c).
              have hjcbound : (jc < nqs w
-                 (digest_of PP D Hgrind w l (lcoord t0).1 (lcoord t0).2 pp md0 c))%N.
+                 (digest_of PP D Hgrind (lcoord t0).1 (lcoord t0).2 pp md0 c))%N.
                rewrite -hszlcq; exact: (qnth_size _ _ _ hqn).
              exists tw, v; split=> //.
              rewrite htg.
@@ -1999,7 +2156,7 @@ simplify_eq_rel arg.
         - by case: hm => he1 _ _ _ _; move: E; rewrite -hr2 he1 emptymE. }
     move=> [pp [base [hlpp hrtgj]]].
     rewrite hlpp hrtgj /=.
-    case E2: (find_ctr PP D Hgrind w l S_wn c_max
+    case E2: (find_ctr PP D Hgrind S_wn c_max
                (lcoord t0).1 (lcoord t0).2 pp md0) => [c|].
     * apply r_put_lhs; apply r_put_rhs.
       apply r_ret => s0 s1 [s1' [[s0' [[[[[[hinv hr0] hr1] hr2] hr3] hr4] e0]] e1]].
@@ -2023,7 +2180,8 @@ simplify_eq_rel arg.
     by rewrite /tc_eval /CFl_leaf.
 Qed.
 
-Lemma R_ctcr_leaf_ideal : perfect IKM GM3 (R_ctcr_leaf ∘ SMB false).
+Lemma R_ctcr_leaf_ideal (hw : (0 < w)%N) :
+  perfect IKM GM3 (R_ctcr_leaf ∘ SMB false).
 Proof.
 ssprove_share. eapply prove_perfect.
 eapply (eq_rel_perf_ind _ _ ct_inv).
@@ -2068,6 +2226,10 @@ simplify_eq_rel arg.
   eapply (r_lctchains_spec false pp (lcoord t) (get_heap s0 Lsl) ltws
             (get_heap s0 Ltg) (get_heap s1 rct_tgts_loc) (size Q) _
             (l_rrdigS (lcoord t) pp md (size ltws)) 0 Q [::]).
+  { exact: l2_lcoord_bounded. }
+  { by rewrite add0n size_l_rrdigS. }
+  { exact: wf_l_rrdigS. }
+  { by []. }
   { rewrite cats0.
     apply: (leq_trans (leq_add hsizeb
               (nqs_le l w _ (size_l_rrdigS (lcoord t) pp md (size ltws))))).
@@ -2078,7 +2240,7 @@ simplify_eq_rel arg.
   eapply (r_get_rhs_known Spp (Some pp)). { move=> a b; exact: lctblk_Spp. }
   cbv beta iota. rewrite decode_tweakK.
   rewrite (wendsEl (lcoord t) pp _ _ (size_l_rrdigS (lcoord t) pp md (size ltws))).
-  apply: (r_lct_tail pp t md ltws us (get_heap s0 Lsl) (get_heap s0 Ltg)
+  apply: (r_lct_tail hw pp t md ltws us (get_heap s0 Lsl) (get_heap s0 Ltg)
             (get_heap s1 rct_tgts_loc) Q).
   { by rewrite hus size_l_rrdigS. }
   { exact: hQcoord. } { exact: hRCT. } { exact: hsizeb. }
@@ -2198,7 +2360,7 @@ simplify_eq_rel arg.
         - by case: hm => he1 _ _ _ _; move: E; rewrite -hr2 he1 emptymE. }
     move=> [pp [base [hlpp hrtgj]]].
     rewrite hlpp hrtgj /=.
-    case E2: (find_ctr PP D Hgrind w l S_wn c_max
+    case E2: (find_ctr PP D Hgrind S_wn c_max
                (lcoord t0).1 (lcoord t0).2 pp md0) => [c|].
     * apply r_put_lhs; apply r_put_rhs.
       apply r_ret => s0 s1 [s1' [[s0' [[[[[[hinv hr0] hr1] hr2] hr3] hr4] e0]] e1]].
@@ -2222,11 +2384,12 @@ simplify_eq_rel arg.
     by rewrite /tc_eval /CFl_leaf.
 Qed.
 
-Lemma sub_ctcr (B : nom_package) (VB : ValidPackage (loc B) IKM A_export B) :
+Lemma sub_ctcr (hw : (0 < w)%N) (B : nom_package)
+    (VB : ValidPackage (loc B) IKM A_export B) :
   Adv GM2 GM3 B = AdvOf (SMTCR_game TFl CFl_leaf qF) (B ∘ R_ctcr_leaf).
 Proof.
-rewrite (Adv_perfect_l R_ctcr_leaf_real).
-rewrite (Adv_perfect_r R_ctcr_leaf_ideal).
+rewrite (Adv_perfect_l (R_ctcr_leaf_real hw)).
+rewrite (Adv_perfect_r (R_ctcr_leaf_ideal hw)).
 by rewrite Adv_reduction.
 Qed.
 

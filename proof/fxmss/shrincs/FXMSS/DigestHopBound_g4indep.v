@@ -13,18 +13,22 @@ Import Num.Theory Order.POrderTheory GRing.Theory.
 #[local] Open Scope ring_scope.
 
 Section FXMSSDigestBound.
+
+Context {w l : nat}.
+Local Notation adrs_sf := (Addressing.adrs_sf l w).
+Local Notation adrs_sf_ch := (Addressing.adrs_sf_ch l w).
 Context (PP N M R : choice_type) (d_n : nat).
 Context (F : PP -> adrs_sf -> N -> N) (Tl : PP -> adrs_sf -> seq N -> N).
 Context (Hgrind : PP -> adrs_sf -> (chFin d_n.+1) * nat -> nat).
 Context (Htree : PP -> adrs_sf -> N * N -> N).
 Context (dPP : dist PP) (dN : dist N) (dR : dist R).
-Context (w l S_wn c_max h_sf q_s q_h n_max q_f : nat).
+Context (S_wn c_max h_sf q_s q_h n_max q_f : nat).
 Local Notation Dfin := (chFin d_n.+1).
 Local Notation dDu := (rp_dPfx d_n).
 
-Local Notation G3C b := (ReproHop.G3c PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu w l S_wn c_max h_sf q_s q_h n_max q_f b).
-Local Notation G4M b := (G4m PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu w l S_wn c_max h_sf q_s q_h n_max q_f b).
-Local Notation G4C b := (G4c PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu w l S_wn c_max h_sf q_s q_h n_max q_f b).
+Local Notation G3C b := (ReproHop.G3c PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu S_wn c_max h_sf q_s q_h n_max q_f b).
+Local Notation G4M b := (G4m PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu S_wn c_max h_sf q_s q_h n_max q_f b).
+Local Notation G4C b := (G4c PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu S_wn c_max h_sf q_s q_h n_max q_f b).
 
 Local Notation Lsd := (fx_sd_loc Dfin).
 Local Notation IG := (I_G0fL PP N Dfin M R).
@@ -270,9 +274,9 @@ Lemma sign_walk_eq {T' : choiceType}
     (forall lo, lo.1 != Lsd.1 -> get_heap h1 lo = get_heap h2 lo) ->
     (get_heap h1 (fx_st_loc PP N) -> get_heap h1 Lsd = get_heap h2 Lsd) ->
     dfst (Pr_code (bind (sign4_body PP N Dfin M R F Tl Hgrind Htree
-                           dR dDu w l S_wn c_max h_sf q_s mz) kk) h1) z
+                           dR dDu S_wn c_max h_sf q_s mz) kk) h1) z
     = dfst (Pr_code (bind (sign4_body PP N Dfin M R F Tl Hgrind Htree
-                           dR dDu w l S_wn c_max h_sf q_s mz) kk) h2) z.
+                           dR dDu S_wn c_max h_sf q_s mz) kk) h2) z.
 Proof.
 move=> h1 h2 hoff hlsd.
 rewrite /sign4_body. cbn [bind].
@@ -310,7 +314,7 @@ case: (getm (get_heap h1 (fx_rt_loc M R)) (mz.2, mz.1)) => [r|].
   case: (getm (get_heap h1 (fx_rom_loc PP N Dfin M R))
             (r, (st.1, (mz.2, mz.1)))) => [md|].
   + cbn [bind]. rewrite 2!Pr_code_put.
-    case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => [sg|];
+	    case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => [sg|];
       cbn [bind].
     { rewrite 4!Pr_code_put. apply: (Hk (Some sg)).
       { do ! (apply: agree_set; first by []); exact: hoff. }
@@ -321,7 +325,7 @@ case: (getm (get_heap h1 (fx_rt_loc M R)) (mz.2, mz.1)) => [r|].
   + rewrite bind_assoc. cbn [bind]. rewrite 2!dPr_dist.
     apply: eq_dlet_at => md.
     cbn [bind]. rewrite 2!Pr_code_put.
-    case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => [sg|];
+	    case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => [sg|];
       cbn [bind].
     { rewrite 4!Pr_code_put. apply: (Hk (Some sg)).
       { do ! (apply: agree_set; first by []); exact: hoff. }
@@ -335,7 +339,7 @@ case: (getm (get_heap h1 (fx_rt_loc M R)) (mz.2, mz.1)) => [r|].
   cbn [bind]. rewrite 2!Pr_code_get -hsd.
   case: (getm (get_heap h1 Lsd) (lidx h_sf st.2.1 mz.2)) => [md|].
   + cbn [bind]. rewrite 6!Pr_code_put.
-    case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => [sg|];
+	    case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => [sg|];
       cbn [bind].
     { rewrite 4!Pr_code_put. apply: (Hk (Some sg)).
       { do ! (apply: agree_set; first by []); exact: hoff. }
@@ -346,7 +350,7 @@ case: (getm (get_heap h1 (fx_rt_loc M R)) (mz.2, mz.1)) => [r|].
   + rewrite bind_assoc. cbn [bind]. rewrite 2!dPr_dist.
     apply: eq_dlet_at => md.
     cbn [bind]. rewrite 6!Pr_code_put.
-    case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => [sg|];
+	    case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => [sg|];
       cbn [bind].
     { rewrite 4!Pr_code_put. apply: (Hk (Some sg)).
       { do ! (apply: agree_set; first by []); exact: hoff. }
@@ -435,9 +439,9 @@ Lemma forge_walk_eq {T' : choiceType}
     (forall lo, lo.1 != Lsd.1 -> get_heap h1 lo = get_heap h2 lo) ->
     (get_heap h1 (fx_st_loc PP N) -> get_heap h1 Lsd = get_heap h2 Lsd) ->
     dfst (Pr_code (bind (forge3f_body PP N Dfin M R F Tl Hgrind Htree
-                           dDu w l S_wn h_sf q_f b m sg) kk) h1) z
+                           dDu S_wn h_sf q_f b m sg) kk) h1) z
     = dfst (Pr_code (bind (forge3f_body PP N Dfin M R F Tl Hgrind Htree
-                           dDu w l S_wn h_sf q_f b m sg) kk) h2) z.
+                           dDu S_wn h_sf q_f b m sg) kk) h2) z.
 Proof.
 move=> h1 h2 hoff hlsd.
 rewrite /forge3f_body. cbn [bind].

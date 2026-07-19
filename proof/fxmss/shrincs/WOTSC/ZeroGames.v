@@ -89,6 +89,9 @@ Import PackageNotation.
 
 Section WOTSCZeroGames.
 
+Context {w l : nat}.
+Local Notation adrs_sf := (Addressing.adrs_sf l w).
+
 (** Same section context as SHRINCS.WOTSC.Games minus the dummy
     message sampler [dM] (Tgr/STCRP are not involved in the
     zero-query bound). *)
@@ -97,23 +100,24 @@ Context (F : PP -> adrs_sf -> N -> N).
 Context (Tl : PP -> adrs_sf -> seq N -> N).
 Context (Hgrind : PP -> adrs_sf -> M * nat -> nat).
 Context (dPP : dist PP) (dN : dist N).
-Context (w l S_wn c_max : nat).
+Context (S_wn c_max : nat).
 Context (zstar istar : nat).
 
 Local Notation WC :=
-  (WOTSC PP N M F Tl Hgrind dPP dN w l S_wn c_max zstar istar).
+  (WOTSC PP N M F Tl Hgrind dPP dN S_wn c_max zstar istar).
 Local Notation FW := (Fw PP N F zstar istar).
 Local Notation cf := (chainf PP N F zstar istar).
 Local Notation gadrs := (grind_adrs zstar istar).
 Local Notation cadrs := (chain_adrs zstar istar).
 Local Notation padrs := (pk_adrs zstar istar).
-Local Notation gtw := (encode_adrs gadrs).
-Local Notation ptw := (encode_adrs padrs).
-Local Notation wdigest := (digest_of PP M Hgrind w l zstar istar).
-Local Notation wpk_of := (pk_of PP N F Tl w l zstar istar).
-Local Notation wcends := (complete_ends PP N F w l zstar istar).
-Local Notation wverify := (verify_sig PP N M F Tl Hgrind w l S_wn zstar istar).
-Local Notation vdigest := (valid_digest w S_wn).
+Local Notation gtw := (@encode_adrs l w gadrs).
+Local Notation ptw := (@encode_adrs l w padrs).
+Local Notation wdigest := (digest_of PP M Hgrind zstar istar).
+Local Notation wpk_of := (pk_of PP N F Tl zstar istar).
+Local Notation wcends := (complete_ends PP N F zstar istar).
+Local Notation wverify :=
+  (verify_sig PP N M F Tl Hgrind S_wn zstar istar).
+Local Notation vdigest := (@valid_digest w S_wn).
 
 (** The virtual digit vector of a never-used instance: every chain at
     its end position. *)
@@ -146,7 +150,7 @@ Lemma zends_nth pp (ds : seq nat) (ys sg : seq N) (y0 : N) i :
   = nth y0 sg i.
 Proof.
 move=> hds hys hsg hi /(congr1 (fun s => nth y0 s i)).
-rewrite (wcendsE PP N F w l zstar istar)
+rewrite (wcendsE PP N F zstar istar)
         (ends_from_sig_nth PP N FW l w pp ds ys y0 i hds hys hi).
 exact: id.
 Qed.

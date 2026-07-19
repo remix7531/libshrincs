@@ -96,6 +96,9 @@ Import PackageNotation.
 
 Section CompressHop.
 
+Context {w l : nat}.
+Local Notation adrs_sf := (Addressing.adrs_sf l w).
+
 (** Same section context as WOTSC.Games minus the dummy message
     sampler [dM] (only [Tgr] needs it; this hop attacks [Tpk]). *)
 Context (PP N M : choice_type).
@@ -103,11 +106,11 @@ Context (F : PP -> adrs_sf -> N -> N).
 Context (Tl : PP -> adrs_sf -> seq N -> N).
 Context (Hgrind : PP -> adrs_sf -> M * nat -> nat).
 Context (dPP : dist PP) (dN : dist N).
-Context (w l S_wn c_max : nat).
+Context (S_wn c_max : nat).
 Context (zstar istar : nat).
 
 Local Notation WC :=
-  (WOTSC PP N M F Tl Hgrind dPP dN w l S_wn c_max zstar istar).
+  (WOTSC PP N M F Tl Hgrind dPP dN S_wn c_max zstar istar).
 Local Notation TP := (Tpk PP N Tl dPP dN).
 Local Notation CP := (Cpk PP N M F Tl Hgrind dPP dN).
 Local Notation SMB b := (SMTCR_game TP CP 1 b).
@@ -119,22 +122,24 @@ Local Notation ptw := (encode_adrs padrs).
 Local Notation ctw i k := (encode_adrs (cadrs i k)).
 Local Notation FW := (Fw PP N F zstar istar).
 Local Notation cfW := (HBS.Examples.FixedSumOTS.Scheme.chainf PP N FW).
-Local Notation gprp := (grind_prp w l S_wn).
-Local Notation wdigest := (digest_of PP M Hgrind w l zstar istar).
-Local Notation wfind_ctr := (find_ctr PP M Hgrind w l S_wn c_max zstar istar).
-Local Notation wcends := (complete_ends PP N F w l zstar istar).
-Local Notation wverify := (verify_sig PP N M F Tl Hgrind w l S_wn zstar istar).
+Local Notation gprp := (@grind_prp w l S_wn).
+Local Notation wdigest := (digest_of PP M Hgrind zstar istar).
+Local Notation wfind_ctr :=
+  (find_ctr PP M Hgrind S_wn c_max zstar istar).
+Local Notation wcends := (complete_ends PP N F zstar istar).
+Local Notation wverify :=
+  (verify_sig PP N M F Tl Hgrind S_wn zstar istar).
 Local Notation wsigs := (sigs_of PP N FW).
 Local Notation wends := (ends_of PP N FW w).
 Local Notation GM1 :=
-  (Gmid1 PP N M F Tl Hgrind dPP dN w l S_wn c_max zstar istar).
+  (Gmid1 PP N M F Tl Hgrind dPP dN S_wn c_max zstar istar).
 
 Local Notation pk_loc' :=
-  (g0w_pk_loc PP N M F Tl Hgrind dPP dN w l S_wn c_max zstar istar).
+  (g0w_pk_loc PP N M F Tl Hgrind dPP dN S_wn c_max zstar istar).
 Local Notation log_loc' :=
-  (g0w_log_loc PP N M F Tl Hgrind dPP dN w l S_wn c_max zstar istar).
+  (g0w_log_loc PP N M F Tl Hgrind dPP dN S_wn c_max zstar istar).
 Local Notation sig_loc' :=
-  (g0w_sig_loc PP N M F Tl Hgrind dPP dN w l S_wn c_max zstar istar).
+  (g0w_sig_loc PP N M F Tl Hgrind dPP dN S_wn c_max zstar istar).
 Local Notation pp_loc' := (tcr_pp_loc TP).
 Local Notation tgts_loc' := (tcr_tgts_loc TP).
 Local Notation tws_loc' := (tcr_tws_loc TP).
@@ -450,20 +455,20 @@ Qed.
 Lemma collq_H_E (pp : PP) (m : M) (c : nat) :
   (if tc_eval CP pp gtw (inr (m, c)) is inr h then h else 0)
   = Hgrind pp gadrs (m, c).
-Proof. by []. Qed.
+Proof. by rewrite /tc_eval /Cpk /= decode_tweakK. Qed.
 
 (** The COLLQ answer at a chain address, post-processed by the walk's
     [inl]-projection, IS the scheme's F-step. *)
 Lemma collq_F_E (pp : PP) (i k : nat) (x : N) :
   (if tc_eval CP pp (ctw i k) (inl x) is inl y then y else x)
   = F pp (cadrs i k) x.
-Proof. by []. Qed.
+Proof. by rewrite /tc_eval /Cpk /= decode_tweakK. Qed.
 
 (** Decoded digest at the picked counter (folds [digits_w] of the
     oracle answer into [digest_of]). *)
 Lemma digestE (pp : PP) (m : M) (c : nat) :
   digits_w w l (Hgrind pp gadrs (m, c)) = wdigest pp m c.
-Proof. by []. Qed.
+Proof. by rewrite /digest_of. Qed.
 
 (** The walk's completed ends are the verifier's [complete_ends]
     (FixedSumOTS [ends_of] at [FW], start 0, length-l digests). *)
@@ -472,7 +477,7 @@ Lemma wendsE (pp : PP) (ds : seq nat) (ys : seq N) :
 Proof.
 move=> h.
 by rewrite (ends_of_from_sig PP N FW l w pp ds ys h)
-   (wcendsE PP N F w l zstar istar).
+   (wcendsE PP N F zstar istar).
 Qed.
 
 (* ------------------------------------------------------------------ *)
@@ -807,7 +812,7 @@ simplify_eq_rel arg.
   move=> us hus.
   cbv beta iota.
   rewrite (wendsE pp (wdigest pp m c) _
-            (size_digest_of PP M Hgrind w l zstar istar pp m c)).
+            (size_digest_of PP M Hgrind zstar istar pp m c)).
   simpl.
   (* the ONE TQUERY: commit the honest ends *)
   rewrite (resolve_tq true ptw
@@ -1008,7 +1013,7 @@ simplify_eq_rel arg.
   move=> us hus.
   cbv beta iota.
   rewrite (wendsE pp (wdigest pp m c) _
-            (size_digest_of PP M Hgrind w l zstar istar pp m c)).
+            (size_digest_of PP M Hgrind zstar istar pp m c)).
   simpl.
   rewrite (resolve_tq false ptw
             (wcends pp (wdigest pp m c) (wsigs pp 0 (wdigest pp m c) us))).

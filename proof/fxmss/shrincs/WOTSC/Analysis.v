@@ -97,13 +97,17 @@ Import PackageNotation.
 
 Section WOTSCAnalysis.
 
+Context {w l : nat}.
+Local Notation adrs_sf := (Addressing.adrs_sf l w).
+Local Notation adrs_sf_ch := (Addressing.adrs_sf_ch l w).
+
 (** Same section context as SHRINCS.WOTSC.Scheme, minus the samplers
     (this layer is pure). *)
 Context (PP N M : choice_type).
 Context (F : PP -> adrs_sf -> N -> N).
 Context (Tl : PP -> adrs_sf -> seq N -> N).
 Context (Hgrind : PP -> adrs_sf -> M * nat -> nat).
-Context (w l S_wn c_max : nat).
+Context (S_wn c_max : nat).
 Context (zstar istar : nat).
 
 (** The address-wrapped chain hash of WOTSC.Games (the FixedSumOTS
@@ -113,11 +117,12 @@ Local Notation cf := (chainf PP N F zstar istar).
 Local Notation gadrs := (grind_adrs zstar istar).
 Local Notation cadrs := (chain_adrs zstar istar).
 Local Notation padrs := (pk_adrs zstar istar).
-Local Notation wdigest := (digest_of PP M Hgrind w l zstar istar).
-Local Notation wgood := (good_ctr PP M Hgrind w l S_wn zstar istar).
-Local Notation wcends := (complete_ends PP N F w l zstar istar).
-Local Notation wverify := (verify_sig PP N M F Tl Hgrind w l S_wn zstar istar).
-Local Notation vdigest := (valid_digest w S_wn).
+Local Notation wdigest := (digest_of PP M Hgrind zstar istar).
+Local Notation wgood := (good_ctr PP M Hgrind S_wn zstar istar).
+Local Notation wcends := (complete_ends PP N F zstar istar).
+Local Notation wverify :=
+  (verify_sig PP N M F Tl Hgrind S_wn zstar istar).
+Local Notation vdigest := (@valid_digest w S_wn).
 
 (* ------------------------------------------------------------------ *)
 (** *** Bridges into the FixedSumOTS analysis
@@ -138,7 +143,7 @@ Lemma vdigest_valid_msg pp (m : M) c :
   vdigest (wdigest pp m c) -> valid_msg l w S_wn (wdigest pp m c).
 Proof.
 case/andP=> h1 h2.
-by rewrite /valid_msg (size_digest_of PP M Hgrind w l zstar istar) eqxx h1 h2.
+by rewrite /valid_msg (size_digest_of PP M Hgrind zstar istar) eqxx h1 h2.
 Qed.
 
 (* ------------------------------------------------------------------ *)
@@ -150,18 +155,15 @@ Qed.
     forces [l = 0] and both outputs are 0). *)
 
 Lemma wdigest_inj pp (m1 : M) (c1 : nat) (m2 : M) (c2 : nat) :
+  (0 < w)%N ->
   (forall (pp' : PP) (a : adrs_sf) (x : M * nat), Hgrind pp' a x < w ^ l) ->
   wdigest pp m1 c1 = wdigest pp m2 c2 ->
   Hgrind pp gadrs (m1, c1) = Hgrind pp gadrs (m2, c2).
 Proof.
-move=> Hr heq.
+move=> hw Hr heq.
 have h1 := Hr pp gadrs (m1, c1).
 have h2 := Hr pp gadrs (m2, c2).
-case: (posnP w) => [hw0|hw]; last first.
-- exact: (digits_w_inj hw h1 h2 heq).
-- case: (posnP l) => [hl0|hl].
-  + by move: h1 h2; rewrite hw0 hl0 expn0 !ltnS !leqn0 => /eqP-> /eqP->.
-  + by move: h1; rewrite hw0 exp0n.
+exact: (digits_w_inj hw h1 h2 heq).
 Qed.
 
 (* ------------------------------------------------------------------ *)
@@ -227,6 +229,7 @@ Lemma wotsc_forgery_classify
     (Hrange : forall (pp' : PP) (a : adrs_sf) (x : M * nat),
         Hgrind pp' a x < w ^ l)
     pp (m mstar : M) (c cstar : nat) (sg ystar : seq N) (y0 : N) :
+  (0 < w)%N ->
   wgood pp m c ->
   size sg = l ->
   wverify pp (Tl pp padrs (wcends pp (wdigest pp m c) sg))
@@ -264,12 +267,12 @@ Lemma wotsc_forgery_classify
             = nth y0 sg i]
   ].
 Proof.
-move=> hgood hsg hver hne.
+move=> hw hgood hsg hver hne.
 have hvd : vdigest (wdigest pp m c) := hgood.
 move: hver; rewrite /verify_sig /= => /and3P[hvd' /eqP hsy /eqP hTl].
 case: (altP (wdigest pp mstar cstar =P wdigest pp m c)) => [heqd|hned].
 - (* 1: equal digit vectors *)
-  by apply: Or41; apply: (wdigest_inj pp mstar cstar m c Hrange heqd).
+  by apply: Or41; apply: (wdigest_inj pp mstar cstar m c hw Hrange heqd).
 - case: (altP (wcends pp (wdigest pp mstar cstar) ystar
                  =P wcends pp (wdigest pp m c) sg)) => [heqe|hnee]; last first.
   + (* 2: distinct ends, equal compression (from verification) *)
@@ -284,9 +287,9 @@ case: (altP (wdigest pp mstar cstar =P wdigest pp m c)) => [heqd|hned].
     have hdw : nth 0 (wdigest pp m c) i < w
       := valid_msg_digit l w S_wn (wdigest pp m c) i hvm hi.
     have hsz : size (wdigest pp m c) = l
-      := size_digest_of PP M Hgrind w l zstar istar pp m c.
+      := size_digest_of PP M Hgrind zstar istar pp m c.
     have hsz' : size (wdigest pp mstar cstar) = l
-      := size_digest_of PP M Hgrind w l zstar istar pp mstar cstar.
+      := size_digest_of PP M Hgrind zstar istar pp mstar cstar.
     have hch := wcends_nth_eq pp _ _ _ _ y0 i hsz' hsy hsz hsg hi heqe.
     have := wotsc_chain_cases pp i (nth 0 (wdigest pp m c) i) (nth y0 sg i)
               (nth 0 (wdigest pp mstar cstar) i) (nth y0 ystar i) hlt hdw hch.
@@ -320,13 +323,23 @@ Proof. by rewrite inE. Qed.
 Definition wotsc_tweak (ik : nat * nat) : adrs_sf_ch :=
   encode_adrs (cadrs ik.1 ik.2).
 
-(** Distinct (chain, position) pairs are distinct encoded tweaks —
-    the TQUERY freshness asserts and the CHECK index mapping rest on
-    this. *)
-Lemma wotsc_tweak_inj : injective wotsc_tweak.
+(** Distinct representable (chain, position) pairs are distinct encoded
+    tweaks.  The range premises are necessary because the native address
+    space is finite. *)
+Lemma wotsc_tweak_inj (ik ik' : nat * nat) :
+  anchor_bounded (zstar, istar) ->
+  (ik.1 < l)%nat -> (ik'.1 < l)%nat ->
+  (ik.2 < w.-1)%nat -> (ik'.2 < w.-1)%nat ->
+  wotsc_tweak ik = wotsc_tweak ik' -> ik = ik'.
 Proof.
-move=> [i k] [i' k'] /encode_adrs_inj h.
-exact: (chain_adrs_inj zstar istar i k i' k' h).
+move: ik ik' => [i k] [i' k'] /= Ha hi hi' hk hk'.
+move/encode_adrs_inj=> h.
+apply: (@chain_adrs_inj w l zstar istar i k i' k' Ha).
+- exact: component_bounded_lt.
+- exact: component_bounded_lt.
+- exact: component_bounded_lt.
+- exact: component_bounded_lt.
+- exact: h.
 Qed.
 
 Definition wotsc_tcr_targets (pp : PP) (ds : seq nat) (sigs : seq N) :
@@ -383,14 +396,23 @@ Qed.
 (** Tweak distinctness of the committed list (the TQUERY freshness
     assert passes at every commit in list order). *)
 Lemma wotsc_tcr_targets_tweaks_uniq pp (ds : seq nat) (sigs : seq N) :
+  anchor_bounded (zstar, istar) ->
   size ds = l -> uniq (unzip1 (wotsc_tcr_targets pp ds sigs)).
 Proof.
-move=> hds.
+move=> Ha hds.
 have he : (fst \o (fun q : (nat * nat) * N => (wotsc_tweak q.1, q.2)))
             =1 (wotsc_tweak \o fst).
   by [].
+have hinj : {in unzip1 (tcr_targets PP N FW l w pp ds sigs) &,
+              injective wotsc_tweak}.
+  move=> x y hx hy.
+  have [hx1 hx2] :=
+    tcr_targets_mem_range PP N FW l w pp ds sigs x hds hx.
+  have [hy1 hy2] :=
+    tcr_targets_mem_range PP N FW l w pp ds sigs y hds hy.
+  exact: (wotsc_tweak_inj x y Ha hx1 hy1 hx2 hy2).
 rewrite /wotsc_tcr_targets /unzip1 -map_comp (eq_map he) map_comp.
-rewrite (map_inj_uniq wotsc_tweak_inj).
+rewrite (map_inj_in_uniq hinj).
 exact: (tcr_targets_tweaks_uniq PP N FW l w pp ds sigs hds).
 Qed.
 

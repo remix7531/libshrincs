@@ -446,6 +446,38 @@ move=> hm; rewrite /tcr_targets -hm.
 exact: tcr_tweaks_from_uniq.
 Qed.
 
+(** Every committed tweak has an in-range chain index and position. *)
+Lemma tcr_tweaks_from_range pp st (ds : seq nat) (ss : seq N) :
+  all (fun t : nat * nat =>
+         (t.1 < st + size ds)%N && (t.2 < w.-1)%N)
+      (unzip1
+        (flatten [seq tcr_chain pp q.1 q.2.1 q.2.2
+                  | q <- zip (iota st (size ds)) (zip ds ss)])).
+Proof.
+elim: ds st ss => [|d ds IH] st [|s ss] //=.
+rewrite unzip1_cat all_cat; apply/andP; split.
+- rewrite /tcr_chain /unzip1 -map_comp all_map.
+  apply/allP => k; rewrite mem_iota => /andP[hdk hk2] /=.
+  have hlt : d < w.-1.
+    by move: (leq_ltn_trans hdk hk2);
+      rewrite -{1}(addn0 d) ltn_add2l subn_gt0.
+  apply/andP; split.
+  + by rewrite addnS ltnS leq_addr.
+  + by move: hk2; rewrite (subnKC (ltnW hlt)).
+- apply/allP => t ht.
+  have /allP/(_ t ht) := IH st.+1 ss.
+  by rewrite addSnnS.
+Qed.
+
+Lemma tcr_targets_mem_range pp (m : seq nat) (sigs : seq N) t :
+  size m = l -> t \in unzip1 (tcr_targets pp m sigs) ->
+  (t.1 < l)%N /\ (t.2 < w.-1)%N.
+Proof.
+move=> hm ht; move: ht; rewrite /tcr_targets -hm => ht.
+have /allP/(_ t ht) := tcr_tweaks_from_range pp 0 m sigs.
+by rewrite add0n hm => /andP[h1 h2]; split.
+Qed.
+
 End FixedSumOTSAnalysis.
 
 (* ------------------------------------------------------------------ *)

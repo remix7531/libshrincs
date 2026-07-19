@@ -74,6 +74,9 @@ Import PackageNotation.
 
 Section WOTSCScheme.
 
+Context {w l : nat}.
+Local Notation adrs_sf := (Addressing.adrs_sf l w).
+
 (** Public parameter (PKseed), hash domain (n-byte strings), message
     space (the 2n-bit output of Hmsg^sf feeding the grinding step). *)
 Context (PP N M : choice_type).
@@ -94,7 +97,7 @@ Context (dPP : dist PP) (dN : dist N).
 
 (** Winternitz parameter, number of chains, target chain-sum,
     grinding-counter bound (see header). *)
-Context (w l S_wn c_max : nat).
+Context (S_wn c_max : nat).
 
 (** Imaginary-tree anchor (z_star, i_star) of this WOTS+C instance:
     the (node height, node index) fields of all its addresses. *)
@@ -118,8 +121,18 @@ Definition pk_adrs : adrs_sf := wotsc_pk_adrs anchor.
     conditions; the cross-class facts are the adrs_*_neq_* lemmas of
     SHRINCS.Addressing). *)
 Lemma chain_adrs_inj i pos i' pos' :
+  anchor_bounded anchor ->
+  component_bounded l i ->
+  component_bounded w.-1 pos ->
+  component_bounded l i' ->
+  component_bounded w.-1 pos' ->
   chain_adrs i pos = chain_adrs i' pos' -> (i, pos) = (i', pos').
-Proof. by move/AdrChain_inj => [_ _ -> ->]. Qed.
+Proof.
+move=> Ha Hi Hp Hi' Hp'.
+move/(AdrChain_inj l w _ _ _ _ _ _ _ _
+  Ha Ha Hi Hp Hi' Hp') => [_ _ -> ->].
+by [].
+Qed.
 
 (* ------------------------------------------------------------------ *)
 (** ** Grinding (wotsc.tex, "Grinding step")

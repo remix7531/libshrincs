@@ -90,6 +90,10 @@ Import PackageNotation.
 
 Section Leaf2Games.
 
+Context {w l : nat}.
+Local Notation adrs_sf := (Addressing.adrs_sf l w).
+Local Notation adrs_sf_ch := (Addressing.adrs_sf_ch l w).
+
 (** Same DATA-ONLY section context as FXMSS/LeafKM.v. *)
 Context (PP N D M R : choice_type).
 Context (F : PP -> adrs_sf -> N -> N).
@@ -97,8 +101,9 @@ Context (Tl : PP -> adrs_sf -> seq N -> N).
 Context (Hgrind : PP -> adrs_sf -> D * nat -> nat).
 Context (Htree : PP -> adrs_sf -> N * N -> N).
 Context (dPP : dist PP) (dN : dist N) (dR : dist R) (dD : dist D).
-Context (w l S_wn c_max : nat).
+Context (S_wn c_max : nat).
 Context (h_sf : nat).
+Context (Hh : (h_sf <= 64)%N).
 Context (q_s q_h n_max : nat).
 Context (q_f : nat).
 Context (n0 : N) (d0 : D).
@@ -108,26 +113,27 @@ Context (n0 : N) (d0 : D).
     args) and the static gate [gateS] are CONSUMED from FXMSS.LeafKM (the
     banked M0 endpoint), so endpoint and ladder share the literal gate. *)
 
-Local Notation lpk := (leaf_pk_c PP N F Tl w l).
-Local Notation lrc := (leaf_rec_c PP N D F Tl Hgrind w l).
+Local Notation lcoord t := (@LeafKM.lcoord w l t).
+Local Notation lpk := (leaf_pk_c PP N F Tl).
+Local Notation lrc := (leaf_rec_c PP N D F Tl Hgrind).
 
 Local Notation Lpp  := (miw_pp_loc PP).
-Local Notation Ltw  := miw_tws_loc.
+Local Notation Ltw  := (@miw_tws_loc w l).
 Local Notation Lrv  := miw_rev_loc.
 Local Notation Lsl  := miw_slog_loc.
-Local Notation Ltg  := (mkm_tgts_loc N D).
-Local Notation IKM  := (I_MIW_km PP N D).
+Local Notation Ltg  := (@mkm_tgts_loc w l N D).
+Local Notation IKM  := (@I_MIW_km w l PP N D).
 
 Local Notation MKMLocs :=
   [fmap Lpp ; Ltg ; Ltw ; Lrv ; Lsl ].
 
 Local Notation lfind t0 pp md0 :=
-  (find_ctr PP D Hgrind w l S_wn c_max (lcoord t0).1 (lcoord t0).2 pp md0).
+  (find_ctr PP D Hgrind S_wn c_max (lcoord t0).1 (lcoord t0).2 pp md0).
 
 (** The LIFTED (budget-free) WLOG gate (LeafKM.gateL at this section's data):
     the [(q_s <= j)] disjunct is DELETED -- pop-1 = "committed digest
     grindable", commit-static, no budget, no slog. *)
-Local Notation gateL := (LeafKM.gateL PP D Hgrind w l S_wn c_max).
+Local Notation gateL := (LeafKM.gateL PP D Hgrind S_wn c_max).
 
 (** The pk-compression (coordinate-level) tweak: the multi-target freshness the
     layer-(ii) SM-* reductions match against ([gtw_of t \notin map gtw_of tws]).
@@ -135,14 +141,15 @@ Local Notation gateL := (LeafKM.gateL PP D Hgrind w l S_wn c_max).
     same [AdrPk] tweak, so a generic adversary cannot commit two distinct full
     tweaks with the same coordinate; the real composed adversary commits only
     distinct leaf pk-anchors, on which [gtw_of] is the identity. *)
-Local Notation gtw_of t := (encode_adrs (wotsc_pk_adrs (lcoord t))).
+Local Notation gtw_of t :=
+  (@encode_adrs l w (@wotsc_pk_adrs l w (lcoord t))).
 
 (** The find_ctr-conditional re-root digit vector (the UNDERLYING in-budget
     digit): the SIGNED digits when grinding succeeds, else the VIRTUAL digit
     (WOTSC_zero G1z style). *)
 Definition rr_digit (pp : PP) (t : adrs_sf_ch) (md : D) : seq nat :=
-  match find_ctr PP D Hgrind w l S_wn c_max (lcoord t).1 (lcoord t).2 pp md with
-  | Some c => digest_of PP D Hgrind w l (lcoord t).1 (lcoord t).2 pp md c
+  match find_ctr PP D Hgrind S_wn c_max (lcoord t).1 (lcoord t).2 pp md with
+  | Some c => digest_of PP D Hgrind (lcoord t).1 (lcoord t).2 pp md c
   | None => nseq l w.-1
   end.
 
@@ -165,7 +172,7 @@ Definition rr_F (t : adrs_sf_ch) : PP -> nat * nat -> N -> N :=
 Definition rr_pkS (pp : PP) (t : adrs_sf_ch) (md : D) (j : nat)
     (sg : seq N) : N :=
   Tl pp (wotsc_pk_adrs (lcoord t))
-     (complete_ends PP N F w l (lcoord t).1 (lcoord t).2 pp
+     (complete_ends PP N F (lcoord t).1 (lcoord t).2 pp
         (rr_digitS pp t md j) sg).
 
 (* ------------------------------------------------------------------ *)
@@ -209,7 +216,7 @@ Definition rr_sign (j : nat) : raw_code ('option (('list N) × 'nat)) :=
             | Some pp => ret pp
             | None => pp ← dPP ;; #put Lpp := Some pp ;; ret pp
             end ;;
-       match find_ctr PP D Hgrind w l S_wn c_max
+       match find_ctr PP D Hgrind S_wn c_max
                (lcoord t0).1 (lcoord t0).2 pp md0 with
        | Some c => #put Lsl := rcons slog j ;; ret (Some (sg, c))
        | None => ret None
@@ -246,11 +253,11 @@ Definition rr_winbody
     completed-ends (slot-keyed). *)
 Local Notation lrcv pp t0 mw := (lrc pp t0 mw.1 mw.2).
 Local Notation fdv pp t0 mw :=
-  (digest_of PP D Hgrind w l (lcoord t0).1 (lcoord t0).2 pp mw.1 mw.2.2).
+  (digest_of PP D Hgrind (lcoord t0).1 (lcoord t0).2 pp mw.1 mw.2.2).
 Local Notation fcv pp t0 mw :=
-  (complete_ends PP N F w l (lcoord t0).1 (lcoord t0).2 pp (fdv pp t0 mw) mw.2.1).
+  (complete_ends PP N F (lcoord t0).1 (lcoord t0).2 pp (fdv pp t0 mw) mw.2.1).
 Local Notation rcvS pp t0 sg md0 j :=
-  (complete_ends PP N F w l (lcoord t0).1 (lcoord t0).2 pp
+  (complete_ends PP N F (lcoord t0).1 (lcoord t0).2 pp
      (rr_digitS pp t0 md0 j) sg).
 
 (** The §1.4 [wots_checks] validity guard at the leaf coordinate (= the
@@ -258,7 +265,7 @@ Local Notation rcvS pp t0 sg md0 j :=
     FXMSS.Scheme.wots_checks).  This is exactly [fx_verify]'s validity
     conjunct, evaluated on the FORGED digest/signature [(mw.1, mw.2)]. *)
 Local Notation vchecks pp t0 mw :=
-  (wots_checks PP N D Hgrind w l S_wn pp (lcoord t0) mw.1 mw.2).
+  (wots_checks PP N D Hgrind S_wn pp (lcoord t0) mw.1 mw.2).
 
 (** The re-rooted "verify": the §1.4-GUARDED anchor equality.  By the banked
     [verify_sigE] this is exactly [verify_sig … rr_pkS] = [wots_checks &&
@@ -275,7 +282,7 @@ Local Notation verokS pp t0 sg md0 j mw :=
     reduction, signed-digit re-root); pop-2 = everything else (virtual re-root,
     NO STCRP target). *)
 Local Notation grindable pp t0 md0 :=
-  (isSome (find_ctr PP D Hgrind w l S_wn c_max (lcoord t0).1 (lcoord t0).2 pp md0)).
+  (isSome (find_ctr PP D Hgrind S_wn c_max (lcoord t0).1 (lcoord t0).2 pp md0)).
 
 (** The GRIND-collision null discriminant (WOTSC Gmid1's simple unconditional
     form, restored by the WLOG): it fires iff the leaf is pop-1 (in-budget AND
@@ -367,7 +374,7 @@ eapply valid_bind.
   move=> pp; eapply valid_putr; first by fmap_solve.
   apply valid_ret.
 move=> pp.
-case: (find_ctr _ _ _ _ _ _ _ _ _ _) => [c|]; last by apply valid_ret.
+case: (find_ctr _ _ _ _ _ _ _ _ _) => [c|]; last by apply valid_ret.
 eapply valid_putr; first by fmap_solve. apply valid_ret.
 Qed.
 
@@ -459,7 +466,7 @@ Lemma flavourA_dead_g1lS (pp : PP) (t0 : adrs_sf_ch) (sg : seq N)
 Proof.
 move=> hfc h1.
 by rewrite /P_g1lS h1
-   (gateL_same_digest_dead PP D Hgrind w l S_wn c_max pp t0 md0 c hfc)
+   (gateL_same_digest_dead PP D Hgrind S_wn c_max pp t0 md0 c hfc)
    andbF.
 Qed.
 
@@ -471,7 +478,7 @@ Lemma flavourA_dead_gm3S (pp : PP) (t0 : adrs_sf_ch) (sg : seq N)
 Proof.
 move=> hfc h1.
 by rewrite /P_gm3S h1
-   (gateL_same_digest_dead PP D Hgrind w l S_wn c_max pp t0 md0 c hfc)
+   (gateL_same_digest_dead PP D Hgrind S_wn c_max pp t0 md0 c hfc)
    /= !andbF.
 Qed.
 

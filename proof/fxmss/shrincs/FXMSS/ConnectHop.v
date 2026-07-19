@@ -34,13 +34,17 @@ Import PackageNotation.
 
 Section FXMSSConnectHop.
 
+Context {w l : nat}.
+Local Notation adrs_sf := (Addressing.adrs_sf l w).
+Local Notation adrs_sf_ch := (Addressing.adrs_sf_ch l w).
+
 Context (PP N D M R : choice_type).
 Context (F : PP -> adrs_sf -> N -> N).
 Context (Tl : PP -> adrs_sf -> seq N -> N).
 Context (Hgrind : PP -> adrs_sf -> D * nat -> nat).
 Context (Htree : PP -> adrs_sf -> N * N -> N).
 Context (dPP : dist PP) (dN : dist N) (dR : dist R) (dD : dist D).
-Context (w l S_wn c_max : nat).
+Context (S_wn c_max : nat).
 Context (h_sf : nat).
 Context (q_s q_h n_max : nat).
 Context (q_f : nat).
@@ -63,9 +67,9 @@ Context (q_f : nat).
     by pointwise convertibility. *)
 Lemma G2f_G2c (b : bool) :
   G2f PP N D M R F Tl Hgrind Htree dPP dN dR dD
-    w l S_wn c_max h_sf q_s q_h n_max q_f b
+    S_wn c_max h_sf q_s q_h n_max q_f b
   = G2c PP N D M R F Tl Hgrind Htree dPP dN dR dD
-      w l S_wn c_max h_sf q_s q_h n_max q_f b.
+      S_wn c_max h_sf q_s q_h n_max q_f b.
 Proof. apply: package_ext; move=> x; reflexivity. Qed.
 
 (** The [perfect] reading (for telescopes that consume
@@ -73,9 +77,9 @@ Proof. apply: package_ext; move=> x; reflexivity. Qed.
 Lemma G2c_perfect (b : bool) :
   perfect (I_G0fL PP N D M R)
     (G2f PP N D M R F Tl Hgrind Htree dPP dN dR dD
-       w l S_wn c_max h_sf q_s q_h n_max q_f b)
+       S_wn c_max h_sf q_s q_h n_max q_f b)
     (G2c PP N D M R F Tl Hgrind Htree dPP dN dR dD
-       w l S_wn c_max h_sf q_s q_h n_max q_f b).
+       S_wn c_max h_sf q_s q_h n_max q_f b).
 Proof. move=> A VA; rewrite G2f_G2c; exact: Adv_same. Qed.
 
 End FXMSSConnectHop.

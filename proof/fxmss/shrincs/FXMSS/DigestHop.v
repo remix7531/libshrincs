@@ -198,6 +198,10 @@ Qed.
 
 Section FXMSSDigestHop.
 
+Context {w l : nat}.
+Local Notation adrs_sf := (Addressing.adrs_sf l w).
+Local Notation adrs_sf_ch := (Addressing.adrs_sf_ch l w).
+
 (** Same section context as FXMSS/ReproHop.v (whose [G3c] is the
     hop's left endpoint). *)
 Context (PP N D M R : choice_type).
@@ -206,7 +210,7 @@ Context (Tl : PP -> adrs_sf -> seq N -> N).
 Context (Hgrind : PP -> adrs_sf -> D * nat -> nat).
 Context (Htree : PP -> adrs_sf -> N * N -> N).
 Context (dPP : dist PP) (dN : dist N) (dR : dist R) (dD : dist D).
-Context (w l S_wn c_max : nat).
+Context (S_wn c_max : nat).
 Context (h_sf : nat).
 Context (q_s q_h n_max : nat).
 Context (q_f : nat).
@@ -223,12 +227,12 @@ Local Notation IG := (I_G0fL PP N D M R).
 Local Notation FXSIG := (FxSig N R).
 Local Notation FXST := (FxSt PP N).
 Local Notation ROIN := (RoIn PP N M R).
-Local Notation fxroot := (fx_root_x PP N F Tl Htree w l h_sf).
+Local Notation fxroot := (fx_root_x PP N F Tl Htree h_sf).
 Local Notation fxsignx :=
-  (fx_sign_x PP N D R F Tl Hgrind Htree w l S_wn c_max h_sf).
+  (fx_sign_x PP N D R F Tl Hgrind Htree S_wn c_max h_sf).
 Local Notation fxvermd :=
-  (fx_verify_md PP N D F Tl Hgrind Htree w l S_wn h_sf).
-Local Notation skeys := (sample_keys N dN l).
+  (fx_verify_md PP N D F Tl Hgrind Htree S_wn h_sf).
+Local Notation skeys := (@sample_keys l N dN).
 
 Local Notation Lst := (fx_st_loc PP N).
 Local Notation Llog := (fx_log_loc M).
@@ -237,7 +241,7 @@ Local Notation Lrt := (fx_rt_loc M R).
 
 Local Notation G3 :=
   (G3c PP N D M R F Tl Hgrind Htree dPP dN dR dD
-     w l S_wn c_max h_sf q_s q_h n_max q_f).
+     S_wn c_max h_sf q_s q_h n_max q_f).
 
 (** The signing-table key space (ReproHop's RTKey). *)
 Local Notation RTK := (('nat × 'nat) × M).

@@ -31,6 +31,10 @@ Import PackageNotation.
 
 Section FXMSSTreeHopProof.
 
+Context {w l : nat}.
+Local Notation adrs_sf := (Addressing.adrs_sf l w).
+Local Notation adrs_sf_ch := (Addressing.adrs_sf_ch l w).
+
 (** Same section context as FXMSS/TreeHop.v + FXMSS/LateGames.v. *)
 Context (PP N D M R : choice_type).
 Context (F : PP -> adrs_sf -> N -> N).
@@ -38,8 +42,9 @@ Context (Tl : PP -> adrs_sf -> seq N -> N).
 Context (Hgrind : PP -> adrs_sf -> D * nat -> nat).
 Context (Htree : PP -> adrs_sf -> N * N -> N).
 Context (dPP : dist PP) (dN : dist N) (dR : dist R) (dD : dist D).
-Context (w l S_wn c_max : nat).
+Context (S_wn c_max : nat).
 Context (h_sf : nat).
+Context (Hh : (h_sf <= 64)%N).
 Context (q_s q_h n_max : nat).
 Context (q_f : nat).
 
@@ -59,8 +64,8 @@ Local Notation tshape := (shape_of h_sf).
 Local Notation spath := (sign_path h_sf).
 Local Notation posid := (pos_id h_sf).
 Local Notation nhash := (node_hash PP N Htree h_sf).
-Local Notation valtree := (value_tree_x PP N F Tl w l h_sf).
-Local Notation fxroot := (fx_root_x PP N F Tl Htree w l h_sf).
+Local Notation valtree := (value_tree_x PP N F Tl h_sf).
+Local Notation fxroot := (fx_root_x PP N F Tl Htree h_sf).
 
 (** The thf [Th] and collection [Cth] under attack (TreeHop.v). *)
 Local Notation TH := (Th PP N Htree dPP dN).
@@ -68,16 +73,16 @@ Local Notation CTH := (Cth PP N D F Tl Hgrind Htree dPP dN).
 Local Notation SMT b := (SMTCR_game TH CTH (n_max - 1) b).
 
 (** Internal-node tweak (TreeHop.v's [tnode_tw]). *)
-Local Notation tnode := (tnode_tw h_sf).
+Local Notation tnode := (@tnode_tw w l h_sf).
 
 (* ------------------------------------------------------------------ *)
 (** ** The late-game family (LateGames') and the two endpoints *)
 
 Local Notation G6 b :=
-  (G6f PP N D M R F Tl Hgrind Htree dPP dN dR dD w l S_wn c_max h_sf
+  (G6f PP N D M R F Tl Hgrind Htree dPP dN dR dD S_wn c_max h_sf
      q_s q_h n_max q_f b).
 Local Notation G7 b :=
-  (G7f PP N D M R F Tl Hgrind Htree dPP dN dR dD w l S_wn c_max h_sf
+  (G7f PP N D M R F Tl Hgrind Htree dPP dN dR dD S_wn c_max h_sf
      q_s q_h n_max q_f b).
 
 Local Notation IG := (I_G0fL PP N D M R).
@@ -93,25 +98,25 @@ Local Notation Lrt := (fx_rt_loc M R).
 Local Notation Lsd := (fx_sd_loc D).
 Local Notation LateLocs0 := (LateLocs PP N D M R).
 Local Notation gen5 :=
-  (gen5_body PP N D R F Tl Hgrind Htree dPP dN dR dD w l S_wn c_max
+  (gen5_body PP N D R F Tl Hgrind Htree dPP dN dR dD S_wn c_max
      h_sf n_max).
 Local Notation sign5 :=
-  (sign5_body PP N D M R F Tl Hgrind Htree dR dD w l S_wn c_max h_sf q_s).
+  (sign5_body PP N D M R F Tl Hgrind Htree dR dD S_wn c_max h_sf q_s).
 Local Notation hash5 := (hash5_body PP N D M R dD q_h).
 Local Notation forge_keep :=
-  (forge_keep_body PP N D M R F Tl Hgrind Htree dD w l S_wn h_sf q_f).
+  (forge_keep_body PP N D M R F Tl Hgrind Htree dD S_wn h_sf q_f).
 Local Notation fillc := (fill_code D dD).
-Local Notation sdgrind := (sd_grindable PP D Hgrind w l S_wn c_max h_sf).
-Local Notation skeys := (sample_keys N dN l).
+Local Notation sdgrind := (sd_grindable PP D Hgrind S_wn c_max h_sf).
+Local Notation skeys := (@sample_keys l N dN).
 Local Notation fxcaseN :=
-  (fxcase PP N D F Tl Hgrind Htree w l h_sf).
+  (fxcase PP N D F Tl Hgrind Htree h_sf).
 Local Notation fxvermd :=
-  (fx_verify_md PP N D F Tl Hgrind Htree w l S_wn h_sf).
-Local Notation frecover := (recover_anchor PP N D F Tl Hgrind w l).
+  (fx_verify_md PP N D F Tl Hgrind Htree S_wn h_sf).
+Local Notation frecover := (recover_anchor PP N D F Tl Hgrind).
 Local Notation keepA := (keepAnchor N).
 Local Notation keepC := (keepColl N).
 Local Notation fverdN :=
-  (fverd PP N D M R F Tl Hgrind Htree w l S_wn h_sf).
+  (fverd PP N D M R F Tl Hgrind Htree S_wn h_sf).
 
 (** Keep the M5 leaf-id selectors folded under [simpl] so the SIGN-bullet
     [case:] scrutinees ([leaf_okP …], [lidx …]) match the goal verbatim. *)
@@ -124,8 +129,8 @@ Arguments lidx : simpl never.
     [value_tree_x pp sp xss = bt_posmap (anchor_val ...) [::] (tshape
     sp)]; the reduction builds the leaf values through COLLQ. *)
 
-Local Notation fpk_of zi := (pk_of PP N F Tl w l zi.1 zi.2).
-Local Notation fchain_ends zi := (chain_ends PP N F w l zi.1 zi.2).
+Local Notation fpk_of zi := (pk_of PP N F Tl zi.1 zi.2).
+Local Notation fchain_ends zi := (chain_ends PP N F zi.1 zi.2).
 
 (** The leaf function of [value_tree_x] at a leaf position [p]. *)
 Definition anchor_val (pp : PP) (sp : seq bool) (xss : seq (seq N))
@@ -318,7 +323,7 @@ Definition tr_slot_grind (sp : seq bool) (sd : chMap 'nat D) (j : nat) :
   match getm sd j with
   | Some d =>
       hs ← tr_grind (posid (spath sp j)) d (iota 0 c_max) ;;
-      ret (has (grind_prp w l S_wn) hs)
+      ret (has (@grind_prp w l S_wn) hs)
   | None => ret true
   end.
 
@@ -1042,11 +1047,11 @@ Qed.
 (** Grindability of one slot through the answer list = [find_ctr]'s
     [isSome] (= [slot_grindable]); [grind_prp] at an [Hgrind] answer IS
     [good_ctr] at the same counter. *)
-Local Notation gprp := (grind_prp w l S_wn).
+Local Notation gprp := (@grind_prp w l S_wn).
 Local Notation ffind_ctr zi :=
-  (find_ctr PP D Hgrind w l S_wn c_max zi.1 zi.2).
+  (find_ctr PP D Hgrind S_wn c_max zi.1 zi.2).
 Local Notation fgood_ctr zi :=
-  (good_ctr PP D Hgrind w l S_wn zi.1 zi.2).
+  (good_ctr PP D Hgrind S_wn zi.1 zi.2).
 
 Lemma has_grind_find_ctr pp (zi : nat * nat) (d : D) :
   has gprp [seq Hgrind pp (gadrs zi) (d, c) | c <- iota 0 c_max]
@@ -1067,7 +1072,7 @@ Lemma r_slot_grind_spec (b : bool) {B : choiceType} (pp : PP)
          (c0 : raw_code B) (k1 : 'bool -> raw_code B),
   ⊢ ⦃ λ '(s0, s1), trblk (Some pp) rv tw tg (s0, s1) ⦄
      c0 ≈ k1 (match getm sd j with
-              | Some d => slot_grindable PP D Hgrind w l S_wn c_max
+              | Some d => slot_grindable PP D Hgrind S_wn c_max
                             h_sf pp sp j d
               | None => true
               end) ⦃ post ⦄ ->
@@ -1080,7 +1085,7 @@ case E: (getm sd j) => [d|]; rewrite E /= in h.
 - rewrite code_link_bind bind_assoc.
   eapply (r_grind_spec b pp post (posid (spath sp j)) d (iota 0 c_max)).
   rewrite code_link_ret_bind has_grind_find_ctr.
-  rewrite -/(slot_grindable PP D Hgrind w l S_wn c_max h_sf pp sp j d).
+  rewrite -/(slot_grindable PP D Hgrind S_wn c_max h_sf pp sp j d).
   exact: h.
 - by rewrite code_link_ret_bind; exact: h.
 Qed.
@@ -1152,7 +1157,7 @@ Lemma r_gcheck_spec (b : bool) {B : choiceType} (pp : PP)
          (c0 : raw_code B) (k1 : 'bool -> raw_code B),
   ⊢ ⦃ λ '(s0, s1), trblk (Some pp) rv tw tg (s0, s1) ⦄
      c0 ≈ k1 (all (fun j => match getm sd j with
-                | Some d => slot_grindable PP D Hgrind w l S_wn c_max
+                | Some d => slot_grindable PP D Hgrind S_wn c_max
                               h_sf pp sp j d
                 | None => true
                 end) js) ⦃ post ⦄ ->
@@ -1420,7 +1425,7 @@ Lemma gen_uniq (sp : seq bool) :
 Proof.
 rewrite cats0 map_inj_in_uniq; first exact: int_under_uniq.
 move=> p q; rewrite !int_under_internal => hp hq.
-exact: (tnode_tw_inj h_sf sp p q hp hq).
+exact: (@tnode_tw_inj w l h_sf Hh sp p q hp hq).
 Qed.
 
 Lemma gen_bud (sp : seq bool) :
@@ -1657,7 +1662,7 @@ case E: (fxcaseN st.1.1 st.2.1 st.2.2 sg.1.1 d sg.2.1 sg.2.2)
                  val_bt (nhash st.1.1) (rcons q true) ltr.2),
             nhash st.1.1 q x.1 x.2 = nhash st.1.1 q y.1 y.2
           & x <> y].
-      exact: (fxcase_FColl _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ hvm E).
+	      exact: (fxcase_FColl _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ hvm E).
     subst qrel.
     have hqin : q \in int_under [::] (tshape st.2.1).
       have hq0 := internal_pathsP hsub.
@@ -1784,7 +1789,7 @@ simplify_eq_rel arg.
   eapply r_scheme_bind; first exact: prog_valid.
   move=> x1; cbv beta.
   rewrite code_link_bind (code_link_scheme _ _ _ _
-             (sample_keys_valid N dN l emptym [interface] _)).
+             (@sample_keys_valid l N dN emptym [interface] _)).
   eapply (r_sample_keys_size (size (leaf_paths (tshape arg)))).
   move=> xss hxsz hkeys; cbv beta.
   rewrite code_link_bind (code_link_scheme _ _ _ _
@@ -1865,7 +1870,7 @@ simplify_eq_rel arg.
     ssprove_sync. { tr_put_pre. }
     ssprove_sync. { tr_put_pre. }
     ssprove_sync. { tr_put_pre. }
-    case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+	    case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _
              (lidx h_sf (getSome v vSome).2.1 arg.2) r d) => [sg|].
     + ssprove_sync. { tr_put_pre. }
       ssprove_sync. { tr_put_pre. }
@@ -1878,7 +1883,7 @@ simplify_eq_rel arg.
   ssprove_sync. { tr_put_pre. }
   ssprove_sync. { tr_put_pre. }
   ssprove_sync. { tr_put_pre. }
-  case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+	  case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _
            (lidx h_sf (getSome v vSome).2.1 arg.2) r d) => [sg|].
   + ssprove_sync. { tr_put_pre. }
     ssprove_sync. { tr_put_pre. }
@@ -2001,7 +2006,7 @@ simplify_eq_rel arg.
   eapply r_scheme_bind; first exact: prog_valid.
   move=> x1; cbv beta.
   rewrite code_link_bind (code_link_scheme _ _ _ _
-             (sample_keys_valid N dN l emptym [interface] _)).
+             (@sample_keys_valid l N dN emptym [interface] _)).
   eapply (r_sample_keys_size (size (leaf_paths (tshape arg)))).
   move=> xss hxsz hkeys; cbv beta.
   rewrite code_link_bind (code_link_scheme _ _ _ _
@@ -2074,7 +2079,7 @@ simplify_eq_rel arg.
     ssprove_sync. { tr_put_pre. }
     ssprove_sync. { tr_put_pre. }
     ssprove_sync. { tr_put_pre. }
-    case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+	    case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _
              (lidx h_sf (getSome v vSome).2.1 arg.2) r d) => [sg|].
     + ssprove_sync. { tr_put_pre. }
       ssprove_sync. { tr_put_pre. }
@@ -2087,7 +2092,7 @@ simplify_eq_rel arg.
   ssprove_sync. { tr_put_pre. }
   ssprove_sync. { tr_put_pre. }
   ssprove_sync. { tr_put_pre. }
-  case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+	  case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _
            (lidx h_sf (getSome v vSome).2.1 arg.2) r d) => [sg|].
   + ssprove_sync. { tr_put_pre. }
     ssprove_sync. { tr_put_pre. }

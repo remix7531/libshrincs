@@ -159,6 +159,10 @@ Qed.
 
 Section FXMSSReproHop.
 
+Context {w l : nat}.
+Local Notation adrs_sf := (Addressing.adrs_sf l w).
+Local Notation adrs_sf_ch := (Addressing.adrs_sf_ch l w).
+
 (** Same section context as FXMSS.Games minus the PRFs and their key
     spaces (gone after hops 1-2), plus the FORGE budget [q_f]
     (header).  The samplers are arbitrary here; the bound section
@@ -169,7 +173,7 @@ Context (Tl : PP -> adrs_sf -> seq N -> N).
 Context (Hgrind : PP -> adrs_sf -> D * nat -> nat).
 Context (Htree : PP -> adrs_sf -> N * N -> N).
 Context (dPP : dist PP) (dN : dist N) (dR : dist R) (dD : dist D).
-Context (w l S_wn c_max : nat).
+Context (S_wn c_max : nat).
 Context (h_sf : nat).
 Context (q_s q_h n_max : nat).
 Context (q_f : nat).
@@ -186,12 +190,12 @@ Local Notation IG := (I_G0fL PP N D M R).
 Local Notation FXSIG := (FxSig N R).
 Local Notation FXST := (FxSt PP N).
 Local Notation ROIN := (RoIn PP N M R).
-Local Notation fxroot := (fx_root_x PP N F Tl Htree w l h_sf).
+Local Notation fxroot := (fx_root_x PP N F Tl Htree h_sf).
 Local Notation fxsignx :=
-  (fx_sign_x PP N D R F Tl Hgrind Htree w l S_wn c_max h_sf).
+  (fx_sign_x PP N D R F Tl Hgrind Htree S_wn c_max h_sf).
 Local Notation fxvermd :=
-  (fx_verify_md PP N D F Tl Hgrind Htree w l S_wn h_sf).
-Local Notation skeys := (sample_keys N dN l).
+  (fx_verify_md PP N D F Tl Hgrind Htree S_wn h_sf).
+Local Notation skeys := (@sample_keys l N dN).
 
 Local Notation Lst := (fx_st_loc PP N).
 Local Notation Llog := (fx_log_loc M).
@@ -1326,7 +1330,7 @@ simplify_eq_rel arg.
   eapply r_scheme_bind; first exact: prog_valid.
   move=> x1; cbv beta.
   rewrite (code_link_scheme _ _ _ _
-             (sample_keys_valid N dN l emptym [interface] _)).
+             (@sample_keys_valid l N dN emptym [interface] _)).
   eapply (r_scheme_bind (skeys (size (leaf_paths (tshape arg)))));
     first exact: sample_keys_valid.
   move=> xss; cbv beta.
@@ -1927,7 +1931,7 @@ simplify_eq_rel arg.
   eapply r_scheme_bind; first exact: prog_valid.
   move=> x1; cbv beta.
   rewrite (code_link_scheme _ _ _ _
-             (sample_keys_valid N dN l emptym [interface] _)).
+             (@sample_keys_valid l N dN emptym [interface] _)).
   eapply (r_scheme_bind (skeys (size (leaf_paths (tshape arg)))));
     first exact: sample_keys_valid.
   move=> xss; cbv beta.
@@ -2506,6 +2510,10 @@ End FXMSSReproHop.
 
 Section FXMSSReproBound.
 
+Context {w l : nat}.
+Local Notation adrs_sf := (Addressing.adrs_sf l w).
+Local Notation adrs_sf_ch := (Addressing.adrs_sf_ch l w).
+
 Context (PP N D M : choice_type).
 Context (r_n : nat).
 Context (F : PP -> adrs_sf -> N -> N).
@@ -2514,7 +2522,7 @@ Context (Hgrind : PP -> adrs_sf -> D * nat -> nat).
 Context (Htree : PP -> adrs_sf -> N * N -> N).
 Context (dPP : dist PP) (dN : dist N) (dD : dist D).
 Context (dD_ll : LosslessCode dD).
-Context (w l S_wn c_max : nat).
+Context (S_wn c_max : nat).
 Context (h_sf : nat).
 Context (q_s q_h n_max : nat).
 Context (q_f : nat).
@@ -2524,13 +2532,13 @@ Local Notation dRu := (rp_dPfx r_n).
 Local Notation IG := (I_G0fL PP N D M Rfin).
 Local Notation G2C b :=
   (G2c PP N D M Rfin F Tl Hgrind Htree dPP dN dRu dD
-     w l S_wn c_max h_sf q_s q_h n_max q_f b).
+     S_wn c_max h_sf q_s q_h n_max q_f b).
 Local Notation G3C b :=
   (G3c PP N D M Rfin F Tl Hgrind Htree dPP dN dRu dD
-     w l S_wn c_max h_sf q_s q_h n_max q_f b).
+     S_wn c_max h_sf q_s q_h n_max q_f b).
 Local Notation R_REP b :=
   (R_rep PP N D M Rfin F Tl Hgrind Htree dPP dN dRu
-     w l S_wn c_max h_sf q_s q_h n_max q_f b).
+     S_wn c_max h_sf q_s q_h n_max q_f b).
 
 (** Hop 3 of the FXMSS chain (tex F.2 -> F.3, claim:fxmss-repro),
     with [Repro_bound]'s documented [qp > 1] slack [q_s.-1]. *)
@@ -2541,7 +2549,7 @@ Theorem Repro_hop (b : bool) (A : nom_package)
    :> Axioms.R)%R.
 Proof.
 rewrite (Repro_hop_Adv PP N D M Rfin F Tl Hgrind Htree dPP dN dRu dD
-           w l S_wn c_max h_sf q_s q_h n_max q_f b A VA).
+           S_wn c_max h_sf q_s q_h n_max q_f b A VA).
 have VA' : ValidPackage (loc (A ∘ R_REP b)%sep)
              (I_RO Rfin (XSuf PP N M) D) A_export (A ∘ R_REP b)%sep.
 { exact _. }

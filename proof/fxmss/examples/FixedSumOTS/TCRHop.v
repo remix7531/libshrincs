@@ -501,6 +501,16 @@ rewrite /walkq /unzip1 -map_comp all_map.
 by apply/allP => j _ /=.
 Qed.
 
+(** Every walk tweak has position [< k + n]. *)
+Lemma walkq_tweak2 pp i k n x b :
+  (k + n <= b)%N ->
+  all (λ t : nat * nat, (t.2 < b)%N) (unzip1 (walkq pp i k n x)).
+Proof.
+move=> hb; rewrite /walkq /unzip1 -map_comp all_map.
+apply/allP => j; rewrite mem_iota add0n => /andP[_ hj] /=.
+by rewrite addnC; apply: leq_trans hb; rewrite ltn_add2l.
+Qed.
+
 (** All queries of one chain: the sigma query (for positive digits)
     followed by the walk from the signature position. *)
 Definition chain_queries (pp : PP) (i d : nat) (u : N) : seq qentry :=

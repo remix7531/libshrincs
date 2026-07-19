@@ -14,18 +14,22 @@ Import Num.Theory Order.POrderTheory GRing.Theory.
 #[local] Open Scope ring_scope.
 
 Section FXMSSDigestBound.
+
+Context {w l : nat}.
+Local Notation adrs_sf := (Addressing.adrs_sf l w).
+Local Notation adrs_sf_ch := (Addressing.adrs_sf_ch l w).
 Context (PP N M R : choice_type) (d_n : nat).
 Context (F : PP -> adrs_sf -> N -> N) (Tl : PP -> adrs_sf -> seq N -> N).
 Context (Hgrind : PP -> adrs_sf -> (chFin d_n.+1) * nat -> nat).
 Context (Htree : PP -> adrs_sf -> N * N -> N).
 Context (dPP : dist PP) (dN : dist N) (dR : dist R).
-Context (w l S_wn c_max h_sf q_s q_h n_max q_f : nat).
+Context (S_wn c_max h_sf q_s q_h n_max q_f : nat).
 Local Notation Dfin := (chFin d_n.+1).
 Local Notation dDu := (rp_dPfx d_n).
 
-Local Notation G3C b := (ReproHop.G3c PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu w l S_wn c_max h_sf q_s q_h n_max q_f b).
-Local Notation G4M b := (G4m PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu w l S_wn c_max h_sf q_s q_h n_max q_f b).
-Local Notation G4C b := (G4c PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu w l S_wn c_max h_sf q_s q_h n_max q_f b).
+Local Notation G3C b := (ReproHop.G3c PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu S_wn c_max h_sf q_s q_h n_max q_f b).
+Local Notation G4M b := (G4m PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu S_wn c_max h_sf q_s q_h n_max q_f b).
+Local Notation G4C b := (G4c PP N Dfin M R F Tl Hgrind Htree dPP dN dR dDu S_wn c_max h_sf q_s q_h n_max q_f b).
 
 Local Notation Lsd := (fx_sd_loc Dfin).
 Local Notation IG := (I_G0fL PP N Dfin M R).
@@ -45,12 +49,12 @@ Local Notation flidx sp zi := (lidx h_sf sp zi).
     match only the intended [sign4_body] occurrence.  Same lever diff.v
     uses for [forge3_step] (DIGEST_OPT_NOTES.md UPDATE 2). *)
 Local Notation Ssign :=
-  (@sign4_step PP N Dfin M R F Tl Hgrind Htree dR dDu w l S_wn c_max h_sf q_s).
+  (@sign4_step w l PP N Dfin M R F Tl Hgrind Htree dR dDu S_wn c_max h_sf q_s).
 (** Fully-[@]-applied [sign4_body] (its section variables), so the
     [fill_peel_at] continuation is written in the exact shape that
     [resolve_g4m_sign] produces. *)
 Local Notation sbody :=
-  (@sign4_body PP N Dfin M R F Tl Hgrind Htree dR dDu w l S_wn c_max h_sf q_s).
+  (@sign4_body w l PP N Dfin M R F Tl Hgrind Htree dR dDu S_wn c_max h_sf q_s).
 
 (** [rp_dPfx] is lossless (uniform on a nonempty finite type). *)
 Lemma dDu_ll : LosslessCode dDu.
@@ -244,37 +248,37 @@ Proof. by rewrite (Pr_fstC dDu_ll). Qed.
     leave [Lsd] untouched; the lifted [sign_fin] additionally sets the
     used-set [fx_used_loc]. *)
 Lemma sfin_h_lem (h : heap) st qv sc us lg mp tb mz r md (X : chMap 'nat Dfin) :
-  (sign_fin PP N Dfin M R F Tl Hgrind Htree w l S_wn c_max h_sf
+  (sign_fin PP N Dfin M R F Tl Hgrind Htree S_wn c_max h_sf
      (set_heap h Lsd X) st qv sc us lg mp tb mz r md).2
-  = set_heap (sign_fin PP N Dfin M R F Tl Hgrind Htree w l S_wn c_max h_sf
+  = set_heap (sign_fin PP N Dfin M R F Tl Hgrind Htree S_wn c_max h_sf
       h st qv sc us lg mp tb mz r md).2 Lsd X.
 Proof. rewrite sign_finE /=.
-  case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => [sg|];
+  case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => [sg|];
     rewrite !(set_heap_commut _ Lsd) //. Qed.
 
 Lemma sfin_r_lem (h : heap) st qv sc us lg mp tb mz r md (X : chMap 'nat Dfin) :
-  (sign_fin PP N Dfin M R F Tl Hgrind Htree w l S_wn c_max h_sf
+  (sign_fin PP N Dfin M R F Tl Hgrind Htree S_wn c_max h_sf
      (set_heap h Lsd X) st qv sc us lg mp tb mz r md).1
-  = (sign_fin PP N Dfin M R F Tl Hgrind Htree w l S_wn c_max h_sf
+  = (sign_fin PP N Dfin M R F Tl Hgrind Htree S_wn c_max h_sf
       h st qv sc us lg mp tb mz r md).1.
 Proof. rewrite sign_finE /=.
-  by case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => [sg|]. Qed.
+  by case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => [sg|]. Qed.
 
 Lemma sfin_st_lem (h : heap) st qv sc us lg mp tb mz r md :
-  get_heap (sign_fin PP N Dfin M R F Tl Hgrind Htree w l S_wn c_max h_sf
+  get_heap (sign_fin PP N Dfin M R F Tl Hgrind Htree S_wn c_max h_sf
     h st qv sc us lg mp tb mz r md).2 (fx_st_loc PP N)
   = get_heap h (fx_st_loc PP N).
 Proof. rewrite sign_finE /=.
-  case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => [sg|];
+  case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => [sg|];
     by rewrite !get_set_heap_neq. Qed.
 
 (** The lifted [sign_fin] sets [fx_used_loc] to [setm us mz.2 tt]. *)
 Lemma sfin_used_lem (h : heap) st qv sc us lg mp tb mz r md :
-  get_heap (sign_fin PP N Dfin M R F Tl Hgrind Htree w l S_wn c_max h_sf
+  get_heap (sign_fin PP N Dfin M R F Tl Hgrind Htree S_wn c_max h_sf
     h st qv sc us lg mp tb mz r md).2 fx_used_loc
   = setm us mz.2 Datatypes.tt.
 Proof. rewrite sign_finE /=.
-  case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => [sg|].
+  case: (fx_sign_x _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) => [sg|].
   - rewrite (get_set_heap_neq _ fx_scnt_loc _ fx_used_loc) //.
     rewrite (get_set_heap_neq _ (fx_log_loc M) _ fx_used_loc) //.
     rewrite (get_set_heap_neq _ (fx_rom_loc PP N Dfin M R) _ fx_used_loc) //.
@@ -380,13 +384,13 @@ transitivity ((\dlet_(rest <- Pr_fst (fill_code Dfin dDu js emptym))
        (\dlet_(pp <- Pr_fst dPP)
         \dlet_(_ <- Pr_fst dN)
         \dlet_(_ <- Pr_fst dR)
-        \dlet_(xss <- Pr_fst (sample_keys N dN l (size (leaf_paths (shape_of h_sf x)))))
+        \dlet_(xss <- Pr_fst (@sample_keys l N dN (size (leaf_paths (shape_of h_sf x)))))
         \dlet_(sdm <- Pr_fst (fill_code Dfin dDu (iota 0 n_max) emptym))
-          dfst (Pr_code (code_link (k (pp, fx_root_x PP N F Tl Htree w l h_sf pp x xss))
+          dfst (Pr_code (code_link (k (pp, fx_root_x PP N F Tl Htree h_sf pp x xss))
                   (G4M b))
              (set_heap (set_heap (set_heap h Lsd (unionm sd0 rest))
                 (fx_st_loc PP N)
-                (Some ((pp, fx_root_x PP N F Tl Htree w l h_sf pp x xss), (x, xss))))
+                (Some ((pp, fx_root_x PP N F Tl Htree h_sf pp x xss), (x, xss))))
                 Lsd sdm)))
      else dnull)) z).
 { apply: eq_dlet_at => rest. rewrite gen4_step.
@@ -406,10 +410,10 @@ case: (hpre hstN) => hsd00 hcus00. subst sd0.
 have genheap : forall (pp : PP) (xss : seq (seq N)) (rest sdm : chMap 'nat Dfin),
     set_heap (set_heap (set_heap h Lsd (unionm emptym rest))
       (fx_st_loc PP N)
-      (Some ((pp, fx_root_x PP N F Tl Htree w l h_sf pp x xss), (x, xss))))
+      (Some ((pp, fx_root_x PP N F Tl Htree h_sf pp x xss), (x, xss))))
       Lsd sdm
     = set_heap (set_heap h (fx_st_loc PP N)
-        (Some ((pp, fx_root_x PP N F Tl Htree w l h_sf pp x xss), (x, xss))))
+        (Some ((pp, fx_root_x PP N F Tl Htree h_sf pp x xss), (x, xss))))
         Lsd sdm.
 { move=> pp xss rest sdm.
   rewrite (set_heap_commut _ Lsd _ (fx_st_loc PP N)) //.
@@ -431,7 +435,7 @@ apply: eq_dlet_at => xn.
 apply: eq_dlet_at => xr.
 apply: eq_dlet_at => xss.
 set h' := set_heap h (fx_st_loc PP N)
-            (Some ((pp, fx_root_x PP N F Tl Htree w l h_sf pp x xss), (x, xss))).
+            (Some ((pp, fx_root_x PP N F Tl Htree h_sf pp x xss), (x, xss))).
 have hcusN : get_heap h fx_used_loc = emptym by [].
 have huniq' : uniq (iota 0 n_max) by exact: iota_uniq.
 have hdisj' : forall s, s \in iota 0 n_max ->
@@ -454,7 +458,7 @@ have hst' : forall st, get_heap h' (fx_st_loc PP N) = Some st ->
 have hpre' : get_heap h' (fx_st_loc PP N) = None ->
     (emptym : chMap 'nat Dfin) = emptym /\ cus h' = emptym.
 { by rewrite /h' get_set_heap_eq. }
-have := IH (pp, fx_root_x PP N F Tl Htree w l h_sf pp x xss) b h' emptym
+have := IH (pp, fx_root_x PP N F Tl Htree h_sf pp x xss) b h' emptym
          (iota 0 n_max) z huniq' hdisj' hcov' hst' hpre'.
 move=> ->.
 apply: eq_dlet_at => sdm.
@@ -531,21 +535,21 @@ have hjin : flidx st.2.1 mz.2 \in js := hcov _ hlt hnotin.
    consumed set [setm sd0 (flidx zi) y] and remaining list [rem (flidx zi) js]. *)
 have rec_post : forall (r : R) (md y : Dfin),
     dfst (Pr_code (code_link (k (sign_fin PP N Dfin M R F Tl Hgrind Htree
-           w l S_wn c_max h_sf h st (flidx st.2.1 mz.2) (get_heap h fx_scnt_loc)
+           S_wn c_max h_sf h st (flidx st.2.1 mz.2) (get_heap h fx_scnt_loc)
            (get_heap h fx_used_loc) Lg Mp Tb mz r md).1) (G3C b))
-      (sign_fin PP N Dfin M R F Tl Hgrind Htree w l S_wn c_max h_sf
+      (sign_fin PP N Dfin M R F Tl Hgrind Htree S_wn c_max h_sf
          h st (flidx st.2.1 mz.2) (get_heap h fx_scnt_loc)
          (get_heap h fx_used_loc) Lg Mp Tb mz r md).2) z
     = (\dlet_(rest <- Pr_fst (fill_code Dfin dDu (rem (flidx st.2.1 mz.2) js) emptym))
          dfst (Pr_code (code_link (k (sign_fin PP N Dfin M R F Tl Hgrind Htree
-                w l S_wn c_max h_sf h st (flidx st.2.1 mz.2) (get_heap h fx_scnt_loc)
+                S_wn c_max h_sf h st (flidx st.2.1 mz.2) (get_heap h fx_scnt_loc)
                 (get_heap h fx_used_loc) Lg Mp Tb mz r md).1) (G4M b))
-           (set_heap (sign_fin PP N Dfin M R F Tl Hgrind Htree w l S_wn c_max h_sf
+           (set_heap (sign_fin PP N Dfin M R F Tl Hgrind Htree S_wn c_max h_sf
               h st (flidx st.2.1 mz.2) (get_heap h fx_scnt_loc)
               (get_heap h fx_used_loc) Lg Mp Tb mz r md).2 Lsd
               (unionm (setm sd0 (flidx st.2.1 mz.2) y) rest)))) z.
 { move=> r md y.
-  set h3 := (sign_fin PP N Dfin M R F Tl Hgrind Htree w l S_wn c_max h_sf
+  set h3 := (sign_fin PP N Dfin M R F Tl Hgrind Htree S_wn c_max h_sf
     h st (flidx st.2.1 mz.2) (get_heap h fx_scnt_loc) (get_heap h fx_used_loc)
     Lg Mp Tb mz r md).2.
   have Lh3 : get_heap h3 (fx_st_loc PP N) = Some st by rewrite /h3 sfin_st.
@@ -588,17 +592,17 @@ case Etb: (getm Tb (mz.2, mz.1)) => [r|].
     (match getm Mp (r, (st.1, (mz.2, mz.1))) with
      | Some md =>
          dfst (Pr_code (code_link (k (sign_fin PP N Dfin M R F Tl Hgrind Htree
-                w l S_wn c_max h_sf h st (flidx st.2.1 mz.2) (get_heap h fx_scnt_loc)
+                S_wn c_max h_sf h st (flidx st.2.1 mz.2) (get_heap h fx_scnt_loc)
                 (get_heap h fx_used_loc) Lg Mp Tb mz r md).1) (G3C b))
-           (sign_fin PP N Dfin M R F Tl Hgrind Htree w l S_wn c_max h_sf
+           (sign_fin PP N Dfin M R F Tl Hgrind Htree S_wn c_max h_sf
               h st (flidx st.2.1 mz.2) (get_heap h fx_scnt_loc)
               (get_heap h fx_used_loc) Lg Mp Tb mz r md).2)
      | None =>
          (\dlet_(md <- Pr_fst dDu)
             dfst (Pr_code (code_link (k (sign_fin PP N Dfin M R F Tl Hgrind Htree
-                   w l S_wn c_max h_sf h st (flidx st.2.1 mz.2) (get_heap h fx_scnt_loc)
+                   S_wn c_max h_sf h st (flidx st.2.1 mz.2) (get_heap h fx_scnt_loc)
                    (get_heap h fx_used_loc) Lg Mp Tb mz r md).1) (G3C b))
-              (sign_fin PP N Dfin M R F Tl Hgrind Htree w l S_wn c_max h_sf
+              (sign_fin PP N Dfin M R F Tl Hgrind Htree S_wn c_max h_sf
                  h st (flidx st.2.1 mz.2) (get_heap h fx_scnt_loc)
                  (get_heap h fx_used_loc) Lg Mp Tb mz r md).2))
      end)) z).
@@ -628,9 +632,9 @@ case Etb: (getm Tb (mz.2, mz.1)) => [r|].
     transitivity ((\dlet_(md <- Pr_fst dDu)
         \dlet_(rest <- Pr_fst (fill_code Dfin dDu (rem (flidx st.2.1 mz.2) js) emptym))
           dfst (Pr_code (code_link (k (sign_fin PP N Dfin M R F Tl Hgrind Htree
-                 w l S_wn c_max h_sf h st (flidx st.2.1 mz.2) (get_heap h fx_scnt_loc)
+                 S_wn c_max h_sf h st (flidx st.2.1 mz.2) (get_heap h fx_scnt_loc)
                  (get_heap h fx_used_loc) Lg Mp Tb mz r md).1) (G4M b))
-            (set_heap (sign_fin PP N Dfin M R F Tl Hgrind Htree w l S_wn c_max h_sf
+            (set_heap (sign_fin PP N Dfin M R F Tl Hgrind Htree S_wn c_max h_sf
                h st (flidx st.2.1 mz.2) (get_heap h fx_scnt_loc)
                (get_heap h fx_used_loc) Lg Mp Tb mz r md).2 Lsd
                (unionm (setm sd0 (flidx st.2.1 mz.2) y) rest)))) z).
@@ -662,9 +666,9 @@ case Etb: (getm Tb (mz.2, mz.1)) => [r|].
       \dlet_(rest <- Pr_fst (fill_code Dfin dDu (rem (flidx st.2.1 mz.2) js) emptym))
       \dlet_(r <- Pr_fst dR)
         dfst (Pr_code (code_link (k (sign_fin PP N Dfin M R F Tl Hgrind Htree
-               w l S_wn c_max h_sf h st (flidx st.2.1 mz.2) (get_heap h fx_scnt_loc)
+               S_wn c_max h_sf h st (flidx st.2.1 mz.2) (get_heap h fx_scnt_loc)
                (get_heap h fx_used_loc) Lg Mp Tb mz r y).1) (G4M b))
-          (set_heap (sign_fin PP N Dfin M R F Tl Hgrind Htree w l S_wn c_max h_sf
+          (set_heap (sign_fin PP N Dfin M R F Tl Hgrind Htree S_wn c_max h_sf
              h st (flidx st.2.1 mz.2) (get_heap h fx_scnt_loc)
              (get_heap h fx_used_loc) Lg Mp Tb mz r y).2 Lsd
              (unionm (setm sd0 (flidx st.2.1 mz.2) y) rest)))) z).
@@ -692,9 +696,9 @@ case Etb: (getm Tb (mz.2, mz.1)) => [r|].
   transitivity ((\dlet_(y <- Pr_fst dDu)
       \dlet_(r <- Pr_fst dR)
         dfst (Pr_code (code_link (k (sign_fin PP N Dfin M R F Tl Hgrind Htree
-               w l S_wn c_max h_sf h st (flidx st.2.1 mz.2) (get_heap h fx_scnt_loc)
+               S_wn c_max h_sf h st (flidx st.2.1 mz.2) (get_heap h fx_scnt_loc)
                (get_heap h fx_used_loc) Lg Mp Tb mz r y).1) (G3C b))
-          (sign_fin PP N Dfin M R F Tl Hgrind Htree w l S_wn c_max h_sf
+          (sign_fin PP N Dfin M R F Tl Hgrind Htree S_wn c_max h_sf
              h st (flidx st.2.1 mz.2) (get_heap h fx_scnt_loc)
              (get_heap h fx_used_loc) Lg Mp Tb mz r y).2)) z).
   2: { apply: eq_dlet_at => y.
@@ -786,7 +790,7 @@ have fstep : forall (K : 'bool -> raw_code T') (hh : heap),
                 (sg.1.2, (st.1, (sg.1.1, m))) with
         | Some md =>
             dfst (Pr_code (K (if b then
-                    fx_verify_md PP N Dfin F Tl Hgrind Htree w l S_wn h_sf
+                    fx_verify_md PP N Dfin F Tl Hgrind Htree S_wn h_sf
                       st.1.1 st.1.2 sg.1.1 md sg.2.1 sg.2.2
                     && (m \notin get_heap hh (fx_log_loc M)) else false))
               (forge_fin PP N Dfin M R hh (get_heap hh fx_fcnt_loc)
@@ -795,7 +799,7 @@ have fstep : forall (K : 'bool -> raw_code T') (hh : heap),
         | None =>
             (\dlet_(md <- Pr_fst dDu)
                dfst (Pr_code (K (if b then
-                       fx_verify_md PP N Dfin F Tl Hgrind Htree w l S_wn h_sf
+                       fx_verify_md PP N Dfin F Tl Hgrind Htree S_wn h_sf
                          st.1.1 st.1.2 sg.1.1 md sg.2.1 sg.2.2
                        && (m \notin get_heap hh (fx_log_loc M)) else false))
                  (forge_fin PP N Dfin M R hh (get_heap hh fx_fcnt_loc)
@@ -830,7 +834,7 @@ transitivity ((\dlet_(rest <- Pr_fst (fill_code Dfin dDu js emptym))
                  (sg.1.2, (st.1, (sg.1.1, m))) with
          | Some md =>
              dfst (Pr_code (code_link (k (if b then
-                     fx_verify_md PP N Dfin F Tl Hgrind Htree w l S_wn h_sf
+                     fx_verify_md PP N Dfin F Tl Hgrind Htree S_wn h_sf
                        st.1.1 st.1.2 sg.1.1 md sg.2.1 sg.2.2
                      && (m \notin get_heap h (fx_log_loc M)) else false)) (G4M b))
                (set_heap (forge_fin PP N Dfin M R h (get_heap h fx_fcnt_loc)
@@ -840,7 +844,7 @@ transitivity ((\dlet_(rest <- Pr_fst (fill_code Dfin dDu js emptym))
          | None =>
              (\dlet_(md <- Pr_fst dDu)
                 dfst (Pr_code (code_link (k (if b then
-                        fx_verify_md PP N Dfin F Tl Hgrind Htree w l S_wn h_sf
+                        fx_verify_md PP N Dfin F Tl Hgrind Htree S_wn h_sf
                           st.1.1 st.1.2 sg.1.1 md sg.2.1 sg.2.2
                         && (m \notin get_heap h (fx_log_loc M)) else false)) (G4M b))
                   (set_heap (forge_fin PP N Dfin M R h (get_heap h fx_fcnt_loc)
@@ -1020,7 +1024,7 @@ Proof.
     apply: eq_dlet => rest. rewrite union0m.
     apply: distr_ext => u.
     apply: (DigestHopBound_g4indep.g4_lsd_indep PP N M R d_n F Tl Hgrind Htree
-              dPP dN dR w l S_wn c_max h_sf q_s q_h n_max q_f LA' sepL VC b _ _ u).
+              dPP dN dR S_wn c_max h_sf q_s q_h n_max q_f LA' sepL VC b _ _ u).
     - move=> lo hlo. by rewrite (get_set_heap_neq _ (fx_sd_loc Dfin) _ lo hlo).
     - by rewrite get_set_heap_neq. }
   rewrite collapse subrr normr0 //.

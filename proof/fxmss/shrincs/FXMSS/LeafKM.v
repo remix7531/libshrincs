@@ -11,6 +11,7 @@ Set Warnings "-notation-overridden,-ambiguous-paths,-notation-incompatible-prefi
 From HBS Require Import Prelude Math.BinTree Math.Merkle Math.Chain Math.Encoding
   Sig.Scheme Games.THF Games.SMTCR Toolkit.SampleSeq.
 From HBS.Examples Require Import FixedSumOTS.Games FixedSumOTS.TCRHop.
+From Model Require Import fin.
 From SHRINCS Require Import Addressing WOTSC.Scheme WOTSC.Games
   FXMSS.Scheme FXMSS.Games FXMSS.LateGames FXMSS.TreeHop
   FXMSS.LeafReduction.
@@ -23,6 +24,10 @@ Import PackageNotation.
 
 Section LeafKM.
 
+Context {w l : nat}.
+Local Notation adrs_sf := (Addressing.adrs_sf l w).
+Local Notation adrs_sf_ch := (Addressing.adrs_sf_ch l w).
+
 (** Same DATA-ONLY section context as FXMSS/LeafReduction.v + a default digest
     [d0] for the never-signed leaves' (signing-budget-exhausted) commit. *)
 Context (PP N D M R : choice_type).
@@ -31,8 +36,9 @@ Context (Tl : PP -> adrs_sf -> seq N -> N).
 Context (Hgrind : PP -> adrs_sf -> D * nat -> nat).
 Context (Htree : PP -> adrs_sf -> N * N -> N).
 Context (dPP : dist PP) (dN : dist N) (dR : dist R) (dD : dist D).
-Context (w l S_wn c_max : nat).
+Context (S_wn c_max : nat).
 Context (h_sf : nat).
+Context (Hh : (h_sf <= 64)%N).
 Context (q_s q_h n_max : nat).
 Context (q_f : nat).
 Context (n0 : N) (d0 : D).
@@ -42,7 +48,8 @@ Context (n0 : N) (d0 : D).
 Local Notation tshape := (shape_of h_sf).
 Local Notation spath := (sign_path h_sf).
 Local Notation posid := (pos_id h_sf).
-Local Notation panchor p := (encode_adrs (AdrPk (posid p).1 (posid p).2)).
+Local Notation panchor p :=
+  (@encode_adrs l w (@wotsc_pk_adrs l w (posid p))).
 
 (** The pk-compression (coordinate-level) tweak of [t]: collapses every
     address sharing the leaf coordinate [lcoord t = adrs_keypair (decode t)]
@@ -52,7 +59,8 @@ Local Notation panchor p := (encode_adrs (AdrPk (posid p).1 (posid p).2)).
     real protocol (which commits only distinct leaf pk-anchors) coordinate
     freshness coincides with full-tweak freshness. *)
 Local Notation gtw_of t :=
-  (encode_adrs (wotsc_pk_adrs (adrs_keypair (decode_tweak t)))).
+  (@encode_adrs l w
+     (@wotsc_pk_adrs l w (@adrs_keypair l w (decode_tweak t)))).
 
 Local Notation IG := (I_G0fL PP N D M R).
 Local Notation FXSIG := (FxSig N R).
@@ -65,19 +73,19 @@ Local Notation Lrom := (fx_rom_loc PP N D M R).
 Local Notation Lrt := (fx_rt_loc M R).
 Local Notation Lsd := (fx_sd_loc D).
 Local Notation fillc := (fill_code D dD).
-Local Notation skeys := (sample_keys N dN l).
+Local Notation skeys := (@sample_keys l N dN).
 
 Local Notation G5 b :=
-  (G5f PP N D M R F Tl Hgrind Htree dPP dN dR dD w l S_wn c_max h_sf
+  (G5f PP N D M R F Tl Hgrind Htree dPP dN dR dD S_wn c_max h_sf
      q_s q_h n_max q_f b).
 Local Notation G6 b :=
-  (G6f PP N D M R F Tl Hgrind Htree dPP dN dR dD w l S_wn c_max h_sf
+  (G6f PP N D M R F Tl Hgrind Htree dPP dN dR dD S_wn c_max h_sf
      q_s q_h n_max q_f b).
 
 (** The concrete leaf evals (LeafReduction's). *)
-Local Notation lpk := (leaf_pk_c PP N F Tl w l).
-Local Notation lrc := (leaf_rec_c PP N D F Tl Hgrind w l).
-Local Notation lsg := (leaf_sign_c PP N D F Hgrind w l S_wn c_max).
+Local Notation lpk := (leaf_pk_c PP N F Tl).
+Local Notation lrc := (leaf_rec_c PP N D F Tl Hgrind).
+Local Notation lsg := (leaf_sign_c PP N D F Hgrind S_wn c_max).
 
 (** M5 lift (adversary-chosen-leaf-id SIGN): the leaf-id validation +
     slot selector, EXPORTED from FXMSS.Games; keep them folded under
@@ -146,7 +154,7 @@ Definition mkm_tgts_loc :=
   mkloc 470 (emptym : {fmap nat -> (adrs_sf_ch × (('list N) × D))}).
 
 Local Notation Lpp  := (miw_pp_loc PP).
-Local Notation Ltw  := miw_tws_loc.
+Local Notation Ltw  := (@miw_tws_loc w l).
 Local Notation Lrv  := miw_rev_loc.
 Local Notation Lsl  := miw_slog_loc.
 
@@ -358,9 +366,9 @@ Local Notation tnode := (tnode_tw h_sf).
 Local Notation nhash := (node_hash PP N Htree h_sf).
 Local Notation gadrs zi := (wotsc_grind_adrs zi).
 Local Notation fanchoridx := (fanchor_idx h_sf).
-Local Notation fxvermd := (fx_verify_md PP N D F Tl Hgrind Htree w l S_wn h_sf).
+Local Notation fxvermd := (fx_verify_md PP N D F Tl Hgrind Htree S_wn h_sf).
 Local Notation keepA := (keepAnchor N).
-Local Notation gprp := (grind_prp w l S_wn).
+Local Notation gprp := (@grind_prp w l S_wn).
 
 Local Notation RLLocs_km :=
   [fmap Lst ; fx_used_loc ; fx_scnt_loc ; Llog ; Lrom ; fx_hcnt_loc ; Lrt ;
@@ -532,7 +540,7 @@ Definition forge_redL_km (b : bool) (m : M) (sg : FXSIG) : raw_code 'bool :=
      let P := (fxvermd st.1.1 st.1.2 sg.1.1 md sg.2.1 sg.2.2
                && (m \notin lg))
               && ~~ coll_ev D M R sd tb (sg.1.1, m) sg.1.2 md in
-     match fxcase_pks PP N D F Tl Hgrind Htree w l h_sf n0
+     match fxcase_pks PP N D F Tl Hgrind Htree h_sf n0
              st.1.1 st.2.1 pkm sg.1.1 md sg.2.1 sg.2.2 with
      | Merkle.FAnchor =>
          ans ← opr lf_cko_km (fanchoridx st.2.1 sg.1.1, (md, sg.2.1)) (λ a, ret a) ;;
@@ -701,9 +709,42 @@ Proof. by simplify_linking. Qed.
     LCOMMIT assert [gtw_of t \notin map gtw_of tws] coincides with [t \notin tws]
     on the committed leaves. *)
 
-Lemma gtw_AdrPk z i :
-  gtw_of (encode_adrs (AdrPk z i)) = encode_adrs (AdrPk z i).
-Proof. by rewrite decode_tweakK. Qed.
+Lemma anchor_height_finK (z : fin (BinInt.Z.of_nat 256)) :
+  anchor_height (BinInt.Z.to_nat (fin_val z)) = z.
+Proof.
+apply: fin_val_inj.
+have [hz0 hz256] := fin_range z.
+have hz : BinInt.Z.lt
+    (BinInt.Z.of_nat (BinInt.Z.to_nat (fin_val z)))
+    (BinInt.Z.of_nat 256).
+  by rewrite Znat.Z2Nat.id.
+rewrite /anchor_height (fin_of_nat_or_zeroE _ _ _ hz) fin_val_of_nat.
+exact: Znat.Z2Nat.id hz0.
+Qed.
+
+Lemma anchor_index_finK
+    (i : fin (BinInt.Z.pow (BinInt.Z.of_nat 2) (BinInt.Z.of_nat 64))) :
+  anchor_index (BinInt.Z.to_nat (fin_val i)) = i.
+Proof.
+apply: fin_val_inj.
+have [hi0 hi64] := fin_range i.
+have hi : BinInt.Z.lt
+    (BinInt.Z.of_nat (BinInt.Z.to_nat (fin_val i)))
+    (BinInt.Z.pow (BinInt.Z.of_nat 2) (BinInt.Z.of_nat 64)).
+  by rewrite Znat.Z2Nat.id.
+rewrite /anchor_index (fin_of_nat_or_zeroE _ _ _ hi) fin_val_of_nat.
+exact: Znat.Z2Nat.id hi0.
+Qed.
+
+Lemma gtw_AdrPk (zi : nat * nat) :
+  gtw_of (@encode_adrs l w (@AdrPk l w zi)) =
+  @encode_adrs l w (@AdrPk l w zi).
+Proof.
+rewrite decode_tweakK.
+case: zi => z i.
+rewrite /wotsc_pk_adrs /adrs_keypair /adrs_height /adrs_index /=.
+by rewrite anchor_height_finK anchor_index_finK.
+Qed.
 
 Lemma map_gtw_leaf_tws_under pos t :
   [seq gtw_of x | x <- leaf_tws_under h_sf pos t] = leaf_tws_under h_sf pos t.
@@ -974,8 +1015,8 @@ elim: t => [[]|tl IHl tr IHr].
     by rewrite /= size_cat !size_map.
   rewrite Esz sample_keys_cat !bind_assoc.
   rewrite code_link_bind bind_assoc.
-  set Lt := leaf_tws_under h_sf (rcons pos false) tl.
-  set Rt := leaf_tws_under h_sf (rcons pos true) tr.
+  set Lt := @leaf_tws_under w l h_sf (rcons pos false) tl.
+  set Rt := @leaf_tws_under w l h_sf (rcons pos true) tr.
   have hbud' : (size Q + size (leaf_paths tl) + size (leaf_paths tr) <= n_max)%N.
     by move: hbud; rewrite Esz addnA.
   move: huniq; rewrite leaf_tws_under_node -/Lt -/Rt -catA => huniq.
@@ -1114,7 +1155,8 @@ Lemma lf_commitsL_km_root sp sd xss :
 Proof.
 move=> hsz.
 have huniq : uniq (leaf_paths (tshape sp)).
-  by move: (gen_uniq N h_sf sp); rewrite cats0 /leaf_tws_under => /map_uniq.
+  have hu := @gen_uniq w l N h_sf Hh sp.
+  by move: hu; rewrite cats0 /leaf_tws_under => /map_uniq.
 rewrite /leafcommitq_km -(lf_commitsL_km_sub sp sd xss [::] (tshape sp)).
 congr lf_commitsL_km.
 rewrite (eq_map (g := fun p => nth [::] xss (index p (leaf_paths (tshape sp)))));
@@ -1145,13 +1187,13 @@ Definition RLf2_km (sto_L sto_R : option FXST) (po : option PP)
           tg = qmap_from 0 (leafcommitq_km st.2.1 sdL st.2.2)
         & [/\ tw = leaf_tws h_sf st.2.1,
               (forall p, p \in leaf_paths (tshape st.2.1) ->
-                 getm pkm p = Some (anchor_val PP N F Tl w l h_sf
+                 getm pkm p = Some (anchor_val PP N F Tl h_sf
                                       st.1.1 st.2.1 st.2.2 p)),
               [/\ {subset slog <= [seq flidx st.2.1 zi | zi <- domm us]}
                 & forall zi, zi \in domm us -> flok st.2.1 zi],
-              st.1.2 = fx_root_x PP N F Tl Htree w l h_sf st.1.1 st.2.1 st.2.2
+              st.1.2 = fx_root_x PP N F Tl Htree h_sf st.1.1 st.2.1 st.2.2
             & [/\ (size (leaf_paths (tshape st.2.1)) <= n_max)%N,
-                sd_grindable PP D Hgrind w l S_wn c_max h_sf
+                sd_grindable PP D Hgrind S_wn c_max h_sf
                     st.1.1 st.2.1 sdL
                 & (forall j, (j < n_max)%N -> isSome (getm sdL j))]]]
   end.
@@ -1366,7 +1408,7 @@ Lemma r_slot_grind_km_spec (b : bool) {B : choiceType} (pp : PP) (post : postcon
          (c0 : raw_code B) (k1 : 'bool -> raw_code B),
   ⊢ ⦃ λ '(s0, s1), lblk_km (Some pp) rv tw tg pkm (s0, s1) ⦄
      c0 ≈ k1 (match getm sd j with
-              | Some d => slot_grindable PP D Hgrind w l S_wn c_max h_sf pp sp j d
+              | Some d => slot_grindable PP D Hgrind S_wn c_max h_sf pp sp j d
               | None => true
               end) ⦃ post ⦄ ->
   ⊢ ⦃ λ '(s0, s1), lblk_km (Some pp) rv tw tg pkm (s0, s1) ⦄
@@ -1378,7 +1420,7 @@ case E: (getm sd j) => [d|]; rewrite E /= in h.
 - rewrite code_link_bind bind_assoc.
   eapply (r_grind_km_spec b pp post (posid (spath sp j)) d (iota 0 c_max)).
   rewrite code_link_ret_bind has_grind_find_ctr.
-  rewrite -/(slot_grindable PP D Hgrind w l S_wn c_max h_sf pp sp j d).
+  rewrite -/(slot_grindable PP D Hgrind S_wn c_max h_sf pp sp j d).
   exact: h.
 - by rewrite code_link_ret_bind; exact: h.
 Qed.
@@ -1388,7 +1430,7 @@ Lemma r_gcheck_km_spec (b : bool) {B : choiceType} (pp : PP) (post : postcond B 
          (c0 : raw_code B) (k1 : 'bool -> raw_code B),
   ⊢ ⦃ λ '(s0, s1), lblk_km (Some pp) rv tw tg pkm (s0, s1) ⦄
      c0 ≈ k1 (all (fun j => match getm sd j with
-                | Some d => slot_grindable PP D Hgrind w l S_wn c_max h_sf pp sp j d
+                | Some d => slot_grindable PP D Hgrind S_wn c_max h_sf pp sp j d
                 | None => true
                 end) js) ⦃ post ⦄ ->
   ⊢ ⦃ λ '(s0, s1), lblk_km (Some pp) rv tw tg pkm (s0, s1) ⦄
@@ -1446,7 +1488,7 @@ Lemma r_leaf_forge_verdict_km (st : FXST) (pkm : {fmap (seq bool) -> N})
     (lg : seq M) (tb : chMap (('nat × 'nat) × M) R) (sd : chMap 'nat D)
     (m : M) (sg : FXSIG) (dd : D) :
   (forall p, p \in leaf_paths (tshape st.2.1) ->
-     getm pkm p = Some (anchor_val PP N F Tl w l h_sf st.1.1 st.2.1 st.2.2 p)) ->
+     getm pkm p = Some (anchor_val PP N F Tl h_sf st.1.1 st.2.1 st.2.2 p)) ->
   (forall (k : ('nat × 'nat) × M) (rr : R), getm tb k = Some rr -> k.2 \in lg) ->
   (forall jj, (jj < n_max)%N -> odflt d0 (getm sd jj) \in codomm sd) ->
   ⊢ ⦃ λ '(s0, s1),
@@ -1454,9 +1496,9 @@ Lemma r_leaf_forge_verdict_km (st : FXST) (pkm : {fmap (seq bool) -> N})
               ⋊ rem_rhs Lst (Some (st.1, (st.2.1, @dummy_xss N)))
               ⋊ rem_lhs (fx_sd_loc D) sd
               ⋊ rem_rhs (rl_pks_loc N) pkm) (s0, s1) ⦄
-     ret (fverd PP N D M R F Tl Hgrind Htree w l S_wn h_sf
+     ret (fverd PP N D M R F Tl Hgrind Htree S_wn h_sf
             (fun _ => true) st st.2.2 st.2.1 lg sd tb m sg dd)
-     ≈ (match fxcase_pks PP N D F Tl Hgrind Htree w l h_sf n0
+     ≈ (match fxcase_pks PP N D F Tl Hgrind Htree h_sf n0
                st.1.1 st.2.1 pkm sg.1.1 dd sg.2.1 sg.2.2 with
           | Merkle.FAnchor =>
               v ← get Lrv ;;
@@ -1490,19 +1532,19 @@ Lemma r_leaf_forge_verdict_km (st : FXST) (pkm : {fmap (seq bool) -> N})
   ⦃ λ '(b0, s0) '(b1, s1), b0 = b1 ∧ lf_inv2_km (s0, s1) ⦄.
 Proof.
 move=> hpkm HtbA Hcod.
-rewrite (fxcase_pks_bridge PP N D F Tl Hgrind Htree w l h_sf n0
+rewrite (fxcase_pks_bridge PP N D F Tl Hgrind Htree h_sf n0
            st.1.1 st.2.1 st.2.2 pkm sg.1.1 dd sg.2.1 sg.2.2 hpkm).
 set P := ((fxvermd st.1.1 st.1.2 sg.1.1 dd sg.2.1 sg.2.2 && (m \notin lg))
           && ~~ coll_ev D M R sd tb (sg.1.1, m) sg.1.2 dd).
 rewrite /fverd -/P.
-eapply (r_fact (st.1.2 = fx_root_x PP N F Tl Htree w l h_sf st.1.1 st.2.1 st.2.2)).
+eapply (r_fact (st.1.2 = fx_root_x PP N F Tl Htree h_sf st.1.1 st.2.1 st.2.2)).
   { move=> s0 s1 [[[[hinv hr] _] _] _].
     move/lf_inv2_kmE: hinv => [_ hRLf].
     rewrite /rem_lhs /= in hr.
     rewrite hr in hRLf.
     by case: hRLf => _ _ _ _ [_ _ _ hroot _]; exact: hroot. }
 move=> hroot.
-case E: (fxcase PP N D F Tl Hgrind Htree w l h_sf
+case E: (fxcase PP N D F Tl Hgrind Htree h_sf
            st.1.1 st.2.1 st.2.2 sg.1.1 dd sg.2.1 sg.2.2)
   => [q x y|q x a0|q a|].
 - apply r_ret => s0 s1 hpre; split; first by [].
@@ -1535,11 +1577,11 @@ case E: (fxcase PP N D F Tl Hgrind Htree w l h_sf
       split; first by [].
       by move: hpre => [[[[[hinv _] _] _] _] _]; exact: hinv.
   + (* P = true: the real LCHECK wins (slog-gated freshness discharge) *)
-    have hvm : fxvermd st.1.1 (fx_root_x PP N F Tl Htree w l h_sf st.1.1 st.2.1 st.2.2)
+    have hvm : fxvermd st.1.1 (fx_root_x PP N F Tl Htree h_sf st.1.1 st.2.1 st.2.2)
                  sg.1.1 dd sg.2.1 sg.2.2.
       move: Eans; rewrite /P -hroot => /andP[/andP[h _] _]; exact: h.
     have [hin hpos hrec] :=
-      fxcase_FAnchor PP N D F Tl Hgrind Htree w l S_wn h_sf
+      fxcase_FAnchor PP N D F Tl Hgrind Htree S_wn h_sf
         st.1.1 st.2.1 st.2.2 sg.1.1 dd sg.2.1 sg.2.2 hvm E.
     have Eidx : fanchoridx st.2.1 sg.1.1
               = index (path_of_idx (h_sf - sg.1.1.1) sg.1.1.2)
@@ -1599,19 +1641,20 @@ case E: (fxcase PP N D F Tl Hgrind Htree w l h_sf
                       (nth [::] st.2.2
                          (index (path_of_idx (h_sf - sg.1.1.1) sg.1.1.2)
                                 (leaf_paths (tshape st.2.1))))) = true.
-      rewrite -/(leaf_win PP N D (leaf_pk_c PP N F Tl w l)
-                   (leaf_rec_c PP N D F Tl Hgrind w l) st.1.1
+      rewrite -/(leaf_win PP N D (leaf_pk_c PP N F Tl)
+                   (leaf_rec_c PP N D F Tl Hgrind) st.1.1
                    (panchor (path_of_idx (h_sf - sg.1.1.1) sg.1.1.2)) dd sg.2.1
                    (nth [::] st.2.2
                       (index (path_of_idx (h_sf - sg.1.1.1) sg.1.1.2)
                              (leaf_paths (tshape st.2.1))))).
-      rewrite (leaf_win_panchor PP N D F Tl Hgrind w l h_sf
-                 (leaf_pk_c PP N F Tl w l) (leaf_rec_c PP N D F Tl Hgrind w l)
-                 (leaf_pkE_c PP N F Tl w l) (leaf_recE_c PP N D F Tl Hgrind w l)
+      rewrite (leaf_win_panchor PP N D F Tl Hgrind h_sf Hh
+                 (leaf_pk_c PP N F Tl) (leaf_rec_c PP N D F Tl Hgrind)
+                 (leaf_pkE_c PP N F Tl) (leaf_recE_c PP N D F Tl Hgrind)
                  st.1.1 (path_of_idx (h_sf - sg.1.1.1) sg.1.1.2) dd sg.2.1
                  (nth [::] st.2.2
                     (index (path_of_idx (h_sf - sg.1.1.1) sg.1.1.2)
-                           (leaf_paths (tshape st.2.1))))).
+                           (leaf_paths (tshape st.2.1))))
+                 (leaf_path_size h_sf st.2.1 _ hin)).
       apply/eqP.
       by rewrite {1}hpos; exact: hrec.
     apply r_ret => s0 s1 hpre; split.
@@ -1627,14 +1670,14 @@ Lemma r_leaf_forge_verdict_km_ideal (st : FXST) (pkm : {fmap (seq bool) -> N})
     (lg : seq M) (tb : chMap (('nat × 'nat) × M) R) (sd : chMap 'nat D)
     (m : M) (sg : FXSIG) (dd : D) :
   (forall p, p \in leaf_paths (tshape st.2.1) ->
-     getm pkm p = Some (anchor_val PP N F Tl w l h_sf st.1.1 st.2.1 st.2.2 p)) ->
+     getm pkm p = Some (anchor_val PP N F Tl h_sf st.1.1 st.2.1 st.2.2 p)) ->
   ⊢ ⦃ λ '(s0, s1),
         (lf_inv2_km ⋊ rem_lhs Lst (Some st)
               ⋊ rem_rhs Lst (Some (st.1, (st.2.1, @dummy_xss N)))
               ⋊ rem_rhs (rl_pks_loc N) pkm) (s0, s1) ⦄
-     ret (fverd PP N D M R F Tl Hgrind Htree w l S_wn h_sf
+     ret (fverd PP N D M R F Tl Hgrind Htree S_wn h_sf
             keepA st st.2.2 st.2.1 lg sd tb m sg dd)
-     ≈ (match fxcase_pks PP N D F Tl Hgrind Htree w l h_sf n0
+     ≈ (match fxcase_pks PP N D F Tl Hgrind Htree h_sf n0
                st.1.1 st.2.1 pkm sg.1.1 dd sg.2.1 sg.2.2 with
           | Merkle.FAnchor =>
               ret (((fxvermd st.1.1 st.1.2 sg.1.1 dd sg.2.1 sg.2.2
@@ -1649,12 +1692,12 @@ Lemma r_leaf_forge_verdict_km_ideal (st : FXST) (pkm : {fmap (seq bool) -> N})
   ⦃ λ '(b0, s0) '(b1, s1), b0 = b1 ∧ lf_inv2_km (s0, s1) ⦄.
 Proof.
 move=> hpkm.
-rewrite (fxcase_pks_bridge PP N D F Tl Hgrind Htree w l h_sf n0
+rewrite (fxcase_pks_bridge PP N D F Tl Hgrind Htree h_sf n0
            st.1.1 st.2.1 st.2.2 pkm sg.1.1 dd sg.2.1 sg.2.2 hpkm).
 set P := ((fxvermd st.1.1 st.1.2 sg.1.1 dd sg.2.1 sg.2.2 && (m \notin lg))
           && ~~ coll_ev D M R sd tb (sg.1.1, m) sg.1.2 dd).
 rewrite /fverd -/P.
-case E: (fxcase PP N D F Tl Hgrind Htree w l h_sf
+case E: (fxcase PP N D F Tl Hgrind Htree h_sf
            st.1.1 st.2.1 st.2.2 sg.1.1 dd sg.2.1 sg.2.2)
   => [q x y|q x a0|q a|]; rewrite /=.
 - apply r_ret => s0 s1 hpre; split; first by [].
@@ -1682,7 +1725,7 @@ Qed.
 Definition lcoord (t : adrs_sf_ch) : nat * nat := adrs_keypair (decode_tweak t).
 
 Local Notation lfind t0 pp md0 :=
-  (find_ctr PP D Hgrind w l S_wn c_max (lcoord t0).1 (lcoord t0).2 pp md0).
+  (find_ctr PP D Hgrind S_wn c_max (lcoord t0).1 (lcoord t0).2 pp md0).
 
 (** The lifted STATIC population gate: NO budget disjunct.  Under per-leaf
     presampling EVERY leaf has a real committed digest, so the banked
@@ -1729,8 +1772,11 @@ Qed.
 
 (** Skeptic GAP 2 (WLOG_skeptic_probe.v): the coordinate identification. *)
 Lemma lcoord_panchor (p : seq bool) :
-  lcoord (panchor p) = posid p.
-Proof. by rewrite /lcoord decode_tweakK; case: (posid p). Qed.
+  anchor_bounded (posid p) -> lcoord (panchor p) = posid p.
+Proof.
+move=> hp; rewrite /lcoord decode_tweakK.
+exact: (wotsc_pk_adrs_keypair l w (posid p) hp).
+Qed.
 
 (** Skeptic SK1 (SKEPTIC_WLOG_attack.v): the wots_checks transport to the
     committed coordinate, self-contained (derives the FAnchor coordinate
@@ -1738,15 +1784,16 @@ Proof. by rewrite /lcoord decode_tweakK; case: (posid p). Qed.
 Lemma wots_checks_transport (pp : PP) (rt : N) (zi : nat * nat) (md : D)
     (ws : seq N * nat) (ap : seq N) :
   fxvermd pp rt zi md ws ap ->
-  wots_checks PP N D Hgrind w l S_wn pp
+  wots_checks PP N D Hgrind S_wn pp
     (lcoord (panchor (path_of_idx (h_sf - zi.1) zi.2))) md ws.
 Proof.
 move=> /and4P[hz1 hz2 hchecks _].
+have hzi := fxmss_anchor_bounded h_sf zi.1 zi.2 Hh hz1 hz2.
 have hposid : posid (path_of_idx (h_sf - zi.1) zi.2) = zi.
   rewrite /pos_id size_path_of_idx idx_of_path_of_idx // subKn //.
   by case: (zi).
 rewrite /lcoord decode_tweakK hposid.
-have -> : adrs_keypair (AdrPk zi.1 zi.2) = zi by case: (zi).
+rewrite (wotsc_pk_adrs_keypair l w zi hzi).
 exact: hchecks.
 Qed.
 
@@ -1756,10 +1803,12 @@ Lemma fxvermd_wots_checks_transport (pp : PP) (rt : N) (zi : nat * nat)
     (md : D) (ws : seq N * nat) (ap : seq N) (p : seq bool) :
   posid p = zi ->
   fxvermd pp rt zi md ws ap ->
-  wots_checks PP N D Hgrind w l S_wn pp (lcoord (panchor p)) md ws.
+  wots_checks PP N D Hgrind S_wn pp (lcoord (panchor p)) md ws.
 Proof.
-move=> hpos /and4P[_ _ hwc _].
-by rewrite lcoord_panchor hpos.
+move=> hpos /and4P[hz1 hz2 hwc _].
+have hzi := fxmss_anchor_bounded h_sf zi.1 zi.2 Hh hz1 hz2.
+have hp : anchor_bounded (posid p) by rewrite hpos.
+by rewrite (lcoord_panchor p hp) hpos.
 Qed.
 
 (** Skeptic SK3 lift (M5_lift_probe.v): STCRP enc-pair freshness is FORCED by
@@ -1787,7 +1836,7 @@ Proof. by move=> hfc; rewrite /gateL hfc eqxx orbF. Qed.
     Hdeg (zsel_dead's counting, standalone; consumed by layer (ii)). *)
 Lemma valid_not_allmax (ds : seq nat) :
   S_wn != (l * w.-1)%N ->
-  valid_digest w S_wn ds ->
+  @valid_digest w S_wn ds ->
   size ds = l ->
   has (fun d => (d < w.-1)%N) ds.
 Proof.
@@ -1817,7 +1866,7 @@ Definition mkm_winSG (j : nat) (mw : D × (('list N) × 'nat)) : raw_code 'bool 
             | Some pp => ret pp
             | None => pp ← dPP ;; #put Lpp := Some pp ;; ret pp
             end ;;
-       ret (wots_checks PP N D Hgrind w l S_wn pp (lcoord t0) mw.1 mw.2
+       ret (wots_checks PP N D Hgrind S_wn pp (lcoord t0) mw.1 mw.2
             && (lrc pp t0 mw.1 mw.2 == lpk pp t0 m0)
             && gateL pp t0 md0 mw.1)
    | None => ret false
@@ -2059,8 +2108,8 @@ elim: t => [[]|tl IHl tr IHr].
     by rewrite /= size_cat !size_map.
   rewrite Esz sample_keys_cat !bind_assoc.
   rewrite code_link_bind bind_assoc.
-  set Lt := leaf_tws_under h_sf (rcons pos false) tl.
-  set Rt := leaf_tws_under h_sf (rcons pos true) tr.
+  set Lt := @leaf_tws_under w l h_sf (rcons pos false) tl.
+  set Rt := @leaf_tws_under w l h_sf (rcons pos true) tr.
   have hbud' : (size Q + size (leaf_paths tl) + size (leaf_paths tr) <= n_max)%N.
     by move: hbud; rewrite Esz addnA.
   move: huniq; rewrite leaf_tws_under_node -/Lt -/Rt -catA => huniq.
@@ -2126,7 +2175,7 @@ Lemma r_slot_grind_kmS_spec (b : bool) {B : choiceType} (pp : PP) (post : postco
          (c0 : raw_code B) (k1 : 'bool -> raw_code B),
   ⊢ ⦃ λ '(s0, s1), lblk_km (Some pp) rv tw tg pkm (s0, s1) ⦄
      c0 ≈ k1 (match getm sd j with
-              | Some d => slot_grindable PP D Hgrind w l S_wn c_max h_sf pp sp j d
+              | Some d => slot_grindable PP D Hgrind S_wn c_max h_sf pp sp j d
               | None => true
               end) ⦃ post ⦄ ->
   ⊢ ⦃ λ '(s0, s1), lblk_km (Some pp) rv tw tg pkm (s0, s1) ⦄
@@ -2138,7 +2187,7 @@ case E: (getm sd j) => [d|]; rewrite E /= in h.
 - rewrite code_link_bind bind_assoc.
   eapply (r_grind_kmS_spec b pp post (posid (spath sp j)) d (iota 0 c_max)).
   rewrite code_link_ret_bind has_grind_find_ctr.
-  rewrite -/(slot_grindable PP D Hgrind w l S_wn c_max h_sf pp sp j d).
+  rewrite -/(slot_grindable PP D Hgrind S_wn c_max h_sf pp sp j d).
   exact: h.
 - by rewrite code_link_ret_bind; exact: h.
 Qed.
@@ -2148,7 +2197,7 @@ Lemma r_gcheck_kmS_spec (b : bool) {B : choiceType} (pp : PP) (post : postcond B
          (c0 : raw_code B) (k1 : 'bool -> raw_code B),
   ⊢ ⦃ λ '(s0, s1), lblk_km (Some pp) rv tw tg pkm (s0, s1) ⦄
      c0 ≈ k1 (all (fun j => match getm sd j with
-                | Some d => slot_grindable PP D Hgrind w l S_wn c_max h_sf pp sp j d
+                | Some d => slot_grindable PP D Hgrind S_wn c_max h_sf pp sp j d
                 | None => true
                 end) js) ⦃ post ⦄ ->
   ⊢ ⦃ λ '(s0, s1), lblk_km (Some pp) rv tw tg pkm (s0, s1) ⦄
@@ -2174,7 +2223,7 @@ Lemma r_leaf_forge_verdict_kmS (st : FXST) (pkm : {fmap (seq bool) -> N})
     (lg : seq M) (tb : chMap (('nat × 'nat) × M) R) (sd : chMap 'nat D)
     (m : M) (sg : FXSIG) (dd : D) :
   (forall p, p \in leaf_paths (tshape st.2.1) ->
-     getm pkm p = Some (anchor_val PP N F Tl w l h_sf st.1.1 st.2.1 st.2.2 p)) ->
+     getm pkm p = Some (anchor_val PP N F Tl h_sf st.1.1 st.2.1 st.2.2 p)) ->
   (forall (k : ('nat × 'nat) × M) (rr : R), getm tb k = Some rr -> k.2 \in lg) ->
   (forall jj, (jj < n_max)%N -> odflt d0 (getm sd jj) \in codomm sd) ->
   ⊢ ⦃ λ '(s0, s1),
@@ -2182,9 +2231,9 @@ Lemma r_leaf_forge_verdict_kmS (st : FXST) (pkm : {fmap (seq bool) -> N})
               ⋊ rem_rhs Lst (Some (st.1, (st.2.1, @dummy_xss N)))
               ⋊ rem_lhs (fx_sd_loc D) sd
               ⋊ rem_rhs (rl_pks_loc N) pkm) (s0, s1) ⦄
-     ret (fverd PP N D M R F Tl Hgrind Htree w l S_wn h_sf
+     ret (fverd PP N D M R F Tl Hgrind Htree S_wn h_sf
             (fun _ => true) st st.2.2 st.2.1 lg sd tb m sg dd)
-     ≈ (match fxcase_pks PP N D F Tl Hgrind Htree w l h_sf n0
+     ≈ (match fxcase_pks PP N D F Tl Hgrind Htree h_sf n0
                st.1.1 st.2.1 pkm sg.1.1 dd sg.2.1 sg.2.2 with
           | Merkle.FAnchor =>
               v ← get Lrv ;;
@@ -2195,12 +2244,12 @@ Lemma r_leaf_forge_verdict_kmS (st : FXST) (pkm : {fmap (seq bool) -> N})
                          ppo ← get Lpp ;;
                          match ppo with
                          | Some pp =>
-                             ret (wots_checks PP N D Hgrind w l S_wn pp
+                             ret (wots_checks PP N D Hgrind S_wn pp
                                     (lcoord t0) dd sg.2.1
                                   && (lrc pp t0 dd sg.2.1 == lpk pp t0 m0)
                                   && gateL pp t0 md0 dd)
                          | None => pp ← dPP ;; #put Lpp := Some pp ;;
-                             ret (wots_checks PP N D Hgrind w l S_wn pp
+                             ret (wots_checks PP N D Hgrind S_wn pp
                                     (lcoord t0) dd sg.2.1
                                   && (lrc pp t0 dd sg.2.1 == lpk pp t0 m0)
                                   && gateL pp t0 md0 dd)
@@ -2219,19 +2268,19 @@ Lemma r_leaf_forge_verdict_kmS (st : FXST) (pkm : {fmap (seq bool) -> N})
   ⦃ λ '(b0, s0) '(b1, s1), b0 = b1 ∧ lf_inv2_km (s0, s1) ⦄.
 Proof.
 move=> hpkm HtbA Hcod.
-rewrite (fxcase_pks_bridge PP N D F Tl Hgrind Htree w l h_sf n0
+rewrite (fxcase_pks_bridge PP N D F Tl Hgrind Htree h_sf n0
            st.1.1 st.2.1 st.2.2 pkm sg.1.1 dd sg.2.1 sg.2.2 hpkm).
 set P := ((fxvermd st.1.1 st.1.2 sg.1.1 dd sg.2.1 sg.2.2 && (m \notin lg))
           && ~~ coll_ev D M R sd tb (sg.1.1, m) sg.1.2 dd).
 rewrite /fverd -/P.
-eapply (r_fact (st.1.2 = fx_root_x PP N F Tl Htree w l h_sf st.1.1 st.2.1 st.2.2)).
+eapply (r_fact (st.1.2 = fx_root_x PP N F Tl Htree h_sf st.1.1 st.2.1 st.2.2)).
   { move=> s0 s1 [[[[hinv hr] _] _] _].
     move/lf_inv2_kmE: hinv => [_ hRLf].
     rewrite /rem_lhs /= in hr.
     rewrite hr in hRLf.
     by case: hRLf => _ _ _ _ [_ _ _ hroot _]; exact: hroot. }
 move=> hroot.
-case E: (fxcase PP N D F Tl Hgrind Htree w l h_sf
+case E: (fxcase PP N D F Tl Hgrind Htree h_sf
            st.1.1 st.2.1 st.2.2 sg.1.1 dd sg.2.1 sg.2.2)
   => [q x y|q x a0|q a|].
 - apply r_ret => s0 s1 hpre; split; first by [].
@@ -2263,11 +2312,11 @@ case E: (fxcase PP N D F Tl Hgrind Htree w l h_sf
       split; first by [].
       by move: hpre => [[[[[hinv _] _] _] _] _]; exact: hinv.
   + (* P = true: the real LCHECK wins (STATIC gate + guard discharge) *)
-    have hvm : fxvermd st.1.1 (fx_root_x PP N F Tl Htree w l h_sf st.1.1 st.2.1 st.2.2)
+    have hvm : fxvermd st.1.1 (fx_root_x PP N F Tl Htree h_sf st.1.1 st.2.1 st.2.2)
                  sg.1.1 dd sg.2.1 sg.2.2.
       move: Eans; rewrite /P -hroot => /andP[/andP[h _] _]; exact: h.
     have [hin hpos hrec] :=
-      fxcase_FAnchor PP N D F Tl Hgrind Htree w l S_wn h_sf
+      fxcase_FAnchor PP N D F Tl Hgrind Htree S_wn h_sf
         st.1.1 st.2.1 st.2.2 sg.1.1 dd sg.2.1 sg.2.2 hvm E.
     have Eidx : fanchoridx st.2.1 sg.1.1
               = index (path_of_idx (h_sf - sg.1.1.1) sg.1.1.2)
@@ -2302,7 +2351,7 @@ case E: (fxcase PP N D F Tl Hgrind Htree w l h_sf
     move=> [md0 [Etg [Emd0 Hsome]]].
     rewrite Etg /=.
     (* NEW conjunct 1: wots_checks at the committed coordinate (GAP 2). *)
-    have hvch : wots_checks PP N D Hgrind w l S_wn st.1.1
+    have hvch : wots_checks PP N D Hgrind S_wn st.1.1
                   (lcoord (panchor (path_of_idx (h_sf - sg.1.1.1) sg.1.1.2)))
                   dd sg.2.1.
       exact: fxvermd_wots_checks_transport hpos hvm.
@@ -2323,19 +2372,20 @@ case E: (fxcase PP N D F Tl Hgrind Htree w l h_sf
                       (nth [::] st.2.2
                          (index (path_of_idx (h_sf - sg.1.1.1) sg.1.1.2)
                                 (leaf_paths (tshape st.2.1))))) = true.
-      rewrite -/(leaf_win PP N D (leaf_pk_c PP N F Tl w l)
-                   (leaf_rec_c PP N D F Tl Hgrind w l) st.1.1
+      rewrite -/(leaf_win PP N D (leaf_pk_c PP N F Tl)
+                   (leaf_rec_c PP N D F Tl Hgrind) st.1.1
                    (panchor (path_of_idx (h_sf - sg.1.1.1) sg.1.1.2)) dd sg.2.1
                    (nth [::] st.2.2
                       (index (path_of_idx (h_sf - sg.1.1.1) sg.1.1.2)
                              (leaf_paths (tshape st.2.1))))).
-      rewrite (leaf_win_panchor PP N D F Tl Hgrind w l h_sf
-                 (leaf_pk_c PP N F Tl w l) (leaf_rec_c PP N D F Tl Hgrind w l)
-                 (leaf_pkE_c PP N F Tl w l) (leaf_recE_c PP N D F Tl Hgrind w l)
+      rewrite (leaf_win_panchor PP N D F Tl Hgrind h_sf Hh
+                 (leaf_pk_c PP N F Tl) (leaf_rec_c PP N D F Tl Hgrind)
+                 (leaf_pkE_c PP N F Tl) (leaf_recE_c PP N D F Tl Hgrind)
                  st.1.1 (path_of_idx (h_sf - sg.1.1.1) sg.1.1.2) dd sg.2.1
                  (nth [::] st.2.2
                     (index (path_of_idx (h_sf - sg.1.1.1) sg.1.1.2)
-                           (leaf_paths (tshape st.2.1))))).
+                           (leaf_paths (tshape st.2.1))))
+                 (leaf_path_size h_sf st.2.1 _ hin)).
       apply/eqP.
       by rewrite {1}hpos; exact: hrec.
     apply r_ret => s0 s1 hpre; split.
@@ -2407,8 +2457,8 @@ simplify_eq_rel arg.
   (* couple skeys <-> lf_tree_km *)
   rewrite code_link_bind.
   eapply (lf_tree_kmS_spec true pp arg sd _ [::] (tshape arg) [::] emptym).
-  + exact: (gen_uniq N h_sf arg).
-  + by apply: (gen_bud N h_sf n_max arg); exact: hcap.
+  + exact: (@gen_uniq w l N h_sf Hh arg).
+  + exact: hcap.
   + by [].
   move=> xss hxsz hkeys.
   cbv beta.
@@ -2416,7 +2466,7 @@ simplify_eq_rel arg.
   rewrite code_link_bind.
   eapply (r_gcheck_kmS_spec true pp _ arg sd (iota 0 (size (leaf_paths (tshape arg))))).
   rewrite code_link_assertD.
-  rewrite -[all _ _]/(sd_grindable PP D Hgrind w l S_wn c_max h_sf pp arg sd).
+  rewrite -[all _ _]/(sd_grindable PP D Hgrind S_wn c_max h_sf pp arg sd).
   eapply r_assertD_same.
   move=> e1.
   simpl.
@@ -2435,8 +2485,8 @@ simplify_eq_rel arg.
   case: hpre3 => s0d [hblk ->].
   case: hblk => hign hpp hrv htws [htgts hpkm hus hscL [hslog htbE]].
   split;
-    first by rewrite (tvalL_root PP N F Tl Htree w l h_sf
-                        (leaf_pk_c PP N F Tl w l) (leaf_pkE_c PP N F Tl w l)
+    first by rewrite (tvalL_root PP N F Tl Htree h_sf Hh
+                        (leaf_pk_c PP N F Tl) (leaf_pkE_c PP N F Tl)
                         pp arg xss hxsz).
   apply: lf_inv2_kmI.
   + apply: heap_ignore_set_both.
@@ -2445,14 +2495,14 @@ simplify_eq_rel arg.
     exact: hign.
   + get_heap_simpl.
     rewrite hpp hrv htws htgts hpkm hus hscL hslog.
-    rewrite (tvalL_root PP N F Tl Htree w l h_sf
-               (leaf_pk_c PP N F Tl w l) (leaf_pkE_c PP N F Tl w l) pp arg xss hxsz).
+    rewrite (tvalL_root PP N F Tl Htree h_sf Hh
+               (leaf_pk_c PP N F Tl) (leaf_pkE_c PP N F Tl) pp arg xss hxsz).
     rewrite unzip1_lf_commitsL_km (lf_commitsL_km_root arg sd xss hxsz).
     split; [ by [] | by [] | by [] | by [] |].
     split; [ by [] | | | by [] | ].
     * by move=> p hp;
-        rewrite (getm_pkm_of PP N F Tl w l h_sf (leaf_pk_c PP N F Tl w l)
-                   (leaf_pkE_c PP N F Tl w l) pp arg xss hxsz p hp).
+        rewrite (getm_pkm_of PP N F Tl h_sf Hh (leaf_pk_c PP N F Tl)
+                   (leaf_pkE_c PP N F Tl) pp arg xss hxsz p hp).
     * split; [ by move=> x; rewrite in_nil | by move=> zi; rewrite domm0 in_fset0 ].
     * split; [ exact: hcap | exact: e1 | ].
       by move=> jj hjj; apply: hsdtot; rewrite mem_iota add0n;
@@ -2579,7 +2629,7 @@ simplify_eq_rel arg.
   move: Hg => /andP [hfok hfresh].
   have Hli := leafid_index_lt h_sf stL.2.1 arg.2 hfok.
   eapply (r_fact (forall p, p \in leaf_paths (tshape stL.2.1) ->
-                    getm pkm p = Some (anchor_val PP N F Tl w l h_sf stL.1.1 stL.2.1 stL.2.2 p))).
+                    getm pkm p = Some (anchor_val PP N F Tl h_sf stL.1.1 stL.2.1 stL.2.2 p))).
     { move=> s0 s1 hpre.
       move: hpre => [hpre hpkmr]. move: hpre => [hpre _].
       move: hpre => [hpre _]. move: hpre => [hpre _].
@@ -2622,16 +2672,20 @@ simplify_eq_rel arg.
       have hin : (flidx stL.2.1 arg.2) \in iota 0 (size (leaf_paths (tshape stL.2.1)))
         by rewrite mem_iota add0n; apply/andP; split; [exact: leq0n | exact: Hli].
       move: (hall (flidx stL.2.1 arg.2) hin); rewrite Esd /slot_grindable => hsg.
-      rewrite (leaf_signE_c PP N D F Hgrind w l S_wn c_max)
-              (lsign_panchor PP N D F Hgrind w l S_wn c_max h_sf) /sign_sig.
+      rewrite (leaf_signE_c PP N D F Hgrind S_wn c_max)
+              (lsign_panchor PP N D F Hgrind S_wn c_max h_sf Hh
+                 stL.1.1 (spath stL.2.1 (flidx stL.2.1 arg.2))
+                 (nth [::] stL.2.2 (flidx stL.2.1 arg.2)) md
+                 (sign_path_size h_sf stL.2.1
+                    (flidx stL.2.1 arg.2) Hli)) /sign_sig.
       by move: hsg; case: (find_ctr _ _ _ _ _ _ _ _ _). }
   move=> hls.
   ssprove_code_simpl. simpl.
   eapply r_put_lhs; eapply r_put_rhs;
   eapply r_put_lhs; eapply r_put_rhs;
   eapply r_put_lhs; eapply r_put_rhs.
-  rewrite (fxsignx_eq_redsign PP N D R F Tl Hgrind Htree w l S_wn c_max h_sf n0
-             lsg (leaf_signE_c PP N D F Hgrind w l S_wn c_max)
+  rewrite (fxsignx_eq_redsign PP N D R F Tl Hgrind Htree S_wn c_max h_sf Hh n0
+             lsg (leaf_signE_c PP N D F Hgrind S_wn c_max)
              stL.1.1 stL.2.1 stL.2.2 pkm (flidx stL.2.1 arg.2) r md Hli hpkm).
   rewrite !(index_sign_path h_sf stL.2.1 (flidx stL.2.1 arg.2) Hli).
   eapply r_get_remember_rhs => slogv.
@@ -2877,7 +2931,7 @@ simplify_eq_rel arg.
       by split; [exact: hpre | exact: hsdl]. }
   eapply r_get_remember_rhs => pkm.
   eapply (r_fact (forall p, p \in leaf_paths (tshape stL.2.1) ->
-                    getm pkm p = Some (anchor_val PP N F Tl w l h_sf
+                    getm pkm p = Some (anchor_val PP N F Tl h_sf
                                          stL.1.1 stL.2.1 stL.2.2 p))).
     { move=> s0 s1 [[[[hinv hstoL] hstoR] _] hpkmr].
       move/lf_inv2_kmE: hinv => [_ hR].
@@ -2969,8 +3023,8 @@ simplify_eq_rel arg.
   (* couple skeys <-> lf_tree_km *)
   rewrite code_link_bind.
   eapply (lf_tree_kmS_spec false pp arg sd _ [::] (tshape arg) [::] emptym).
-  + exact: (gen_uniq N h_sf arg).
-  + by apply: (gen_bud N h_sf n_max arg); exact: hcap.
+  + exact: (@gen_uniq w l N h_sf Hh arg).
+  + exact: hcap.
   + by [].
   move=> xss hxsz hkeys.
   cbv beta.
@@ -2978,7 +3032,7 @@ simplify_eq_rel arg.
   rewrite code_link_bind.
   eapply (r_gcheck_kmS_spec false pp _ arg sd (iota 0 (size (leaf_paths (tshape arg))))).
   rewrite code_link_assertD.
-  rewrite -[all _ _]/(sd_grindable PP D Hgrind w l S_wn c_max h_sf pp arg sd).
+  rewrite -[all _ _]/(sd_grindable PP D Hgrind S_wn c_max h_sf pp arg sd).
   eapply r_assertD_same.
   move=> e1.
   simpl.
@@ -2997,8 +3051,8 @@ simplify_eq_rel arg.
   case: hpre3 => s0d [hblk ->].
   case: hblk => hign hpp hrv htws [htgts hpkm hus hscL [hslog htbE]].
   split;
-    first by rewrite (tvalL_root PP N F Tl Htree w l h_sf
-                        (leaf_pk_c PP N F Tl w l) (leaf_pkE_c PP N F Tl w l)
+    first by rewrite (tvalL_root PP N F Tl Htree h_sf Hh
+                        (leaf_pk_c PP N F Tl) (leaf_pkE_c PP N F Tl)
                         pp arg xss hxsz).
   apply: lf_inv2_kmI.
   + apply: heap_ignore_set_both.
@@ -3007,14 +3061,14 @@ simplify_eq_rel arg.
     exact: hign.
   + get_heap_simpl.
     rewrite hpp hrv htws htgts hpkm hus hscL hslog.
-    rewrite (tvalL_root PP N F Tl Htree w l h_sf
-               (leaf_pk_c PP N F Tl w l) (leaf_pkE_c PP N F Tl w l) pp arg xss hxsz).
+    rewrite (tvalL_root PP N F Tl Htree h_sf Hh
+               (leaf_pk_c PP N F Tl) (leaf_pkE_c PP N F Tl) pp arg xss hxsz).
     rewrite unzip1_lf_commitsL_km (lf_commitsL_km_root arg sd xss hxsz).
     split; [ by [] | by [] | by [] | by [] |].
     split; [ by [] | | | by [] | ].
     * by move=> p hp;
-        rewrite (getm_pkm_of PP N F Tl w l h_sf (leaf_pk_c PP N F Tl w l)
-                   (leaf_pkE_c PP N F Tl w l) pp arg xss hxsz p hp).
+        rewrite (getm_pkm_of PP N F Tl h_sf Hh (leaf_pk_c PP N F Tl)
+                   (leaf_pkE_c PP N F Tl) pp arg xss hxsz p hp).
     * split; [ by move=> x; rewrite in_nil | by move=> zi; rewrite domm0 in_fset0 ].
     * split; [ exact: hcap | exact: e1 | ].
       by move=> jj hjj; apply: hsdtot; rewrite mem_iota add0n;
@@ -3141,7 +3195,7 @@ simplify_eq_rel arg.
   move: Hg => /andP [hfok hfresh].
   have Hli := leafid_index_lt h_sf stL.2.1 arg.2 hfok.
   eapply (r_fact (forall p, p \in leaf_paths (tshape stL.2.1) ->
-                    getm pkm p = Some (anchor_val PP N F Tl w l h_sf stL.1.1 stL.2.1 stL.2.2 p))).
+                    getm pkm p = Some (anchor_val PP N F Tl h_sf stL.1.1 stL.2.1 stL.2.2 p))).
     { move=> s0 s1 hpre.
       move: hpre => [hpre hpkmr]. move: hpre => [hpre _].
       move: hpre => [hpre _]. move: hpre => [hpre _].
@@ -3184,16 +3238,20 @@ simplify_eq_rel arg.
       have hin : (flidx stL.2.1 arg.2) \in iota 0 (size (leaf_paths (tshape stL.2.1)))
         by rewrite mem_iota add0n; apply/andP; split; [exact: leq0n | exact: Hli].
       move: (hall (flidx stL.2.1 arg.2) hin); rewrite Esd /slot_grindable => hsg.
-      rewrite (leaf_signE_c PP N D F Hgrind w l S_wn c_max)
-              (lsign_panchor PP N D F Hgrind w l S_wn c_max h_sf) /sign_sig.
+      rewrite (leaf_signE_c PP N D F Hgrind S_wn c_max)
+              (lsign_panchor PP N D F Hgrind S_wn c_max h_sf Hh
+                 stL.1.1 (spath stL.2.1 (flidx stL.2.1 arg.2))
+                 (nth [::] stL.2.2 (flidx stL.2.1 arg.2)) md
+                 (sign_path_size h_sf stL.2.1
+                    (flidx stL.2.1 arg.2) Hli)) /sign_sig.
       by move: hsg; case: (find_ctr _ _ _ _ _ _ _ _ _). }
   move=> hls.
   ssprove_code_simpl. simpl.
   eapply r_put_lhs; eapply r_put_rhs;
   eapply r_put_lhs; eapply r_put_rhs;
   eapply r_put_lhs; eapply r_put_rhs.
-  rewrite (fxsignx_eq_redsign PP N D R F Tl Hgrind Htree w l S_wn c_max h_sf n0
-             lsg (leaf_signE_c PP N D F Hgrind w l S_wn c_max)
+  rewrite (fxsignx_eq_redsign PP N D R F Tl Hgrind Htree S_wn c_max h_sf Hh n0
+             lsg (leaf_signE_c PP N D F Hgrind S_wn c_max)
              stL.1.1 stL.2.1 stL.2.2 pkm (flidx stL.2.1 arg.2) r md Hli hpkm).
   rewrite !(index_sign_path h_sf stL.2.1 (flidx stL.2.1 arg.2) Hli).
   eapply r_get_remember_rhs => slogv.
@@ -3350,7 +3408,7 @@ simplify_eq_rel arg.
   ssprove_sync. { lf_getr_km. } move=> sd.
   eapply r_get_remember_rhs => pkm.
   eapply (r_fact (forall p, p \in leaf_paths (tshape stL.2.1) ->
-                    getm pkm p = Some (anchor_val PP N F Tl w l h_sf
+                    getm pkm p = Some (anchor_val PP N F Tl h_sf
                                          stL.1.1 stL.2.1 stL.2.2 p))).
     { move=> s0 s1 [[[hinv hstoL] hstoR] hpkmr].
       move/lf_inv2_kmE: hinv => [_ hR].
