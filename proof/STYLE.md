@@ -94,6 +94,9 @@ name in all three trees.
   `shrincs_wots_chain_iter`, `shrincs_wots_derive_sk`, `shrincs_wots_pk_adrs`,
   `shrincs_wots_hash_adrs`, `shrincs_wots_prf_adrs`, ...). The scheme record is
   `shrincs_wots_scheme`.
+- Every FXMSS-specific top-level definition and lemma, including the WOTS+C
+  leaf interface used only by FXMSS, carries the `shrincs_fxmss_` prefix. The
+  scheme record is `shrincs_fxmss_scheme`.
 - Generic, scheme-agnostic machinery (the hash-based-signature library slice in
   `Sec.lib.*`, the pure math in `Model.math.*`, the machine integers) does NOT
   take the prefix — it is reusable across the SHRINCS family, so it stays named

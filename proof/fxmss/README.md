@@ -1,84 +1,57 @@
-# FXMSS proof and compatibility boundary
+# FXMSS proof
 
-The complete EU-CMA security proof for **FXMSS**, the fixed/counter-schedule
-unbalanced XMSS of WOTS+C leaves.  It originated in `verified-spec-2` and
-retains its original logical roots, while compatible generic definitions are
-imported from libshrincs rather than duplicated.
+This tree contains the complete SSProve EU-CMA proof for FXMSS, the
+counter-scheduled unbalanced Merkle signature scheme with WOTS+C leaves.
 
 ## Entry theorem
 
-`SHRINCS.FXMSS.Theorem.FXMSS_secure` (`shrincs/FXMSS/Theorem.v`) — the end-to-end EU-CMA
-advantage bound for FXMSS. `Qed`, admit-free. It bounds the forging advantage by the
-telescoping sum of the per-primitive reduction terms (PRF over the secret-key seed, PRF
-over the message randomizer, digest reprogramming, digest, grind, the leaf terms, tree
-SM-TCR, and TCRX), assembled from the per-hop lemmas in this tree.
+`SHRINCS.fxmss.theorem.shrincs_fxmss_secure` is the end-to-end bound. It
+telescopes reductions for the secret-seed PRF, message-randomizer PRF, random
+oracle reprogramming, digest collisions, grinding, leaf attacks, tree-node
+SM-TCR, and structural TCRX.
 
-## Compatibility boundary
+The theorem is proved without admits. Its hash assumptions and security games
+remain explicit advantage terms; they are not axioms.
 
-`Prelude`, `Sig.{Scheme,KOTS}`, `Games.{THF,PRF,SMTCR,SMPRE,SMUD,STCRP}`,
-and `Toolkit.SampleSeq` are compatibility exports of native `Sec.lib`
-modules; they contain no duplicate definitions.  The adaptive PRF game needed
-by FXMSS lives in `Sec.lib.games.prf_adaptive`.
+## Library boundary
 
-The retained modules are the minimal incompatible closure.  TCRX, random-oracle
-reprogramming, and Merkle-tree machinery have no native counterpart.
-`FixedSumOTS` and the WOTS+C hop files expose banked relational invariants used
-directly by the multi-leaf proof.  Native `Sec.wots.hop.*` fixes one anchor in
-`wc_params`; FXMSS instead proves multi-instance hops over up to `n_max`
-independently addressed leaves.  Replacing those files requires generalizing
-the native library's reductions, not merely changing imports.
+The proof reuses compatibility exports of `Sec.lib` for signature schemes,
+hash games, PRF games, and sequence sampling. The adaptive PRF game used by
+FXMSS is provided by `Sec.lib.games.prf_adaptive`.
 
-FXMSS and the native WOTS+C development now use the same dependent address
-type, `Model.address.adrs`, and the same finite SSProve encoding from
-`Sec.addressing`.  The compatibility facade accepts the copied proof's `nat`
-coordinates through exact-or-zero smart constructors; every use that relies on
-injectivity proves the corresponding field bounds.  In particular,
-`FXMSS_secure` carries `h_sf <= 64`, and the scheme's path and chain invariants
-establish all remaining representability facts.  There is no parallel FXMSS
-address type or model-bridge layer.
+`HBS.wots.*` is reusable fixed-sum Winternitz proof infrastructure. Its chain
+analysis and SM-UD/SM-TCR/SM-PRE reductions are used by the
+multi-leaf proof. The native `Sec.wots.hop.*` reductions fix one anchor in
+`wc_params`; FXMSS instead needs banked reductions over up to `n_max`
+independently addressed leaves.
 
-## Layout & logical names
+FXMSS and native WOTS+C share `Model.address.adrs` and the finite SSProve
+encoding from `Sec.addressing`. The FXMSS facade accepts natural-number
+coordinates through exact-or-zero smart constructors. Every injectivity use
+proves the required field bounds; in particular, the headline theorem assumes
+`h_sf <= 64`.
 
-Mapped in `proof/_RocqProject` (roots disjoint from `Sec`/`Model`/`Vst`/`Assumptions`):
+## Layout
 
-| directory         | logical root   | contents |
-|-------------------|----------------|----------|
-| `fxmss/hbs/`       | `HBS`          | native compatibility exports plus the FXMSS-only framework closure |
-| `fxmss/examples/`  | `HBS.Examples` | `FixedSumOTS.*` — the generic Winternitz-with-checksum one-time signature the FXMSS leaf reduces to (WOTS+C is proved to *be* a `FixedSumOTS`) |
-| `fxmss/shrincs/`   | `SHRINCS`      | `Addressing`, the WOTS+C leaf (`WOTSC/*`, import-closure only), and the FXMSS proof (`FXMSS/*`) |
+| Directory | Logical root | Contents |
+|---|---|---|
+| `fxmss/hbs/` | `HBS` | reusable HBS, Merkle, random-oracle, and fixed-sum WOTS infrastructure |
+| `fxmss/shrincs/` | `SHRINCS` | native-address FXMSS construction and security proof |
 
-No `SHRINCS.SPX` is present — this is FXMSS only.
+All physical and logical path segments below the roots use snake_case.
+FXMSS-specific construction identifiers use the `shrincs_fxmss_` prefix;
+paper game and reduction names retain their notation.
 
-## Vendored-snapshot conventions (deliberate exceptions to STYLE.md)
+## Building and trust audit
 
-This is a faithful copy, not a native port, so it intentionally departs from
-`proof/STYLE.md`:
-- **CamelCase filenames** are kept — required, since the copied imports name CamelCase modules.
-- **Original identifiers and file headers** are preserved verbatim (no `shrincs_fxmss_`
-  prefixing, no re-bannering).
+From the repository root:
 
-The file set is exactly what `verified-spec-2` builds for `FXMSS_secure` (59 files); the
-two upstream dead-code files — a superseded single-leaf hop and a prototype — are omitted.
+```sh
+make ssprove-prove
+make prove
+make audit
+```
 
-## Building
-
-`make prove` and `make ssprove-prove` (from `proof/`, inside `nix develop .#ssprove`)
-build this tree automatically: the file list and `-Q` maps are in `proof/_RocqProject`
-and `rocq makefile` regenerates the rules. No Makefile edit is needed.
-
-## Trust surface
-
-`FXMSS_secure` is admit-free and introduces **no new axiom, parameter, or trust anchor**.
-Its `Print Assumptions` cone is the classical/SSProve baseline already whitelisted for the
-`[ssprove]` tree in `proof/assumptions/allowed.txt` (propositional/functional
-extensionality, indefinite description, strict-Prop proof irrelevance, the real-number
-carrier, and mathcomp-analysis's `realsum.__admitted__interchange_psum`).
-
-A standalone probe `proof/assumptions/fxmss.v` runs `Print Assumptions
-FXMSS_secure` during `make audit`.  Its cone is checked against the existing
-`[ssprove]` classical baseline; no allowlist entry or trust anchor is added.
-
-Further consolidation requires an anchor-indexed generalization of the native
-WOTS+C hop interfaces.  That should be done in `Sec.lib` before the banked
-multi-leaf reductions are moved, so the existing single-anchor proof remains
-small and reviewable.
+`proof/assumptions/fxmss.v` prints the assumptions of
+`shrincs_fxmss_secure`. The audit checks that cone against the existing
+SSProve baseline and adds no FXMSS-specific allowlist entry.

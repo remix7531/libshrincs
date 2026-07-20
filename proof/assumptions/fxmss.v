@@ -3,12 +3,12 @@
  * libshrincs - formally verified SHRINCS implementations.
  *)
 
-(** * Assumption audit (vendored FXMSS tree)
+(** * Assumption audit for FXMSS
 
-    [Print Assumptions] for the headline EU-CMA theorem of the vendored FXMSS
-    proof (proof/fxmss/, logical name SHRINCS.FXMSS -- see fxmss/README.md).
+    [Print Assumptions] for the headline EU-CMA theorem in [proof/fxmss]
+    (logical name [SHRINCS.fxmss]; see [fxmss/README.md]).
 
-    [FXMSS_secure] is admit-free and unconditional over its abstract
+    [shrincs_fxmss_secure] is admit-free and unconditional over its abstract
     F/T_l/H_grind/H_tree/PRF Context: none of the hash assumptions is an axiom
     FOR IT -- each per-primitive term (PRF, reprogramming, digest, grind, the
     leaf/tree SM-TCR, TCRX) is an explicit advantage/[AdvOf] term in the bound,
@@ -28,8 +28,8 @@
       rocq c $(rocq makefile -f _RocqProject -o /dev/null; echo) assumptions/fxmss.v
     or simply `coqc` with the four `-Q` maps from _RocqProject. *)
 
-From SHRINCS Require Import FXMSS.Theorem.
+From SHRINCS Require Import fxmss.theorem.
 
 Set Printing Width 4000.
 
-Print Assumptions SHRINCS.FXMSS.Theorem.FXMSS_secure.
+Print Assumptions SHRINCS.fxmss.theorem.shrincs_fxmss_secure.
