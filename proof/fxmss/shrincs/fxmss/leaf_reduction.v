@@ -3994,7 +3994,8 @@ simplify_eq_rel arg.
   rewrite /forge_keep_body /forge_redL''.
   ssprove_code_simpl. simpl.
   ssprove_sync. { lf_get2_pre. } move=> fc.
-  ssprove_code_simpl. simpl.
+  eapply rel_jdg_replace; [| reflexivity | solve [ssprove_match_commut_gen]].
+  simpl.
   ssprove_sync => hfc.
   eapply r_get_remember_lhs => stoL.
   eapply r_get_remember_rhs => stoR.
@@ -4594,7 +4595,8 @@ simplify_eq_rel arg.
   rewrite /forge_keep_body /forge_redL.
   ssprove_code_simpl. simpl.
   ssprove_sync. { lf_get_pre. } move=> fc.
-  ssprove_code_simpl. simpl.
+  eapply rel_jdg_replace; [| reflexivity | solve [ssprove_match_commut_gen]].
+  simpl.
   ssprove_sync => hfc.
   eapply r_get_remember_lhs => sto0.
   eapply r_get_remember_rhs => sto1.
