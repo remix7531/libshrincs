@@ -77,7 +77,7 @@
     then [rpre_weaken_rule] to an explicit block precondition (the
     [B*] families) and small-step rules through the branch; leaf
     put-chains restored manually ([inv*I] + [heap_ignore_set_*] +
-    [get_heap_simpl]).  The reads-then-writes oracle normal form of
+    [fxmss_get_heap_simpl]).  The reads-then-writes oracle normal form of
     Games.v is what keeps every oracle to ONE such pass.
 
     Locations: R_prf 440-447, R_prfm 460-466 (the PRF game's own
@@ -106,6 +106,17 @@ Set Warnings "notation-overridden,ambiguous-paths".
 Import PackageNotation.
 #[local] Open Scope package_scope.
 #[local] Open Scope sep_scope.
+
+(** Select the applicable heap rewrite before invoking [rewrite].  The generic
+    SSProve tactic probes [get_set_heap_eq] over the complete goal on every
+    iteration, which is costly for the large relational invariants below. *)
+Local Ltac fxmss_get_heap_simpl :=
+  repeat lazymatch goal with
+  | |- context [get_heap (set_heap ?h ?l ?v) ?l] =>
+      rewrite get_set_heap_eq
+  | |- context [get_heap (set_heap ?h ?l ?v) ?l'] =>
+      rewrite get_set_heap_neq; [| done]
+  end.
 
 (** Non-dependent corollary of [code_link_assertD]: the [#assert b ;;
     c] form hides the binder, and vanilla rewrite cannot match the
@@ -1207,7 +1218,7 @@ simplify_eq_rel arg.
     apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve.
     apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve.
     exact: hig.
-  - get_heap_simpl.
+  - fxmss_get_heap_simpl.
     rewrite m1 m2 m3 m4 m5 m5f hk hc.
     split.
     + by split.
@@ -1298,7 +1309,7 @@ simplify_eq_rel arg.
     * apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve.
       apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve.
       exact: hig.
-    * get_heap_simpl.
+    * fxmss_get_heap_simpl.
       rewrite ?p1 ?p2 ?p3 ?p4 ?p5 ?p6 ?p9 ?p10 ?p11 ?p12 ?p13 ?p13f.
       split.
       - by split.
@@ -1350,13 +1361,11 @@ simplify_eq_rel arg.
          -- do 4 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
             do 4 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
             exact: hig.
-         -- get_heap_simpl.
-            rewrite ?p1 ?p2 ?p3 ?p4 ?p13 ?p13f.
-            split.
-            ++ by split.
-            ++ by split.
-            ++ by split.
-            ++ by [].
+         -- abstract (
+              fxmss_get_heap_simpl;
+              rewrite ?p1 ?p2 ?p3 ?p4 ?p13 ?p13f;
+              split;
+              [ by split | by split | by split | by [] ]).
       ** eapply r_put_lhs; eapply r_put_lhs; eapply r_put_lhs.
          eapply r_put_rhs; eapply r_put_rhs; eapply r_put_rhs.
          apply r_ret => s0 s1 hpre.
@@ -1373,7 +1382,7 @@ simplify_eq_rel arg.
          -- do 3 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
             do 3 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
             exact: hig.
-         -- get_heap_simpl.
+         -- fxmss_get_heap_simpl.
             rewrite ?p1 ?p2 ?p3 ?p4 ?p5 ?p6 ?p9 ?p10 ?p13 ?p13f.
             split.
             ++ by split.
@@ -1406,7 +1415,7 @@ simplify_eq_rel arg.
          -- do 4 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
             do 4 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
             exact: hig.
-         -- get_heap_simpl.
+         -- fxmss_get_heap_simpl.
             rewrite ?p1 ?p2 ?p3 ?p4 ?p13 ?p13f.
             split.
             ++ by split.
@@ -1429,7 +1438,7 @@ simplify_eq_rel arg.
          -- do 3 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
             do 3 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
             exact: hig.
-         -- get_heap_simpl.
+         -- fxmss_get_heap_simpl.
             rewrite ?p1 ?p2 ?p3 ?p4 ?p5 ?p6 ?p9 ?p10 ?p13 ?p13f.
             split.
             ++ by split.
@@ -1484,7 +1493,7 @@ simplify_eq_rel arg.
     * do 2 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
       do 2 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
       exact: hig.
-    * get_heap_simpl.
+    * fxmss_get_heap_simpl.
       rewrite ?q1 ?q2 ?q3 ?q4 ?q5 ?q6 ?q7 ?q8 ?q9 ?q10 ?qf.
       split.
       -- by split.
@@ -1511,7 +1520,7 @@ simplify_eq_rel arg.
     * do 2 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
       do 2 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
       exact: hig.
-    * get_heap_simpl.
+    * fxmss_get_heap_simpl.
       rewrite ?q1 ?q2 ?q3 ?q4 ?q5 ?q6 ?q7 ?q8 ?q9 ?q10 ?qf.
       split.
       -- by split.
@@ -1590,7 +1599,7 @@ simplify_eq_rel arg.
     -- do 2 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
        do 2 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
        exact: hig.
-    -- get_heap_simpl.
+    -- fxmss_get_heap_simpl.
        rewrite ?q1 ?q2 ?q3 ?q4 ?q5 ?q6 ?q7 ?q8 ?q9 ?q10 ?q11.
        split.
        ++ by split.
@@ -1619,7 +1628,7 @@ simplify_eq_rel arg.
     -- do 2 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
        do 2 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
        exact: hig.
-    -- get_heap_simpl.
+    -- fxmss_get_heap_simpl.
        rewrite ?q1 ?q2 ?q3 ?q4 ?q5 ?q6 ?q7 ?q8 ?q9 ?q10 ?q11.
        split.
        ++ by split.
@@ -1810,7 +1819,7 @@ case Emd: (getm mp (rv, (stv.1, (zi, m)))) => [d|].
     * do 4 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
       do 3 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
       exact: hig.
-    * get_heap_simpl.
+    * fxmss_get_heap_simpl.
       rewrite ?p1 ?p2 ?p3 ?p5 ?p13 ?p13f.
       split.
       -- by split.
@@ -1834,7 +1843,7 @@ case Emd: (getm mp (rv, (stv.1, (zi, m)))) => [d|].
     * do 3 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
       do 2 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
       exact: hig.
-    * get_heap_simpl.
+    * fxmss_get_heap_simpl.
       rewrite ?p1 ?p2 ?p3 ?p5 ?p9 ?p10 ?p13 ?p13f.
       split.
       -- by split.
@@ -1865,7 +1874,7 @@ case Emd: (getm mp (rv, (stv.1, (zi, m)))) => [d|].
     * do 4 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
       do 3 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
       exact: hig.
-    * get_heap_simpl.
+    * fxmss_get_heap_simpl.
       rewrite ?p1 ?p2 ?p3 ?p5 ?p13 ?p13f.
       split.
       -- by split.
@@ -1889,7 +1898,7 @@ case Emd: (getm mp (rv, (stv.1, (zi, m)))) => [d|].
     * do 3 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
       do 2 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
       exact: hig.
-    * get_heap_simpl.
+    * fxmss_get_heap_simpl.
       rewrite ?p1 ?p2 ?p3 ?p5 ?p9 ?p10 ?p13 ?p13f.
       split.
       -- by split.
@@ -1978,7 +1987,7 @@ simplify_eq_rel arg.
   + apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve.
     apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve.
     exact: hig.
-  + get_heap_simpl.
+  + fxmss_get_heap_simpl.
     rewrite ?m1 ?m2 ?m3 ?m4 ?m5 ?ht ?hc ?m5f.
     split.
     * by split.
@@ -2062,7 +2071,7 @@ simplify_eq_rel arg.
     * apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve.
       apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve.
       exact: hig.
-    * get_heap_simpl.
+    * fxmss_get_heap_simpl.
       rewrite ?p1 ?p2 ?p3 ?p5 ?p6 ?p9 ?p10 ?p11 ?p12 ?p13 ?p13f.
       split.
       - by split.
@@ -2117,28 +2126,28 @@ simplify_eq_rel arg.
         - split.
           + do 2 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
             exact: hig.
-          + by get_heap_simpl.
+          + by fxmss_get_heap_simpl.
           + exact: p2.
-          + by get_heap_simpl.
+          + by fxmss_get_heap_simpl.
           + move=> pt hlow.
-            get_heap_simpl.
+            fxmss_get_heap_simpl.
             rewrite setmE.
             case: eqP => [-> | _].
             * by rewrite (p4 (arg.2, arg.1) hle) Ert.
             * by apply: p4.
         - split.
-          + by get_heap_simpl.
+          + by fxmss_get_heap_simpl.
           + exact: p6.
-          + by get_heap_simpl.
+          + by fxmss_get_heap_simpl.
           + exact: p8.
-          + by get_heap_simpl.
+          + by fxmss_get_heap_simpl.
         - split.
           + exact: p10.
-          + by get_heap_simpl.
+          + by fxmss_get_heap_simpl.
           + exact: p12.
         - split.
-          + by get_heap_simpl.
-          + by get_heap_simpl.
+          + by fxmss_get_heap_simpl.
+          + by fxmss_get_heap_simpl.
           + exact: p14. }
       rewrite !(code_link_scheme _ _ _ _ (prog_valid dD)).
       exact: r_sign_tail2i.
@@ -2167,11 +2176,11 @@ simplify_eq_rel arg.
         - split.
           + do 2 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
             apply: heap_ignore_set_rhs hig; first by apply: fhas_in; fmap_solve.
-          + by get_heap_simpl.
-          + by get_heap_simpl.
-          + by get_heap_simpl.
+          + by fxmss_get_heap_simpl.
+          + by fxmss_get_heap_simpl.
+          + by fxmss_get_heap_simpl.
           + move=> pt hlow.
-            get_heap_simpl.
+            fxmss_get_heap_simpl.
             rewrite !setmE.
             case: eqP => [_ | _] //.
             (* M5: after the prf_tab put the get resolves to [setm T ..];
@@ -2180,23 +2189,23 @@ simplify_eq_rel arg.
                [get_heap _ prf_tab], so [p4] would need [-hrem] first). *)
             by rewrite (hT pt hlow).
         - split.
-          + by get_heap_simpl.
-          + by get_heap_simpl.
-          + by get_heap_simpl.
-          + by get_heap_simpl.
-          + by get_heap_simpl.
+          + by fxmss_get_heap_simpl.
+          + by fxmss_get_heap_simpl.
+          + by fxmss_get_heap_simpl.
+          + by fxmss_get_heap_simpl.
+          + by fxmss_get_heap_simpl.
         - split.
           (* M5: the miss branch's extra [r_put_rhs] (prf_tab) sits over
-             s1, so the s1-reads [rm_log]/[prf_cnt] need [get_heap_simpl]
+             s1, so the s1-reads [rm_log]/[prf_cnt] need [fxmss_get_heap_simpl]
              to strip the set before the remembered fact discharges them
              (the HIT branch had no prf_tab put, hence bare [exact]). *)
-          + by get_heap_simpl.
-          + by get_heap_simpl.
-          + by get_heap_simpl.
+          + by fxmss_get_heap_simpl.
+          + by fxmss_get_heap_simpl.
+          + by fxmss_get_heap_simpl.
         - split.
-          + by get_heap_simpl.
-          + by get_heap_simpl.
-          + by get_heap_simpl. }
+          + by fxmss_get_heap_simpl.
+          + by fxmss_get_heap_simpl.
+          + by fxmss_get_heap_simpl. }
       rewrite !(code_link_scheme _ _ _ _ (prog_valid dD)).
       exact: r_sign_tail2i.
 - (* FXHASH *)
@@ -2247,7 +2256,7 @@ simplify_eq_rel arg.
     * do 2 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
       do 2 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
       exact: hig.
-    * get_heap_simpl.
+    * fxmss_get_heap_simpl.
       rewrite ?q1 ?q2 ?q3 ?q4 ?q5 ?q6 ?q7 ?q8 ?qf.
       split.
       -- by split.
@@ -2276,7 +2285,7 @@ simplify_eq_rel arg.
     * do 2 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
       do 2 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
       exact: hig.
-    * get_heap_simpl.
+    * fxmss_get_heap_simpl.
       rewrite ?q1 ?q2 ?q3 ?q4 ?q5 ?q6 ?q7 ?q8 ?qf.
       split.
       -- by split.
@@ -2357,7 +2366,7 @@ simplify_eq_rel arg.
     -- do 2 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
        do 2 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
        exact: hig.
-    -- get_heap_simpl.
+    -- fxmss_get_heap_simpl.
        rewrite ?q1 ?q2 ?q3 ?q4 ?q5 ?q6 ?q7 ?q8 ?q9.
        split.
        ++ by split.
@@ -2387,7 +2396,7 @@ simplify_eq_rel arg.
     -- do 2 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
        do 2 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
        exact: hig.
-    -- get_heap_simpl.
+    -- fxmss_get_heap_simpl.
        rewrite ?q1 ?q2 ?q3 ?q4 ?q5 ?q6 ?q7 ?q8 ?q9.
        split.
        ++ by split.
@@ -3030,7 +3039,7 @@ simplify_eq_rel arg.
   - do 2 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
     do 2 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
     exact: hig.
-  - get_heap_simpl.
+  - fxmss_get_heap_simpl.
     rewrite m1 m2 m3 m4 m5 m7.
     split.
     + by split.
@@ -3120,7 +3129,7 @@ simplify_eq_rel arg.
     * apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve.
       apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve.
       exact: hig.
-    * get_heap_simpl.
+    * fxmss_get_heap_simpl.
       rewrite ?p1 ?p2 ?p3 ?p4 ?p5 ?p6 ?p9 ?p10 ?p11 ?p12 ?p13 ?p13f.
       split.
       - by split.
@@ -3151,13 +3160,11 @@ simplify_eq_rel arg.
          -- do 4 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
             do 4 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
             exact: hig.
-         -- get_heap_simpl.
-            rewrite ?p1 ?p2 ?p3 ?p4 ?p13 ?p13f.
-            split.
-            ++ by split.
-            ++ by split.
-            ++ by [].
-            ++ by [].
+         -- abstract (
+              fxmss_get_heap_simpl;
+              rewrite ?p1 ?p2 ?p3 ?p4 ?p13 ?p13f;
+              split;
+              [ by split | by split | by [] | by [] ]).
       ** eapply r_put_lhs; eapply r_put_lhs; eapply r_put_lhs.
          eapply r_put_rhs; eapply r_put_rhs; eapply r_put_rhs.
          apply r_ret => s0 s1 hpre.
@@ -3174,7 +3181,7 @@ simplify_eq_rel arg.
          -- do 3 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
             do 3 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
             exact: hig.
-         -- get_heap_simpl.
+         -- fxmss_get_heap_simpl.
             rewrite ?p1 ?p2 ?p3 ?p4 ?p5 ?p6 ?p9 ?p10 ?p11 ?p12 ?p13 ?p13f.
             split.
             ++ by split.
@@ -3211,7 +3218,7 @@ simplify_eq_rel arg.
          -- do 4 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
             do 4 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
             exact: hig.
-         -- get_heap_simpl.
+         -- fxmss_get_heap_simpl.
             rewrite ?p1 ?p2 ?p3 ?p4 ?p13 ?p13f.
             split.
             ++ by split.
@@ -3234,7 +3241,7 @@ simplify_eq_rel arg.
          -- do 3 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
             do 3 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
             exact: hig.
-         -- get_heap_simpl.
+         -- fxmss_get_heap_simpl.
             rewrite ?p1 ?p2 ?p3 ?p4 ?p5 ?p6 ?p9 ?p10 ?p11 ?p12 ?p13 ?p13f.
             split.
             ++ by split.
@@ -3287,7 +3294,7 @@ simplify_eq_rel arg.
     * do 2 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
       do 2 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
       exact: hig.
-    * get_heap_simpl.
+    * fxmss_get_heap_simpl.
       rewrite ?q1 ?q2 ?q3 ?q4 ?q5 ?q6 ?q7 ?q8 ?q9 ?qf.
       split.
       -- by split.
@@ -3313,7 +3320,7 @@ simplify_eq_rel arg.
     * do 2 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
       do 2 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
       exact: hig.
-    * get_heap_simpl.
+    * fxmss_get_heap_simpl.
       rewrite ?q1 ?q2 ?q3 ?q4 ?q5 ?q6 ?q7 ?q8 ?q9 ?qf.
       split.
       -- by split.
@@ -3390,7 +3397,7 @@ simplify_eq_rel arg.
     -- do 2 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
        do 2 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
        exact: hig.
-    -- get_heap_simpl.
+    -- fxmss_get_heap_simpl.
        rewrite ?q1 ?q2 ?q3 ?q4 ?q5 ?q6 ?q7 ?q8 ?q9 ?q10.
        split.
        ++ by split.
@@ -3418,7 +3425,7 @@ simplify_eq_rel arg.
     -- do 2 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
        do 2 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
        exact: hig.
-    -- get_heap_simpl.
+    -- fxmss_get_heap_simpl.
        rewrite ?q1 ?q2 ?q3 ?q4 ?q5 ?q6 ?q7 ?q8 ?q9 ?q10.
        split.
        ++ by split.
@@ -3514,7 +3521,7 @@ simplify_eq_rel arg.
     * do 2 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
       do 2 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
       exact: hig.
-    * get_heap_simpl.
+    * fxmss_get_heap_simpl.
       rewrite m1 m2 m3 m4 m5 m7.
       split.
       -- by split.
@@ -3604,7 +3611,7 @@ simplify_eq_rel arg.
     * apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve.
       apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve.
       exact: hig.
-    * get_heap_simpl.
+    * fxmss_get_heap_simpl.
       rewrite ?p1 ?p2 ?p3 ?p4 ?p5 ?p6 ?p9 ?p10 ?p11 ?p12 ?p13 ?p13f.
       split.
       - by split.
@@ -3635,13 +3642,11 @@ simplify_eq_rel arg.
          -- do 4 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
             do 4 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
             exact: hig.
-         -- get_heap_simpl.
-            rewrite ?p1 ?p2 ?p3 ?p4 ?p13 ?p13f.
-            split.
-            ++ by split.
-            ++ by split.
-            ++ by [].
-            ++ by [].
+         -- abstract (
+              fxmss_get_heap_simpl;
+              rewrite ?p1 ?p2 ?p3 ?p4 ?p13 ?p13f;
+              split;
+              [ by split | by split | by [] | by [] ]).
       ** eapply r_put_lhs; eapply r_put_lhs; eapply r_put_lhs.
          eapply r_put_rhs; eapply r_put_rhs; eapply r_put_rhs.
          apply r_ret => s0 s1 hpre.
@@ -3658,7 +3663,7 @@ simplify_eq_rel arg.
          -- do 3 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
             do 3 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
             exact: hig.
-         -- get_heap_simpl.
+         -- fxmss_get_heap_simpl.
             rewrite ?p1 ?p2 ?p3 ?p4 ?p5 ?p6 ?p9 ?p10 ?p11 ?p12 ?p13 ?p13f.
             split.
             ++ by split.
@@ -3695,7 +3700,7 @@ simplify_eq_rel arg.
          -- do 4 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
             do 4 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
             exact: hig.
-         -- get_heap_simpl.
+         -- fxmss_get_heap_simpl.
             rewrite ?p1 ?p2 ?p3 ?p4 ?p13 ?p13f.
             split.
             ++ by split.
@@ -3718,7 +3723,7 @@ simplify_eq_rel arg.
          -- do 3 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
             do 3 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
             exact: hig.
-         -- get_heap_simpl.
+         -- fxmss_get_heap_simpl.
             rewrite ?p1 ?p2 ?p3 ?p4 ?p5 ?p6 ?p9 ?p10 ?p11 ?p12 ?p13 ?p13f.
             split.
             ++ by split.
@@ -3771,7 +3776,7 @@ simplify_eq_rel arg.
     * do 2 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
       do 2 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
       exact: hig.
-    * get_heap_simpl.
+    * fxmss_get_heap_simpl.
       rewrite ?q1 ?q2 ?q3 ?q4 ?q5 ?q6 ?q7 ?q8 ?q9 ?qf.
       split.
       -- by split.
@@ -3797,7 +3802,7 @@ simplify_eq_rel arg.
     * do 2 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
       do 2 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
       exact: hig.
-    * get_heap_simpl.
+    * fxmss_get_heap_simpl.
       rewrite ?q1 ?q2 ?q3 ?q4 ?q5 ?q6 ?q7 ?q8 ?q9 ?qf.
       split.
       -- by split.
@@ -3874,7 +3879,7 @@ simplify_eq_rel arg.
     -- do 2 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
        do 2 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
        exact: hig.
-    -- get_heap_simpl.
+    -- fxmss_get_heap_simpl.
        rewrite ?q1 ?q2 ?q3 ?q4 ?q5 ?q6 ?q7 ?q8 ?q9 ?q10.
        split.
        ++ by split.
@@ -3902,7 +3907,7 @@ simplify_eq_rel arg.
     -- do 2 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
        do 2 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
        exact: hig.
-    -- get_heap_simpl.
+    -- fxmss_get_heap_simpl.
        rewrite ?q1 ?q2 ?q3 ?q4 ?q5 ?q6 ?q7 ?q8 ?q9 ?q10.
        split.
        ++ by split.
