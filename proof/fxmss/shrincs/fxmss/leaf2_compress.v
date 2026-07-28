@@ -49,7 +49,7 @@ Context (Htree : PP -> adrs_sf -> N * N -> N).
 Context (dPP : dist PP) (dN : dist N) (dR : dist R) (dD : dist D).
 Context (S_wn c_max : nat).
 Context (h_sf : nat).
-Context (Hh : (h_sf <= 64)%N).
+Context (Hh : (h_sf <= 255)%N).
 Context (q_s q_h n_max : nat).
 Context (q_f : nat).
 Context (n0 : N) (d0 : D).

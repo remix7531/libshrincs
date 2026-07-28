@@ -28,8 +28,12 @@ independently addressed leaves.
 FXMSS and native WOTS+C share `Model.address.adrs` and the finite SSProve
 encoding from `Sec.addressing`. The FXMSS facade accepts natural-number
 coordinates through exact-or-zero smart constructors. Every injectivity use
-proves the required field bounds; in particular, the headline theorem assumes
-`h_sf <= 64`.
+proves the required field bounds. The height bound is the address's one-byte
+height field, `h_sf <= 255`, matching the spec's `FXMSS_HEIGHT = 255`; the
+eight-byte index field is bounded separately, per position, by the shape
+well-formedness predicate `shrincs_fxmss_wf_shape` (honest side) and by the
+verifier's `shrincs_fxmss_leaf_id_ok` — the spec's
+`leaf_index < 2 ** min(64, leaf_depth)`.
 
 ## Layout
 

@@ -56,7 +56,7 @@ Context (Htree : PP -> adrs_sf -> N * N -> N).
 Context (dPP : dist PP) (dN : dist N) (dR : dist R) (dD : dist D).
 Context (S_wn c_max : nat).
 Context (h_sf : nat).
-Context (Hh : (h_sf <= 64)%N).
+Context (Hh : (h_sf <= 255)%N).
 Context (q_s q_h n_max : nat).
 Context (q_f : nat).
 
@@ -188,23 +188,13 @@ Lemma internal_paths_valtree pp sp xss :
 Proof. by rewrite /value_tree_x internal_paths_posmap. Qed.
 
 (** Every internal position of the value tree has size <= h_sf (it is
-    a position of a well-formed shape). *)
-(** Generic: an internal position is no deeper than the tree. *)
-Lemma internal_path_depth {A : Type} (t : bt A) (q : seq bool) :
-  q \in internal_paths t -> (size q < bt_depth t)%N.
-Proof.
-elim: t q => [a|tl IHl tr IHr] q /=; first by rewrite in_nil.
-rewrite inE => /orP[/eqP ->|]; first by [].
-rewrite mem_cat => /orP[] /mapP[q' hq' ->] /=.
-- by rewrite ltnS leq_max IHl.
-- by rewrite ltnS leq_max IHr ?orbT.
-Qed.
-
+    a position of a well-formed shape; [internal_path_depth] is
+    HBS.math.bin_tree's generic depth bound). *)
 Lemma internal_path_size sp (q : seq bool) :
   q \in internal_paths (tshape sp) -> (size q <= h_sf)%N.
 Proof.
 move=> hq.
-have hlt := internal_path_depth _ _ hq.
+have hlt := internal_path_depth hq.
 have hd := shrincs_fxmss_shape_wf h_sf sp.
 by apply: leq_trans (ltnW hlt) hd.
 Qed.
@@ -241,8 +231,8 @@ Lemma tnode_tw_inj sp (p q : seq bool) :
 Proof.
 move=> hp hq.
 rewrite /tnode_tw => /encode_adrs_inj he.
-have hps := internal_path_size sp p hp.
-have hqs := internal_path_size sp q hq.
+have hps := shrincs_fxmss_internal_pos_ok h_sf sp p hp.
+have hqs := shrincs_fxmss_internal_pos_ok h_sf sp q hq.
 exact: (@shrincs_fxmss_node_adrs_inj w l h_sf p q Hh hps hqs he).
 Qed.
 

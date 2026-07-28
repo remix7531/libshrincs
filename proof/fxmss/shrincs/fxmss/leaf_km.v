@@ -43,7 +43,7 @@ Context (Htree : PP -> adrs_sf -> N * N -> N).
 Context (dPP : dist PP) (dN : dist N) (dR : dist R) (dD : dist D).
 Context (S_wn c_max : nat).
 Context (h_sf : nat).
-Context (Hh : (h_sf <= 64)%N).
+Context (Hh : (h_sf <= 255)%N).
 Context (q_s q_h n_max : nat).
 Context (q_f : nat).
 Context (n0 : N) (d0 : D).
@@ -53,6 +53,8 @@ Context (n0 : N) (d0 : D).
 Local Notation tshape := (shrincs_fxmss_shape h_sf).
 Local Notation spath := (shrincs_fxmss_sign_path h_sf).
 Local Notation posid := (shrincs_fxmss_pos_id h_sf).
+Local Notation posok := (shrincs_fxmss_pos_ok h_sf).
+Local Notation subposok := (shrincs_fxmss_sub_pos_ok h_sf).
 Local Notation panchor p :=
   (@encode_adrs l w (@shrincs_fxmss_wots_pk_adrs l w (posid p))).
 
@@ -1659,7 +1661,7 @@ case E: (shrincs_fxmss_forgery_case PP N D F Tl Hgrind Htree h_sf
                  (nth [::] st.2.2
                     (index (path_of_idx (h_sf - sg.1.1.1) sg.1.1.2)
                            (leaf_paths (tshape st.2.1))))
-                 (leaf_path_size h_sf st.2.1 _ hin)).
+                 (leaf_path_pos_ok h_sf st.2.1 _ hin)).
       apply/eqP.
       by rewrite {1}hpos; exact: hrec.
     apply r_ret => s0 s1 hpre; split.
@@ -1792,8 +1794,9 @@ Lemma wots_checks_transport (pp : PP) (rt : N) (zi : nat * nat) (md : D)
   shrincs_fxmss_wots_checks PP N D Hgrind S_wn pp
     (lcoord (panchor (path_of_idx (h_sf - zi.1) zi.2))) md ws.
 Proof.
-move=> /and4P[hz1 hz2 hchecks _].
-have hzi := shrincs_fxmss_anchor_bounded h_sf zi.1 zi.2 Hh hz1 hz2.
+move=> /and4P[hz1 /andP[hz2 hrepr] hchecks _].
+have hzi := shrincs_fxmss_anchor_bounded h_sf zi.1 zi.2 Hh hz1
+              (index_boundedP zi.2 hrepr).
 have hposid : posid (path_of_idx (h_sf - zi.1) zi.2) = zi.
   rewrite /shrincs_fxmss_pos_id size_path_of_idx idx_of_path_of_idx // subKn //.
   by case: (zi).
@@ -1810,8 +1813,9 @@ Lemma shrincs_fxmss_verify_md_wots_checks_transport (pp : PP) (rt : N) (zi : nat
   fxvermd pp rt zi md ws ap ->
   shrincs_fxmss_wots_checks PP N D Hgrind S_wn pp (lcoord (panchor p)) md ws.
 Proof.
-move=> hpos /and4P[hz1 hz2 hwc _].
-have hzi := shrincs_fxmss_anchor_bounded h_sf zi.1 zi.2 Hh hz1 hz2.
+move=> hpos /and4P[hz1 /andP[hz2 hrepr] hwc _].
+have hzi := shrincs_fxmss_anchor_bounded h_sf zi.1 zi.2 Hh hz1
+              (index_boundedP zi.2 hrepr).
 have hp : anchor_bounded (posid p) by rewrite hpos.
 by rewrite (lcoord_panchor p hp) hpos.
 Qed.
@@ -2390,7 +2394,7 @@ case E: (shrincs_fxmss_forgery_case PP N D F Tl Hgrind Htree h_sf
                  (nth [::] st.2.2
                     (index (path_of_idx (h_sf - sg.1.1.1) sg.1.1.2)
                            (leaf_paths (tshape st.2.1))))
-                 (leaf_path_size h_sf st.2.1 _ hin)).
+                 (leaf_path_pos_ok h_sf st.2.1 _ hin)).
       apply/eqP.
       by rewrite {1}hpos; exact: hrec.
     apply r_ret => s0 s1 hpre; split.
@@ -2681,7 +2685,7 @@ simplify_eq_rel arg.
               (lsign_panchor PP N D F Hgrind S_wn c_max h_sf Hh
                  stL.1.1 (spath stL.2.1 (flidx stL.2.1 arg.2))
                  (nth [::] stL.2.2 (flidx stL.2.1 arg.2)) md
-                 (shrincs_fxmss_sign_path_size h_sf stL.2.1
+                 (shrincs_fxmss_sign_path_pos_ok h_sf stL.2.1
                     (flidx stL.2.1 arg.2) Hli)) /shrincs_fxmss_wots_sign.
       by move: hsg; case: (find_ctr _ _ _ _ _ _ _ _ _). }
   move=> hls.
@@ -3247,7 +3251,7 @@ simplify_eq_rel arg.
               (lsign_panchor PP N D F Hgrind S_wn c_max h_sf Hh
                  stL.1.1 (spath stL.2.1 (flidx stL.2.1 arg.2))
                  (nth [::] stL.2.2 (flidx stL.2.1 arg.2)) md
-                 (shrincs_fxmss_sign_path_size h_sf stL.2.1
+                 (shrincs_fxmss_sign_path_pos_ok h_sf stL.2.1
                     (flidx stL.2.1 arg.2) Hli)) /shrincs_fxmss_wots_sign.
       by move: hsg; case: (find_ctr _ _ _ _ _ _ _ _ _). }
   move=> hls.

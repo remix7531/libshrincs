@@ -44,7 +44,7 @@ Context (Htree : PP -> adrs_sf -> N * N -> N).
 Context (dPP : dist PP) (dN : dist N) (dR : dist R) (dD : dist D).
 Context (S_wn c_max : nat).
 Context (h_sf : nat).
-Context (Hh : (h_sf <= 64)%N).
+Context (Hh : (h_sf <= 255)%N).
 Context (q_s q_h n_max : nat).
 Context (q_f : nat).
 
@@ -63,6 +63,7 @@ Context (n0 : N).
 Local Notation tshape := (shrincs_fxmss_shape h_sf).
 Local Notation spath := (shrincs_fxmss_sign_path h_sf).
 Local Notation posid := (shrincs_fxmss_pos_id h_sf).
+Local Notation posok := (shrincs_fxmss_pos_ok h_sf).
 Local Notation nhash := (shrincs_fxmss_node_hash PP N Htree h_sf).
 Local Notation valtree := (value_tree_x PP N F Tl h_sf).
 Local Notation fxroot := (shrincs_fxmss_root_x PP N F Tl Htree h_sf).

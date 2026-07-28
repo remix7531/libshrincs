@@ -148,7 +148,7 @@ Context (h_sf : nat).
 Context (q_s q_h n_max : nat).
 Context (q_f : nat).
 Context (m0 : M).
-Context (Hh : (h_sf <= 64)%N).
+Context (Hh : (h_sf <= 255)%N).
 
 (* ------------------------------------------------------------------ *)
 (** ** Shorthands *)
@@ -157,6 +157,7 @@ Local Notation tshape := (shrincs_fxmss_shape h_sf).
 Local Notation enc := (@encode_adrs l w).
 Local Notation spath := (shrincs_fxmss_sign_path h_sf).
 Local Notation posid := (shrincs_fxmss_pos_id h_sf).
+Local Notation posok := (shrincs_fxmss_pos_ok h_sf).
 Local Notation KF := (Kf PP N Ks PRFf dKs dN).
 Local Notation KM := (Kpm M R Kp PRFmsg dKp dR).
 Local Notation IG := (I_G0fL PP N D M R).
@@ -227,7 +228,7 @@ Qed.
 (** Honest PRF_f query points are pairwise distinct (the
     distinct-inputs side of the lazy-table bridge). *)
 Lemma prf_pt_inj (pp : PP) (p p' : seq bool) (j j' : nat) :
-  size p <= h_sf -> size p' <= h_sf -> j < l -> j' < l ->
+  posok p -> posok p' -> j < l -> j' < l ->
   (pp, enc (shrincs_fxmss_wots_prf_adrs (posid p) j))
     = (pp, enc (shrincs_fxmss_wots_prf_adrs (posid p') j')) ->
   p = p' /\ j = j'.
@@ -241,19 +242,15 @@ have [e1 e2 e3] := @shrincs_fxmss_wots_prf_adrs_inj l w
 have e : posid p = posid p'.
   by rewrite (surjective_pairing (posid p)) (surjective_pairing (posid p'))
        e1 e2.
-by split=> //; exact: shrincs_fxmss_pos_id_inj e.
+split=> //.
+apply: shrincs_fxmss_pos_id_inj (shrincs_fxmss_pos_ok_size h_sf p hp)
+  (shrincs_fxmss_pos_ok_size h_sf p' hp') e.
 Qed.
 
-(** Every leaf path of a normalized shape fits the declared
-    height. *)
-Lemma leaf_paths_depth (sp : seq bool) :
-  all (fun p => size p <= h_sf) (leaf_paths (tshape sp)).
-Proof.
-apply/allP => p hp.
-have hsub := leaf_paths_subtree hp.
-have hleaf : leaf_at (tshape sp) p = Some tt by rewrite /leaf_at hsub.
-exact: leq_trans (leaf_at_size hleaf) (shrincs_fxmss_shape_wf h_sf sp).
-Qed.
+(** Every leaf path of a normalized shape names an addressable
+    position. *)
+Lemma leaf_paths_depth (sp : seq bool) : all posok (leaf_paths (tshape sp)).
+Proof. by apply/allP => p hp; exact: shrincs_fxmss_leaf_pos_ok hp. Qed.
 
 (* ------------------------------------------------------------------ *)
 (** ** The reductions *)
@@ -2905,7 +2902,7 @@ Lemma r_eval_anchors_ideal {B : choiceType}
     (pp : PP) (ps : seq (seq bool))
     (T : {fmap kh_M KF -> kh_N KF}) (c : nat) :
   uniq ps ->
-  all (fun p => size p <= h_sf) ps ->
+  all posok ps ->
   (c + size ps * l <= q_prf)%N ->
   (forall p j, p \in ps -> (j < l)%N ->
      getm T (pp, enc (shrincs_fxmss_wots_prf_adrs (posid p) j)) = None) ->
@@ -2949,7 +2946,7 @@ elim: ps T c k0 k1 => [|p ps IH] T c k0 k1 hu hall hb hfresh hk.
       rewrite hoff.
       + by apply: hfresh hjl; rewrite in_cons hp' orbT.
       + apply/negP => /mapP[j0 hj0 e].
-        have hszp' : size p' <= h_sf by move/allP: hall; apply.
+        have hszp' : posok p' by move/allP: hall; apply.
         have hj0l : j0 < l.
           by move: hj0; rewrite mem_iota add0n => /andP[].
         case: (prf_pt_inj pp p' p j' j0 hszp' hszp hjl hj0l e) => ep _.

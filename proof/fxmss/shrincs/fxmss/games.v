@@ -202,6 +202,8 @@ Context (q_f : nat).
 Local Notation tshape := (shrincs_fxmss_shape h_sf).
 Local Notation spath := (shrincs_fxmss_sign_path h_sf).
 Local Notation posid := (shrincs_fxmss_pos_id h_sf).
+Local Notation posok := (shrincs_fxmss_pos_ok h_sf).
+Local Notation fleafid := (shrincs_fxmss_leaf_id_ok h_sf).
 Local Notation nhash := (shrincs_fxmss_node_hash PP N Htree h_sf).
 Local Notation fleaf_sk := (shrincs_fxmss_leaf_secret PP N Ks PRFf).
 Local Notation fpk_of zi := (shrincs_fxmss_wots_public_key PP N F Tl zi.1 zi.2).
@@ -330,7 +332,7 @@ Qed.
 Definition shrincs_fxmss_verify_md (pp : PP) (rt : N) (zi : nat * nat) (md : D)
     (ws : seq N * nat) (ap : seq N) : bool :=
   [&& (zi.1 <= h_sf)%N,
-      (zi.2 < 2 ^ (h_sf - zi.1))%N,
+      fleafid zi,
       fwots_checks pp zi md ws
     & val_ap (nhash pp) [::] (path_of_idx (h_sf - zi.1) zi.2) ap
         (frecover pp zi md ws) == Some rt].
@@ -359,7 +361,8 @@ set p := spath sp q.
 set zi := posid p.
 case E1: (fsign_sig _ _ _ _) => [ws|] //=.
 case E2: (cons_ap _ _ _ _) => [ap|] //= [<-] /=.
-have hszp : size p <= h_sf := shrincs_fxmss_sign_path_size h_sf sp q hq.
+have hpok : posok p := shrincs_fxmss_sign_path_pos_ok h_sf sp q hq.
+have hszp : size p <= h_sf := shrincs_fxmss_pos_ok_size h_sf p hpok.
 have hsub : subtree_at (tshape sp) p = Some (BLeaf tt)
   := shrincs_fxmss_sign_path_leaf h_sf sp q hq.
 have hpath : path_of_idx (h_sf - zi.1) zi.2 = p.
@@ -375,7 +378,8 @@ rewrite (shrincs_fxmss_wots_verifyE PP N D F Tl Hgrind S_wn) in hver.
 move/andP: hver => [hchecks /eqP hrec].
 rewrite /shrincs_fxmss_verify_md; apply/and4P; split.
 - by rewrite /zi /shrincs_fxmss_pos_id /= leq_subr.
-- by rewrite /zi /shrincs_fxmss_pos_id /= subKn // idx_of_path_lt.
+- rewrite /shrincs_fxmss_leaf_id_ok /zi /shrincs_fxmss_pos_id /=.
+  by rewrite subKn // idx_of_path_lt; case/andP: hpok.
 - exact: hchecks.
 - apply/eqP; rewrite hpath hrec.
   exact: hval.

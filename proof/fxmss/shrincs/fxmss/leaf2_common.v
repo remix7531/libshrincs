@@ -49,7 +49,7 @@ Context (Htree : PP -> adrs_sf -> N * N -> N).
 Context (dPP : dist PP) (dN : dist N) (dR : dist R) (dD : dist D).
 Context (S_wn c_max : nat).
 Context (h_sf : nat).
-Context (Hh : (h_sf <= 64)%N).
+Context (Hh : (h_sf <= 255)%N).
 Context (q_s q_h n_max : nat).
 Context (q_f : nat).
 Context (n0 : N) (d0 : D).
@@ -59,6 +59,7 @@ Context (n0 : N) (d0 : D).
 
 Local Notation tshape := (shrincs_fxmss_shape h_sf).
 Local Notation posid := (shrincs_fxmss_pos_id h_sf).
+Local Notation posok := (shrincs_fxmss_pos_ok h_sf).
 Local Notation panchor p :=
   (@encode_adrs l w (@shrincs_fxmss_wots_pk_adrs l w (posid p))).
 Local Notation lchaintw p c pos :=
@@ -129,14 +130,15 @@ Qed.
 (** ** Leaf-path size bound (LeafReduction's [leaf_path_size], re-derived
     self-contained from the shape machinery). *)
 
+Lemma l2_leaf_path_pos_ok sp (p : seq bool) :
+  p \in leaf_paths (tshape sp) -> posok p.
+Proof. exact: shrincs_fxmss_leaf_pos_ok. Qed.
+
 Lemma l2_leaf_path_size sp (p : seq bool) :
   p \in leaf_paths (tshape sp) -> (size p <= h_sf)%N.
 Proof.
-move=> hp.
-have hla : leaf_at (tshape sp) p = Some tt.
-  by rewrite /leaf_at (@leaf_paths_subtree (tshape sp) p hp).
-have h1 := leaf_at_size hla.
-exact: leq_trans h1 (shrincs_fxmss_shape_wf h_sf sp).
+by move=> hp;
+  exact: (shrincs_fxmss_pos_ok_size h_sf p (l2_leaf_path_pos_ok sp p hp)).
 Qed.
 
 (* ------------------------------------------------------------------ *)
@@ -149,12 +151,12 @@ Lemma l2_panchor_inj sp (p q : seq bool) :
   panchor p = panchor q -> p = q.
 Proof.
 move=> hp hq /encode_adrs_inj he.
-have hps := l2_leaf_path_size sp p hp.
-have hqs := l2_leaf_path_size sp q hq.
+have hps := l2_leaf_path_pos_ok sp p hp.
+have hqs := l2_leaf_path_pos_ok sp q hq.
 have [e1 e2] := @shrincs_fxmss_wots_pk_adrs_inj l w (posid p).1 (posid p).2
   (posid q).1 (posid q).2
-  (shrincs_fxmss_path_anchor_bounded h_sf p Hh hps)
-  (shrincs_fxmss_path_anchor_bounded h_sf q Hh hqs) he.
+  (shrincs_fxmss_pos_id_bounded h_sf p Hh hps)
+  (shrincs_fxmss_pos_id_bounded h_sf q Hh hqs) he.
 apply: (shrincs_fxmss_pos_id_inj h_sf p q (l2_leaf_path_size sp p hp)
           (l2_leaf_path_size sp q hq)).
 by rewrite [posid p]surjective_pairing [posid q]surjective_pairing e1 e2.
@@ -172,13 +174,13 @@ Lemma l2_chain_inj sp (p q : seq bool) (c pos c' pos' : nat) :
   [/\ p = q, c = c' & pos = pos'].
 Proof.
 move=> hp hq hc hpos hc' hpos' /encode_adrs_inj he.
-have hps := l2_leaf_path_size sp p hp.
-have hqs := l2_leaf_path_size sp q hq.
+have hps := l2_leaf_path_pos_ok sp p hp.
+have hqs := l2_leaf_path_pos_ok sp q hq.
 have [e1 e2 e3 e4] := @shrincs_fxmss_wots_chain_adrs_inj l w
   (posid p).1 (posid p).2 c pos
   (posid q).1 (posid q).2 c' pos'
-  (shrincs_fxmss_path_anchor_bounded h_sf p Hh hps)
-  (shrincs_fxmss_path_anchor_bounded h_sf q Hh hqs)
+  (shrincs_fxmss_pos_id_bounded h_sf p Hh hps)
+  (shrincs_fxmss_pos_id_bounded h_sf q Hh hqs)
   hc hpos hc' hpos' he.
 have hpq : p = q.
   apply: (shrincs_fxmss_pos_id_inj h_sf p q (l2_leaf_path_size sp p hp)

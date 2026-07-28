@@ -167,7 +167,7 @@ Local Notation Rleaf b :=
   (R_leaf_km PP N D M R F Tl Hgrind Htree dN dR dD S_wn c_max h_sf q_s q_h n_max q_f n0 d0 b).
 
 Theorem Leaf_hop
-    (Hh : (h_sf <= 64)%N)
+    (Hh : (h_sf <= 255)%N)
     (hw : (0 < w)%N)
     (Hdeg : S_wn != (l * w.-1)%N)
     (Hrange : forall (pp' : PP) (a : adrs_sf) (x : D * nat), (Hgrind pp' a x < w ^ l)%N)

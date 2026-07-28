@@ -76,7 +76,7 @@ Context (Htree : PP -> adrs_sf -> N * N -> N).
 Context (dPP : dist PP) (dN : dist N) (dR : dist R) (dD : dist D).
 Context (S_wn c_max : nat).
 Context (h_sf : nat).
-Context (Hh : (h_sf <= 64)%N).
+Context (Hh : (h_sf <= 255)%N).
 Context (q_s q_h n_max : nat).
 Context (q_f : nat).
 
@@ -92,6 +92,8 @@ Context (n0 : N).
 Local Notation tshape := (shrincs_fxmss_shape h_sf).
 Local Notation spath := (shrincs_fxmss_sign_path h_sf).
 Local Notation posid := (shrincs_fxmss_pos_id h_sf).
+Local Notation posok := (shrincs_fxmss_pos_ok h_sf).
+Local Notation subposok := (shrincs_fxmss_sub_pos_ok h_sf).
 Local Notation nhash := (shrincs_fxmss_node_hash PP N Htree h_sf).
 Local Notation valtree := (value_tree_x PP N F Tl h_sf).
 Local Notation fxroot := (shrincs_fxmss_root_x PP N F Tl Htree h_sf).
@@ -349,7 +351,7 @@ Lemma shrincs_fxmss_forgery_case_FShort pp sp xss (zi : nat * nat) md (ws : seq 
 Proof.
 move=> hver hcase.
 have hz1 : (zi.1 <= h_sf)%N by move: hver => /and4P[h _ _ _].
-have hz2 : (zi.2 < 2 ^ (h_sf - zi.1))%N by move: hver => /and4P[_ h _ _].
+have hz2 : (zi.2 < 2 ^ (h_sf - zi.1))%N by move: hver => /and4P[_ /andP[h _] _ _].
 have hval := x_fxvermd_val_ap _ _ _ _ _ _ _ hver.
 have hok := extractP hval.
 have heq : extract (nhash pp) [::] (valtree pp sp xss)
@@ -583,17 +585,17 @@ Qed.
 (* ------------------------------------------------------------------ *)
 (** ** Position-size facts (leaf + internal positions of a wf shape) *)
 
+Lemma leaf_path_pos_ok sp (p : seq bool) :
+  p \in leaf_paths (tshape sp) -> posok p.
+Proof. exact: shrincs_fxmss_leaf_pos_ok. Qed.
+
 Lemma leaf_path_size sp (p : seq bool) :
   p \in leaf_paths (tshape sp) -> (size p <= h_sf)%N.
 Proof.
-move=> hp.
-have hla : leaf_at (tshape sp) p = Some tt.
-  by rewrite /leaf_at (@leaf_paths_subtree (tshape sp) p hp).
-have h1 := leaf_at_size hla.
-exact: leq_trans h1 (shrincs_fxmss_shape_wf h_sf sp).
+by move=> hp; exact: (shrincs_fxmss_pos_ok_size h_sf p (leaf_path_pos_ok sp p hp)).
 Qed.
 
-(** Internal-position size (TreeHop's [internal_path_size], restated). *)
+(** Internal-position facts (TreeHop's [internal_path_size], restated). *)
 Lemma int_path_size sp (q : seq bool) :
   q \in internal_paths (tshape sp) -> (size q <= h_sf)%N.
 Proof. exact: internal_path_size. Qed.
@@ -610,31 +612,33 @@ Definition xtag (x : adrs_sf_ch) : nat * (nat * nat) :=
   (adrs_type (decode_tweak x), adrs_keypair (decode_tweak x)).
 
 Lemma xtag_tnode (q : seq bool) :
-  size q <= h_sf -> xtag (tnode q) = (TY_TREE_SF, posid q).
+  posok q -> xtag (tnode q) = (TY_TREE_SF, posid q).
 Proof.
 move=> hq.
 rewrite /xtag /tnode_tw decode_tweakK /shrincs_fxmss_pos_id.
-rewrite (shrincs_fxmss_tree_node_adrs_keypair l w _ _ (shrincs_fxmss_path_anchor_bounded h_sf q Hh hq)).
+rewrite (shrincs_fxmss_tree_node_adrs_keypair l w _ _
+  (shrincs_fxmss_pos_id_bounded h_sf q Hh hq)).
 by [].
 Qed.
 
 Lemma xtag_panchor (p : seq bool) :
-  size p <= h_sf -> xtag (panchor p) = (TY_WOTS_PK_SF, posid p).
+  posok p -> xtag (panchor p) = (TY_WOTS_PK_SF, posid p).
 Proof.
 move=> hp.
 rewrite /xtag decode_tweakK.
-rewrite (shrincs_fxmss_wots_pk_adrs_keypair l w _ (shrincs_fxmss_path_anchor_bounded h_sf p Hh hp)).
+rewrite (shrincs_fxmss_wots_pk_adrs_keypair l w _
+  (shrincs_fxmss_pos_id_bounded h_sf p Hh hp)).
 by [].
 Qed.
 
 (** [xtag] is injective on the committed tweaks of a wf shape: same tag
     forces same family (type) and same position ([shrincs_fxmss_pos_id] inj). *)
 Lemma omega_xtag_panchor (p : seq bool) :
-  size p <= h_sf -> xtag (omega (panchor p)) = (TY_TREE_SF, posid p).
+  posok p -> xtag (omega (panchor p)) = (TY_TREE_SF, posid p).
 Proof. by move=> hp; rewrite omega_panchor (xtag_tnode p hp). Qed.
 
 Lemma omega_xtag_tnode (q : seq bool) :
-  size q <= h_sf -> xtag (omega (tnode q)) = (TY_WOTS_PK_SF, posid q).
+  posok q -> xtag (omega (tnode q)) = (TY_WOTS_PK_SF, posid q).
 Proof. by move=> hq; rewrite omega_tnode (xtag_panchor q hq). Qed.
 
 (* ------------------------------------------------------------------ *)
@@ -718,23 +722,17 @@ Lemma tagmap_consb (X : nat) (pos : seq bool) (b : bool) (f : seq (seq bool)) :
 Proof. by rewrite -map_comp; apply/eq_map => r /=; rewrite cat_rcons. Qed.
 
 Lemma map_xtag_xunder (pos : seq bool) (t : bt unit) :
-  (size pos + bt_depth t <= h_sf)%N ->
+  subposok pos t ->
   perm_eq [seq xtag x | x <- xunder pos t]
     ([seq (TY_WOTS_PK_SF, posid (pos ++ p)) | p <- leaf_paths t]
      ++ [seq (TY_TREE_SF, posid (pos ++ q)) | q <- internal_paths t]).
 Proof.
-elim: t pos => [[]|tl IHl tr IHr] pos hdepth.
-- have hpos : (size pos <= h_sf)%N by move: hdepth; rewrite /= addn0.
+elim: t pos => [[]|tl IHl tr IHr] pos hsub.
+- have hpos : posok pos := shrincs_fxmss_sub_pos_ok_here h_sf pos _ hsub.
   by rewrite /= cats0 (xtag_panchor pos hpos).
-- have hpos : (size pos <= h_sf)%N :=
-	    leq_trans (leq_addr (maxn (bt_depth tl) (bt_depth tr)).+1 (size pos))
-      hdepth.
-  have hleft : (size (rcons pos false) + bt_depth tl <= h_sf)%N.
-    apply: leq_trans hdepth.
-	    by rewrite size_rcons /= addSn addnS ltnS leq_add2l leq_maxl.
-  have hright : (size (rcons pos true) + bt_depth tr <= h_sf)%N.
-    apply: leq_trans hdepth.
-	    by rewrite size_rcons /= addSn addnS ltnS leq_add2l leq_maxr.
+- have hpos : posok pos := shrincs_fxmss_sub_pos_ok_here h_sf pos _ hsub.
+  have hleft := shrincs_fxmss_sub_pos_ok_child h_sf pos false tl tr hsub.
+  have hright := shrincs_fxmss_sub_pos_ok_child h_sf pos true tl tr hsub.
   rewrite [xunder _ _]/= [leaf_paths (BNode _ _)]/= [internal_paths (BNode _ _)]/=.
   rewrite !map_cat /= (xtag_tnode pos hpos).
   rewrite [in [seq _ | _ <- [seq false :: _ | _ <- internal_paths tl] ++ _]]map_cat.
@@ -760,23 +758,17 @@ Qed.
 
 (** The partner tags: [map (xtag \o omega)] swaps the two types. *)
 Lemma map_xtag_omega_xunder (pos : seq bool) (t : bt unit) :
-  (size pos + bt_depth t <= h_sf)%N ->
+  subposok pos t ->
   perm_eq [seq xtag (omega x) | x <- xunder pos t]
     ([seq (TY_TREE_SF, posid (pos ++ p)) | p <- leaf_paths t]
      ++ [seq (TY_WOTS_PK_SF, posid (pos ++ q)) | q <- internal_paths t]).
 Proof.
-elim: t pos => [[]|tl IHl tr IHr] pos hdepth.
-- have hpos : (size pos <= h_sf)%N by move: hdepth; rewrite /= addn0.
+elim: t pos => [[]|tl IHl tr IHr] pos hsub.
+- have hpos : posok pos := shrincs_fxmss_sub_pos_ok_here h_sf pos _ hsub.
   by rewrite /= cats0 (omega_xtag_panchor pos hpos).
-- have hpos : (size pos <= h_sf)%N :=
-	    leq_trans (leq_addr (maxn (bt_depth tl) (bt_depth tr)).+1 (size pos))
-      hdepth.
-  have hleft : (size (rcons pos false) + bt_depth tl <= h_sf)%N.
-    apply: leq_trans hdepth.
-	    by rewrite size_rcons /= addSn addnS ltnS leq_add2l leq_maxl.
-  have hright : (size (rcons pos true) + bt_depth tr <= h_sf)%N.
-    apply: leq_trans hdepth.
-	    by rewrite size_rcons /= addSn addnS ltnS leq_add2l leq_maxr.
+- have hpos : posok pos := shrincs_fxmss_sub_pos_ok_here h_sf pos _ hsub.
+  have hleft := shrincs_fxmss_sub_pos_ok_child h_sf pos false tl tr hsub.
+  have hright := shrincs_fxmss_sub_pos_ok_child h_sf pos true tl tr hsub.
   rewrite [xunder _ _]/= [leaf_paths (BNode _ _)]/= [internal_paths (BNode _ _)]/=.
   rewrite !map_cat /= (omega_xtag_tnode pos hpos).
   rewrite [in [seq _ | _ <- [seq false :: _ | _ <- internal_paths tl] ++ _]]map_cat.
@@ -950,14 +942,8 @@ have decode (z : adrs_sf_ch) :
       by rewrite mem_cat hqin orbT.
 have [rx hrx hrxmem] := decode x hx.
 have [ry hry hrymem] := decode y hy.
-have hsx : (size rx <= h_sf)%N.
-  move: hrxmem; rewrite mem_cat => /orP[].
-  - exact: leaf_path_size.
-  - exact: int_path_size.
-have hsy : (size ry <= h_sf)%N.
-  move: hrymem; rewrite mem_cat => /orP[].
-  - exact: leaf_path_size.
-  - exact: int_path_size.
+have hsx : posok rx := shrincs_fxmss_shape_pos_ok h_sf sp rx hrxmem.
+have hsy : posok ry := shrincs_fxmss_shape_pos_ok h_sf sp ry hrymem.
 (* [xtag = (adrs_type, adrs_keypair)]; on a committed tweak it is the
    constructor (type) + the position [posid r].  Equal [xtag] thus
    forces SAME family (TREE != PK) and SAME [posid], pinning the tweak
@@ -989,9 +975,9 @@ have hperm :
          ++ [seq (TY_WOTS_PK_SF, posid q) | q <- internal_paths (tshape sp)])).
   apply: perm_cat.
 	  - apply: (map_xtag_xunder [::] (tshape sp)).
-	    by rewrite /= add0n; exact: shrincs_fxmss_shape_wf.
+	    exact: shrincs_fxmss_sub_pos_ok_root.
 	  - apply: (map_xtag_omega_xunder [::] (tshape sp)).
-	    by rewrite /= add0n; exact: shrincs_fxmss_shape_wf.
+	    exact: shrincs_fxmss_sub_pos_ok_root.
 by rewrite (perm_uniq hperm) full_tags_uniq.
 Qed.
 

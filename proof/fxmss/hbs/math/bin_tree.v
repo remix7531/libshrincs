@@ -113,6 +113,53 @@ elim: t p => [b|l IHl r IHr] [|[] p] //=; rewrite /leaf_at /=.
 - by move/IHl=> hp; rewrite ltnS leq_max hp.
 Qed.
 
+Lemma leaf_path_depth t p : p \in leaf_paths t -> size p <= bt_depth t.
+Proof.
+move=> hp; case E: (leaf_at t p) => [a|]; first exact: leaf_at_size E.
+by move: (leaf_paths_correct hp).
+Qed.
+
+(** An internal path is strictly shallower than the tree depth. *)
+Lemma internal_path_depth t q : q \in internal_paths t -> size q < bt_depth t.
+Proof.
+elim: t q => [a|tl IHl tr IHr] q /=; first by rewrite in_nil.
+rewrite inE => /orP[/eqP ->|]; first by [].
+rewrite mem_cat => /orP[] /mapP[q' hq' ->] /=.
+- by rewrite ltnS leq_max IHl.
+- by rewrite ltnS leq_max IHr ?orbT.
+Qed.
+
+(** [leaf_paths t ++ internal_paths t] enumerates every position of [t];
+    none is deeper than the tree. *)
+Lemma tree_path_size t p :
+  p \in leaf_paths t ++ internal_paths t -> size p <= bt_depth t.
+Proof.
+by rewrite mem_cat => /orP[/leaf_path_depth//|/internal_path_depth/ltnW].
+Qed.
+
+(** The root is a position of every tree, and the positions below a node
+    are exactly the child's positions prefixed by the step taken.  These
+    two are how a subtree invariant indexed by positions descends. *)
+Lemma mem_paths_nil t : [::] \in leaf_paths t ++ internal_paths t.
+Proof. by case: t => [u|tl tr]; rewrite mem_cat ?inE ?eqxx ?orbT. Qed.
+
+Lemma mem_map_cons (b c : bool) (s : seq (seq bool)) (p : seq bool) :
+  ((b :: p) \in [seq c :: q | q <- s]) = (b == c) && (p \in s).
+Proof.
+apply/idP/idP.
+- by case/mapP => q hq [-> ->]; rewrite eqxx.
+- by case/andP => /eqP -> hp; apply/mapP; exists p.
+Qed.
+
+Lemma mem_paths_cons b (tl tr : bt) p :
+  ((b :: p) \in leaf_paths (BNode tl tr) ++ internal_paths (BNode tl tr))
+  = (p \in leaf_paths (if b then tr else tl)
+             ++ internal_paths (if b then tr else tl)).
+Proof.
+rewrite /= !mem_cat inE mem_cat !mem_map_cons.
+by case: b => /=; rewrite ?orbF ?andbT.
+Qed.
+
 End BinTreeDef.
 
 Arguments bt : clear implicits.
@@ -229,6 +276,31 @@ Qed.
 Lemma idx_of_path_lt p : idx_of_path p < 2 ^ size p.
 Proof. by rewrite /idx_of_path -(size_rev p) idx_of_lsb_lt. Qed.
 
+(** Concatenation: an LSB-first suffix contributes its own weight
+    shifted past the prefix it follows. *)
+Lemma idx_of_lsb_cat s t :
+  idx_of_lsb (s ++ t) = idx_of_lsb s + idx_of_lsb t * 2 ^ size s.
+Proof.
+elim: s => [|b s IH] /=; first by rewrite expn0 muln1.
+rewrite IH doubleD addnA expnS -!muln2 -!mulnA.
+by congr (_ + _ * _); exact: mulnC.
+Qed.
+
+(** The prefix law for MSB-first paths: descending through [p] and then
+    [q] scales [p]'s index by [2 ^ size q].  This is what bounds the
+    index of a deep position by the indices of its prefixes. *)
+Lemma idx_of_path_cat p q :
+  idx_of_path (p ++ q) = idx_of_path p * 2 ^ size q + idx_of_path q.
+Proof.
+by rewrite /idx_of_path rev_cat idx_of_lsb_cat size_rev addnC.
+Qed.
+
+(** Corollary: a leading left step leaves the index unchanged (a right
+    step would add [2 ^ size p]), so a left spine of any length stays
+    inside the eight-byte index field. *)
+Lemma idx_of_path_cons_false p : idx_of_path (false :: p) = idx_of_path p.
+Proof. by rewrite -cat1s idx_of_path_cat. Qed.
+
 Lemma path_of_idx_of_path p : path_of_idx (size p) (idx_of_path p) = p.
 Proof.
 rewrite /path_of_idx /idx_of_path -[X in _ = X](revK p) -(size_rev p).
@@ -242,4 +314,37 @@ Lemma path_of_idx_inj l : {in [pred i | i < 2 ^ l] &, injective (path_of_idx l)}
 Proof.
 move=> i j hi hj /(congr1 idx_of_path).
 by rewrite !idx_of_path_of_idx.
+Qed.
+
+(* ------------------------------------------------------------------ *)
+(** ** The UXMSS spine
+
+    The unbalanced shape of the spec (shrincs.py [fxmss_node] under
+    [FXMSS_SHAPE_UNBALANCED]): the node at index 0 recurses, the node at
+    index 1 is an anchor at every level, and the last left step ends in
+    an anchor.  Being a LEFT spine, every one of its positions carries
+    horizontal index 0 or 1 whatever its depth — which is what lets the
+    spec run it at [FXMSS_HEIGHT = 255] against an eight-byte index
+    field. *)
+
+Fixpoint uxmss_bt (k : nat) : bt unit :=
+  if k is k'.+1 then BNode (uxmss_bt k') (BLeaf tt) else BLeaf tt.
+
+Lemma uxmss_bt_depth k : bt_depth (uxmss_bt k) = k.
+Proof. by elim: k => [//|k IH] /=; rewrite IH maxn0. Qed.
+
+Lemma uxmss_bt_nleaves k : bt_nleaves (uxmss_bt k) = k.+1.
+Proof. by elim: k => [//|k IH] /=; rewrite IH addn1. Qed.
+
+(** Every position of the spine sits at index 0 or 1. *)
+Lemma uxmss_bt_idx k p :
+  p \in leaf_paths (uxmss_bt k) ++ internal_paths (uxmss_bt k) ->
+  idx_of_path p <= 1.
+Proof.
+elim: k p => [|k IH] p; first by rewrite /= inE => /eqP ->.
+have -> : uxmss_bt k.+1 = BNode (uxmss_bt k) (BLeaf tt) by [].
+case: p => [_|b p] //; rewrite mem_paths_cons.
+case: b => /=.
+- by rewrite inE => /eqP ->.
+- by rewrite idx_of_path_cons_false; exact: IH.
 Qed.

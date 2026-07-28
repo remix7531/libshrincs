@@ -60,7 +60,7 @@ Context (Htree : PP -> adrs_sf -> N * N -> N).
 Context (dPP : dist PP) (dN : dist N) (dR : dist R) (dD : dist D).
 Context (S_wn c_max : nat).
 Context (h_sf : nat).
-Context (Hh : (h_sf <= 64)%N).
+Context (Hh : (h_sf <= 255)%N).
 Context (q_s q_h n_max : nat).
 Context (q_f : nat).
 
@@ -76,6 +76,8 @@ Context (n0 : N).
 Local Notation tshape := (shrincs_fxmss_shape h_sf).
 Local Notation spath := (shrincs_fxmss_sign_path h_sf).
 Local Notation posid := (shrincs_fxmss_pos_id h_sf).
+Local Notation posok := (shrincs_fxmss_pos_ok h_sf).
+Local Notation subposok := (shrincs_fxmss_sub_pos_ok h_sf).
 Local Notation nhash := (shrincs_fxmss_node_hash PP N Htree h_sf).
 Local Notation valtree := (value_tree_x PP N F Tl h_sf).
 Local Notation fxroot := (shrincs_fxmss_root_x PP N F Tl Htree h_sf).
@@ -212,7 +214,7 @@ Lemma shrincs_fxmss_forgery_case_FAnchor (pp : PP) (sp : seq bool) (xss : seq (s
 Proof.
 move=> hver hcase.
 have hz1 : (zi.1 <= h_sf)%N by move: hver => /and4P[h _ _ _].
-have hz2 : (zi.2 < 2 ^ (h_sf - zi.1))%N by move: hver => /and4P[_ h _ _].
+have hz2 : (zi.2 < 2 ^ (h_sf - zi.1))%N by move: hver => /and4P[_ /andP[h _] _ _].
 have hval : val_ap (nhash pp) [::] (path_of_idx (h_sf - zi.1) zi.2) ap
               (frecover pp zi md ws)
             = Some (val_bt (nhash pp) [::] (valtree pp sp xss)).
@@ -936,41 +938,41 @@ Proof. by rewrite /= decode_tweakK. Qed.
 
 (** The LCOMMIT answer at a leaf tweak is the value-tree leaf value. *)
 Lemma panchor_keypair (p : seq bool) :
-  size p <= h_sf -> adrs_keypair (decode_tweak (panchor p)) = posid p.
+  posok p -> adrs_keypair (decode_tweak (panchor p)) = posid p.
 Proof.
 move=> hp; rewrite decode_tweakK.
 exact: (shrincs_fxmss_wots_pk_adrs_keypair l w (posid p)
-  (shrincs_fxmss_path_anchor_bounded h_sf p Hh hp)).
+  (shrincs_fxmss_pos_id_bounded h_sf p Hh hp)).
 Qed.
 
 Lemma lpk_anchor pp (sp : seq bool) (xss : seq (seq N)) (pos : seq bool) :
-  size pos <= h_sf ->
+  posok pos ->
   lpk pp (panchor pos) (nth [::] xss (index pos (leaf_paths (tshape sp))))
   = anchor_val pp sp xss pos.
 Proof. by move=> hp; rewrite /anchor_val (panchor_keypair pos hp). Qed.
 
 (** The recovered-anchor / honest-pk equality at a committed leaf. *)
 Lemma lrec_panchor pp (p : seq bool) (md : D) (ws : seq N * nat) :
-  size p <= h_sf ->
+  posok p ->
   lrec pp (panchor p) md ws = frecover pp (posid p) md ws.
 Proof. by move=> hp; rewrite (panchor_keypair p hp); case: (posid p). Qed.
 
 (** The LSIGN eval at a committed leaf tweak is the honest one-time
     WOTS+C signature at the position id. *)
 Lemma lsign_panchor pp (p : seq bool) (xs : 'list N) (md : D) :
-  size p <= h_sf ->
+  posok p ->
   lsign pp (panchor p) xs md
   = shrincs_fxmss_wots_sign PP N D F Hgrind S_wn c_max (posid p).1 (posid p).2 pp xs md.
 Proof. by move=> hp; rewrite (panchor_keypair p hp); case: (posid p). Qed.
 
 Lemma lpk_panchor pp (p : seq bool) (m : seq N) :
-  size p <= h_sf ->
+  posok p ->
   lpk pp (panchor p) m = fpk_of (posid p) pp m.
 Proof. by move=> hp; rewrite (panchor_keypair p hp); case: (posid p). Qed.
 
 Lemma leaf_win_panchor pp (p : seq bool) (md : D) (ws : seq N * nat)
     (m0 : seq N) :
-  size p <= h_sf ->
+  posok p ->
   leaf_win pp (panchor p) md ws m0
   = (frecover pp (posid p) md ws == fpk_of (posid p) pp m0)%B.
 Proof.
@@ -981,14 +983,14 @@ Qed.
 (* ------------------------------------------------------------------ *)
 (** ** Leaf-tweak uniqueness (the LCOMMIT freshness backbone) *)
 
+Lemma leaf_path_pos_ok sp (p : seq bool) :
+  p \in leaf_paths (tshape sp) -> posok p.
+Proof. exact: shrincs_fxmss_leaf_pos_ok. Qed.
+
 Lemma leaf_path_size sp (p : seq bool) :
   p \in leaf_paths (tshape sp) -> (size p <= h_sf)%N.
 Proof.
-move=> hp.
-have hla : leaf_at (tshape sp) p = Some tt.
-  by rewrite /leaf_at (@leaf_paths_subtree (tshape sp) p hp).
-have h1 := leaf_at_size hla.
-exact: leq_trans h1 (shrincs_fxmss_shape_wf h_sf sp).
+by move=> hp; exact: (shrincs_fxmss_pos_ok_size h_sf p (leaf_path_pos_ok sp p hp)).
 Qed.
 
 Lemma panchor_inj_leaf sp (p q : seq bool) :
@@ -996,13 +998,14 @@ Lemma panchor_inj_leaf sp (p q : seq bool) :
   panchor p = panchor q -> p = q.
 Proof.
 move=> hp hq /encode_adrs_inj he.
-have hps := leaf_path_size sp p hp.
-have hqs := leaf_path_size sp q hq.
+have hps := leaf_path_pos_ok sp p hp.
+have hqs := leaf_path_pos_ok sp q hq.
 have [e1 e2] := @shrincs_fxmss_wots_pk_adrs_inj l w (posid p).1 (posid p).2
   (posid q).1 (posid q).2
-  (shrincs_fxmss_path_anchor_bounded h_sf p Hh hps)
-  (shrincs_fxmss_path_anchor_bounded h_sf q Hh hqs) he.
-apply: (shrincs_fxmss_pos_id_inj h_sf p q hps hqs).
+  (shrincs_fxmss_pos_id_bounded h_sf p Hh hps)
+  (shrincs_fxmss_pos_id_bounded h_sf q Hh hqs) he.
+apply: (shrincs_fxmss_pos_id_inj h_sf p q (leaf_path_size sp p hp)
+  (leaf_path_size sp q hq)).
 case: (posid p) e1 e2 => zp ip /=.
 by move=> -> ->; rewrite /shrincs_fxmss_pos_id.
 Qed.
@@ -1372,6 +1375,7 @@ Lemma lf_tree_spec (b : bool) {B : choiceType} (pp : PP)
          (Q : seq (adrs_sf_ch * ('list N)))
          (c0 : raw_code B) (k1 : N -> raw_code B),
   (size pos + bt_depth t <= h_sf)%N ->
+  subposok pos t ->
   (forall p, p \in leaf_paths t ->
      index (pos ++ p) (leaf_paths (tshape sp)) < size xss) ->
   uniq (leaf_tws_under pos t ++ unzip1 Q) ->
@@ -1383,9 +1387,9 @@ Lemma lf_tree_spec (b : bool) {B : choiceType} (pp : PP)
      c0 ≈ bind (code_link (lf_tree sp xss pos t) (MIW_leaf_abs b)) k1 ⦃ post ⦄.
 Proof.
 move=> pos t; move: pos.
-elim: t => [u|tl IHl tr IHr] pos Q c0 k1 hdepth hidx huniq hbud h /=.
+elim: t => [u|tl IHl tr IHr] pos Q c0 k1 hdepth hsub hidx huniq hbud h /=.
 - (* leaf: one LCOMMIT, queue grows by the leaf target *)
-  have hpos : (size pos <= h_sf)%N by move: hdepth; rewrite /= addn0.
+  have hpos : posok pos := shrincs_fxmss_sub_pos_ok_here h_sf pos _ hsub.
   rewrite bind_assoc.
   set keys := nth [::] xss (index pos (leaf_paths (tshape sp))).
   eapply (r_lcommit_known b pp (panchor pos) keys Q).
@@ -1412,6 +1416,7 @@ elim: t => [u|tl IHl tr IHr] pos Q c0 k1 hdepth hidx huniq hbud h /=.
   (* left subtree *)
   eapply (IHl (rcons pos false) Q).
   + exact: hleft.
+  + exact: (shrincs_fxmss_sub_pos_ok_child h_sf pos false tl tr hsub).
   + move=> p hp; have := hidx (false :: p).
     rewrite -cat_rcons; apply.
     by rewrite /= mem_cat map_f.
@@ -1423,6 +1428,7 @@ elim: t => [u|tl IHl tr IHr] pos Q c0 k1 hdepth hidx huniq hbud h /=.
   (* right subtree, queue grown by the left commits *)
   eapply (IHr (rcons pos true) (Q ++ lf_commits sp xss (rcons pos false) tl)).
   + exact: hright.
+  + exact: (shrincs_fxmss_sub_pos_ok_child h_sf pos true tl tr hsub).
   + move=> p hp; have := hidx (true :: p).
     rewrite -cat_rcons; apply.
     by rewrite /= mem_cat map_f ?orbT.
@@ -2039,21 +2045,17 @@ Qed.
 
 Lemma tvalL_sub (pp : PP) (sp : seq bool) (xss : seq (seq N))
     (pos : seq bool) (t : bt unit) :
-  (size pos + bt_depth t <= h_sf)%N ->
+  subposok pos t ->
   tvalL pp pos
     [seq nth [::] xss (index (pos ++ p) (leaf_paths (tshape sp))) | p <- leaf_paths t] t
   = tval pp sp xss pos t.
 Proof.
-elim: t pos => [[]|tl IHl tr IHr] pos hdepth /=.
-- have hpos : (size pos <= h_sf)%N by move: hdepth; rewrite /= addn0.
+elim: t pos => [[]|tl IHl tr IHr] pos hsub /=.
+- have hpos : posok pos := shrincs_fxmss_sub_pos_ok_here h_sf pos _ hsub.
   by rewrite cats0 /anchor_val leaf_pkE (lpk_panchor _ _ _ hpos).
 - rewrite map_cat take_size_cat ?size_map // drop_size_cat ?size_map //.
-  have hleft : (size (rcons pos false) + bt_depth tl <= h_sf)%N.
-    apply: leq_trans hdepth.
-    by rewrite size_rcons /= addSn addnS ltnS leq_add2l leq_maxl.
-  have hright : (size (rcons pos true) + bt_depth tr <= h_sf)%N.
-    apply: leq_trans hdepth.
-    by rewrite size_rcons /= addSn addnS ltnS leq_add2l leq_maxr.
+  have hleft := shrincs_fxmss_sub_pos_ok_child h_sf pos false tl tr hsub.
+  have hright := shrincs_fxmss_sub_pos_ok_child h_sf pos true tl tr hsub.
   rewrite -!map_comp; congr (nhash pp pos).
   + rewrite (eq_map (g := fun q => nth [::] xss
                 (index (rcons pos false ++ q) (leaf_paths (tshape sp)))));
@@ -2087,7 +2089,7 @@ move=> hsz.
 have huniq : uniq (leaf_paths (tshape sp)).
   by move: (gen_uniq sp); rewrite cats0 /leaf_tws_under => /map_uniq.
 rewrite -tval_root -(tvalL_sub pp sp xss [::] (tshape sp)).
-2: by rewrite /= add0n; exact: shrincs_fxmss_shape_wf.
+2: exact: shrincs_fxmss_sub_pos_ok_root.
 congr tvalL.
 rewrite (eq_map (g := fun p => nth [::] xss (index p (leaf_paths (tshape sp)))));
   last by move=> p; rewrite cat0s.
@@ -2116,7 +2118,7 @@ Qed.
     its [getm] at a committed position is the honest leaf pk. *)
 Lemma pkm_of_subE (pp : PP) (sp : seq bool) (xss : seq (seq N))
     (t : bt unit) (pos : seq bool) (pkm0 : {fmap (seq bool) -> N}) (q : seq bool) :
-  (size pos + bt_depth t <= h_sf)%N ->
+  subposok pos t ->
   getm (pkm_of pp pos
           [seq nth [::] xss (index (pos ++ p0) (leaf_paths (tshape sp))) | p0 <- leaf_paths t]
           t pkm0) q
@@ -2124,10 +2126,10 @@ Lemma pkm_of_subE (pp : PP) (sp : seq bool) (xss : seq (seq N))
     then Some (anchor_val pp sp xss q)
     else getm pkm0 q.
 Proof.
-elim: t pos pkm0 q => [[]|tl IHl tr IHr] pos pkm0 q hdepth.
+elim: t pos pkm0 q => [[]|tl IHl tr IHr] pos pkm0 q hsub.
 - rewrite /= setmE mem_seq1 !cats0.
   case: eqP => [->|_]; last by [].
-  have hpos : (size pos <= h_sf)%N by move: hdepth; rewrite /= addn0.
+  have hpos : posok pos := shrincs_fxmss_sub_pos_ok_here h_sf pos _ hsub.
   by rewrite /anchor_val leaf_pkE (lpk_panchor _ _ _ hpos).
 - have HL : take (size (leaf_paths tl))
       [seq nth [::] xss (index (pos ++ p0) (leaf_paths (tshape sp))) | p0 <- leaf_paths (BNode tl tr)]
@@ -2145,12 +2147,8 @@ elim: t pos pkm0 q => [[]|tl IHl tr IHr] pos pkm0 q hdepth.
   have ER : [seq pos ++ p0 | p0 <- [seq true :: p | p <- leaf_paths tr]]
           = [seq rcons pos true ++ p0 | p0 <- leaf_paths tr].
     by rewrite -map_comp; apply: eq_map => p0 /=; rewrite cat_rcons.
-  have hleft : (size (rcons pos false) + bt_depth tl <= h_sf)%N.
-    apply: leq_trans hdepth.
-    by rewrite size_rcons /= addSn addnS ltnS leq_add2l leq_maxl.
-  have hright : (size (rcons pos true) + bt_depth tr <= h_sf)%N.
-    apply: leq_trans hdepth.
-    by rewrite size_rcons /= addSn addnS ltnS leq_add2l leq_maxr.
+  have hleft := shrincs_fxmss_sub_pos_ok_child h_sf pos false tl tr hsub.
+  have hright := shrincs_fxmss_sub_pos_ok_child h_sf pos true tl tr hsub.
   rewrite [pkm_of pp pos _ (BNode tl tr) pkm0]/= HL HR
     (IHr _ _ _ hright) (IHl _ _ _ hleft).
   rewrite [in RHS]/= map_cat EL ER mem_cat.
@@ -2166,9 +2164,8 @@ Proof.
 move=> hsz p hp.
 have huniq : uniq (leaf_paths (tshape sp)).
   by move: (gen_uniq sp); rewrite cats0 /leaf_tws_under => /map_uniq.
-have hshape : (size ([::] : seq bool) + bt_depth (tshape sp) <= h_sf)%N.
-  by rewrite /= add0n; exact: (shrincs_fxmss_shape_wf h_sf sp).
-have H := pkm_of_subE pp sp xss (tshape sp) [::] emptym p hshape.
+have H := pkm_of_subE pp sp xss (tshape sp) [::] emptym p
+            (shrincs_fxmss_sub_pos_ok_root h_sf sp).
 have HE : [seq nth [::] xss (index ([::] ++ p0) (leaf_paths (tshape sp))) | p0 <- leaf_paths (tshape sp)] = xss.
   rewrite (eq_map (g := fun p0 => nth [::] xss (index p0 (leaf_paths (tshape sp)))));
     last by move=> p0; rewrite cat0s.
@@ -2788,7 +2785,7 @@ Proof.
 move=> hq hpkm.
 rewrite leaf_signE
   (lsign_panchor pp (spath sp q) (nth [::] xss q) md
-    (shrincs_fxmss_sign_path_size h_sf sp q hq)).
+    (shrincs_fxmss_sign_path_pos_ok h_sf sp q hq)).
 rewrite /shrincs_fxmss_sign_x /leaf_ap (value_tree_pks_bridge pp sp xss pkm hpkm).
 have hsubv : subtree_at (valtree pp sp xss) (spath sp q)
              = Some (BLeaf (fpk_of (posid (spath sp q)) pp (nth [::] xss q))).
@@ -2921,7 +2918,7 @@ case E: (shrincs_fxmss_forgery_case_at_N st.1.1 st.2.1 st.2.2 sg.1.1 d sg.2.1 sg
 	        (nth [::] st.2.2
 	          (index (path_of_idx (h_sf - sg.1.1.1) sg.1.1.2)
 	            (leaf_paths (tshape st.2.1))))
-	        (leaf_path_size st.2.1 _ hin)); apply/eqP.
+	        (leaf_path_pos_ok st.2.1 _ hin)); apply/eqP.
       by rewrite {1}hpos; exact: hrec.
     apply r_ret => s0 s1 hpre; split.
     * by rewrite hwin.
@@ -4169,7 +4166,7 @@ case E: (shrincs_fxmss_forgery_case_at_N st.1.1 st.2.1 st.2.2 sg.1.1 d sg.2.1 sg
 	        (nth [::] st.2.2
 	          (index (path_of_idx (h_sf - sg.1.1.1) sg.1.1.2)
 	            (leaf_paths (tshape st.2.1))))
-	        (leaf_path_size st.2.1 _ hin)); apply/eqP.
+	        (leaf_path_pos_ok st.2.1 _ hin)); apply/eqP.
       by rewrite {1}hpos; exact: hrec.
     apply r_ret => s0 s1 hpre; split.
     * by rewrite hwin.
@@ -4287,6 +4284,7 @@ simplify_eq_rel arg.
   rewrite code_link_bind.
 	  eapply (lf_tree_spec true pp arg xss _ hkeys [::] (tshape arg) [::]).
 	  + by rewrite /= add0n; exact: shrincs_fxmss_shape_wf.
+	  + exact: shrincs_fxmss_sub_pos_ok_root.
 	  + apply: gen_hidx; by rewrite hxsz.
   + exact: gen_uniq.
   + by apply: gen_bud.
@@ -4493,6 +4491,7 @@ simplify_eq_rel arg.
   rewrite code_link_bind.
 	  eapply (lf_tree_spec false pp arg xss _ hkeys [::] (tshape arg) [::]).
 	  + by rewrite /= add0n; exact: shrincs_fxmss_shape_wf.
+	  + exact: shrincs_fxmss_sub_pos_ok_root.
 	  + apply: gen_hidx; by rewrite hxsz.
   + exact: gen_uniq.
   + by apply: gen_bud.

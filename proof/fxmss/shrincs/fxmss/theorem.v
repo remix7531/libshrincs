@@ -54,8 +54,12 @@
     the static gate and exchangeability are Prop/def content).
 
     Side conditions carried as honest premises (none faked premise-free):
-    - [Hh : h_sf <= 64] — exact representability of shrincs_fxmss_scheme tree positions in
-      the library's finite address type;
+    - [Hh : h_sf <= 255] — the address's one-byte height field, matching the
+      spec's [FXMSS_HEIGHT = 255] (shrincs.py).  The eight-byte INDEX field
+      is not covered by this premise: it is bounded per position, by
+      [shrincs_fxmss_wf_shape] on the honest side and by the verifier's
+      [shrincs_fxmss_leaf_id_ok] (the spec's
+      [leaf_index < 2 ** min(64, leaf_depth)]) on the forgery side;
     - [hw : 0 < w], [Hdeg : S_wn != l*w.-1], [Hrange : Hgrind < w^l]
       — the leaf-hop data/degeneracy conditions (leaf2_theorem.Leaf_hop);
     - [n_ug]/[Hug] — the per-anchor ungrindable-digest count bound feeding the
@@ -233,7 +237,7 @@ Theorem shrincs_fxmss_secure
         ((\sum_(y : 'I_d_n.+1)
             (~~ isSome (find_ctr PP D Hgrind S_wn c_max zi.1 zi.2 pp y)
              : nat)) <= n_ug)%N)
-    (Hh : (h_sf <= 64)%N)
+    (Hh : (h_sf <= 255)%N)
     (hw : (0 < w)%N)
     (Hdeg : S_wn != (l * w.-1)%N)
     (Hrange : forall (pp' : PP) (a : adrs_sf) (x : D * nat), (Hgrind pp' a x < w ^ l)%N)
@@ -297,6 +301,31 @@ apply: lerD; first exact: (leg true).
 eapply le_trans; first exact: (Adv_triangle (G2 := G8F false)).
 rewrite hfin GRing.add0r Adv_sym.
 exact: (leg false).
+Qed.
+
+(** Spec conformance, proof of delivery.  The spec's recommended tree height is
+    [FXMSS_HEIGHT = 255] (shrincs.py); the bound above holds THERE, with the
+    height premise discharged outright.  The statement is not vacuous at that
+    height: the spec's depth-255 UXMSS tree, with all 256 of its WOTS+C
+    anchors, is an admissible shape parameter
+    ([scheme.shrincs_fxmss_uxmss_at_spec_height]).  Under the retired
+    [h_sf <= 64] premise neither was available. *)
+Corollary shrincs_fxmss_secure_at_spec_height
+    (n_ug : nat)
+    (Hug : forall (pp : PP) (zi : nat * nat),
+        ((\sum_(y : 'I_d_n.+1)
+            (~~ isSome (find_ctr PP D Hgrind S_wn c_max zi.1 zi.2 pp y)
+             : nat)) <= n_ug)%N)
+    (H255 : h_sf = 255)
+    (hw : (0 < w)%N)
+    (Hdeg : S_wn != (l * w.-1)%N)
+    (Hrange : forall (pp' : PP) (a : adrs_sf) (x : D * nat), (Hgrind pp' a x < w ^ l)%N)
+    (A : nom_package) (VA : ValidPackage (loc A) IG A_export A) :
+  (Adv (G0F true) (G0F false) A
+     <= shrincs_fxmss_leg A n_ug true + shrincs_fxmss_leg A n_ug false)%R.
+Proof.
+apply: (shrincs_fxmss_secure n_ug Hug _ hw Hdeg Hrange A VA).
+by rewrite H255.
 Qed.
 
 End FXMSSTheorem.

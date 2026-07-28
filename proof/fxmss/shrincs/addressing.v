@@ -75,6 +75,26 @@ Definition anchor_bounded (zi : nat * nat) : Prop :=
 Definition component_bounded (bound n : nat) : Prop :=
   (Z.of_nat n < Z.of_nat bound)%Z.
 
+(** Decidable form of [anchor_bounded]'s index half, for use inside the
+    scheme's boolean well-formedness and verifier predicates. *)
+Definition index_bounded (i : nat) : bool := (Z.of_nat i <? 2 ^ 64)%Z.
+
+Lemma index_boundedP i : index_bounded i -> (Z.of_nat i < 2 ^ 64)%Z.
+Proof. by move/Z.ltb_lt. Qed.
+
+Lemma index_boundedI i : (Z.of_nat i < 2 ^ 64)%Z -> index_bounded i.
+Proof. by move/Z.ltb_lt. Qed.
+
+(** Downward closure, stated on [nat] so callers never have to bring
+    [2 ^ 64] into a MathComp goal (where it would be a unary numeral). *)
+Lemma index_bounded_leq (i j : nat) :
+  (i <= j)%nat -> index_bounded j -> index_bounded i.
+Proof.
+move=> hij /Z.ltb_lt hj; apply/Z.ltb_lt.
+have : (Z.of_nat i <= Z.of_nat j)%Z by apply/Nat2Z.inj_le/leP.
+lia.
+Qed.
+
 Lemma component_bounded_lt bound n :
   (n < bound)%nat -> component_bounded bound n.
 Proof.
@@ -83,54 +103,36 @@ apply Nat2Z.inj_lt.
 exact/ltP.
 Qed.
 
-(** [Z.of_nat] transports MathComp exponentiation to [Z.pow] without
-    evaluating either side. *)
-Lemma of_nat_expn (a b : nat) :
-  Z.of_nat (expn a b) = Z.pow (Z.of_nat a) (Z.of_nat b).
-Proof.
-elim: b => [|b IH]; first by rewrite expn0.
-rewrite expnS Nat2Z.inj_mul IH Nat2Z.inj_succ.
-rewrite Z.pow_succ_r; last by lia.
-by [].
-Qed.
-
 (** Coordinates admitted by an shrincs_fxmss_scheme verifier fit the native one-byte
-    height and eight-byte index fields when [h_sf <= 64]. *)
+    height and eight-byte index fields.  The height is bounded by the
+    declared tree height, itself a byte (shrincs.py: [FXMSS_HEIGHT =
+    255]); the index is bounded directly, which is what the spec's
+    verifier check [leaf_index < 2 ** min(64, leaf_depth)]
+    (shrincs.py, [fxmss_pubkey_from_sig]) supplies.  Note the index
+    bound is NOT implied by the height bound: at [h_sf = 255] a
+    position 200 levels below the root has an index far beyond the
+    eight-byte field. *)
 Lemma shrincs_fxmss_anchor_bounded (h_sf z i : nat) :
-  (h_sf <= 64)%nat ->
+  (h_sf <= 255)%nat ->
   (z <= h_sf)%nat ->
-  (i < expn 2 (h_sf - z))%nat ->
+  (Z.of_nat i < 2 ^ 64)%Z ->
   anchor_bounded (z, i).
 Proof.
-move=> hh hz hi; split.
-- change (Z.of_nat z < Z.of_nat 256)%Z.
-  apply Nat2Z.inj_lt.
-  apply/ltP.
-  exact: leq_ltn_trans (leq_trans hz hh) (isT : (64 < 256)%nat).
-- have hiZ : (Z.of_nat i < Z.of_nat (expn 2 (h_sf - z)))%Z.
-    by apply Nat2Z.inj_lt; exact/ltP.
-  rewrite of_nat_expn in hiZ.
-  have he : (h_sf - z <= 64)%nat :=
-    leq_trans (leq_subr z h_sf) hh.
-  have heZ : (Z.of_nat (h_sf - z) <= 64)%Z.
-    change (Z.of_nat (h_sf - z) <= Z.of_nat 64)%Z.
-    by apply Nat2Z.inj_le; exact/leP.
-  have hpow : (2 ^ Z.of_nat (h_sf - z) <= 2 ^ 64)%Z.
-    by apply Z.pow_le_mono_r; lia.
-  change (Z.of_nat i < 2 ^ Z.of_nat (h_sf - z))%Z in hiZ.
-  exact (Z.lt_le_trans _ _ _ hiZ hpow).
+move=> hh hz hi; split; last exact: hi.
+change (Z.of_nat z < Z.of_nat 256)%Z.
+apply Nat2Z.inj_lt.
+apply/ltP.
+exact: leq_ltn_trans (leq_trans hz hh) (isT : (255 < 256)%nat).
 Qed.
 
 Lemma shrincs_fxmss_path_anchor_bounded (h_sf : nat) (p : seq bool) :
-  (h_sf <= 64)%nat ->
+  (h_sf <= 255)%nat ->
   (size p <= h_sf)%nat ->
+  (Z.of_nat (idx_of_path p) < 2 ^ 64)%Z ->
   anchor_bounded ((h_sf - size p)%nat, idx_of_path p).
 Proof.
 move=> hh hp.
-apply: (shrincs_fxmss_anchor_bounded h_sf (h_sf - size p)%nat
-  (idx_of_path p) hh (leq_subr (size p) h_sf)).
-rewrite subKn //.
-exact: idx_of_path_lt.
+exact: (shrincs_fxmss_anchor_bounded h_sf _ _ hh (leq_subr (size p) h_sf)).
 Qed.
 
 Definition fin_zero (bound : Z) (Hbound : (0 < bound)%Z) : fin bound :=

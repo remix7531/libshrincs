@@ -52,10 +52,11 @@
     the two subtrees) with the fuelled parser [decode_shape];
     [decode_shapeK] (decode o encode = id) makes the encoding
     surjective onto all shapes, so the adversary loses no power.
-    Shapes deeper than [h_sf] (whose nodes would not fit in the
-    imaginary balanced tree, making the position-to-address map
-    non-injective) and non-parsing strings are NORMALIZED to the
-    trivial single-anchor shape [BLeaf tt] ([shrincs_fxmss_shape]); this is the
+    Shapes deeper than [h_sf], shapes with a position whose horizontal
+    index overflows the address's eight-byte index field (both make the
+    position-to-address map non-injective; [shrincs_fxmss_wf_shape])
+    and non-parsing strings are NORMALIZED to the trivial single-anchor
+    shape [BLeaf tt] ([shrincs_fxmss_shape]); this is the
     total-function counterpart of the tex's footnote that ill-formed
     structure/queries are answered bot.
 
@@ -121,8 +122,9 @@
     ** Verification (xmss.tex fxmss.pkFromSig + schrincs.tex
        alg:verify, stateful branch)
 
-    - bounds check z_star <= h_sf and i_star < 2^(h_sf - z_star)
-      (alg:verify line 3);
+    - bounds check z_star <= h_sf and
+      i_star < 2^min(64, h_sf - z_star) (alg:verify line 3;
+      shrincs.py [fxmss_pubkey_from_sig]; [shrincs_fxmss_leaf_id_ok]);
     - recompute the digest with the leaf identifier bound in;
     - recover the WOTS+C anchor value from the one-time signature
       ([shrincs_fxmss_recover_anchor]; [shrincs_fxmss_wots_verifyE] relates it to shrincs_fxmss_wots_scheme's
@@ -336,12 +338,29 @@ have hsz : size p = size q by rewrite -(subKn hp) e1 (subKn hq).
 by rewrite -[p]path_of_idx_of_path -[q]path_of_idx_of_path hsz e2.
 Qed.
 
+(** A path names an ADDRESSABLE node: it fits under the declared
+    height, and its horizontal index fits the eight-byte index field of
+    the native address (SHRINCS.addressing).  The second conjunct does
+    NOT follow from the first — [h_sf] is itself a byte (shrincs.py:
+    [FXMSS_HEIGHT = 255]), so a position more than 64 levels below the
+    root can have an index beyond the field, where [anchor_index] would
+    collapse distinct positions onto the same address. *)
+Definition shrincs_fxmss_pos_ok (p : seq bool) : bool :=
+  (size p <= h_sf)%N && index_bounded (idx_of_path p).
+
+Lemma shrincs_fxmss_pos_ok_size (p : seq bool) :
+  shrincs_fxmss_pos_ok p -> size p <= h_sf.
+Proof. by case/andP. Qed.
+
 Lemma shrincs_fxmss_pos_id_bounded (p : seq bool) :
-  h_sf <= 64 -> size p <= h_sf -> anchor_bounded (shrincs_fxmss_pos_id p).
-Proof. exact: shrincs_fxmss_path_anchor_bounded. Qed.
+  h_sf <= 255 -> shrincs_fxmss_pos_ok p -> anchor_bounded (shrincs_fxmss_pos_id p).
+Proof.
+move=> hh /andP[hp hi]; rewrite /shrincs_fxmss_pos_id.
+exact: (shrincs_fxmss_path_anchor_bounded h_sf p hh hp (index_boundedP _ hi)).
+Qed.
 
 Lemma shrincs_fxmss_node_adrs_inj (p q : seq bool) :
-  h_sf <= 64 -> size p <= h_sf -> size q <= h_sf ->
+  h_sf <= 255 -> shrincs_fxmss_pos_ok p -> shrincs_fxmss_pos_ok q ->
   @shrincs_fxmss_tree_node_adrs l w (h_sf - size p) (idx_of_path p)
     = @shrincs_fxmss_tree_node_adrs l w (h_sf - size q) (idx_of_path q) ->
   p = q.
@@ -351,29 +370,118 @@ have [e1 e2] := @shrincs_fxmss_tree_node_adrs_inj l w
   (h_sf - size p) (idx_of_path p)
   (h_sf - size q) (idx_of_path q)
   (shrincs_fxmss_pos_id_bounded p hh hp) (shrincs_fxmss_pos_id_bounded q hh hq) he.
-by apply: shrincs_fxmss_pos_id_inj => //; rewrite /shrincs_fxmss_pos_id e1 e2.
+apply: (shrincs_fxmss_pos_id_inj p q (shrincs_fxmss_pos_ok_size p hp)
+  (shrincs_fxmss_pos_ok_size q hq)).
+by rewrite /shrincs_fxmss_pos_id e1 e2.
 Qed.
 
 (* ------------------------------------------------------------------ *)
 (** ** Shapes *)
 
 (** A shape fits the imaginary balanced tree iff no node is deeper
-    than h_sf. *)
-Definition shrincs_fxmss_wf_shape (t : bt unit) : bool := bt_depth t <= h_sf.
+    than h_sf and every node position is addressable.  The second
+    conjunct is exactly what the height bound no longer supplies at
+    spec heights: with [h_sf = 255], [bt_depth t <= h_sf] alone admits
+    shapes whose deep right-leaning positions overflow the address's
+    eight-byte index field and alias.  Both the spec's shapes stay in:
+    BXMSS is balanced of feasible depth, and UXMSS is a left spine, all
+    of whose positions have index 0 or 1 at every depth. *)
+Definition shrincs_fxmss_wf_shape (t : bt unit) : bool :=
+  (bt_depth t <= h_sf)
+  && all shrincs_fxmss_pos_ok (leaf_paths t ++ internal_paths t).
 
 (** Decode + normalize (header: ill-formed parameters give the
     trivial single-anchor shape). *)
 Definition shrincs_fxmss_shape (sp : seq bool) : bt unit :=
   if shrincs_fxmss_wf_shape (decode_shape sp) then decode_shape sp else BLeaf tt.
 
+Lemma shrincs_fxmss_wf_leaf : shrincs_fxmss_wf_shape (BLeaf tt).
+Proof. by rewrite /shrincs_fxmss_wf_shape /shrincs_fxmss_pos_ok /=. Qed.
+
+Lemma shrincs_fxmss_shape_wf_shape sp : shrincs_fxmss_wf_shape (shrincs_fxmss_shape sp).
+Proof.
+by rewrite /shrincs_fxmss_shape; case: ifP => // _; exact: shrincs_fxmss_wf_leaf.
+Qed.
+
 Lemma shrincs_fxmss_shape_wf sp : bt_depth (shrincs_fxmss_shape sp) <= h_sf.
-Proof. by rewrite /shrincs_fxmss_shape; case: ifP. Qed.
+Proof. by have /andP[h _] := shrincs_fxmss_shape_wf_shape sp. Qed.
+
+(** Every position of a normalized shape — leaf or internal — is
+    addressable.  This is the honest-side source of the index bound the
+    address injectivity lemmas need; the verifier obtains its own copy
+    from [shrincs_fxmss_leaf_id_ok]. *)
+Lemma shrincs_fxmss_shape_pos_ok sp (p : seq bool) :
+  p \in leaf_paths (shrincs_fxmss_shape sp) ++ internal_paths (shrincs_fxmss_shape sp) ->
+  shrincs_fxmss_pos_ok p.
+Proof.
+by have /andP[_ /allP h] := shrincs_fxmss_shape_wf_shape sp; exact: h.
+Qed.
+
+Lemma shrincs_fxmss_leaf_pos_ok sp (p : seq bool) :
+  p \in leaf_paths (shrincs_fxmss_shape sp) -> shrincs_fxmss_pos_ok p.
+Proof. by move=> hp; apply: (shrincs_fxmss_shape_pos_ok sp); rewrite mem_cat hp. Qed.
+
+Lemma shrincs_fxmss_internal_pos_ok sp (p : seq bool) :
+  p \in internal_paths (shrincs_fxmss_shape sp) -> shrincs_fxmss_pos_ok p.
+Proof.
+by move=> hp; apply: (shrincs_fxmss_shape_pos_ok sp); rewrite mem_cat hp orbT.
+Qed.
+
+(** The addressability invariant of a subtree sitting at [pos]: every
+    position of [t], read from the root through [pos], is addressable.
+    This is the index-field companion of the
+    [size pos + bt_depth t <= h_sf] depth invariant the bottom-up tree
+    inductions already carry, and it descends to the two children the
+    same way. *)
+Definition shrincs_fxmss_sub_pos_ok (pos : seq bool) (t : bt unit) : Prop :=
+  forall p, p \in leaf_paths t ++ internal_paths t -> shrincs_fxmss_pos_ok (pos ++ p).
+
+Lemma shrincs_fxmss_sub_pos_ok_here (pos : seq bool) (t : bt unit) :
+  shrincs_fxmss_sub_pos_ok pos t -> shrincs_fxmss_pos_ok pos.
+Proof. by move=> h; rewrite -[pos]cats0; apply/h/mem_paths_nil. Qed.
+
+Lemma shrincs_fxmss_sub_pos_ok_child (pos : seq bool) (b : bool) (tl tr : bt unit) :
+  shrincs_fxmss_sub_pos_ok pos (BNode tl tr) ->
+  shrincs_fxmss_sub_pos_ok (rcons pos b) (if b then tr else tl).
+Proof. by move=> h p hp; rewrite cat_rcons; apply: h; rewrite mem_paths_cons. Qed.
+
+Lemma shrincs_fxmss_sub_pos_ok_root sp :
+  shrincs_fxmss_sub_pos_ok [::] (shrincs_fxmss_shape sp).
+Proof. by move=> p hp; rewrite cat0s; exact: shrincs_fxmss_shape_pos_ok hp. Qed.
 
 (** Surjectivity onto well-formed shapes: the adversary can submit
-    any tree that fits the declared height. *)
+    any tree that fits the declared height and addresses. *)
 Lemma shrincs_fxmss_shape_encode (t : bt unit) :
   shrincs_fxmss_wf_shape t -> shrincs_fxmss_shape (encode_shape t) = t.
 Proof. by move=> h; rewrite /shrincs_fxmss_shape decode_shapeK h. Qed.
+
+(** Non-vacuity at the spec's height: the UXMSS spine of any depth up to
+    [h_sf] is well formed, because a left spine keeps every position at
+    horizontal index 0 or 1 ([uxmss_bt_idx]).  The retired [h_sf <= 64]
+    hypothesis capped this shape at depth 64. *)
+Lemma shrincs_fxmss_wf_uxmss (k : nat) :
+  (k <= h_sf)%N -> shrincs_fxmss_wf_shape (uxmss_bt k).
+Proof.
+move=> hk; rewrite /shrincs_fxmss_wf_shape uxmss_bt_depth hk /=.
+apply/allP => p hp; rewrite /shrincs_fxmss_pos_ok; apply/andP; split.
+- have := tree_path_size hp; rewrite uxmss_bt_depth => hs.
+  exact: leq_trans hs hk.
+- by apply: (index_bounded_leq _ 1); first exact: uxmss_bt_idx k p hp.
+Qed.
+
+(** Proof of delivery for spec conformance: at [h_sf = 255]
+    (shrincs.py [FXMSS_HEIGHT = 255]) the spec's recommended UXMSS tree
+    of depth 255, with all 256 of its WOTS+C anchors, is a shape
+    parameter the EU-CMA adversary can submit and the scheme's
+    normalizer returns unchanged. *)
+Example shrincs_fxmss_uxmss_at_spec_height :
+  h_sf = 255 ->
+  shrincs_fxmss_shape (encode_shape (uxmss_bt 255)) = uxmss_bt 255
+  /\ bt_nleaves (uxmss_bt 255) = 256.
+Proof.
+move=> h; split; last exact: uxmss_bt_nleaves.
+by apply/shrincs_fxmss_shape_encode/shrincs_fxmss_wf_uxmss; rewrite h.
+Qed.
 
 (** Path of the q-th leaf (left-to-right signing schedule, header). *)
 Definition shrincs_fxmss_sign_path (sp : seq bool) (q : nat) : seq bool :=
@@ -384,15 +492,18 @@ Lemma shrincs_fxmss_sign_path_leaf (sp : seq bool) (q : nat) :
   subtree_at (shrincs_fxmss_shape sp) (shrincs_fxmss_sign_path sp q) = Some (BLeaf tt).
 Proof. by move=> hq; apply: leaf_paths_subtree; exact: mem_nth. Qed.
 
+Lemma shrincs_fxmss_sign_path_pos_ok (sp : seq bool) (q : nat) :
+  q < size (leaf_paths (shrincs_fxmss_shape sp)) ->
+  shrincs_fxmss_pos_ok (shrincs_fxmss_sign_path sp q).
+Proof.
+move=> hq; apply: (shrincs_fxmss_leaf_pos_ok sp).
+by rewrite /shrincs_fxmss_sign_path mem_nth.
+Qed.
+
 Lemma shrincs_fxmss_sign_path_size (sp : seq bool) (q : nat) :
   q < size (leaf_paths (shrincs_fxmss_shape sp)) ->
   size (shrincs_fxmss_sign_path sp q) <= h_sf.
-Proof.
-move=> hq.
-have hleaf : leaf_at (shrincs_fxmss_shape sp) (shrincs_fxmss_sign_path sp q) = Some tt.
-  by rewrite /leaf_at shrincs_fxmss_sign_path_leaf.
-exact: leq_trans (leaf_at_size hleaf) (shrincs_fxmss_shape_wf sp).
-Qed.
+Proof. by move=> hq; exact/shrincs_fxmss_pos_ok_size/shrincs_fxmss_sign_path_pos_ok. Qed.
 
 (* ------------------------------------------------------------------ *)
 (** ** Leaf instances (WOTS+C at the anchors) *)
@@ -495,10 +606,32 @@ Proof. by rewrite /shrincs_fxmss_wots_verify /shrincs_fxmss_wots_checks /shrincs
     [path_of_idx (h_sf - z_star) i_star] — and compare with the
     root.  [val_ap] returns None unless the auth path has exactly
     the path's length, which subsumes the tex's size check. *)
+(** The verifier's leaf-identifier bounds check, shrincs.py
+    [fxmss_pubkey_from_sig]:
+
+      [assert leaf_index < 2 ** min(64, leaf_depth)]
+
+    with [leaf_depth = h_sf - zi.1].  The [min] splits into its two
+    sides: the index must name a position of the imaginary tree at that
+    depth, AND fit the address's eight-byte index field.  The second
+    half is what keeps [shrincs_fxmss_pos_id] injective (via
+    [shrincs_fxmss_pos_ok]) once [h_sf] exceeds 64. *)
+Definition shrincs_fxmss_leaf_id_ok (zi : nat * nat) : bool :=
+  (zi.2 < 2 ^ (h_sf - zi.1))%N && index_bounded zi.2.
+
+(** A verifier-admitted leaf identifier names an addressable path. *)
+Lemma shrincs_fxmss_leaf_id_pos_ok (zi : nat * nat) :
+  (zi.1 <= h_sf)%N -> shrincs_fxmss_leaf_id_ok zi ->
+  shrincs_fxmss_pos_ok (path_of_idx (h_sf - zi.1) zi.2).
+Proof.
+move=> hz /andP[hlt hrepr]; rewrite /shrincs_fxmss_pos_ok size_path_of_idx.
+by rewrite leq_subr idx_of_path_of_idx.
+Qed.
+
 Definition shrincs_fxmss_verify (pp : PP) (rt : N) (m : M) (sg : shrincs_fxmss_signature) : bool :=
   let: ((zi, r), (ws, ap)) := sg in
   [&& (zi.1 <= h_sf)%N,
-      (zi.2 < 2 ^ (h_sf - zi.1))%N,
+      shrincs_fxmss_leaf_id_ok zi,
       shrincs_fxmss_wots_checks pp zi (Hmsg r pp rt zi m) ws
     & val_ap (shrincs_fxmss_node_hash pp) [::] (path_of_idx (h_sf - zi.1) zi.2) ap
         (shrincs_fxmss_recover_anchor pp zi (Hmsg r pp rt zi m) ws) == Some rt].
@@ -544,7 +677,8 @@ case E1: (wsign_sig _ _ _ _ _) => [ws|] //=.
 case E2: (cons_ap _ _ _ _) => [ap|] //=.
 case=> <- {sg}.
 (* path facts *)
-have hszp : size p <= h_sf := shrincs_fxmss_sign_path_size sp q hq.
+have hpok : shrincs_fxmss_pos_ok p := shrincs_fxmss_sign_path_pos_ok sp q hq.
+have hszp : size p <= h_sf := shrincs_fxmss_pos_ok_size p hpok.
 have hsub : subtree_at t p = Some (BLeaf tt) := shrincs_fxmss_sign_path_leaf sp q hq.
 have hpath : path_of_idx (h_sf - zi.1) zi.2 = p.
   by rewrite /zi /shrincs_fxmss_pos_id /= subKn // path_of_idx_of_path.
@@ -563,7 +697,8 @@ move/andP: hver => [hchecks /eqP hrec].
 (* assemble the verifier's four conjuncts *)
 rewrite /shrincs_fxmss_verify; apply/and4P; split.
 - by rewrite /zi /shrincs_fxmss_pos_id /= leq_subr.
-- by rewrite /zi /shrincs_fxmss_pos_id /= subKn // idx_of_path_lt.
+- rewrite /shrincs_fxmss_leaf_id_ok /zi /shrincs_fxmss_pos_id /=.
+  by rewrite subKn // idx_of_path_lt; case/andP: hpok.
 - exact: hchecks.
 - apply/eqP; rewrite -/md hpath hrec.
   exact: hval.
