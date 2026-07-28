@@ -106,7 +106,7 @@
     signature values ([complete_ends], the verifier's own
     completion).
 
-    Location ids 300+. *)
+    Location ids 900+ (moved off 300+: collided with Sec.wots.games). *)
 
 Set Warnings "-notation-overridden,-ambiguous-paths".
 From HBS Require Import prelude math.chain math.encoding sig.scheme sig.kots
@@ -283,9 +283,11 @@ Proof. by []. Qed.
 Local Notation WC :=
   (shrincs_fxmss_wots_scheme PP N M F Tl Hgrind dPP dN S_wn c_max zstar istar).
 
-Definition g0w_pk_loc := mkloc 300 (None : option (Pk WC)).
-Definition g0w_log_loc := mkloc 301 ([::] : seq (Msg WC)).
-Definition g0w_sig_loc := mkloc 302 (None : option (Sig WC)).
+(* ids 900+, not 300+: 300-302 collide with Sec.wots.games's
+   [forge_pk/log/sig_loc] (see proof/LOCATIONS.md). *)
+Definition g0w_pk_loc := mkloc 900 (None : option (Pk WC)).
+Definition g0w_log_loc := mkloc 901 ([::] : seq (Msg WC)).
+Definition g0w_sig_loc := mkloc 902 (None : option (Sig WC)).
 
 Definition G0w (b : bool) : game (I_KOTS WC) :=
   [package [fmap g0w_pk_loc ; g0w_log_loc ; g0w_sig_loc ] ;
