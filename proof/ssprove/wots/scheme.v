@@ -62,7 +62,7 @@
     - One-time scheme: [sign] returns the key unchanged (the EU-CMA
       statement uses signing budget q_s = 1). *)
 
-From Sec.lib Require Import prelude sig.scheme toolkit.sample_seq chain.core.
+From Sec.lib Require Import prelude sig.scheme toolkit.sample_seq chain.core wots.wotsc.
 From Model Require Import math.encoding.
 From Sec.lib Require Import math.chain.
 From Sec Require Import addressing.
@@ -78,6 +78,13 @@ Section WOTSCScheme.
 (** The WOTS+C parameter record (see Sec.wots.params). *)
 Context (P : wc_params).
 
+(** Every definition below is a DEFINITIONAL instance of the one generic
+    WOTS+C construction [Sec.lib.wots.wotsc], at this record's building
+    blocks, this instance's three addresses, and MSB-first digit order
+    ([dig_msb := true]).  The FXMSS tree's [SHRINCS.wotsc.scheme] is the
+    same construction at [dig_msb := false]; there is exactly one
+    [sig_scheme] behind both. *)
+
 (* ------------------------------------------------------------------ *)
 (** ** Grinding
 
@@ -90,33 +97,30 @@ Context (P : wc_params).
     digit first (d parsed as (a_1, ..., a_l) with a_1 the top digit) --
     the same reading order as shrincs.py's base-w parse and
     [Model.wots.base_2b], so the games<->model correspondence
-    (Sec.wots.model_bridge) is a plain equality.  [digits_w] itself is
-    least-significant-first, whence the [rev]. *)
+    (Sec.wots.model_bridge) is a plain equality. *)
 Definition digest_of (pp : wcp_PP P) (m : wcp_M P) (c : nat) : seq nat :=
-  rev (digits_w (wcp_w P) (wcp_chain_count P) (wcp_H_grind P pp (grind_adrs P) (m, c))).
+  wotsc_digest_of (wcp_w P) (wcp_chain_count P) (wcp_PP P) (wcp_M P) (wc_adrs P)
+    (wcp_H_grind P) (grind_adrs P) true pp m c.
 
 (** The post-grinding digest space: well-formed digits summing to the
     target (sum_i a_i = constant_sum). *)
 Definition valid_digest (ds : seq nat) : bool :=
-  wf_digits (wcp_w P) ds && (sumn ds == wcp_constant_sum P).
+  wotsc_valid_digest (wcp_w P) (wcp_constant_sum P) ds.
 
 Definition good_counter (pp : wcp_PP P) (m : wcp_M P) (c : nat) : bool :=
-  valid_digest (digest_of pp m c).
+  wotsc_good_ctr (wcp_w P) (wcp_chain_count P) (wcp_PP P) (wcp_M P) (wc_adrs P)
+    (wcp_H_grind P) (wcp_constant_sum P) (grind_adrs P) true pp m c.
 
 Definition find_counter (pp : wcp_PP P) (m : wcp_M P) : option nat :=
-  ohead [seq c <- iota 0 (wcp_c_max P) | good_counter pp m c].
+  wotsc_find_ctr (wcp_w P) (wcp_chain_count P) (wcp_PP P) (wcp_M P) (wc_adrs P)
+    (wcp_H_grind P) (wcp_constant_sum P) (wcp_c_max P) (grind_adrs P) true pp m.
 
 Lemma size_digest_of pp m c : size (digest_of pp m c) = wcp_chain_count P.
-Proof. by rewrite /digest_of size_rev size_digits_w. Qed.
+Proof. exact: wotsc_size_digest_of. Qed.
 
 Lemma find_counterP pp m c :
   find_counter pp m = Some c -> good_counter pp m c && (c < wcp_c_max P).
-Proof.
-rewrite /find_counter.
-case E: [seq c0 <- iota 0 (wcp_c_max P) | good_counter pp m c0] => [|c0 cs] //= [<-].
-move: (mem_head c0 cs).
-by rewrite -E mem_filter mem_iota add0n => /andP[-> /andP[_ ->]].
-Qed.
+Proof. exact: wotsc_find_ctrP. Qed.
 
 Lemma find_counter_good pp m c : find_counter pp m = Some c -> good_counter pp m c.
 Proof. by move=> /find_counterP /andP[h _]. Qed.
@@ -127,15 +131,9 @@ Proof. by move=> /find_counterP /andP[_ h]. Qed.
 (* ------------------------------------------------------------------ *)
 (** ** Pure scheme functions *)
 
-(** Chain step of the [i]-th chain, in [Model.math.chain]'s DEPENDENT
-    shape (width [w]): the step RECEIVES its position's in-range proof
-    [(p < w)%N].  The concrete step ignores that proof and reads the
-    (total, clamp-free) chain address at position [p] -- every fold ever
-    reaches only positions [< w.-1], where [chain_adrs P] is the exact
-    address, so the abstract [< w] proof is not needed to build it.
-    This instantiates the abstract chain library's step [F]
-    ([Sec.lib.chain.core]), so all chains below go through the one
-    generic fold [Sec.lib.math.chain.chain].
+(** Chain step of the [i]-th chain: the (total, clamp-free) chain
+    address at position [p].  Every fold ever reaches only positions
+    [< w.-1], where [chain_adrs P] is the exact address.
 
     Per-hash-call tweak distinctness lives at the tweak level
     ([params.chain_tweak_inj]): the chain tweak carries its
@@ -144,32 +142,32 @@ Proof. by move=> /find_counterP /andP[_ h]. Qed.
     plus the distinct type bytes of the underlying [Model.address]
     constructors. *)
 Definition chainf (pp : wcp_PP P) (i : nat) : nat -> wcp_N P -> wcp_N P :=
-  fun p x => wcp_F P pp (chain_adrs P i p) x.
+  wotsc_chainf (wcp_PP P) (wcp_N P) (wc_adrs P) (wcp_F P) (chain_adrs P) pp i.
 
 (** Chain ends: the [i]-th component is the end (position w-1) of the
     [i]-th chain from the [i]-th secret
-    (pk_i = c^{0, w-1}(sk_i, i, PKseed, ADRS^h)).  The zip/iota
-    formulation avoids a default element. *)
+    (pk_i = c^{0, w-1}(sk_i, i, PKseed, ADRS^h)). *)
 Definition chain_ends (pp : wcp_PP P) (xs : seq (wcp_N P)) : seq (wcp_N P) :=
-  [seq chain (chainf pp ix.1) ix.2 0 (wcp_w P).-1
-  | ix <- zip (iota 0 (wcp_chain_count P)) xs].
+  wotsc_chain_ends (wcp_w P) (wcp_chain_count P) (wcp_PP P) (wcp_N P) (wc_adrs P)
+    (wcp_F P) (chain_adrs P) pp xs.
 
 (** Compressed public key
     (pk = T_sf(PKseed, ADRS^pk, pk_1 || ... || pk_l)). *)
 Definition shrincs_wots_pubkey (pp : wcp_PP P) (xs : seq (wcp_N P)) : wcp_N P :=
-  wcp_T_sf P pp (pk_adrs P) (chain_ends pp xs).
+  wotsc_pubkey (wcp_w P) (wcp_chain_count P) (wcp_PP P) (wcp_N P) (wc_adrs P)
+    (wcp_F P) (wcp_T_sf P) (pk_adrs P) (chain_adrs P) pp xs.
 
 (** Signature chain values for digit vector [ds]
     (sigma_i = c^{0, a_i}(sk_i, i, PKseed, ADRS^h)). *)
 Definition sign_chains (pp : wcp_PP P) (xs : seq (wcp_N P)) (ds : seq nat) : seq (wcp_N P) :=
-  [seq chain (chainf pp ixd.1.1) ixd.1.2 0 ixd.2
-  | ixd <- zip (zip (iota 0 (wcp_chain_count P)) xs) ds].
+  wotsc_sign_chains (wcp_chain_count P) (wcp_PP P) (wcp_N P) (wc_adrs P)
+    (wcp_F P) (chain_adrs P) pp xs ds.
 
 (** Verifier-side chain completion
     (c^{a_i, w-1-a_i}(sigma_i, i, PKseed, ADRS^h)). *)
 Definition complete_ends (pp : wcp_PP P) (ds : seq nat) (ys : seq (wcp_N P)) : seq (wcp_N P) :=
-  [seq chain (chainf pp q.1) q.2.2 q.2.1 ((wcp_w P).-1 - q.2.1)
-  | q <- zip (iota 0 (wcp_chain_count P)) (zip ds ys)].
+  wotsc_complete_ends (wcp_w P) (wcp_chain_count P) (wcp_PP P) (wcp_N P) (wc_adrs P)
+    (wcp_F P) (chain_adrs P) pp ds ys.
 
 (** Verification: recompute the digest at the signature's counter,
     reject unless it lies in the post-grinding digest space, complete
@@ -177,28 +175,92 @@ Definition complete_ends (pp : wcp_PP P) (ds : seq nat) (ys : seq (wcp_N P)) : s
     values, counter). *)
 Definition shrincs_wots_verify (pp : wcp_PP P) (root : wcp_N P) (m : wcp_M P)
     (sg : seq (wcp_N P) * nat) : bool :=
-  [&& valid_digest (digest_of pp m sg.2), size sg.1 == wcp_chain_count P
-    & wcp_T_sf P pp (pk_adrs P) (complete_ends pp (digest_of pp m sg.2) sg.1) == root].
+  wotsc_verify (wcp_w P) (wcp_chain_count P) (wcp_PP P) (wcp_N P) (wcp_M P) (wc_adrs P)
+    (wcp_F P) (wcp_T_sf P) (wcp_H_grind P) (wcp_constant_sum P)
+    (grind_adrs P) (pk_adrs P) (chain_adrs P) true pp root m sg.
 
 (** Signing as a pure partial function: grind, then sign the digits;
     None on grinding failure (sign refusal). *)
 Definition shrincs_wots_sign (pp : wcp_PP P) (xs : seq (wcp_N P)) (m : wcp_M P)
     : option (seq (wcp_N P) * nat) :=
-  omap (fun c => (sign_chains pp xs (digest_of pp m c), c)) (find_counter pp m).
+  wotsc_sign (wcp_w P) (wcp_chain_count P) (wcp_PP P) (wcp_N P) (wcp_M P) (wc_adrs P)
+    (wcp_F P) (wcp_H_grind P) (wcp_constant_sum P) (wcp_c_max P)
+    (grind_adrs P) (chain_adrs P) true pp xs m.
 
 Lemma shrincs_wots_sign_None pp xs m : find_counter pp m = None -> shrincs_wots_sign pp xs m = None.
-Proof. by rewrite /shrincs_wots_sign => ->. Qed.
+Proof. by rewrite /shrincs_wots_sign /wotsc_sign -/(find_counter pp m) => ->. Qed.
 
 Lemma shrincs_wots_sign_Some pp xs m c :
   find_counter pp m = Some c ->
   shrincs_wots_sign pp xs m = Some (sign_chains pp xs (digest_of pp m c), c).
-Proof. by rewrite /shrincs_wots_sign => ->. Qed.
+Proof. by rewrite /shrincs_wots_sign /wotsc_sign -/(find_counter pp m) => ->. Qed.
+
+(* ------------------------------------------------------------------ *)
+(** ** Definitional views
+
+    Each wrapper above is a [wotsc_*] application; these restate its
+    body in the pre-merge form.  All are [Proof. by []. Qed.] --- pure
+    conversion --- and exist so that proof scripts can [rewrite fooE]
+    instead of [rewrite /foo] and stay independent of how many delta
+    steps separate a name from its body. *)
+
+Lemma digest_of_def pp m c :
+  digest_of pp m c
+  = rev (digits_w (wcp_w P) (wcp_chain_count P) (wcp_H_grind P pp (grind_adrs P) (m, c))).
+Proof. by []. Qed.
+
+Lemma valid_digest_def ds :
+  valid_digest ds = wf_digits (wcp_w P) ds && (sumn ds == wcp_constant_sum P).
+Proof. by []. Qed.
+
+Lemma good_counter_def pp m c : good_counter pp m c = valid_digest (digest_of pp m c).
+Proof. by []. Qed.
+
+Lemma find_counter_def pp m :
+  find_counter pp m = ohead [seq c <- iota 0 (wcp_c_max P) | good_counter pp m c].
+Proof. by []. Qed.
+
+Lemma chainf_def pp i p x : chainf pp i p x = wcp_F P pp (chain_adrs P i p) x.
+Proof. by []. Qed.
+
+Lemma chain_ends_def pp xs :
+  chain_ends pp xs
+  = [seq chain (chainf pp ix.1) ix.2 0 (wcp_w P).-1
+    | ix <- zip (iota 0 (wcp_chain_count P)) xs].
+Proof. by []. Qed.
+
+Lemma shrincs_wots_pubkey_def pp xs :
+  shrincs_wots_pubkey pp xs = wcp_T_sf P pp (pk_adrs P) (chain_ends pp xs).
+Proof. by []. Qed.
+
+Lemma sign_chains_def pp xs ds :
+  sign_chains pp xs ds
+  = [seq chain (chainf pp ixd.1.1) ixd.1.2 0 ixd.2
+    | ixd <- zip (zip (iota 0 (wcp_chain_count P)) xs) ds].
+Proof. by []. Qed.
+
+Lemma complete_ends_def pp ds ys :
+  complete_ends pp ds ys
+  = [seq chain (chainf pp q.1) q.2.2 q.2.1 ((wcp_w P).-1 - q.2.1)
+    | q <- zip (iota 0 (wcp_chain_count P)) (zip ds ys)].
+Proof. by []. Qed.
+
+Lemma shrincs_wots_verify_def pp root m sg :
+  shrincs_wots_verify pp root m sg
+  = [&& valid_digest (digest_of pp m sg.2), size sg.1 == wcp_chain_count P
+      & wcp_T_sf P pp (pk_adrs P) (complete_ends pp (digest_of pp m sg.2) sg.1) == root].
+Proof. by []. Qed.
+
+Lemma shrincs_wots_sign_def pp xs m :
+  shrincs_wots_sign pp xs m
+  = omap (fun c => (sign_chains pp xs (digest_of pp m c), c)) (find_counter pp m).
+Proof. by []. Qed.
 
 (* ------------------------------------------------------------------ *)
 (** ** Size sanity lemmas *)
 
 Lemma size_chain_ends pp xs : size (chain_ends pp xs) = minn (wcp_chain_count P) (size xs).
-Proof. by rewrite size_map size_zip size_iota. Qed.
+Proof. exact: wotsc_size_chain_ends. Qed.
 
 Lemma size_chain_ends_l pp xs :
   size xs = wcp_chain_count P -> size (chain_ends pp xs) = wcp_chain_count P.
@@ -206,7 +268,7 @@ Proof. by move=> hxs; rewrite size_chain_ends hxs minnn. Qed.
 
 Lemma size_sign_chains pp xs ds :
   size (sign_chains pp xs ds) = minn (minn (wcp_chain_count P) (size xs)) (size ds).
-Proof. by rewrite size_map !size_zip size_iota. Qed.
+Proof. exact: wotsc_size_sign_chains. Qed.
 
 Lemma size_sign_chains_l pp xs ds :
   size xs = wcp_chain_count P -> size ds = wcp_chain_count P ->
@@ -215,7 +277,7 @@ Proof. by move=> hxs hds; rewrite size_sign_chains hxs hds !minnn. Qed.
 
 Lemma size_complete_ends pp ds ys :
   size (complete_ends pp ds ys) = minn (wcp_chain_count P) (minn (size ds) (size ys)).
-Proof. by rewrite size_map !size_zip size_iota. Qed.
+Proof. exact: wotsc_size_complete_ends. Qed.
 
 (* ------------------------------------------------------------------ *)
 (** ** Correctness *)
@@ -234,13 +296,7 @@ Lemma complete_sign_chain pp st (xs : seq (wcp_N P)) (ds : seq nat) :
                   | ixd <- zip (zip (iota st (size xs)) xs) ds])]
   = [seq chain (chainf pp ix.1) ix.2 0 (wcp_w P).-1
     | ix <- zip (iota st (size xs)) xs].
-Proof.
-elim: xs st ds => [|x xs IH] st [|d ds] //= [hsz] /andP[hd hds].
-have hdw : d <= (wcp_w P).-1 by rewrite -ltnS (ltn_predK hd).
-have hsp := chain_split (chainf pp st) x (leq0n d) hdw.
-rewrite !subn0 in hsp.
-by rewrite -hsp; congr (_ :: _); apply: IH.
-Qed.
+Proof. exact: wotsc_complete_sign_chain. Qed.
 
 (** THE correctness lemma: if grinding succeeds, the honest signature
     verifies under the honest compressed public key.  Re-grinding is
@@ -251,31 +307,14 @@ Lemma verify_sign pp xs m c :
   size xs = wcp_chain_count P ->
   find_counter pp m = Some c ->
   shrincs_wots_verify pp (shrincs_wots_pubkey pp xs) m (sign_chains pp xs (digest_of pp m c), c) = true.
-Proof.
-move=> hxs hc.
-have hgood : good_counter pp m c := find_counter_good _ _ _ hc.
-have /andP[hwf _] := hgood.
-have hszd : size (digest_of pp m c) = wcp_chain_count P by rewrite size_digest_of.
-rewrite /shrincs_wots_verify /=.
-apply/and3P; split.
-- exact: hgood.
-- by rewrite size_sign_chains_l ?eqxx.
-- apply/eqP; rewrite /shrincs_wots_pubkey; congr (wcp_T_sf P _ _ _).
-  rewrite /complete_ends /chain_ends /sign_chains -hxs.
-  apply: complete_sign_chain; last exact: hwf.
-  by rewrite hszd hxs.
-Qed.
+Proof. exact: wotsc_verify_sign_digits. Qed.
 
 (** Correctness through the signing function. *)
 Lemma shrincs_wots_verify_sign pp xs m sg :
   size xs = wcp_chain_count P ->
   shrincs_wots_sign pp xs m = Some sg ->
   shrincs_wots_verify pp (shrincs_wots_pubkey pp xs) m sg = true.
-Proof.
-move=> hxs; rewrite /shrincs_wots_sign.
-case E: (find_counter pp m) => [c|] //= [<-].
-by apply: verify_sign.
-Qed.
+Proof. exact: wotsc_verify_sign. Qed.
 
 (* ------------------------------------------------------------------ *)
 (** ** The scheme as a [sig_scheme]
@@ -285,19 +324,10 @@ Qed.
     sampled by [keygen] and carried in both keys; see the header for
     the PRF-vs-sampling deviation. *)
 
-Definition shrincs_wots_scheme : sig_scheme := {|
-  Pk := wcp_PP P × wcp_N P ;
-  Sk := wcp_PP P × ('list (wcp_N P)) ;
-  Msg := wcp_M P ;
-  Sig := ('list (wcp_N P)) × 'nat ;
-  SParam := 'unit ;
-  keygen := fun _ => {code
-    pp ← wcp_dPP P ;;
-    xs ← sample_seq (wcp_dN P) (wcp_chain_count P) ;;
-    ret ((pp, xs), (pp, shrincs_wots_pubkey pp xs)) } ;
-  sign := fun sk m => {code
-    ret (omap (fun sg => (sg, sk)) (shrincs_wots_sign sk.1 sk.2 m)) } ;
-  verify := fun pk m sg => shrincs_wots_verify pk.1 pk.2 m sg
-|}.
+Definition shrincs_wots_scheme : sig_scheme :=
+  wotsc_scheme (wcp_w P) (wcp_chain_count P) (wcp_PP P) (wcp_N P) (wcp_M P) (wc_adrs P)
+    (wcp_F P) (wcp_T_sf P) (wcp_H_grind P) (wcp_dPP P) (wcp_dN P)
+    (wcp_constant_sum P) (wcp_c_max P)
+    (grind_adrs P) (pk_adrs P) (chain_adrs P) true.
 
 End WOTSCScheme.

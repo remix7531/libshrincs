@@ -168,7 +168,7 @@ simplify_eq_rel arg.
   + (* Some c: both sides commit the same (pk, log) and issue the same signature *)
     simpl.
     eapply r_scheme_bind; [exact _|] => xs.
-    rewrite (shrincs_wots_sign_Some P pp xs m c E).
+    rewrite -/(shrincs_wots_sign P pp xs m) (shrincs_wots_sign_Some P pp xs m c E).
     simpl.
     apply r_put_vs_put.
     apply r_put_vs_put.
@@ -183,7 +183,7 @@ simplify_eq_rel arg.
     simpl.
     eapply r_transR.
     * eapply r_scheme_bind; [exact _|] => xs.
-      rewrite (shrincs_wots_sign_None P pp xs m E).
+      rewrite -/(shrincs_wots_sign P pp xs m) (shrincs_wots_sign_None P pp xs m E).
       simpl.
       exact: (rreflexivity_rule fail).
     * apply: r_fail_scheme_rhs; exact _.

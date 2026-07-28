@@ -74,6 +74,7 @@ From Sec.lib Require Import chain.core.
 From Model Require Import math.encoding.
 From Sec.lib Require Import math.chain.
 From Sec Require Import addressing.
+From Sec.lib Require Import wots.wotsc.
 From Sec.wots Require Import scheme games
   hop.grind hop.compress hop.chain_tcr hop.chain_pre hop.ud hop.prf.
 Require Import Sec.wots.theorem.
@@ -291,7 +292,7 @@ Lemma digest_of_modelE (pp : PP_shrincs) (m : M_shrincs) (c : nat) :
   Sec.wots.scheme.digest_of P pp m c
   = wots.digest_of (decode16 pp) A0 (decode32 m) (Z.of_nat c).
 Proof.
-by rewrite /Sec.wots.scheme.digest_of digest_of_bridge Hgrind_natE.
+by rewrite Sec.wots.scheme.digest_of_def digest_of_bridge Hgrind_natE.
 Qed.
 
 (** T2: the games grinding predicate equals the model's.  ([wf_digits]
@@ -302,7 +303,7 @@ Lemma good_counter_modelE (pp : PP_shrincs) (m : M_shrincs) (c : nat) :
   Sec.wots.scheme.good_counter P pp m c
   = wots.good_counter (decode16 pp) A0 (decode32 m) (Z.of_nat c).
 Proof.
-rewrite good_counter_bridge /Sec.wots.scheme.good_counter /Sec.wots.scheme.valid_digest.
+rewrite good_counter_bridge Sec.wots.scheme.good_counter_def Sec.wots.scheme.valid_digest_def.
 by rewrite !digest_of_modelE !digest_of_bridge /wf_digits all_rev sumn_rev.
 Qed.
 
@@ -487,7 +488,7 @@ Lemma pubkey_gen_modelE (pp : PP_shrincs) (k : K_shrincs) :
   shrincs_wots_pubkey P pp (derive_sk P K_shrincs PRF_sha256 pp k)
   = encode16 (wots.shrincs_wots_pubkey_gen (decode16 k) (decode16 pp) A0).
 Proof.
-rewrite /shrincs_wots_pubkey /wots.shrincs_wots_pubkey_gen.
+rewrite Sec.wots.scheme.shrincs_wots_pubkey_def /wots.shrincs_wots_pubkey_gen.
 have -> : wcp_T_sf P = T_sf_sha256 by [].
 by rewrite /T_sf_sha256 pk_adrsE concat_flatten chain_ends_tipsE.
 Qed.
@@ -615,7 +616,7 @@ Lemma verify_modelE (pp : PP_shrincs) (root : N_shrincs) (m : M_shrincs)
   = wots.shrincs_wots_verify (decode16 root) (map decode16 sig) (decode32 m) (Z.of_nat c) (decode16 pp) A0.
 Proof.
 move=> hsig.
-rewrite /Sec.wots.scheme.shrincs_wots_verify.
+rewrite Sec.wots.scheme.shrincs_wots_verify_def.
 cbn [fst snd].
 rewrite /wots.shrincs_wots_verify.
 have hcc : wcp_chain_count P = chain_count_shrincs by [].
@@ -651,7 +652,7 @@ Lemma sign_modelE (pp : PP_shrincs) (k : K_shrincs) (m : M_shrincs) :
   = omap (fun sgc => (map decode16 sgc.1, Z.of_nat sgc.2))
          (Sec.wots.scheme.shrincs_wots_sign P pp (derive_sk P K_shrincs PRF_sha256 pp k) m).
 Proof.
-rewrite /wots.shrincs_wots_sign /Sec.wots.scheme.shrincs_wots_sign find_counter_modelE.
+rewrite /wots.shrincs_wots_sign Sec.wots.scheme.shrincs_wots_sign_def find_counter_modelE.
 case E: (Sec.wots.scheme.find_counter P pp m) => [c|]; last by [].
 cbn [Option.map].
 congr Some; congr pair.

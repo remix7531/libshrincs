@@ -73,7 +73,7 @@
 Set Warnings "-notation-overridden,-ambiguous-paths".
 From Sec.lib Require Import prelude math.chain.
 From Model Require Import math.encoding.
-From Sec.lib Require Import sig.scheme toolkit.sample_seq.
+From Sec.lib Require Import sig.scheme toolkit.sample_seq wots.wotsc.
 From SHRINCS Require Import addressing.
 Set Warnings "notation-overridden,ambiguous-paths".
 
@@ -143,41 +143,36 @@ by [].
 Qed.
 
 (* ------------------------------------------------------------------ *)
-(** ** Grinding (wotsc.tex, "Grinding step")
+(** ** The instance
 
-    Pure bounded search, exactly the STCRP modeling: the digest at
-    counter [c] is decoded into [l] base-w digits, and [find_ctr]
-    returns the SMALLEST counter below [c_max] whose digit sum is
-    [S_wn] (the tex iterates ctr = 0, 1, 2, ... unboundedly). *)
+    Every definition below is a DEFINITIONAL instance of the one generic
+    WOTS+C construction [Sec.lib.wots.wotsc], at this section's building
+    blocks, this instance's three addresses, and LSB-first digit order
+    ([dig_msb := false]).  The native tree's [Sec.wots.scheme] is the
+    same construction at [dig_msb := true]; there is exactly one
+    [sig_scheme] behind both. *)
 
 (** Base-w digit vector of the digest at counter [c] (tex: d parsed
     as (a_1, ..., a_l)). *)
 Definition digest_of (pp : PP) (m : M) (c : nat) : seq nat :=
-  digits_w w l (Hgrind pp grind_adrs (m, c)).
+  wotsc_digest_of w l PP M adrs_sf Hgrind grind_adrs false pp m c.
 
 (** The post-grinding digest space: well-formed digits summing to the
     target (wotsc.tex: sum_i a_i = S_wn). *)
 Definition valid_digest (ds : seq nat) : bool :=
-  wf_digits w ds && (sumn ds == S_wn).
+  wotsc_valid_digest w S_wn ds.
 
 Definition good_ctr (pp : PP) (m : M) (c : nat) : bool :=
-  valid_digest (digest_of pp m c).
+  wotsc_good_ctr w l PP M adrs_sf Hgrind S_wn grind_adrs false pp m c.
 
 Definition find_ctr (pp : PP) (m : M) : option nat :=
-  ohead [seq c <- iota 0 c_max | good_ctr pp m c].
+  wotsc_find_ctr w l PP M adrs_sf Hgrind S_wn c_max grind_adrs false pp m.
 
 Lemma size_digest_of pp m c : size (digest_of pp m c) = l.
-Proof. by rewrite /digest_of size_digits_w. Qed.
+Proof. exact: wotsc_size_digest_of. Qed.
 
-Lemma find_ctrP pp m c :
-  find_ctr pp m = Some c -> good_ctr pp m c && (c < c_max).
-Proof.
-rewrite /find_ctr.
-case E: [seq c0 <- iota 0 c_max | good_ctr pp m c0] => [|c0 cs] //= [<-].
-have : c0 \in [seq c0 <- iota 0 c_max | good_ctr pp m c0].
-  by rewrite E inE eqxx.
-by rewrite mem_filter mem_iota add0n => /andP[-> /andP[_ ->]].
-Qed.
+Lemma find_ctrP pp m c : find_ctr pp m = Some c -> good_ctr pp m c && (c < c_max).
+Proof. exact: wotsc_find_ctrP. Qed.
 
 Lemma find_ctr_good pp m c : find_ctr pp m = Some c -> good_ctr pp m c.
 Proof. by move=> /find_ctrP /andP[h _]. Qed.
@@ -192,58 +187,107 @@ Proof. by move=> /find_ctrP /andP[_ h]. Qed.
     chain position [pos] is the first argument of the step function);
     tex: the chaining function c^{j,k} on ADRS^h. *)
 Definition chainf (pp : PP) (i : nat) : nat -> N -> N :=
-  fun pos x => F pp (chain_adrs i pos) x.
+  wotsc_chainf PP N adrs_sf F chain_adrs pp i.
 
 (** Chain ends: the [i]-th component is the end (position w-1) of the
     [i]-th chain from the [i]-th secret (tex kg:
-    pk_i = c^{0, w-1}(sk_i, i, PKseed, ADRS^h)).  Same zip/iota
-    formulation as wots.scheme (avoids a default element). *)
+    pk_i = c^{0, w-1}(sk_i, i, PKseed, ADRS^h)). *)
 Definition chain_ends (pp : PP) (xs : seq N) : seq N :=
-  [seq chain (chainf pp ix.1) ix.2 0 w.-1 | ix <- zip (iota 0 l) xs].
+  wotsc_chain_ends w l PP N adrs_sf F chain_adrs pp xs.
 
 (** Compressed public key (tex kg:
     pk = Th_l(PKseed, ADRS^pk, pk_1 || ... || pk_l)). *)
 Definition shrincs_fxmss_wots_public_key (pp : PP) (xs : seq N) : N :=
-  Tl pp pk_adrs (chain_ends pp xs).
+  wotsc_pubkey w l PP N adrs_sf F Tl pk_adrs chain_adrs pp xs.
 
 (** Signature chain values for digit vector [ds] (tex sign:
     sigma_i = c^{0, a_i}(sk_i, i, PKseed, ADRS^h)). *)
 Definition sign_digits (pp : PP) (xs : seq N) (ds : seq nat) : seq N :=
-  [seq chain (chainf pp ixd.1.1) ixd.1.2 0 ixd.2
-  | ixd <- zip (zip (iota 0 l) xs) ds].
+  wotsc_sign_chains l PP N adrs_sf F chain_adrs pp xs ds.
 
 (** Verifier-side chain completion (tex vf:
     c^{a_i, w-1-a_i}(sigma_i, i, PKseed, ADRS^h)). *)
 Definition complete_ends (pp : PP) (ds : seq nat) (ys : seq N) : seq N :=
-  [seq chain (chainf pp q.1) q.2.2 q.2.1 (w.-1 - q.2.1)
-  | q <- zip (iota 0 l) (zip ds ys)].
+  wotsc_complete_ends w l PP N adrs_sf F chain_adrs pp ds ys.
 
 (** Verification (wotsc.tex vf): recompute the digest at the
     signature's counter, reject unless it lies in the post-grinding
     digest space, complete the chains, recompress, compare with pk.
     A signature is (chain values, counter). *)
 Definition shrincs_fxmss_wots_verify (pp : PP) (root : N) (m : M) (sg : seq N * nat) : bool :=
-  [&& valid_digest (digest_of pp m sg.2), size sg.1 == l
-    & Tl pp pk_adrs (complete_ends pp (digest_of pp m sg.2) sg.1) == root].
+  wotsc_verify w l PP N M adrs_sf F Tl Hgrind S_wn grind_adrs pk_adrs chain_adrs false pp root m sg.
 
 (** Signing as a pure partial function: grind, then sign the digits;
     None on grinding failure (sign refusal). *)
 Definition shrincs_fxmss_wots_sign (pp : PP) (xs : seq N) (m : M) : option (seq N * nat) :=
-  omap (fun c => (sign_digits pp xs (digest_of pp m c), c)) (find_ctr pp m).
+  wotsc_sign w l PP N M adrs_sf F Hgrind S_wn c_max grind_adrs chain_adrs false pp xs m.
 
 Lemma shrincs_fxmss_wots_sign_None pp xs m : find_ctr pp m = None -> shrincs_fxmss_wots_sign pp xs m = None.
-Proof. by rewrite /shrincs_fxmss_wots_sign => ->. Qed.
+Proof. by rewrite /shrincs_fxmss_wots_sign /wotsc_sign -/(find_ctr pp m) => ->. Qed.
 
 Lemma shrincs_fxmss_wots_sign_Some pp xs m c :
   find_ctr pp m = Some c ->
   shrincs_fxmss_wots_sign pp xs m = Some (sign_digits pp xs (digest_of pp m c), c).
-Proof. by rewrite /shrincs_fxmss_wots_sign => ->. Qed.
+Proof. by rewrite /shrincs_fxmss_wots_sign /wotsc_sign -/(find_ctr pp m) => ->. Qed.
+
+(* ------------------------------------------------------------------ *)
+(** ** Definitional views
+
+    Each definition above is a [wotsc_*] application; these restate its
+    body in the pre-merge form.  All are pure conversion, and exist so
+    that proof scripts can [rewrite fooE] instead of [rewrite /foo] and
+    stay independent of how many delta steps separate a name from its
+    body. *)
+
+Lemma digest_of_def pp m c : digest_of pp m c = digits_w w l (Hgrind pp grind_adrs (m, c)).
+Proof. by []. Qed.
+
+Lemma valid_digest_def ds : valid_digest ds = wf_digits w ds && (sumn ds == S_wn).
+Proof. by []. Qed.
+
+Lemma good_ctr_def pp m c : good_ctr pp m c = valid_digest (digest_of pp m c).
+Proof. by []. Qed.
+
+Lemma find_ctr_def pp m : find_ctr pp m = ohead [seq c <- iota 0 c_max | good_ctr pp m c].
+Proof. by []. Qed.
+
+Lemma chainf_def pp i pos x : chainf pp i pos x = F pp (chain_adrs i pos) x.
+Proof. by []. Qed.
+
+Lemma chain_ends_def pp xs :
+  chain_ends pp xs = [seq chain (chainf pp ix.1) ix.2 0 w.-1 | ix <- zip (iota 0 l) xs].
+Proof. by []. Qed.
+
+Lemma shrincs_fxmss_wots_public_key_def pp xs :
+  shrincs_fxmss_wots_public_key pp xs = Tl pp pk_adrs (chain_ends pp xs).
+Proof. by []. Qed.
+
+Lemma sign_digits_def pp xs ds :
+  sign_digits pp xs ds
+  = [seq chain (chainf pp ixd.1.1) ixd.1.2 0 ixd.2 | ixd <- zip (zip (iota 0 l) xs) ds].
+Proof. by []. Qed.
+
+Lemma complete_ends_def pp ds ys :
+  complete_ends pp ds ys
+  = [seq chain (chainf pp q.1) q.2.2 q.2.1 (w.-1 - q.2.1) | q <- zip (iota 0 l) (zip ds ys)].
+Proof. by []. Qed.
+
+Lemma shrincs_fxmss_wots_verify_def pp root m sg :
+  shrincs_fxmss_wots_verify pp root m sg
+  = [&& valid_digest (digest_of pp m sg.2), size sg.1 == l
+      & Tl pp pk_adrs (complete_ends pp (digest_of pp m sg.2) sg.1) == root].
+Proof. by []. Qed.
+
+Lemma shrincs_fxmss_wots_sign_def pp xs m :
+  shrincs_fxmss_wots_sign pp xs m
+  = omap (fun c => (sign_digits pp xs (digest_of pp m c), c)) (find_ctr pp m).
+Proof. by []. Qed.
 
 (* ------------------------------------------------------------------ *)
 (** ** Size sanity lemmas *)
 
 Lemma size_chain_ends pp xs : size (chain_ends pp xs) = minn l (size xs).
-Proof. by rewrite size_map size_zip size_iota. Qed.
+Proof. exact: wotsc_size_chain_ends. Qed.
 
 Lemma size_chain_ends_l pp xs :
   size xs = l -> size (chain_ends pp xs) = l.
@@ -251,7 +295,7 @@ Proof. by move=> hxs; rewrite size_chain_ends hxs minnn. Qed.
 
 Lemma size_sign_digits pp xs ds :
   size (sign_digits pp xs ds) = minn (minn l (size xs)) (size ds).
-Proof. by rewrite size_map !size_zip size_iota. Qed.
+Proof. exact: wotsc_size_sign_chains. Qed.
 
 Lemma size_sign_digits_l pp xs ds :
   size xs = l -> size ds = l -> size (sign_digits pp xs ds) = l.
@@ -259,7 +303,7 @@ Proof. by move=> hxs hds; rewrite size_sign_digits hxs hds !minnn. Qed.
 
 Lemma size_complete_ends pp ds ys :
   size (complete_ends pp ds ys) = minn l (minn (size ds) (size ys)).
-Proof. by rewrite size_map !size_zip size_iota. Qed.
+Proof. exact: wotsc_size_complete_ends. Qed.
 
 (* ------------------------------------------------------------------ *)
 (** ** Correctness *)
@@ -278,13 +322,7 @@ Lemma complete_sign_chain pp st (xs : seq N) (ds : seq nat) :
                   [seq chain (chainf pp ixd.1.1) ixd.1.2 0 ixd.2
                   | ixd <- zip (zip (iota st (size xs)) xs) ds])]
   = [seq chain (chainf pp ix.1) ix.2 0 w.-1 | ix <- zip (iota st (size xs)) xs].
-Proof.
-elim: xs st ds => [|x xs IH] st [|d ds] //= [hsz] /andP[hd hds].
-have hdw : d <= w.-1 by rewrite -ltnS (ltn_predK hd).
-have hsp := chain_split (chainf pp st) x (leq0n d) hdw.
-rewrite !subn0 in hsp.
-by rewrite -hsp; congr (_ :: _); apply: IH.
-Qed.
+Proof. exact: wotsc_complete_sign_chain. Qed.
 
 (** THE correctness lemma: if grinding succeeds, the honest signature
     verifies under the honest compressed public key.  Re-grinding is
@@ -295,31 +333,14 @@ Lemma shrincs_fxmss_wots_verify_digits pp xs m c :
   size xs = l ->
   find_ctr pp m = Some c ->
   shrincs_fxmss_wots_verify pp (shrincs_fxmss_wots_public_key pp xs) m (sign_digits pp xs (digest_of pp m c), c) = true.
-Proof.
-move=> hxs hc.
-have hgood : good_ctr pp m c := find_ctr_good _ _ _ hc.
-have /andP[hwf _] := hgood.
-have hszd : size (digest_of pp m c) = l by rewrite size_digest_of.
-rewrite /shrincs_fxmss_wots_verify /=.
-apply/and3P; split.
-- exact: hgood.
-- by rewrite size_sign_digits_l ?eqxx.
-- apply/eqP; rewrite /shrincs_fxmss_wots_public_key; congr (Tl _ _ _).
-  rewrite /complete_ends /chain_ends /sign_digits -hxs.
-  apply: complete_sign_chain; last exact: hwf.
-  by rewrite hszd hxs.
-Qed.
+Proof. exact: wotsc_verify_sign_digits. Qed.
 
 (** Correctness through the signing function. *)
 Lemma shrincs_fxmss_wots_verify_sign pp xs m sg :
   size xs = l ->
   shrincs_fxmss_wots_sign pp xs m = Some sg ->
   shrincs_fxmss_wots_verify pp (shrincs_fxmss_wots_public_key pp xs) m sg = true.
-Proof.
-move=> hxs; rewrite /shrincs_fxmss_wots_sign.
-case E: (find_ctr pp m) => [c|] //= [<-].
-by apply: shrincs_fxmss_wots_verify_digits.
-Qed.
+Proof. exact: wotsc_verify_sign. Qed.
 
 (* ------------------------------------------------------------------ *)
 (** ** The scheme as a [sig_scheme]
@@ -330,19 +351,7 @@ Qed.
     PKseed is part of both SK and PK); see the header for the
     PRF-vs-sampling deviation. *)
 
-Definition shrincs_fxmss_wots_scheme : sig_scheme := {|
-  Pk := PP × N ;
-  Sk := PP × ('list N) ;
-  Msg := M ;
-  Sig := ('list N) × 'nat ;
-  SParam := 'unit ;
-  keygen := fun _ => {code
-    pp ← dPP ;;
-    xs ← sample_seq dN l ;;
-    ret ((pp, xs), (pp, shrincs_fxmss_wots_public_key pp xs)) } ;
-  sign := fun sk m => {code
-    ret (omap (fun sg => (sg, sk)) (shrincs_fxmss_wots_sign sk.1 sk.2 m)) } ;
-  verify := fun pk m sg => shrincs_fxmss_wots_verify pk.1 pk.2 m sg
-|}.
+Definition shrincs_fxmss_wots_scheme : sig_scheme :=
+  wotsc_scheme w l PP N M adrs_sf F Tl Hgrind dPP dN S_wn c_max grind_adrs pk_adrs chain_adrs false.
 
 End WOTSCScheme.

@@ -770,7 +770,7 @@ have hwf : wf_digits w (rr_digitS PP D Hgrind S_wn c_max pp t md j).
   + by move: (find_ctr_good PP D Hgrind S_wn c_max (leaf_km.lcoord t).1
                (leaf_km.lcoord t).2 pp md c E) => /andP[h1 _].
   + by rewrite /wf_digits all_nseq ltn_predL hw orbT. }
-rewrite /rr_pkS /leaf_pk_c /shrincs_fxmss_wots_public_key /pk_adrs.
+rewrite /rr_pkS /leaf_pk_c !shrincs_fxmss_wots_public_key_def /pk_adrs.
 congr (Tl pp _ _).
 exact: (ends_from_roots_map0 PP N (leaf2_games.rr_F PP N F t) l w pp
           (rr_digitS PP D Hgrind S_wn c_max pp t md j) xs hszd hwf).
@@ -1378,13 +1378,13 @@ Lemma lud_pick_map (pp : PP) (zi : nat * nat) (md : D) :
   = omap (fun c => (c, Hgrind pp (shrincs_fxmss_wots_grind_adrs zi) (md, c)))
       (find_ctr PP D Hgrind S_wn c_max zi.1 zi.2 pp md).
 Proof.
-rewrite /lud_pick lud_zip_filter /find_ctr.
+rewrite /lud_pick lud_zip_filter !find_ctr_def.
 have hf :
   [seq c <- iota 0 c_max
    | @grind_prp w l S_wn (Hgrind pp (shrincs_fxmss_wots_grind_adrs zi) (md, c))]
   = [seq c <- iota 0 c_max | good_ctr PP D Hgrind S_wn zi.1 zi.2 pp md c].
   by apply: eq_filter => c;
-     rewrite /grind_prp /good_ctr /valid_digest /digest_of.
+     rewrite /grind_prp !good_ctr_def !valid_digest_def.
 by rewrite hf.
 Qed.
 
@@ -1544,7 +1544,7 @@ Lemma ud_wendsE (pp : PP) (t : adrs_sf_ch) (ds : seq nat) (ys : seq N) :
   size ds = l ->
   ends_of PP N (Fw PP N F (lcoord t).1 (lcoord t).2) w pp 0 ds ys
   = complete_ends PP N F (lcoord t).1 (lcoord t).2 pp ds ys.
-Proof. by move=> hds; rewrite /ends_of /complete_ends hds. Qed.
+Proof. by move=> hds; rewrite /ends_of !complete_ends_def hds. Qed.
 
 (* ------------------------------------------------------------------ *)
 (** *** The invariant [ud_inv] (mirror Compress [cp_inv], transposed). *)

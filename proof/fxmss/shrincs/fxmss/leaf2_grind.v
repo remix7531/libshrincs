@@ -563,13 +563,13 @@ Lemma lgr_pick_map (pp : PP) (zi : nat * nat) (md : D) :
   = omap (fun c => (c, Hgrind pp (shrincs_fxmss_wots_grind_adrs zi) (md, c)))
          (find_ctr PP D Hgrind S_wn c_max zi.1 zi.2 pp md).
 Proof.
-rewrite /lgr_pick lgr_zip_filter /find_ctr.
+rewrite /lgr_pick lgr_zip_filter !find_ctr_def.
 have hf :
   [seq c <- iota 0 c_max
    | @grind_prp w l S_wn (Hgrind pp (shrincs_fxmss_wots_grind_adrs zi) (md, c))]
   = [seq c <- iota 0 c_max | good_ctr PP D Hgrind S_wn zi.1 zi.2 pp md c].
   by apply: eq_filter => c;
-     rewrite /grind_prp /good_ctr /valid_digest /digest_of.
+     rewrite /grind_prp !good_ctr_def !valid_digest_def.
 by rewrite hf.
 Qed.
 
@@ -1432,7 +1432,7 @@ have hpick : omap fst (lgr_pick [seq Hgrind pp (shrincs_fxmss_wots_grind_adrs (l
 have hsearch : [seq i <- iota 0 c_max | gprp (th_eval TGl pp (grtw_of t) (genc md i))]
    = [seq c <- iota 0 c_max | good_ctr PP D Hgrind S_wn (lcoord t).1 (lcoord t).2 pp md c].
   apply: eq_filter => i.
-  by rewrite th_eval_grtw /genc /grind_enc /grind_prp /good_ctr /valid_digest /digest_of.
+  by rewrite th_eval_grtw /genc /grind_enc /grind_prp !good_ctr_def !valid_digest_def.
 eapply (r_get_rhs_known Spp (Some pp)).
   { move=> s0 s1; exact: grblk_Spp. }
 eapply (r_get_rhs_known rgr_cnt_loc (size stw)).

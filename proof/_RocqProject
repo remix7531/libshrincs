@@ -106,6 +106,7 @@ ssprove/lib/toolkit/ro_plus.v
 ssprove/lib/toolkit/reprogram.v
 ssprove/lib/chain/core.v
 ssprove/lib/chain/ud.v
+ssprove/lib/wots/wotsc.v
 ssprove/lib/wots/games.v
 ssprove/lib/wots/analysis.v
 ssprove/lib/wots/ud_hop.v

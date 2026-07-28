@@ -585,13 +585,13 @@ Lemma lct_pick_map (pp : PP) (zi : nat * nat) (md : D) :
   lct_pick [seq Hgrind pp (shrincs_fxmss_wots_grind_adrs zi) (md, c) | c <- iota 0 c_max]
   = omap (fun c => (c, Hgrind pp (shrincs_fxmss_wots_grind_adrs zi) (md, c))) (lfind zi pp md).
 Proof.
-rewrite /lct_pick lct_zip_filter /find_ctr.
+rewrite /lct_pick lct_zip_filter !find_ctr_def.
 have hf :
   [seq c <- iota 0 c_max
    | @grind_prp w l S_wn (Hgrind pp (shrincs_fxmss_wots_grind_adrs zi) (md, c))]
   = [seq c <- iota 0 c_max | good_ctr PP D Hgrind S_wn zi.1 zi.2 pp md c].
   by apply: eq_filter => c;
-     rewrite /grind_prp /good_ctr /valid_digest /digest_of.
+     rewrite /grind_prp !good_ctr_def !valid_digest_def.
 by rewrite hf.
 Qed.
 

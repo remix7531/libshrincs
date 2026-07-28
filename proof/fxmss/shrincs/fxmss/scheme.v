@@ -596,7 +596,7 @@ Lemma shrincs_fxmss_wots_verifyE (pp : PP) (rt : N) (zi : nat * nat) (md : D)
     (ws : seq N * nat) :
   shrincs_fxmss_wots_verify PP N D F Tl Hgrind S_wn zi.1 zi.2 pp rt md ws
   = shrincs_fxmss_wots_checks pp zi md ws && (shrincs_fxmss_recover_anchor pp zi md ws == rt).
-Proof. by rewrite /shrincs_fxmss_wots_verify /shrincs_fxmss_wots_checks /shrincs_fxmss_recover_anchor andbA. Qed.
+Proof. by rewrite shrincs_fxmss_wots_verify_def /shrincs_fxmss_wots_checks /shrincs_fxmss_recover_anchor andbA. Qed.
 
 (** The flexible verifier (xmss.tex fxmss.pkFromSig + schrincs.tex
     alg:verify stateful branch): bounds-check the leaf identifier,

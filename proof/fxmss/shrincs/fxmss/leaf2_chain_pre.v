@@ -556,13 +556,13 @@ Lemma lpr_pick_map (pp : PP) (zi : nat * nat) (md : D) :
   = omap (fun c => (c, Hgrind pp (shrincs_fxmss_wots_grind_adrs zi) (md, c)))
          (find_ctr PP D Hgrind S_wn c_max zi.1 zi.2 pp md).
 Proof.
-rewrite /lpr_pick lpr_zip_filter /find_ctr.
+rewrite /lpr_pick lpr_zip_filter !find_ctr_def.
 have hf :
   [seq c <- iota 0 c_max
    | @grind_prp w l S_wn (Hgrind pp (shrincs_fxmss_wots_grind_adrs zi) (md, c))]
   = [seq c <- iota 0 c_max | good_ctr PP D Hgrind S_wn zi.1 zi.2 pp md c].
   by apply: eq_filter => c;
-     rewrite /grind_prp /good_ctr /valid_digest /digest_of.
+     rewrite /grind_prp !good_ctr_def !valid_digest_def.
 by rewrite hf.
 Qed.
 
@@ -1724,7 +1724,7 @@ have hnseq : all (fun d => (d < w)%N) (nseq l w.-1).
   exact: leq_ltn_trans (leq0n a) ha.
 rewrite /l_rrdigS /l_rrdig; case E0: (find_ctr _ _ _ _ _ _ _ _ _) => [c|] //.
 by move: (find_ctr_good PP D Hgrind S_wn c_max zi.1 zi.2 pp0 md c E0);
-   rewrite /good_ctr /valid_digest => /andP[].
+   rewrite !good_ctr_def !valid_digest_def => /andP[].
 Qed.
 
 (* ------------------------------------------------------------------ *)
@@ -2076,11 +2076,11 @@ simplify_eq_rel arg.
         := size_digest_of PP D Hgrind (lcoord t0).1 (lcoord t0).2 pp mw.1 mw.2.2.
       have hallfdv : all (fun d => (d < w)%N)
           (digest_of PP D Hgrind (lcoord t0).1 (lcoord t0).2 pp mw.1 mw.2.2).
-        by move: hvd; rewrite /valid_digest /wf_digits => /andP[].
+        by move: hvd; rewrite !valid_digest_def /wf_digits => /andP[].
       have hvmf : valid_msg l w S_wn
           (digest_of PP D Hgrind (lcoord t0).1 (lcoord t0).2 pp mw.1 mw.2.2).
         by rewrite /valid_msg hfdvsz eqxx /=;
-           move: hvd; rewrite /valid_digest /wf_digits.
+           move: hvd; rewrite !valid_digest_def /wf_digits.
       have hddw := all_lt_dds (lcoord t0) pp md0 j _ hfdvsz hallfdv.
       have hhas := lpr_coord pp t0 md0 j _ hvd hfdvsz hnghit.
       have htcrN : tcr_decision PP N (FWl (lcoord t0)) l w pp

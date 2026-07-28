@@ -1260,9 +1260,9 @@ Lemma has_grind_find_ctr pp (zi : nat * nat) (d : D) :
   has gprp [seq Hgrind pp (gadrs zi) (d, c) | c <- iota 0 c_max]
   = isSome (ffind_ctr zi pp d).
 Proof.
-rewrite has_map /find_ctr.
+rewrite has_map !find_ctr_def.
 rewrite (eq_has (a2 := fgood_ctr zi pp d)); last first.
-  by move=> c /=; rewrite /good_ctr /digest_of /grind_adrs; case: zi.
+  by move=> c /=; rewrite !good_ctr_def !digest_of_def /grind_adrs; case: zi.
 rewrite has_count -size_filter.
 by case: [seq c <- iota 0 c_max | fgood_ctr zi pp d c].
 Qed.

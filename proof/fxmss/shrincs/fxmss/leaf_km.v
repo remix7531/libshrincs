@@ -2687,7 +2687,7 @@ simplify_eq_rel arg.
                  stL.1.1 (spath stL.2.1 (flidx stL.2.1 arg.2))
                  (nth [::] stL.2.2 (flidx stL.2.1 arg.2)) md
                  (shrincs_fxmss_sign_path_pos_ok h_sf stL.2.1
-                    (flidx stL.2.1 arg.2) Hli)) /shrincs_fxmss_wots_sign.
+                    (flidx stL.2.1 arg.2) Hli)) shrincs_fxmss_wots_sign_def.
       by move: hsg; case: (find_ctr _ _ _ _ _ _ _ _ _). }
   move=> hls.
   ssprove_code_simpl. simpl.
@@ -3253,7 +3253,7 @@ simplify_eq_rel arg.
                  stL.1.1 (spath stL.2.1 (flidx stL.2.1 arg.2))
                  (nth [::] stL.2.2 (flidx stL.2.1 arg.2)) md
                  (shrincs_fxmss_sign_path_pos_ok h_sf stL.2.1
-                    (flidx stL.2.1 arg.2) Hli)) /shrincs_fxmss_wots_sign.
+                    (flidx stL.2.1 arg.2) Hli)) shrincs_fxmss_wots_sign_def.
       by move: hsg; case: (find_ctr _ _ _ _ _ _ _ _ _). }
   move=> hls.
   ssprove_code_simpl. simpl.
