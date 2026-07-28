@@ -12,9 +12,12 @@
     Both sides enforce the same total query bound.
 
     Unlike [Sec.lib.games.prf], this game permits repeated and adaptively
-    selected inputs.  The distinct-query game remains useful for fixed
-    derivation loops; this variant is the reusable assumption needed by
-    FXMSS key generation. *)
+    selected inputs.  It is therefore the CANONICAL PRF notion of this
+    development: [Sec.lib.games.prf_link] proves the distinct-query game
+    to be a reduction to this one (same query cap, no additive loss), so
+    the distinct-query game is the weaker assumption and survives only
+    as a convenience for the fixed derivation loops of
+    [Sec.lib.games.prf_derive]. *)
 
 From Sec.lib Require Import prelude games.thf.
 

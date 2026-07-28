@@ -90,6 +90,7 @@ ssprove/lib/games/smud.v
 ssprove/lib/games/stcrp.v
 ssprove/lib/games/prf.v
 ssprove/lib/games/prf_adaptive.v
+ssprove/lib/games/prf_link.v
 ssprove/lib/games/prf_derive.v
 ssprove/lib/toolkit/sample_seq.v
 ssprove/lib/toolkit/relational_rules.v

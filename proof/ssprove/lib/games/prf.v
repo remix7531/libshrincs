@@ -28,6 +28,15 @@
     distribution.  A standard PRF distinguisher bound therefore
     implies a bound on [AdvOf (PRF_game K q) A].
 
+    That last step is PROVEN, not argued informally, in
+    [Sec.lib.games.prf_link] ([prf_distinct_reduce]): this game is a
+    REDUCTION to the CANONICAL adaptive game
+    ([Sec.lib.games.prf_adaptive]), at the same query cap [q] and with
+    no additive loss.  Prefer the adaptive game for a new assumption;
+    this variant survives for the fixed derivation loops
+    ([Sec.lib.games.prf_derive]) whose queries are distinct by
+    construction.
+
     PRF advantage of A: [AdvOf (PRF_game K q) A]. *)
 
 From Sec.lib Require Import prelude games.thf.
