@@ -163,11 +163,6 @@ fxmss/shrincs/addressing.v
 fxmss/shrincs/wotsc/scheme.v
 fxmss/shrincs/wotsc/games.v
 fxmss/shrincs/wotsc/analysis.v
-fxmss/shrincs/wotsc/grind_hop.v
-fxmss/shrincs/wotsc/compress_hop.v
-fxmss/shrincs/wotsc/chain_hop.v
-fxmss/shrincs/wotsc/zero_games.v
-fxmss/shrincs/wotsc/zero_chain_hop.v
 # FXMSS scheme + EU-CMA proof:
 fxmss/shrincs/fxmss/scheme.v
 fxmss/shrincs/fxmss/games.v
