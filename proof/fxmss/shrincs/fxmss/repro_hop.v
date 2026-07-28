@@ -211,8 +211,10 @@ Local Notation Lrc := ro_rcnt_loc.
 Local Notation ROG b' := (RO_repro R XSuf D dR dD qh' q_s b').
 Local Notation IRO := (I_RO R XSuf D).
 
-(** The FORGE budget counter (the +1 over Games.v's 400-407). *)
-Definition shrincs_fxmss_fcnt_loc := mkloc 408 (0 : 'nat).
+(** The FORGE budget counter (the +1 over Games.v's 400-407) is
+    [shrincs_fxmss_fcnt_loc] (408), imported from [fxmss.games] (no local
+    redefinition: this file already [Require Import]s it, see
+    proof/LOCATIONS.md). *)
 
 (* ------------------------------------------------------------------ *)
 (** ** G2c / G3c: named oracle bodies + DIRECTED assembly

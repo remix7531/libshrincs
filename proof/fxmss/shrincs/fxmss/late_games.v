@@ -47,6 +47,12 @@ From HBS Require Import prelude math.bin_tree math.merkle sig.scheme
   games.thf toolkit.sample_seq.
 From SHRINCS Require Import addressing wotsc.scheme wotsc.games
   fxmss.scheme fxmss.games.
+(* [Export], not [Import]: files that [Require Import fxmss.late_games]
+   without requiring [fxmss.digest_hop] themselves (tree_hop_proof.v,
+   tcrx_hop_proof.v, leaf_km.v, leaf_reduction.v, ...) need
+   [shrincs_fxmss_sd_loc] transitively, and plain [Import] does not
+   propagate through a further [Require] — see proof/LOCATIONS.md. *)
+From SHRINCS Require Export fxmss.digest_hop.
 Set Warnings "notation-overridden,ambiguous-paths,notation-incompatible-prefix".
 
 Import PackageNotation.
@@ -98,15 +104,15 @@ Local Notation Lrom := (shrincs_fxmss_rom_loc PP N D M R).
 Local Notation Lrt := (shrincs_fxmss_rt_loc M R).
 
 (** The signing-table key space and the presampled-digest map (= the
-    DigestHop locations; [shrincs_fxmss_sd_loc] is location 409). *)
+    DigestHop locations; [shrincs_fxmss_sd_loc] (409) is imported from
+    [fxmss.digest_hop], not redefined here — see proof/LOCATIONS.md). *)
 Local Notation RTK := (('nat × 'nat) × M).
-Definition shrincs_fxmss_sd_loc := mkloc 409 (emptym : chMap 'nat D).
-Local Notation Lsd := shrincs_fxmss_sd_loc.
+Local Notation Lsd := (shrincs_fxmss_sd_loc D).
 
 (** The shared location set of every late game (= DigestHop's). *)
 Definition LateLocs : Locations :=
   [fmap Lst ; shrincs_fxmss_used_loc ; shrincs_fxmss_scnt_loc ; Llog ; Lrom ;
-        shrincs_fxmss_hcnt_loc ; Lrt ; shrincs_fxmss_fcnt_loc ; shrincs_fxmss_sd_loc ].
+        shrincs_fxmss_hcnt_loc ; Lrt ; shrincs_fxmss_fcnt_loc ; Lsd ].
 
 (* ------------------------------------------------------------------ *)
 (** ** The presampled-digest sampler [fill_code] (DigestHop's) *)

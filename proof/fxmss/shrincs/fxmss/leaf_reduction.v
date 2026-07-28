@@ -253,11 +253,15 @@ Definition LGETPP  : nat := 61.
 Definition LCHECK  : nat := 62.
 Definition LCOLLQ  : nat := 63.
 
-Definition miw_pp_loc   := mkloc 64 (None : option PP).
+(* ids 500-503, not 64-67: 64/66 collide (id AND, at the FXMSS
+   instantiation, type) with Sec.lib.games.smud's [ud_pp_loc]/[ud_rev_loc]
+   -- see proof/LOCATIONS.md and the FINDING recorded there re: leaf2_ud.v's
+   [IGNU], which relied on this collision. *)
+Definition miw_pp_loc   := mkloc 500 (None : option PP).
 Definition miw_tgts_loc :=
-  mkloc 65 (emptym : {fmap nat -> (adrs_sf_ch × ('list N))}).
-Definition miw_tws_loc  := mkloc 66 ([::] : seq adrs_sf_ch).
-Definition miw_rev_loc  := mkloc 67 (false : bool).
+  mkloc 501 (emptym : {fmap nat -> (adrs_sf_ch × ('list N))}).
+Definition miw_tws_loc  := mkloc 502 ([::] : seq adrs_sf_ch).
+Definition miw_rev_loc  := mkloc 503 (false : bool).
 
 (** Coordinate / honest-pk / recovered-anchor of a committed tweak. *)
 Local Notation lcoord t := (adrs_keypair (decode_tweak t)).
@@ -711,7 +715,7 @@ Defined.
     [leaf_win]); the §1.4 shrincs_fxmss_wots_checks guard is a layer-(ii) concern. *)
 
 Definition LSIGN : nat := 68.
-Definition miw_slog_loc := mkloc 69 ([::] : seq nat).
+Definition miw_slog_loc := mkloc 504 ([::] : seq nat).
 
 Local Notation MIWLocs'' :=
   [fmap miw_pp_loc ; miw_tgts_loc ; miw_tws_loc ; miw_rev_loc ; miw_slog_loc ].

@@ -219,15 +219,17 @@ Definition lcp_digitS (j : nat) (hs : seq nat) : seq nat :=
 (* ------------------------------------------------------------------ *)
 (** ** The reduction package R_cp_leaf : package IMP IKM. *)
 
-(** R's own state (600+).  Mirrors Glmid1's (rev/tws/tgts/slog/pp); the tgts
-    map additionally stores the find_ctr counter option [copt] (so LSIGN
-    reveals it and LCHECK reads grindability). *)
-Definition rcp_rev_loc  := mkloc 600 (false : bool).
-Definition rcp_tws_loc  := mkloc 601 ([::] : seq adrs_sf_ch).
+(** R's own state (610+, not 600+: 600-604 collide with leaf2_chain_tcr.v's
+    rct_* at 600-605, see proof/LOCATIONS.md).  Mirrors Glmid1's
+    (rev/tws/tgts/slog/pp); the tgts map additionally stores the find_ctr
+    counter option [copt] (so LSIGN reveals it and LCHECK reads
+    grindability). *)
+Definition rcp_rev_loc  := mkloc 610 (false : bool).
+Definition rcp_tws_loc  := mkloc 611 ([::] : seq adrs_sf_ch).
 Definition rcp_tgts_loc :=
-  mkloc 602 (emptym : {fmap nat -> (adrs_sf_ch × (('list N × D) × 'option 'nat))}).
-Definition rcp_slog_loc := mkloc 603 ([::] : seq nat).
-Definition rcp_pp_loc   := mkloc 604 (None : option PP).
+  mkloc 612 (emptym : {fmap nat -> (adrs_sf_ch × (('list N × D) × 'option 'nat))}).
+Definition rcp_slog_loc := mkloc 613 ([::] : seq nat).
+Definition rcp_pp_loc   := mkloc 614 (None : option PP).
 
 Local Notation RCPLocs :=
   [fmap rcp_rev_loc ; rcp_tws_loc ; rcp_tgts_loc ; rcp_slog_loc ; rcp_pp_loc ].

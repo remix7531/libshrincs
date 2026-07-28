@@ -220,12 +220,14 @@ Definition lud_digitS (j : nat) (hs : seq nat) : seq nat :=
 (* ================================================================== *)
 (** ** The reduction [R_ud_leaf : package (I_SMUD TF CUD_leaf) IKM]. *)
 
-Definition rud_rev_loc  := mkloc 700 (false : bool).
-Definition rud_tws_loc  := mkloc 701 ([::] : seq adrs_sf_ch).
+(* ids 710+, not 700+: 700-704 collide with leaf2_chain_pre.v's rpr_* at
+   700-705 (see proof/LOCATIONS.md). *)
+Definition rud_rev_loc  := mkloc 710 (false : bool).
+Definition rud_tws_loc  := mkloc 711 ([::] : seq adrs_sf_ch).
 Definition rud_tgts_loc :=
-  mkloc 702 (emptym : {fmap nat -> (adrs_sf_ch × ((('list N) × D) × 'option 'nat))}).
-Definition rud_slog_loc := mkloc 703 ([::] : seq nat).
-Definition rud_pp_loc   := mkloc 704 (None : option PP).
+  mkloc 712 (emptym : {fmap nat -> (adrs_sf_ch × ((('list N) × D) × 'option 'nat))}).
+Definition rud_slog_loc := mkloc 713 ([::] : seq nat).
+Definition rud_pp_loc   := mkloc 714 (None : option PP).
 
 Local Notation RUDLocs :=
   [fmap rud_rev_loc ; rud_tws_loc ; rud_tgts_loc ; rud_slog_loc ; rud_pp_loc ].
@@ -1547,16 +1549,20 @@ Proof. by move=> hds; rewrite /ends_of /complete_ends hds. Qed.
 (* ------------------------------------------------------------------ *)
 (** *** The invariant [ud_inv] (mirror Compress [cp_inv], transposed). *)
 
-(** NB: [Upp]/[Urv] are OMITTED: [Upp] shares id [64] with [Lpp] and [Urv]
-    shares id [66] with [Ltw].  [heap_ignore] ignores by ID, so those ids are
-    still ignored (via [Lpp]/[Ltw]); listing the type-conflicting duplicates
-    would make [IGNU] type-inconsistent with the composite location union
-    (which resolves id 66 to the game's [Ltw : seq], not [Urv : bool]),
-    breaking the [fsubmap] well-formedness check. *)
+(** [IGNU] lists every cell of BOTH sides that the two runs may disagree
+    on: the game's [Lpp ; Ltg ; Ltw ; Lrv ; Lsl], the reduction's [rud_*],
+    and all three SM-UD cells [Upp ; Utw ; Urv].
+
+    NB (history): [Upp] and [Urv] used to be omitted here, because [Upp]
+    shared id [64] with [Lpp] and [Urv] shared id [66] with [Ltw], and
+    [heap_ignore] ignores by ID — so they were ignored for free, and a
+    literal listing would have made [IGNU] type-inconsistent (one key, two
+    types) with the composite location union.  Those ids are now disjoint
+    (see proof/LOCATIONS.md), so the two cells are listed honestly. *)
 Definition IGNU : Locations :=
   [fmap Lpp ; Ltg ; Ltw ; Lrv ; Lsl ;
         rud_pp_loc ; rud_tgts_loc ; rud_tws_loc ; rud_rev_loc ; rud_slog_loc ;
-        Utw ].
+        Upp ; Utw ; Urv ].
 
 (** Per-index coherence of the game / reduction target tables (no third
     table, unlike Compress; the reduction's [copt] IS [find_ctr]). *)

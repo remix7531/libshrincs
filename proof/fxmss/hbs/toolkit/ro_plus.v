@@ -64,7 +64,9 @@ Definition REPRO : nat := 61.
 Definition ro_map_loc : Location :=
   mkloc 62 (emptym : chMap (Pfx × X) R).
 Definition ro_qcnt_loc : Location := mkloc 63 (0 : 'nat).
-Definition ro_rcnt_loc : Location := mkloc 64 (0 : 'nat).
+(* id 78, not 64: 64 collides with Sec.lib.games.smud's [ud_pp_loc] at the
+   FXMSS instantiation (see proof/LOCATIONS.md). *)
+Definition ro_rcnt_loc : Location := mkloc 78 (0 : 'nat).
 
 Definition I_RO :=
   [interface
