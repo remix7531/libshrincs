@@ -92,13 +92,11 @@ Definition H_grind_shrincs (pp : PP_shrincs) (a : address.adrs chain_count_shrin
     (x : M_shrincs * nat) : nat :=
   nat_of_ord (H_grind0 pp a x).
 
-(** The instance anchor stays arbitrary (any leaf position).  Both
-    anchor-field range bounds are assumed here, exactly parallel: the
-    height [zstar < 256] and the node index [istar < 2^64] (the latter
-    stated via [addressing.anchor_idx_bound]).  Both are wire-format
-    facts of the ADRS and become hypotheses of the headline theorem. *)
-Context (zstar istar : nat) (zstar_range : (zstar < 256)%nat).
-Context (istar_range : anchor_idx_bound istar).
+(** The instance anchor stays arbitrary (any leaf position), and
+    carries NO range hypothesis: [Sec.addressing] places both anchor
+    components exact-or-zero, so the headline theorem below holds at
+    every [(zstar, istar)]. *)
+Context (zstar istar : nat).
 
 (* ------------------------------------------------------------------ *)
 (** ** The side conditions hold by construction *)
@@ -122,8 +120,6 @@ Definition P_shrincs : wc_params := {|
   wcp_Hw  := shrincs_Hw ;
   wcp_zstar := zstar ;
   wcp_istar := istar ;
-  wcp_zstar_range := zstar_range ;
-  wcp_istar_range := istar_range ;
   wcp_F       := F_shrincs ;
   wcp_T_sf    := T_sf_shrincs ;
   wcp_H_grind := H_grind_shrincs ;

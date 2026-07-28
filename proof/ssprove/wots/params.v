@@ -9,10 +9,10 @@
     The WOTS+C parameter record [wc_params]: one value carrying every
     section parameter the scheme, games, hops and bounds used to thread
     individually (types, Winternitz data, hash functions, samplers,
-    grinding data, and the imaginary-tree anchor with its range proofs).
-    Downstream files take a single [Context (P : wc_params)] instead of
-    a 19-line Context block, and every scheme/game constant is a plain
-    definition applied to [P] -- no [Local Notation] preamble.
+    grinding data, and the imaginary-tree anchor).  Downstream files
+    take a single [Context (P : wc_params)] instead of a 19-line Context
+    block, and every scheme/game constant is a plain definition applied
+    to [P] -- no [Local Notation] preamble.
 
     ** Letter key (the three hashes under attack)
 
@@ -24,16 +24,14 @@
     - [wcp_H_grind] the grinding hash H_grind (SF_SHRINCS_WOTS_GRIND,
                     type 22), output read as [chain_count] base-w digits.
 
-    ** Proof fields and definitional transparency (load-bearing)
+    ** The anchor is plain data
 
-    [wc_anchor_tagZ] / [wc_anchor_idxZ] below are DEFINITIONS, never
-    opaque lemmas ([Qed]), and must stay that way: every smart
-    constructor across the whole development receives the anchor bound
-    proofs through these two names, so all call sites share literally
-    the same proof term -- the exact address must stay DEFINITIONALLY
-    equal wherever it is rebuilt (e.g. the chain address reached via
-    the fold vs via the decoded tweak); [fin] has no definitional proof
-    irrelevance, so two opaque witnesses would break that. *)
+    [wcp_zstar] / [wcp_istar] are bare [nat]s: the record carries NO
+    anchor range proof, because [Sec.addressing] places every address
+    component exact-or-zero and so needs no proof argument.  Nothing in
+    this file therefore has to stay definitionally transparent for two
+    rebuilds of the same address (the chain fold's step vs the decoded
+    tweak) to be equal -- they are literally the same term. *)
 
 From Sec.lib Require Import prelude.
 From Sec Require Import addressing.
@@ -60,14 +58,9 @@ Record wc_params := {
   wcp_Hw  : (1 < wcp_w)%nat ;
 
   (* Imaginary-tree anchor (z_star, i_star) of this WOTS+C instance:
-     the (node height, node index) ADRS fields of all its addresses.
-     [wcp_zstar] is the wire format's 1-byte height field, so it must
-     be byte-range for the ADRS round-trip to hold; [wcp_istar] is a
-     2^64-bounded ADRS field ([anchor_idx_bound]). *)
+     the (node height, node index) ADRS fields of all its addresses. *)
   wcp_zstar : nat ;
   wcp_istar : nat ;
-  wcp_zstar_range : (wcp_zstar < 256)%nat ;
-  wcp_istar_range : anchor_idx_bound wcp_istar ;
 
   (* The three tweakable hashes (letter key in the header). *)
   wcp_F       : wcp_PP -> address.adrs wcp_chain_count wcp_w.-1 -> wcp_N -> wcp_N ;
@@ -88,12 +81,11 @@ Record wc_params := {
 (* ================================================================== *)
 (** ** The anchor-free core
 
-    [wc_params_core] is [wc_params] minus the four anchor fields
-    (z_star, i_star and their range proofs) -- everything a hash GAME
-    can see.  The game instances (Sec.wots.games, Sec.wots.hop.prf's
-    khf) are defined over the core and only wrapped back to
-    [wc_params] for the scheme, so the 6 hash assumptions
-    (Sec.axioms) can be stated with ZERO anchor
+    [wc_params_core] is [wc_params] minus the two anchor fields
+    (z_star, i_star) -- everything a hash GAME can see.  The game
+    instances (Sec.wots.games, Sec.wots.hop.prf's khf) are defined over
+    the core and only wrapped back to [wc_params] for the scheme, so the
+    6 hash assumptions (Sec.axioms) can be stated with ZERO anchor
     quantification: the anchor is PROVABLY absent from their
     statements, not argued inert.  [wc_core_of] is the transparent
     projection; core and full spellings of every instance coincide by
@@ -157,8 +149,8 @@ Definition decode_tweak_core (H : wc_params_core) (t : wc_adrs_ch_core H) :
 (** ** Derived address vocabulary
 
     The exact address type and tweak space of an instance, and the
-    Addressing smart constructors specialized to it, as plain
-    definitions over [P]. *)
+    facade's smart constructors specialized to it, as plain definitions
+    over [P]. *)
 
 (** The exact stateful address type of the instance. *)
 Definition wc_adrs (P : wc_params) := address.adrs (wcp_chain_count P) (wcp_w P).-1.
@@ -167,53 +159,25 @@ Definition wc_adrs (P : wc_params) := address.adrs (wcp_chain_count P) (wcp_w P)
 Definition wc_adrs_ch (P : wc_params) : choice_type :=
   addressing.adrs_sf_ch (wcp_chain_count P) (wcp_w P).
 
-(** The instance anchor and its two bound proofs.  TRANSPARENT -- see
-    the header; do not turn these into [Qed] lemmas. *)
+(** The instance anchor. *)
 Definition wc_anchor (P : wc_params) : nat * nat := (wcp_zstar P, wcp_istar P).
-
-Definition wc_anchor_tagZ (P : wc_params) :
-  (Z.of_nat (wc_anchor P).1 < 256)%Z :=
-  anchor_tag_bound_lt _ (wcp_zstar_range P).
-
-Definition wc_anchor_idxZ (P : wc_params) :
-  (Z.of_nat (wc_anchor P).2 < 2 ^ 64)%Z :=
-  wcp_istar_range P.
 
 (** ADRS^g, the grinding address (type 22). *)
 Definition grind_adrs (P : wc_params) : wc_adrs P :=
-  addressing.shrincs_wots_grind_adrs (wcp_chain_count P) (wcp_w P)
-    (wc_anchor P) (wc_anchor_tagZ P) (wc_anchor_idxZ P).
+  addressing.wc_grind_adrs (wc_anchor P).
 
 (** ADRS^pk, the pk-compression address (type 17). *)
 Definition pk_adrs (P : wc_params) : wc_adrs P :=
-  addressing.shrincs_wots_pk_adrs (wcp_chain_count P) (wcp_w P)
-    (wc_anchor P) (wc_anchor_tagZ P) (wc_anchor_idxZ P).
+  addressing.wc_pk_adrs (wc_anchor P).
 
-(** The EXACT chain address (type 16) at chain [i], position [pos],
-    from their range proofs -- no clamp. *)
-Definition chain_adrs_exact (P : wc_params) (i pos : nat)
-    (Hi : (i < wcp_chain_count P)%nat) (Hpos : (pos < (wcp_w P).-1)%nat) : wc_adrs P :=
-  addressing.shrincs_wots_chain_adrs (wcp_chain_count P) (wcp_w P) (wcp_Hcc P) (wcp_Hw P)
-    (wc_anchor P) (wc_anchor_tagZ P) (wc_anchor_idxZ P) i pos Hi Hpos.
-
-(** ADRS^h, total and clamp-free: the exact chain address on in-range
-    [(i, pos)] (the only pairs any fold reaches), a dummy (the pk
-    address) out of range -- a [bool_dec] guard, not a clamp. *)
+(** ADRS^h at chain [i], position [pos] (type 16): both components
+    placed exact-or-zero, so this is a plain function of two [nat]s. *)
 Definition chain_adrs (P : wc_params) (i pos : nat) : wc_adrs P :=
-  addressing.shrincs_wots_chain_adrs_tot (wcp_chain_count P) (wcp_w P) (wcp_Hcc P) (wcp_Hw P)
-    (wc_anchor P) (wc_anchor_tagZ P) (wc_anchor_idxZ P) i pos.
+  addressing.wc_hash_adrs (wc_anchor P) i pos.
 
-(** On every reachable (in-range) index and position, [chain_adrs] IS
-    the exact chain address, independent of the range proofs. *)
-Lemma chain_adrs_exactE (P : wc_params) (i pos : nat)
-    (Hi : (i < wcp_chain_count P)%nat) (Hpos : (pos < (wcp_w P).-1)%nat) :
-  chain_adrs P i pos = chain_adrs_exact P i pos Hi Hpos.
-Proof. exact: addressing.shrincs_wots_chain_adrs_totE. Qed.
-
-(** ADRS^prf (type 21), total on the bare chain index. *)
+(** ADRS^prf of chain [i] (type 21). *)
 Definition prf_adrs (P : wc_params) (i : nat) : wc_adrs P :=
-  addressing.shrincs_wots_prf_adrs (wcp_chain_count P) (wcp_w P) (wcp_Hcc P)
-    (wc_anchor P) (wc_anchor_tagZ P) (wc_anchor_idxZ P) i.
+  addressing.wc_prf_adrs (wc_anchor P) i.
 
 (* ================================================================== *)
 (** ** Tweak encoding
@@ -221,8 +185,8 @@ Definition prf_adrs (P : wc_params) (i : nat) : wc_adrs P :=
     [encode_tweak]/[decode_tweak]: the structural bijection between the
     instance's addresses and its encoded tweak space, plus the two
     per-hash-call tweaks (encoded chain / prf addresses) and their
-    reconciliation and injectivity lemmas -- the Addressing facts
-    restated over [P] so consumers rewrite without arity pins. *)
+    reconciliation and injectivity lemmas -- the facade's facts restated
+    over [P] so consumers rewrite without arity pins. *)
 
 Definition encode_tweak (P : wc_params) (a : wc_adrs P) : wc_adrs_ch P :=
   addressing.encode_adrs (wcp_chain_count P) (wcp_w P) a.
@@ -236,14 +200,12 @@ Proof. exact: addressing.encode_adrsK. Qed.
 Lemma encode_tweak_inj (P : wc_params) : injective (encode_tweak P).
 Proof. exact: addressing.encode_adrs_inj. Qed.
 
-(** The per-hash-call chain tweak (encoded total chain address). *)
+(** The per-hash-call chain tweak (encoded chain address). *)
 Definition chain_tweak (P : wc_params) (i pos : nat) : wc_adrs_ch P :=
-  addressing.chain_tweak (wcp_chain_count P) (wcp_w P) (wcp_Hcc P) (wcp_Hw P)
-    (wc_anchor P) (wc_anchor_tagZ P) (wc_anchor_idxZ P) i pos.
+  addressing.chain_tweak (wcp_chain_count P) (wcp_w P) (wc_anchor P) i pos.
 
 Definition prf_tweak (P : wc_params) (i : nat) : wc_adrs_ch P :=
-  addressing.prf_tweak (wcp_chain_count P) (wcp_w P) (wcp_Hcc P)
-    (wc_anchor P) (wc_anchor_tagZ P) (wc_anchor_idxZ P) i.
+  addressing.prf_tweak (wcp_chain_count P) (wcp_w P) (wc_anchor P) i.
 
 Lemma decode_chain_tweak (P : wc_params) (i pos : nat) :
   decode_tweak P (chain_tweak P i pos) = chain_adrs P i pos.

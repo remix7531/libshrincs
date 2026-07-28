@@ -244,25 +244,25 @@ Proof. by apply: chain_iter_length; rewrite -size_lengthE /decode16 size_decode_
 
 Section model_bridge.
 
-(** The instance anchor (any leaf position; see Sec.wots.scheme). *)
-Context (zstar istar : nat) (zstar_range : (zstar < 256)%nat).
-Context (istar_range : anchor_idx_bound istar).
+(** The instance anchor (any leaf position; see Sec.wots.scheme).  No
+    range hypothesis: [Sec.addressing] places both anchor components
+    exact-or-zero. *)
+Context (zstar istar : nat).
 
 (** The games parameter record at the SHA-256 hashes and this anchor.
     A section-local [Let] (transparent; substituted inline into every
     statement at section close, so the compiled lemmas read
-    [wc_sha256 zstar istar ...] -- no notation pin). *)
-Let P := wc_sha256 zstar istar zstar_range istar_range.
+    [wc_sha256 zstar istar] -- no notation pin). *)
+Let P := wc_sha256 zstar istar.
 
-(** The model-side anchor address: the games' [addressing.anchor_adrs]
-    at [(zstar, istar)].  Its type [address.adrs chain_count_shrincs
+(** The model-side anchor address: the facade's [wc_pk_adrs] carrier at
+    [(zstar, istar)].  Its type [address.adrs chain_count_shrincs
     w_shrincs.-1] is CONVERTIBLE to [Model.wots]'s [adrs = address.adrs
     wots.len wots.w_pred] ([chain_count_shrincs = wots.len = 32],
     [w_shrincs.-1 = wots.w_pred = 15]), so [A0] passes directly wherever
     a [Model.wots] address is expected. *)
 Definition A0 : address.adrs chain_count_shrincs w_shrincs.-1 :=
-  addressing.anchor_adrs chain_count_shrincs w_shrincs
-    (wc_anchor P) (wc_anchor_tagZ P) (wc_anchor_idxZ P).
+  addressing.wc_pk_adrs (wc_anchor P).
 
 (** The games' grind address IS the model's grind-typing of [A0]. *)
 Lemma grind_adrsE : grind_adrs P = address.shrincs_wots_grind_adrs A0.
@@ -351,15 +351,16 @@ Lemma pk_adrsE : pk_adrs P = address.shrincs_wots_pk_adrs A0.
 Proof. by []. Qed.
 
 (** The games' prf address of chain [i] IS the model's, at ANY [fin]
-    chain field valued [Z.of_nat i]. *)
+    chain field valued [Z.of_nat i].  Both anchor slots are the SAME
+    exact-or-zero placer term on either side ([A0] is the pk-typed
+    carrier of the very same anchor), so only the chain field needs a
+    bridge. *)
 Lemma prf_adrs_modelE (i : nat) (Hi : (i < chain_count_shrincs)%nat)
     (ci : fin.fin (Z.of_nat wots.len)) (Hci : fin.fin_val ci = Z.of_nat i) :
   prf_adrs P i = address.shrincs_wots_prf_adrs A0 ci.
 Proof.
-rewrite /prf_adrs /addressing.shrincs_wots_prf_adrs.
-case: (Bool.bool_dec (i < wcp_chain_count P)%nat true) => [Hi'|n]; last by rewrite Hi in n.
-have -> : addressing.chain_fin chain_count_shrincs (wcp_Hcc P) i Hi' = ci.
-  by apply: fin.fin_val_inj; rewrite /addressing.chain_fin fin.fin_val_of_Z Hci.
+rewrite /prf_adrs (addressing.wc_prf_adrs_finE chain_count_shrincs w_shrincs
+  (wc_anchor P) i ci (addressing.component_bounded_lt _ _ Hi) Hci).
 by [].
 Qed.
 
@@ -377,12 +378,9 @@ Lemma chain_adrs_modelE (i pos : nat)
   = address.set_hash_pos (address.shrincs_wots_hash_adrs hp A0 ci) cp.
 Proof.
 move=> Hvi Hvp.
-rewrite (chain_adrs_exactE P i pos Hi Hpos) /chain_adrs_exact
-        /addressing.shrincs_wots_chain_adrs.
-have -> : addressing.chain_fin chain_count_shrincs (wcp_Hcc P) i Hi = ci.
-  by apply: fin.fin_val_inj; rewrite /addressing.chain_fin fin.fin_val_of_Z Hvi.
-have -> : fin.fin_of_nat (Z.of_nat w_shrincs.-1) pos (natZ_lt pos w_shrincs.-1 Hpos) = cp.
-  by apply: fin.fin_val_inj; rewrite fin.fin_val_of_nat Hvp.
+rewrite /chain_adrs (addressing.wc_hash_adrs_finE chain_count_shrincs w_shrincs
+  (wc_anchor P) i pos ci cp (addressing.component_bounded_lt _ _ Hi)
+  (addressing.component_bounded_lt _ _ Hpos) Hvi Hvp).
 by [].
 Qed.
 
