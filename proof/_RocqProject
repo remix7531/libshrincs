@@ -179,6 +179,7 @@ fxmss/shrincs/fxmss/tree_hop_proof.v
 fxmss/shrincs/fxmss/tcrx_hop_proof.v
 fxmss/shrincs/fxmss/leaf_reduction.v
 fxmss/shrincs/fxmss/leaf_km.v
+fxmss/shrincs/fxmss/kots_link.v
 fxmss/shrincs/fxmss/leaf2_common.v
 fxmss/shrincs/fxmss/leaf2_games.v
 fxmss/shrincs/fxmss/leaf2_compress.v
