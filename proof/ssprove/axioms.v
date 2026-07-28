@@ -122,15 +122,15 @@
     REVIEWER NOTE (assumption minimality): each axiom's game terms are
     built from [wc_sha256_core] -- the anchor-free core record
     ([params.wc_params_core]) at the SHA-256 hashes, spelled out field
-    by field below.  No axiom mentions the imaginary-tree anchor, its
-    range proofs, or any term containing them, AT ANY DEPTH: the
-    anchor's absence is a syntactic fact about the statements, not an
-    argument about the games' semantics.  [wc_sha256_coreE] machine-
-    checks that the core record is definitionally the core projection
-    of every [wc_sha256 zs is_ hz hi], which is what lets the final
-    theorem (stated over full instances) consume the axioms by pure
-    conversion.  The count stays exactly 6 [Axiom] plus the 1
-    [Parameter] line of bound constants (audit gate 2).
+    by field below.  No axiom mentions the imaginary-tree anchor, or
+    any term containing it, AT ANY DEPTH: the anchor's absence is a
+    syntactic fact about the statements, not an argument about the
+    games' semantics.  [wc_sha256_coreE] machine-checks that the core
+    record is definitionally the core projection of every
+    [wc_sha256 zs is_], which is what lets the final theorem (stated
+    over full instances) consume the axioms by pure conversion.  The
+    count stays exactly 6 [Axiom] plus the 1 [Parameter] line of bound
+    constants (audit gate 2).
 
     ** The payoff
 
@@ -292,13 +292,13 @@ Definition H_grind0_sha256 (pp : PP_shrincs)
 (** ** The concrete parameter record
 
     [instantiation.P_shrincs] at the SHA-256 hashes, one anchor per
-    [(zs, is_)] leaf position.  TRANSPARENT (a [Definition]): the 6
-    axioms below read through it, one delta-unfold away from the
-    fully-applied game spellings. *)
+    [(zs, is_)] leaf position -- two bare [nat]s, no range proof
+    ([Sec.addressing] places both anchor components exact-or-zero).
+    TRANSPARENT (a [Definition]): the 6 axioms below read through it,
+    one delta-unfold away from the fully-applied game spellings. *)
 
-Definition wc_sha256 (zs is_ : nat)
-    (hz : (zs < 256)%nat) (hi : anchor_idx_bound is_) : wc_params :=
-  P_shrincs F_sha256 T_sf_sha256 H_grind0_sha256 zs is_ hz hi.
+Definition wc_sha256 (zs is_ : nat) : wc_params :=
+  P_shrincs F_sha256 T_sf_sha256 H_grind0_sha256 zs is_.
 
 (** The anchor-free core (params.wc_params_core) of [wc_sha256],
     spelled field by field so the record is MANIFESTLY anchor-free --
@@ -326,9 +326,8 @@ Definition wc_sha256_core : wc_params_core := {|
 (** Machine-checked transparency witness: [wc_sha256_core] IS the core
     projection of [wc_sha256], at every anchor, definitionally -- the
     final theorem's axiom applications close by this conversion. *)
-Lemma wc_sha256_coreE (zs is_ : nat)
-    (hz : (zs < 256)%nat) (hi : anchor_idx_bound is_) :
-  wc_core_of (wc_sha256 zs is_ hz hi) = wc_sha256_core.
+Lemma wc_sha256_coreE (zs is_ : nat) :
+  wc_core_of (wc_sha256 zs is_) = wc_sha256_core.
 Proof. reflexivity. Qed.
 
 (* ------------------------------------------------------------------ *)
@@ -394,9 +393,10 @@ Axiom sha256_pre_secure : forall (B : nom_package)
 
 Section HashAssumptions.
 
-(** The instance anchor (any leaf position; see Sec.wots.scheme). *)
-Context (zstar istar : nat) (zstar_range : (zstar < 256)%nat).
-Context (istar_range : anchor_idx_bound istar).
+(** The instance anchor (any leaf position; see Sec.wots.scheme).  No
+    range hypothesis: [Sec.addressing] places both anchor components
+    exact-or-zero. *)
+Context (zstar istar : nat).
 
 (** THE payoff: WOTS+C over truncated-SHA256 (pk_seed || zeros(48) ||
     ADRS || M, [Model.wots]'s construction) is one-time
@@ -405,11 +405,11 @@ Context (istar_range : anchor_idx_bound istar).
 Theorem shrincs_wots_secure_sha256
     (A : nom_package)
     (VA : ValidPackage (loc A)
-            (I_KOTS (shrincs_wots_scheme (wc_sha256 zstar istar zstar_range istar_range)))
+            (I_KOTS (shrincs_wots_scheme (wc_sha256 zstar istar)))
             A_export A) :
-  Adv (G_forge_keyed (wc_sha256 zstar istar zstar_range istar_range)
+  Adv (G_forge_keyed (wc_sha256 zstar istar)
          K_shrincs PRF_sha256 dK_shrincs true)
-      (G_forge_keyed (wc_sha256 zstar istar zstar_range istar_range)
+      (G_forge_keyed (wc_sha256 zstar istar)
          K_shrincs PRF_sha256 dK_shrincs false)
       A
   <= eps_prf + \sum_(0 <= s < w_shrincs.-2) eps_smud + eps_stcrp + eps_tcr_pk + eps_tcr_chain + eps_pre
@@ -417,7 +417,7 @@ Theorem shrincs_wots_secure_sha256
 Proof.
 apply: le_trans.
 exact: (shrincs_wots_secure_shrincs F_sha256 T_sf_sha256 PRF_sha256 H_grind0_sha256
-          zstar istar zstar_range istar_range A VA).
+          zstar istar A VA).
 apply: lerD; first apply: lerD; first apply: lerD; first apply: lerD;
   first apply: lerD; first apply: lerD; first apply: lerD.
 - exact: sha256_prf_secure (valid_adv_link VA).
@@ -434,7 +434,7 @@ Qed.
     valid-commit experiment [KOTS_vc_game] (Sec.lib.sig.kots): the same
     unconditional bound, modulo the same 6 named hash-hardness axioms,
     on A's forgery advantage against [KOTS_vc_game (shrincs_wots_keyed
-    (wc_sha256 zstar istar zstar_range istar_range) K_shrincs PRF_sha256
+    (wc_sha256 zstar istar) K_shrincs PRF_sha256
     dK_shrincs)] rather than the bespoke [G_forge_keyed] -- the two are
     PERFECTLY, unconditionally, the same game
     ([Sec.wots.kots_link.G_forge_keyed_KOTS_vc]), so [AdvOf_perfect]
@@ -444,14 +444,14 @@ Qed.
 Theorem shrincs_wots_secure_kots_sha256
     (A : nom_package)
     (VA : ValidPackage (loc A)
-            (I_KOTS (shrincs_wots_scheme (wc_sha256 zstar istar zstar_range istar_range)))
+            (I_KOTS (shrincs_wots_scheme (wc_sha256 zstar istar)))
             A_export A) :
-  AdvOf (KOTS_vc_game (shrincs_wots_keyed (wc_sha256 zstar istar zstar_range istar_range)
+  AdvOf (KOTS_vc_game (shrincs_wots_keyed (wc_sha256 zstar istar)
            K_shrincs PRF_sha256 dK_shrincs)) A
   <= eps_prf + \sum_(0 <= s < w_shrincs.-2) eps_smud + eps_stcrp + eps_tcr_pk + eps_tcr_chain + eps_pre
      + \sum_(0 <= s < w_shrincs.-2) eps_smud + eps_prf.
 Proof.
-rewrite -(AdvOf_perfect (G_forge_keyed_KOTS_vc (wc_sha256 zstar istar zstar_range istar_range)
+rewrite -(AdvOf_perfect (G_forge_keyed_KOTS_vc (wc_sha256 zstar istar)
             K_shrincs PRF_sha256 dK_shrincs)).
 exact: shrincs_wots_secure_sha256 A VA.
 Qed.

@@ -140,16 +140,14 @@ Proof.
   apply Nat2Z.inj. exact E.
 Qed.
 
-(** NOTE: the model deliberately has NO saturating totalizer.  A TOTAL
-    [Z -> fin] clamp used to live here (and briefly at the SSProve tweak
-    boundary); the zero-clamp refactor deleted it everywhere.  The
-    reachable-states model is now EXACT -- every [fin] field is built
-    from a bound proof (via [fin_of_Z] / [fin_of_nat]), so a construct
-    that saturates out-of-range inputs is not part of the model's
-    vocabulary.  The one residual total adapter, at the SSProve
-    abstract-scheme boundary where a bare [nat] index arrives
-    ([Sec.addressing]'s [shrincs_wots_chain_adrs_tot]), is a
-    [Bool.bool_dec] exact-in-range / dummy-out-of-range wrapper -- NOT a
-    clamp: it never truncates, and its out-of-range branch is a distinct
-    unused address that is provably never reached.  [Model.fin] is now
-    pristine exact-ordinal algebra. *)
+(** NOTE: the model deliberately has NO saturating totalizer.  The
+    reachable-states model is EXACT -- every [fin] field is built from a
+    bound proof (via [fin_of_Z] / [fin_of_nat]), so a construct that
+    saturates out-of-range inputs is not part of the model's
+    vocabulary.  The one total adapter, at the SSProve address boundary
+    where a bare [nat] component arrives ([Sec.addressing]'s
+    [fin_of_nat_or_zero]), is a [Z_lt_dec] exact-in-range /
+    zero-out-of-range wrapper -- NOT a clamp: it never truncates, and
+    its out-of-range branch names the field's zero, which no reachable
+    call ever selects.  [Model.fin] is pristine exact-ordinal
+    algebra. *)
