@@ -25,8 +25,10 @@ model/address.v
 model/sha256.v
 model/iteration.v
 model/wots.v
+model/fxmss.v
 model/theory/address.v
 model/theory/wots.v
+model/theory/fxmss.v
 model/correct/wots.v
 
 vst/clight/sha256.v
@@ -144,6 +146,11 @@ ssprove/wots/theorem.v
 ssprove/wots/instantiation.v
 ssprove/axioms.v
 ssprove/wots/model_bridge.v
+# The FXMSS tree layer's games <-> Model.fxmss correspondence.  It lives in
+# the Sec tree (Sec.fxmss.model_bridge) but Requires SHRINCS.fxmss.scheme,
+# so `make ssprove-prove` now pulls that scheme file (and its own
+# dependencies) in with it.
+ssprove/fxmss/model_bridge.v
 
 # --- FXMSS proof (see fxmss/README.md) ---
 # The generic Sec.lib closure it shares with the native tree now
