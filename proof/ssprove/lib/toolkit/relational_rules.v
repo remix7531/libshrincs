@@ -293,6 +293,40 @@ Proof.
 exact: r_put_rhs_weak.
 Qed.
 
+(** lhs mirrors of the two rules above.  A hop whose two sides keep the
+    same datum in DIFFERENT locations (Sec.lib.games.prf_link: the
+    game's query log vs. the reduction's) must step the lhs one-sided
+    too, not only the linked rhs. *)
+Lemma r_get_lhs_known {A B : choiceType} (ℓ : Location) (v : ℓ)
+    (pre : precond) (k₀ : ℓ -> raw_code A) (c₁ : raw_code B)
+    (post : postcond A B) :
+  (forall s₀ s₁, pre (s₀, s₁) -> get_heap s₀ ℓ = v) ->
+  ⊢ ⦃ λ '(s₀, s₁), pre (s₀, s₁) ⦄ k₀ v ≈ c₁ ⦃ post ⦄ ->
+  ⊢ ⦃ λ '(s₀, s₁), pre (s₀, s₁) ⦄ x ← get ℓ ;; k₀ x ≈ c₁ ⦃ post ⦄.
+Proof.
+move=> hv h.
+eapply r_get_remember_lhs => x.
+eapply (r_fact (v = x)).
+- move=> s₀ s₁ [hpre hrem].
+  by rewrite -(hv _ _ hpre) -hrem.
+- move=> e; subst x.
+  eapply rpre_weaken_rule; first exact: h.
+  by move=> ? ? [].
+Qed.
+
+Lemma r_put_lhs_pre {A B : choiceType} (ℓ : Location) (v : ℓ)
+    (pre pre' : precond) (c₀ : raw_code A) (c₁ : raw_code B)
+    (post : postcond A B) :
+  (forall s₀ s₁, pre (s₀, s₁) -> pre' (set_heap s₀ ℓ v, s₁)) ->
+  ⊢ ⦃ λ '(s₀, s₁), pre' (s₀, s₁) ⦄ c₀ ≈ c₁ ⦃ post ⦄ ->
+  ⊢ ⦃ λ '(s₀, s₁), pre (s₀, s₁) ⦄ #put ℓ := v ;; c₀ ≈ c₁ ⦃ post ⦄.
+Proof.
+move=> hp h.
+apply r_put_lhs.
+eapply rpre_weaken_rule; first exact: h.
+by move=> s₀ s₁ [s₀' [hpre ->]]; exact: hp.
+Qed.
+
 (** [heap_ignore] is preserved by a one-sided write to an ignored
     location (rhs / lhs forms). *)
 Lemma heap_ignore_set_r (L : Locations) (ℓ : Location) (v : ℓ)
