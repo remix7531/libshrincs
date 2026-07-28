@@ -90,7 +90,8 @@ From mathcomp.experimental_reals Require Import distr.
 From Sec.lib Require Import prelude sig.scheme sig.kots
   games.thf games.smtcr toolkit.sample_seq toolkit.relational_rules
   toolkit.hop_tactics.
-From Model Require Import math.chain math.encoding.
+From Model Require Import math.encoding.
+From Sec.lib Require Import math.chain.
 From Sec.lib Require Import chain.core.
 From Sec Require Import addressing.
 From Sec.wots Require Import addressing.
@@ -391,16 +392,15 @@ rewrite /tc_eval /coll_pkcompress /coll_pkcompress_core /=.
 by rewrite core_decodeE decode_chain_tweak.
 Qed.
 
-(** In range, the COLLQ answer IS the abstract total chain step [Fc]
-    (which is what the honest [chainc] chains compute); [k < w] discharges
-    [Fc]'s position guard. *)
+(** The COLLQ answer IS the abstract chain step [Fw] (which is what the
+    honest chains compute). *)
 Lemma collq_Fc_E (pp : wcp_PP P) (i k : nat) (x : wcp_N P) :
   (k < wcp_w P)%N ->
   (if tc_eval (coll_pkcompress P) pp (chain_tweak P i k) (inl x) is inl y then y else x)
-  = Fc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp (i, k) x.
+  = (Fw P) pp (i, k) x.
 Proof.
 move=> hk.
-by rewrite collq_F_E (FcE (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp i k x hk).
+by rewrite collq_F_E.
 Qed.
 
 (** [digestE]/[wendsE] (oracle-answer = [digest_of]; length-chain_count walk's
@@ -579,7 +579,7 @@ Lemma r_cpwalk_spec (b : bool) {B : choiceType} (pp : wcp_PP P)
          (c0 : raw_code B) (k1 : wcp_N P -> raw_code B),
   (k + n <= (wcp_w P).-1)%N ->
   ⊢ ⦃ λ '(s0, s1), cblk (Some pp) rv tw tg (s0, s1) ⦄
-     c0 ≈ k1 (chainc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp i x k n) ⦃ post ⦄ ->
+     c0 ≈ k1 (chain (Sec.lib.chain.core.chainf (wcp_PP P) (wcp_N P) (Fw P) pp i) x k n) ⦃ post ⦄ ->
   ⊢ ⦃ λ '(s0, s1), cblk (Some pp) rv tw tg (s0, s1) ⦄
      c0 ≈ bind (code_link (cp_walk i k n x) (SMB b)) k1 ⦃ post ⦄.
 Proof.
@@ -610,7 +610,7 @@ Lemma r_cpchains_spec (b : bool) {B : choiceType} (pp : wcp_PP P)
       ≈ K1 (wsigs P pp st ds us, wends P pp st ds (wsigs P pp st ds us))
      ⦃ post ⦄) ->
   ⊢ ⦃ λ '(s0, s1), cblk (Some pp) rv tw tg (s0, s1) ⦄
-     bind (sample_sig_roots (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) (wcp_dN P) pp st ds) K0
+     bind (sample_sig_roots (wcp_PP P) (wcp_N P) (Fw P) (wcp_dN P) pp st ds) K0
    ≈ bind (code_link (cp_chains st ds) (SMB b)) K1 ⦃ post ⦄.
 Proof.
 elim=> [|d ds IH] st rv tw tg K0 K1 hds h.
@@ -639,9 +639,9 @@ elim=> [|d ds IH] st rv tw tg K0 K1 hds h.
     cbv beta.
     rewrite (collq_Fc_E pp st d' u hd'w) /=.
     rewrite (code_link_bind (cp_walk st d'.+1 ((wcp_w P).-1 - d'.+1)
-              (Fc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp (st, d') u))) bind_assoc.
+              ((Fw P) pp (st, d') u))) bind_assoc.
     eapply (r_cpwalk_spec b pp post ((wcp_w P).-1 - d'.+1) st d'.+1
-              (Fc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp (st, d') u)); first by rewrite (subnKC hd1).
+              ((Fw P) pp (st, d') u)); first by rewrite (subnKC hd1).
     rewrite /= (code_link_bind (cp_chains st.+1 ds)) bind_assoc.
     eapply IH; first exact: hds'.
     move=> us hus.

@@ -10,7 +10,7 @@
     [perfect] lemmas that assemble [Tcrx_hop], the direct analogue of
     the tree hop for the TWO structure-mismatch forgery cases (FEscape
     and FShort). It consumes [fxmss.tree_hop], [fxmss.late_games]
-    (the [Gkeep keep b] game family), and [HBS.games.tcrx] (the
+    (the [Gkeep keep b] game family), and [Sec.lib.games.tcrx] (the
     TCR-exclusive game interface).
 
     Its simulation follows [fxmss.tree_hop_proof]'s [R_tree] skeleton,
@@ -38,9 +38,10 @@
     The target budget [2*n_max - 1] covers all internal nodes and leaves. *)
 
 Set Warnings "-notation-overridden,-ambiguous-paths,-notation-incompatible-prefix".
-From HBS Require Import prelude math.bin_tree math.merkle math.chain math.encoding
-  sig.scheme games.thf games.tcrx toolkit.sample_seq.
-From HBS Require Import wots.games wots.tcr_hop.
+From Sec.lib Require Import prelude math.bin_tree math.merkle math.chain.
+From Model Require Import math.encoding.
+From Sec.lib Require Import sig.scheme games.thf games.tcrx toolkit.sample_seq.
+From Sec.lib Require Import toolkit.relational_rules chain.core wots.games wots.tcr_hop.
 From SHRINCS Require Import addressing wotsc.scheme wotsc.games
   fxmss.scheme fxmss.games fxmss.late_games fxmss.tree_hop.
 Set Warnings "notation-overridden,ambiguous-paths,notation-incompatible-prefix".

@@ -28,18 +28,18 @@
     ** Tree representation
 
     The imaginary balanced tree of declared height [h_sf] never
-    materializes: nodes are bool paths (HBS.math.bin_tree), and the
+    materializes: nodes are bool paths (Sec.lib.math.bin_tree), and the
     paper's (height z, horizontal index i) coordinates are recovered
     as [shrincs_fxmss_pos_id p = (h_sf - size p, idx_of_path p)] — the path/(z, i)
     conversions of bin_tree carry all coordinate arithmetic.  The
     actual tree is a [bt unit] (the SHAPE) whose leaves are the
     WOTS+C anchors, sitting at arbitrary depths <= h_sf; evaluation
     ([val_bt]), authentication paths ([cons_ap]) and verification
-    ([val_ap]) come from HBS.math.Merkle with the position-tweaked
+    ([val_ap]) come from Sec.lib.math.merkle with the position-tweaked
     node hash [shrincs_fxmss_node_hash] (H at the TREESTATEFUL address of the
     computed node).  Balanced XMSS and UXMSS are the instances
-    [perfect_bt] (HBS.math.MerkleBalanced) and [uxmss_bt]
-    (HBS.math.MerkleSkewed); their leafpos maps of the tex are the
+    [perfect_bt] (Sec.lib.math.merkle) and [uxmss_bt]
+    (Sec.lib.math.merkle); their leafpos maps of the tex are the
     [leaf_paths] enumerations of those shapes (see the proof architecture).
 
     ** Shape parameter encoding (SParam)
@@ -87,7 +87,7 @@
     ** Keys, signatures, state
 
     - sk = (PKseed, SKseed, SKprf, shape encoding, counter q): the
-      stateful counter lives INSIDE Sk (HBS.sig.Scheme convention:
+      stateful counter lives INSIDE Sk (Sec.lib.sig.scheme convention:
       stateful signing as key update; the tex's persist-before-release
       rule is the [sign sk m = Some (sig, sk')] shape).  The tex's SK
       additionally caches PKsf/PKroot; here they are recomputed (pure
@@ -145,7 +145,7 @@
       which FXMSS leaves are exactly the sampled WOTS+C instances.
     - Grinding failure: [sign] refuses (None) when the bounded
       grinding search of the leaf instance fails (the c_max cap
-      deviation of HBS.games.STCRP / wotsc.scheme); the counter does
+      deviation of Sec.lib.games.stcrp / wotsc.scheme); the counter does
       NOT advance on refusal (nothing was released).  The tex grinds
       unboundedly.
     - [sign] refuses (None) when the counter exceeds the shape's
@@ -154,7 +154,7 @@
     The WOTS+C leaf operations are provided by [SHRINCS.wotsc.scheme]. *)
 
 Set Warnings "-notation-overridden,-ambiguous-paths".
-From HBS Require Import prelude math.bin_tree math.merkle sig.scheme.
+From Sec.lib Require Import prelude math.bin_tree math.merkle sig.scheme.
 From SHRINCS Require Import addressing wotsc.scheme.
 Set Warnings "notation-overridden,ambiguous-paths".
 
@@ -707,7 +707,7 @@ Qed.
 (* ------------------------------------------------------------------ *)
 (** ** The scheme as a [sig_scheme]
 
-    Stateful signing as key update (HBS.sig.Scheme): the counter
+    Stateful signing as key update (Sec.lib.sig.scheme): the counter
     advances only when a signature is released.  [SParam] is the
     encoded adversary-chosen shape; keygen normalizes it and derives
     everything else from the sampled seeds. *)

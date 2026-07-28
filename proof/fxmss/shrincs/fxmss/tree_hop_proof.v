@@ -18,9 +18,10 @@
     internal node at its committed index. *)
 
 Set Warnings "-notation-overridden,-ambiguous-paths,-notation-incompatible-prefix".
-From HBS Require Import prelude math.bin_tree math.merkle math.chain math.encoding
-  sig.scheme games.thf games.smtcr toolkit.sample_seq.
-From HBS Require Import wots.games wots.tcr_hop.
+From Sec.lib Require Import prelude math.bin_tree math.merkle math.chain.
+From Model Require Import math.encoding.
+From Sec.lib Require Import sig.scheme games.thf games.smtcr toolkit.sample_seq.
+From Sec.lib Require Import toolkit.relational_rules chain.core wots.games wots.tcr_hop.
 From SHRINCS Require Import addressing wotsc.scheme wotsc.games
   fxmss.scheme fxmss.games fxmss.late_games fxmss.tree_hop.
 Set Warnings "notation-overridden,ambiguous-paths,notation-incompatible-prefix".

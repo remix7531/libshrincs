@@ -17,7 +17,7 @@
     [a] target collision fo[r] Hgrind ... Otherwise some a_i' < a_i
     and the forger must invert F at some position"), refined into the
     four cases the game hops consume. The WOTS+C chain layer instantiates
-    [HBS.wots.analysis] at the address-wrapped chain hash [Fw] from
+    [Sec.lib.wots.analysis] at the address-wrapped chain hash [Fw] from
     [wotsc.games], so the per-chain classification
     ([forgery_cases]), the PRE post-processing
     ([forgery_pre_preimage]), the digit selector ([forged_digit_lt],
@@ -89,10 +89,10 @@
     distinct-address lemmas of SHRINCS.addressing apply directly). *)
 
 Set Warnings "-notation-overridden,-ambiguous-paths".
-From HBS Require Import prelude math.chain math.encoding sig.scheme sig.kots
-  games.thf toolkit.sample_seq.
-From HBS Require Import wots.scheme wots.games
-  wots.analysis.
+From Sec.lib Require Import prelude math.chain.
+From Model Require Import math.encoding.
+From Sec.lib Require Import sig.scheme sig.kots games.thf toolkit.sample_seq.
+From Sec.lib Require Import chain.core wots.games wots.analysis.
 From SHRINCS Require Import addressing wotsc.scheme wotsc.games.
 Set Warnings "notation-overridden,ambiguous-paths".
 

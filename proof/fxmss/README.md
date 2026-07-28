@@ -15,15 +15,19 @@ remain explicit advantage terms; they are not axioms.
 
 ## Library boundary
 
-The proof reuses compatibility exports of `Sec.lib` for signature schemes,
-hash games, PRF games, and sequence sampling. The adaptive PRF game used by
-FXMSS is provided by `Sec.lib.games.prf_adaptive`.
+This tree holds no library of its own. Signature schemes, hash games, PRF
+games, sequence sampling, Merkle/binary-tree maths, the random-oracle
+toolkit and the generic chain ladder all come from `Sec.lib`, which the
+native WOTS+C proof shares. The adaptive PRF game is
+`Sec.lib.games.prf_adaptive`.
 
-`HBS.wots.*` is reusable fixed-sum Winternitz proof infrastructure. Its chain
-analysis and SM-UD/SM-TCR/SM-PRE reductions are used by the
-multi-leaf proof. The native `Sec.wots.hop.*` reductions fix one anchor in
-`wc_params`; FXMSS instead needs banked reductions over up to `n_max`
-independently addressed leaves.
+`Sec.lib.chain.core` is the ONE generic fixed-sum Winternitz development:
+one chain fold (`Sec.lib.math.chain.chain`), one forgery classifier, one
+`fixed_sum_scheme`. `Sec.lib.wots.*` carries its SM-UD/SM-TCR/SM-PRE
+reductions. Both anchored ladders instantiate it: the native
+`Sec.wots.hop.*` reductions fix one anchor in `wc_params`, while FXMSS
+needs banked reductions over up to `n_max` independently addressed
+leaves.
 
 FXMSS and native WOTS+C share `Model.address.adrs` and the finite SSProve
 encoding from `Sec.addressing`. The FXMSS facade accepts natural-number
@@ -39,8 +43,12 @@ verifier's `shrincs_fxmss_leaf_id_ok` — the spec's
 
 | Directory | Logical root | Contents |
 |---|---|---|
-| `fxmss/hbs/` | `HBS` | reusable HBS, Merkle, random-oracle, and fixed-sum WOTS infrastructure |
 | `fxmss/shrincs/` | `SHRINCS` | native-address FXMSS construction and security proof |
+
+The reusable hash-based-signature, Merkle, random-oracle and fixed-sum WOTS
+infrastructure this tree used to carry under `fxmss/hbs/` (logical root
+`HBS`) now lives under `proof/ssprove/lib` as `Sec.lib.*`; the `HBS` root is
+retired.
 
 All physical and logical path segments below the roots use snake_case.
 FXMSS-specific construction identifiers use the `shrincs_fxmss_` prefix;

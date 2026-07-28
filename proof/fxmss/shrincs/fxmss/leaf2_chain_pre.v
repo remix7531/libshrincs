@@ -44,10 +44,10 @@
       so every surviving Glmid3-win routes to a genuine SM-PRE preimage. *)
 
 Set Warnings "-notation-overridden,-ambiguous-paths,-notation-incompatible-prefix,-deprecated-coq-env-var".
-From HBS Require Import prelude math.bin_tree math.merkle math.chain math.encoding
-  sig.scheme games.thf games.smtcr games.smpre toolkit.sample_seq.
-From HBS Require Import wots.scheme wots.games
-  wots.analysis wots.tcr_hop wots.pre_hop.
+From Sec.lib Require Import prelude math.bin_tree math.merkle math.chain.
+From Model Require Import math.encoding.
+From Sec.lib Require Import sig.scheme games.thf games.smtcr games.smpre toolkit.sample_seq.
+From Sec.lib Require Import toolkit.relational_rules chain.core wots.games wots.analysis wots.tcr_hop wots.pre_hop.
 From SHRINCS Require Import addressing wotsc.scheme wotsc.games wotsc.analysis
   fxmss.scheme fxmss.games fxmss.late_games fxmss.tree_hop
   fxmss.leaf_reduction fxmss.leaf_km fxmss.leaf2_common fxmss.leaf2_games.
@@ -720,7 +720,7 @@ Local Notation Lrv := miw_rev_loc.
 Local Notation Lsl := miw_slog_loc.
 
 Local Notation FWl zi := (Fw PP N F zi.1 zi.2).
-Local Notation cfWl zi := (HBS.wots.scheme.chainf PP N (FWl zi)).
+Local Notation cfWl zi := (Sec.lib.chain.core.chainf PP N (FWl zi)).
 Local Notation wsigs zi := (sigs_of PP N (FWl zi)).
 Local Notation wends zi := (ends_of PP N (FWl zi) w).
 Local Notation lfind zi pp md :=
@@ -956,7 +956,7 @@ Lemma r_lprchains_spec (b : bool) {B : choiceType} (Φ : precond) (pp : PP)
   anchor_bounded zi ->
   (st + size ds <= l)%N ->
   all (fun d => (d < w)%N) ds ->
-  (size Q + npq ds <= q2)%N ->
+  (size Q + preimage_query_count ds <= q2)%N ->
   pfresh zi st Q ->
   (forall us, size us = size ds ->
      ⊢ ⦃ λ '(s0, s1), pblk Φ (Some pp) false
@@ -995,7 +995,7 @@ elim=> [|d ds IH] st Q K0 K1 hzi hst hds hbud hfresh h.
     have hdw1 : (d'.+1 <= w.-1)%N by rewrite -ltnS (prednK hw0).
     rewrite bind_assoc /= !bind_assoc.
     eapply r_lprquery => //.
-    * by apply: leq_trans hbud; rewrite /npq /= addnS ltnS leq_addr.
+    * by apply: leq_trans hbud; rewrite /preimage_query_count /= addnS ltnS leq_addr.
     * apply: pfresh_notin => //; exact: component_bounded_lt.
     * move=> x; cbv beta; rewrite !bind_assoc /=.
       rewrite (code_link_bind (lpr_walk zi st d'.+1 (w.-1 - d'.+1) (FWl zi pp (st, d') x)))
@@ -1006,7 +1006,7 @@ elim=> [|d ds IH] st Q K0 K1 hzi hst hds hbud hfresh h.
         { by move=> s0 s1 [_ h' _ _ _]. }
       rewrite (code_link_bind (lpr_chains zi st.+1 ds)) bind_assoc.
       eapply IH => //.
-      -- by move: hbud; rewrite size_rcons /npq /= addnS addSn.
+      -- by move: hbud; rewrite size_rcons /preimage_query_count /= addnS addSn.
       -- apply: pfresh_rcons => //; exact: component_bounded_lt.
       -- move=> us hus.
          move: (h (x :: us)); rewrite /= hus => /(_ erefl).
@@ -1447,14 +1447,14 @@ case E: (find_ctr PP D Hgrind S_wn c_max zi.1 zi.2 pp md) => [c|].
 - by rewrite /wf_digits all_nseq ltn_predL hw orbT.
 Qed.
 
-Lemma lnpqE (ds : seq nat) : lnpq ds = npq ds.
+Lemma lnpqE (ds : seq nat) : lnpq ds = preimage_query_count ds.
 Proof. by []. Qed.
 
 Lemma size_lchain_block (zi : nat * nat) (st : nat) (ds : seq nat) (us : seq N) :
-  size us = size ds -> size (lchain_block zi st ds us) = npq ds.
+  size us = size ds -> size (lchain_block zi st ds us) = preimage_query_count ds.
 Proof.
 elim: ds st us => [|d ds IH] st [|u us] //= [hsz].
-rewrite lchain_block_cons size_cat (IH st.+1 us hsz) /npq /=.
+rewrite lchain_block_cons size_cat (IH st.+1 us hsz) /preimage_query_count /=.
 by case: d => [|d'] /=; rewrite ?add0n ?add1n.
 Qed.
 
@@ -1618,10 +1618,10 @@ have hAC : forall (n st : nat) (ds0 : seq nat) (ys : seq N),
   elim=> [|n IH] st ds0 ys; first by case: ds0 => [|d ds0]; case: ys => [|y ys].
   case: ds0 => [|d ds0]; case: ys => [|y ys] => //=.
   apply/andP; split; last exact: IH.
-  by rewrite /HBS.wots.scheme.chain_check eqxx.
-have hverify : HBS.wots.scheme.verify_sig PP N (FWl zi) l w S_wn pp
+  by rewrite /Sec.lib.chain.core.chain_check eqxx.
+have hverify : Sec.lib.chain.core.verify_sig PP N (FWl zi) l w S_wn pp
     (ends_from_sig PP N (FWl zi) l w pp dds (wsigs zi pp 0 dds us)) mstar sgstar.
-  rewrite hEE /HBS.wots.scheme.verify_sig hvmf hsgsz /= /ends_from_sig.
+  rewrite hEE /Sec.lib.chain.core.verify_sig hvmf hsgsz /= /ends_from_sig.
   exact: (hAC l 0 mstar sgstar).
 (* now the shared ohead coordinate drives both totality and the win *)
 rewrite /pre_decision; move: hnone; rewrite /tcr_decision.
@@ -1895,7 +1895,7 @@ simplify_eq_rel arg.
   { exact: l2_lcoord_bounded. }
   { by rewrite add0n size_l_rrdigS. }
   { exact: wf_l_rrdigS. }
-  { have h2 : (npq (l_rrdigS (lcoord t) pp md (size ltws)) <= l)%N.
+  { have h2 : (preimage_query_count (l_rrdigS (lcoord t) pp md (size ltws)) <= l)%N.
       exact: (npq_le l _ (size_l_rrdigS (lcoord t) pp md (size ltws))).
     have h1 : (size (qflat pp 0 CS) <= size CS * l)%N.
       apply: size_qflat_le => j hj.
@@ -2372,7 +2372,7 @@ simplify_eq_rel arg.
   { exact: l2_lcoord_bounded. }
   { by rewrite add0n size_l_rrdigS. }
   { exact: wf_l_rrdigS. }
-  { have h2 : (npq (l_rrdigS (lcoord t) pp md (size ltws)) <= l)%N.
+  { have h2 : (preimage_query_count (l_rrdigS (lcoord t) pp md (size ltws)) <= l)%N.
       exact: (npq_le l _ (size_l_rrdigS (lcoord t) pp md (size ltws))).
     have h1 : (size (qflat pp 0 CS) <= size CS * l)%N.
       apply: size_qflat_le => j hj.

@@ -18,7 +18,8 @@ From mathcomp.experimental_reals Require Import distr.
 From Sec.lib Require Import prelude sig.scheme sig.kots
   games.thf games.smtcr games.smpre toolkit.sample_seq toolkit.relational_rules
   toolkit.hop_tactics.
-From Model Require Import math.chain math.encoding.
+From Model Require Import math.encoding.
+From Sec.lib Require Import math.chain.
 From Sec.lib Require Import chain.core.
 From Sec Require Import addressing.
 From Sec.wots Require Import addressing.
@@ -452,7 +453,7 @@ Lemma r_prquery (b : bool) {B : choiceType} (pp : wcp_PP P)
   (i, k) \notin unzip1 Q ->
   (forall x : wcp_N P,
      ⊢ ⦃ λ '(s0, s1), pblk (Some pp) false (rcons Q ((i, k), x)) (s0, s1) ⦄
-        k0 x ≈ k1 (Fc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp (i, k) x) ⦃ post ⦄) ->
+        k0 x ≈ k1 ((Fw P) pp (i, k) x) ⦃ post ⦄) ->
   ⊢ ⦃ λ '(s0, s1), pblk (Some pp) false Q (s0, s1) ⦄
      bind (wcp_dN P) k0 ≈ bind (resolve (SMP b) pr_pqo (chain_tweak P i k)) k1 ⦃ post ⦄.
 Proof.
@@ -510,7 +511,7 @@ Lemma r_prchains_spec (b : bool) {B : choiceType} (pp : wcp_PP P)
             (Q ++ wpreq P st ds us) (s0, s1) ⦄
         K0 (wsigs P pp st ds us) ≈ K1 (wsigs P pp st ds us) ⦃ post ⦄) ->
   ⊢ ⦃ λ '(s0, s1), pblk (Some pp) false Q (s0, s1) ⦄
-     bind (sample_sig_roots (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) (wcp_dN P) pp st ds) K0
+     bind (sample_sig_roots (wcp_PP P) (wcp_N P) (Fw P) (wcp_dN P) pp st ds) K0
    ≈ bind (code_link (pr_chains st ds) (SMP b)) K1 ⦃ post ⦄.
 Proof.
 have hw0 : (0 < wcp_w P)%N := ltnW (wcp_Hw P).

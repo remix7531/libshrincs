@@ -72,11 +72,10 @@
 
 Set Warnings "-notation-overridden,-ambiguous-paths,-notation-incompatible-prefix,-deprecated-coq-env-var".
 From mathcomp Require Import all_boot all_order reals.
-From HBS Require Import prelude math.bin_tree math.merkle math.chain math.encoding
-  sig.scheme sig.kots games.thf games.prf games.smtcr games.smpre games.smud
-  games.stcrp games.tcrx toolkit.sample_seq toolkit.ro_plus toolkit.reprogram.
-From HBS Require Import wots.games wots.tcr_hop
-  wots.ud_hop.
+From Sec.lib Require Import prelude math.bin_tree math.merkle math.chain.
+From Model Require Import math.encoding.
+From Sec.lib Require Import sig.scheme sig.kots games.thf games.prf_adaptive games.smtcr games.smpre games.smud games.stcrp games.tcrx toolkit.sample_seq toolkit.ro_plus toolkit.reprogram.
+From Sec.lib Require Import chain.core wots.games wots.tcr_hop wots.ud_hop.
 From SHRINCS Require Import addressing wotsc.scheme wotsc.games
   fxmss.scheme fxmss.games fxmss.late_games
   fxmss.prf_hop fxmss.repro_hop fxmss.connect_hop fxmss.digest_hop
@@ -220,7 +219,7 @@ Definition shrincs_fxmss_leg (A : nom_package) (n_ug : nat) (b : bool) : Axioms.
                   AdvOf (SMUD_game TFn CUDn (n_max * l)) ((A ∘ Rleaf b) ∘ RUDl true s)
               + ( AdvOf (STCRP_game TGRn CGRn D gencn gprpn c_max n_max) ((A ∘ Rleaf b) ∘ RGRl)
                 + ( AdvOf (SMTCR_game TPn CPn n_max) ((A ∘ Rleaf b) ∘ RCPl)
-                  + ( AdvOf (SMTCR_game TFn CTn (n_max * tcr_hop.p_tcr l w)) ((A ∘ Rleaf b) ∘ RCTl)
+                  + ( AdvOf (SMTCR_game TFn CTn (n_max * core.tcr_budget l w)) ((A ∘ Rleaf b) ∘ RCTl)
                     + ( AdvOf (SMPRE_game TFn CPRn (n_max * l)) ((A ∘ Rleaf b) ∘ RPRl)
                       + \sum_(0 <= s < w.-2)
                           AdvOf (SMUD_game TFn CUDn (n_max * l)) ((A ∘ Rleaf b) ∘ RUDl false s) ) ) ) ) )

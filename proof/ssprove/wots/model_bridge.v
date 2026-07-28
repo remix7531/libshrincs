@@ -72,6 +72,7 @@ From Sec.lib Require Import prelude games.thf games.smtcr games.smpre games.smud
   games.stcrp games.prf sig.scheme sig.kots.
 From Sec.lib Require Import chain.core.
 From Model Require Import math.encoding.
+From Sec.lib Require Import math.chain.
 From Sec Require Import addressing.
 From Sec.wots Require Import scheme games
   hop.grind hop.compress hop.chain_tcr hop.chain_pre hop.ud hop.prf.
@@ -92,11 +93,11 @@ Import GRing.Theory Num.Theory Order.POrderTheory.
 #[local] Open Scope sep_scope.
 #[local] Open Scope ring_scope.
 
-(* [chainc] is a Fixpoint over the step count; at the concrete numbers
-   (w = 16) a bare [simpl] would unroll all 15 steps into nested [Fc]s
-   and destroy every [chainc]-headed rewrite below.  Blocked here; the
-   fold is only ever peeled through [chainc_0]/[chainc_rcons]. *)
-#[local] Arguments chainc : simpl never.
+(* [chain] is a Fixpoint over the step count; at the concrete numbers
+   (w = 16) a bare [simpl] would unroll all 15 steps into nested [F]s
+   and destroy every [chain]-headed rewrite below.  Blocked here; the
+   fold is only ever peeled through [chain0]/[chain_rcons]. *)
+#[local] Arguments chain : simpl never.
 
 (* ------------------------------------------------------------------ *)
 (** ** GLUE: mathcomp seq <-> Stdlib List frictions
@@ -389,36 +390,34 @@ Qed.
     dependent fold)
 
     Both folds apply positions [st, ..., st + n - 1] in ascending
-    order; the induction end-peels BOTH sides ([chainc_rcons] against
+    order; the induction end-peels BOTH sides ([chain_rcons] against
     the model Fixpoint's native peel), with the model's bound proof
     universally quantified so the IH instantiates it with the
     recursive occurrence's own proof -- no proof irrelevance needed. *)
 
-Lemma chainc_chain_iterE (pp : PP_shrincs) (x : N_shrincs) (i st n : nat)
+Lemma chain_chain_iterE (pp : PP_shrincs) (x : N_shrincs) (i st n : nat)
     (Hi : (i < chain_count_shrincs)%nat)
     (hp : (0 < wots.w_pred)%coq_nat)
     (ci : fin.fin (Z.of_nat wots.len)) (Hci : fin.fin_val ci = Z.of_nat i)
     (Hb : ((st + n)%coq_nat <= wots.w_pred)%coq_nat) :
-  chainc PP_shrincs N_shrincs w_shrincs (Sec.wots.scheme.chainf P) pp i x st n
+  chain (Sec.wots.scheme.chainf P pp i) x st n
   = encode16 (wots.shrincs_wots_chain_iter (decode16 x) st n (decode16 pp)
                 (address.shrincs_wots_hash_adrs hp A0 ci) Hb).
 Proof.
 elim: n Hb => [|n IH] Hb.
 - (* 0 steps: both folds are the identity; close the dictionary. *)
-  by rewrite chainc_0 /= encode16_decode16.
+  by rewrite chain0 /= encode16_decode16.
 - (* end-peel both sides; the model's outermost step is at [st + n]. *)
-  rewrite (chainc_rcons PP_shrincs N_shrincs w_shrincs (Sec.wots.scheme.chainf P) pp i x st n) /=.
+  rewrite (chain_rcons (Sec.wots.scheme.chainf P pp i) x st n) /=.
   (* the peeled position is in range: [st + n < w_pred < w] *)
   have Hb' : ((st + n).+1 <= wots.w_pred)%nat by rewrite -addnS; apply/leP.
   have Hlt : ((st + n)%nat < w_shrincs)%nat
     := ltn_trans Hb' (isT : (wots.w_pred < w_shrincs)%nat).
-  rewrite (FcE PP_shrincs N_shrincs w_shrincs (Sec.wots.scheme.chainf P) pp i (st + n)%nat _ Hlt).
-  rewrite /Sec.wots.scheme.chainf (IH (wots.chain_iter_rec_le st n Hb)).
+  rewrite (IH (wots.chain_iter_rec_le st n Hb)) /Sec.wots.scheme.chainf.
   have hlen : length (wots.shrincs_wots_chain_iter (decode16 x) st n (decode16 pp)
                         (address.shrincs_wots_hash_adrs hp A0 ci)
                         (wots.chain_iter_rec_le st n Hb)) = 16%nat
     by apply: chain_iter_decode16_length.
-  have -> : wcp_F P = F_sha256 by [].
   rewrite /F_sha256 decode16_encode16; last by rewrite size_lengthE.
   have Hposn : ((st + n)%nat < w_shrincs.-1)%nat := Hb'.
   rewrite (chain_adrs_modelE i (st + n)%nat Hi Hposn hp ci
@@ -470,7 +469,7 @@ have hnth : nth n0_shrincs xs j = PRF_sha256 pp (prf_adrs P j) k.
   rewrite /xs /derive_sk (nth_map 0%nat) ?size_iota //.
   by rewrite nth_iota // add0n.
 rewrite hnth.
-rewrite (chainc_chain_iterE pp (PRF_sha256 pp (prf_adrs P j) k) j 0 w_shrincs.-1
+rewrite (chain_chain_iterE pp (PRF_sha256 pp (prf_adrs P j) k) j 0 w_shrincs.-1
            Hj wots.w_pred_pos
            (fin.fin_of_nat (Z.of_nat wots.len) j (wots.chain_idx_lt j HjP)))
   ?fin.fin_val_of_nat //.
@@ -498,7 +497,7 @@ Qed.
     correspondence (the FINAL stratum)
 
     The signature-side companions of T4.  [sign_chains_modelE] and
-    [complete_ends_modelE] are the fold adapter [chainc_chain_iterE]
+    [complete_ends_modelE] are the fold adapter [chain_chain_iterE]
     applied elementwise (per chain [j]) at a message digit rather than
     at [w-1]: the step count / start position is now the digest digit
     [ds[j]], whose in-range bound is exactly the model's own
@@ -544,7 +543,7 @@ have hnth : nth n0_shrincs xs j = PRF_sha256 pp (prf_adrs P j) k.
   rewrite /xs /derive_sk (nth_map 0%nat) ?size_iota //.
   by rewrite nth_iota // add0n.
 rewrite hnth (nth_listE _ 0%N D j).
-rewrite (chainc_chain_iterE pp (PRF_sha256 pp (prf_adrs P j) k) j 0 (List.nth j D 0%nat)
+rewrite (chain_chain_iterE pp (PRF_sha256 pp (prf_adrs P j) k) j 0 (List.nth j D 0%nat)
            Hj wots.w_pred_pos
            (fin.fin_of_nat (Z.of_nat wots.len) j (wots.chain_idx_lt j HjP))
            (fin.fin_val_of_nat _ _ _)
@@ -589,7 +588,7 @@ rewrite (nth_listE _ (decode16 n0_shrincs)
 rewrite /wots.complete_ends.
 rewrite (iteration.nth_for_idx_dep wots.len _ (decode16 n0_shrincs) j HjP).
 rewrite (nth_listE _ 0%N D j).
-rewrite (chainc_chain_iterE pp (nth n0_shrincs ys j) j (List.nth j D 0%nat)
+rewrite (chain_chain_iterE pp (nth n0_shrincs ys j) j (List.nth j D 0%nat)
            _ Hj wots.w_pred_pos
            (fin.fin_of_nat (Z.of_nat wots.len) j (wots.chain_idx_lt j HjP))
            (fin.fin_val_of_nat _ _ _)

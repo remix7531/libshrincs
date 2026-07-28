@@ -77,7 +77,7 @@
 
     ** G0w / G1w (the valid-commit game pair)
 
-    [G0w] is the known-message game (HBS.sig.KOTS) for the shrincs_fxmss_wots_scheme
+    [G0w] is the known-message game (Sec.lib.sig.kots) for the shrincs_fxmss_wots_scheme
     scheme, flattened into one self-contained package, in the
     VALID-COMMIT variant: COMMIT [#assert]s grinding success
     ([isSome (find_ctr ...)]) right after sampling PKseed, so a
@@ -109,9 +109,10 @@
     Location ids 900+ (moved off 300+: collided with Sec.wots.games). *)
 
 Set Warnings "-notation-overridden,-ambiguous-paths".
-From HBS Require Import prelude math.chain math.encoding sig.scheme sig.kots
-  games.thf games.smtcr games.smpre games.smud games.stcrp toolkit.sample_seq.
-From HBS Require Import wots.games.
+From Sec.lib Require Import prelude math.chain.
+From Model Require Import math.encoding.
+From Sec.lib Require Import sig.scheme sig.kots games.thf games.smtcr games.smpre games.smud games.stcrp toolkit.sample_seq.
+From Sec.lib Require Import chain.core wots.games.
 From SHRINCS Require Import addressing wotsc.scheme.
 Set Warnings "notation-overridden,ambiguous-paths".
 
@@ -233,7 +234,7 @@ Definition Cgr : thf_coll Tgr :=
 (* ------------------------------------------------------------------ *)
 (** ** The STCRP instantiation for Hgrind
 
-    HBS.games.STCRP is parameterized by (Mb, enc, prp, cap); the
+    Sec.lib.games.stcrp is parameterized by (Mb, enc, prp, cap); the
     grinding instance is Mb := M, enc := pairing with the counter,
     prp := the digit-sum predicate on the decoded digest, cap :=
     c_max (the bounded-search deviation documented in STCRP.v matches
@@ -262,7 +263,7 @@ Qed.
 (** ** The address-wrapped chain hash
 
     [Fw] is [F] at this instance's chain addresses, in the abstract
-    (chain index, position) tweak shape of [HBS.wots.scheme]. This bridge
+    (chain index, position) tweak shape of [Sec.lib.chain.core]. This bridge
     lets the generic chain analysis and [sample_sig_roots] re-rooting
     machinery be reused directly. *)
 
@@ -273,7 +274,7 @@ Definition Fw (pp : PP) (t : nat * nat) (x : N) : N :=
     [chainf] of wots.scheme at [Fw]); stated once so consumers
     can rewrite instead of relying on conversion. *)
 Lemma chainf_Fw pp i :
-  HBS.wots.scheme.chainf PP N Fw pp i
+  Sec.lib.chain.core.chainf PP N Fw pp i
   = chainf PP N F zstar istar pp i.
 Proof. by []. Qed.
 

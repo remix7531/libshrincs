@@ -63,7 +63,8 @@
       statement uses signing budget q_s = 1). *)
 
 From Sec.lib Require Import prelude sig.scheme toolkit.sample_seq chain.core.
-From Model Require Import math.chain math.encoding.
+From Model Require Import math.encoding.
+From Sec.lib Require Import math.chain.
 From Sec Require Import addressing.
 From Sec.wots Require Import addressing.
 From Sec.wots Require Export params.
@@ -132,9 +133,9 @@ Proof. by move=> /find_counterP /andP[_ h]. Qed.
     (total, clamp-free) chain address at position [p] -- every fold ever
     reaches only positions [< w.-1], where [chain_adrs P] is the exact
     address, so the abstract [< w] proof is not needed to build it.
-    This instantiates the abstract chain library's [F']
-    ([Sec.lib.chain.core]), so all chains below go through the total
-    fold [chainc].
+    This instantiates the abstract chain library's step [F]
+    ([Sec.lib.chain.core]), so all chains below go through the one
+    generic fold [Sec.lib.math.chain.chain].
 
     Per-hash-call tweak distinctness lives at the tweak level
     ([params.chain_tweak_inj]): the chain tweak carries its
@@ -142,16 +143,15 @@ Proof. by move=> /find_counterP /andP[_ h]. Qed.
     (chain vs pk vs grind addresses) follows from [encode_tweak_inj]
     plus the distinct type bytes of the underlying [Model.address]
     constructors. *)
-Definition chainf (pp : wcp_PP P) (i : nat) (p : nat) (_ : (p < wcp_w P)%N)
-    (x : wcp_N P) : wcp_N P :=
-  wcp_F P pp (chain_adrs P i p) x.
+Definition chainf (pp : wcp_PP P) (i : nat) : nat -> wcp_N P -> wcp_N P :=
+  fun p x => wcp_F P pp (chain_adrs P i p) x.
 
 (** Chain ends: the [i]-th component is the end (position w-1) of the
     [i]-th chain from the [i]-th secret
     (pk_i = c^{0, w-1}(sk_i, i, PKseed, ADRS^h)).  The zip/iota
     formulation avoids a default element. *)
 Definition chain_ends (pp : wcp_PP P) (xs : seq (wcp_N P)) : seq (wcp_N P) :=
-  [seq chainc (wcp_PP P) (wcp_N P) (wcp_w P) chainf pp ix.1 ix.2 0 (wcp_w P).-1
+  [seq chain (chainf pp ix.1) ix.2 0 (wcp_w P).-1
   | ix <- zip (iota 0 (wcp_chain_count P)) xs].
 
 (** Compressed public key
@@ -162,13 +162,13 @@ Definition shrincs_wots_pubkey (pp : wcp_PP P) (xs : seq (wcp_N P)) : wcp_N P :=
 (** Signature chain values for digit vector [ds]
     (sigma_i = c^{0, a_i}(sk_i, i, PKseed, ADRS^h)). *)
 Definition sign_chains (pp : wcp_PP P) (xs : seq (wcp_N P)) (ds : seq nat) : seq (wcp_N P) :=
-  [seq chainc (wcp_PP P) (wcp_N P) (wcp_w P) chainf pp ixd.1.1 ixd.1.2 0 ixd.2
+  [seq chain (chainf pp ixd.1.1) ixd.1.2 0 ixd.2
   | ixd <- zip (zip (iota 0 (wcp_chain_count P)) xs) ds].
 
 (** Verifier-side chain completion
     (c^{a_i, w-1-a_i}(sigma_i, i, PKseed, ADRS^h)). *)
 Definition complete_ends (pp : wcp_PP P) (ds : seq nat) (ys : seq (wcp_N P)) : seq (wcp_N P) :=
-  [seq chainc (wcp_PP P) (wcp_N P) (wcp_w P) chainf pp q.1 q.2.2 q.2.1 ((wcp_w P).-1 - q.2.1)
+  [seq chain (chainf pp q.1) q.2.2 q.2.1 ((wcp_w P).-1 - q.2.1)
   | q <- zip (iota 0 (wcp_chain_count P)) (zip ds ys)].
 
 (** Verification: recompute the digest at the signature's counter,
@@ -227,17 +227,17 @@ Proof. by rewrite size_map !size_zip size_iota. Qed.
     [j := 0], [i := d], [e := w.-1]. *)
 Lemma complete_sign_chain pp st (xs : seq (wcp_N P)) (ds : seq nat) :
   size ds = size xs -> wf_digits (wcp_w P) ds ->
-  [seq chainc (wcp_PP P) (wcp_N P) (wcp_w P) chainf pp q.1 q.2.2 q.2.1 ((wcp_w P).-1 - q.2.1)
+  [seq chain (chainf pp q.1) q.2.2 q.2.1 ((wcp_w P).-1 - q.2.1)
   | q <- zip (iota st (size xs))
              (zip ds
-                  [seq chainc (wcp_PP P) (wcp_N P) (wcp_w P) chainf pp ixd.1.1 ixd.1.2 0 ixd.2
+                  [seq chain (chainf pp ixd.1.1) ixd.1.2 0 ixd.2
                   | ixd <- zip (zip (iota st (size xs)) xs) ds])]
-  = [seq chainc (wcp_PP P) (wcp_N P) (wcp_w P) chainf pp ix.1 ix.2 0 (wcp_w P).-1
+  = [seq chain (chainf pp ix.1) ix.2 0 (wcp_w P).-1
     | ix <- zip (iota st (size xs)) xs].
 Proof.
 elim: xs st ds => [|x xs IH] st [|d ds] //= [hsz] /andP[hd hds].
 have hdw : d <= (wcp_w P).-1 by rewrite -ltnS (ltn_predK hd).
-have hsp := chainc_split (wcp_PP P) (wcp_N P) (wcp_w P) chainf pp st x 0 d (wcp_w P).-1 (leq0n d) hdw.
+have hsp := chain_split (chainf pp st) x (leq0n d) hdw.
 rewrite !subn0 in hsp.
 by rewrite -hsp; congr (_ :: _); apply: IH.
 Qed.

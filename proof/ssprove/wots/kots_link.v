@@ -39,7 +39,8 @@
 From mathcomp.experimental_reals Require Import distr.
 From Sec.lib Require Import prelude sig.scheme sig.kots
   toolkit.sample_seq toolkit.relational_rules.
-From Model Require Import math.chain math.encoding.
+From Model Require Import math.encoding.
+From Sec.lib Require Import math.chain.
 From Sec Require Import addressing.
 From Sec.wots Require Import addressing.
 From Sec.wots Require Import scheme games hop.prf.

@@ -71,7 +71,7 @@
       [q_h]; same lazy map.
     - [FXFORGE (m, sg)]: real = the flexible verifier with the digest
       read through the RO map ([shrincs_fxmss_verify_md] + lazy read) plus
-      freshness [m \notin log]; ideal = ret false (HBS.games.THF
+      freshness [m \notin log]; ideal = ret false (Sec.lib.games.thf
       real/ideal convention).  EU-CMA "success" = [AdvOf (G0f) A].
       BUDGET [q_f] (counter [shrincs_fxmss_fcnt_loc]; [q_f := 1] recovers the
       tex experiment's single forgery output): an UNBOUNDED FORGE
@@ -126,11 +126,12 @@
     - [shrincs_fxmss_fcnt_loc]408: the FORGE call budget counter.
 
     The game instances follow [SHRINCS.wotsc.games] and the generic
-    flattened-game pattern in [HBS.wots.games]. *)
+    flattened-game pattern in [Sec.lib.wots.games]. *)
 
 Set Warnings "-notation-overridden,-ambiguous-paths".
-From HBS Require Import prelude math.bin_tree math.merkle math.chain
-  math.encoding sig.scheme games.thf games.prf toolkit.sample_seq.
+From Sec.lib Require Import prelude math.bin_tree math.merkle math.chain.
+From Model Require Import math.encoding.
+From Sec.lib Require Import sig.scheme games.thf games.prf_adaptive toolkit.sample_seq.
 From SHRINCS Require Import addressing wotsc.scheme wotsc.games fxmss.scheme.
 Set Warnings "notation-overridden,ambiguous-paths".
 

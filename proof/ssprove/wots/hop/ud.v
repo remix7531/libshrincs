@@ -63,7 +63,8 @@
 From mathcomp Require Import reals.
 From Sec.lib Require Import prelude sig.scheme sig.kots
   games.thf games.smud toolkit.sample_seq toolkit.relational_rules.
-From Model Require Import math.chain math.encoding.
+From Model Require Import math.encoding.
+From Sec.lib Require Import math.chain.
 From Sec.lib Require Import chain.core chain.ud.
 From Sec Require Import addressing.
 From Sec.wots Require Import addressing.
@@ -99,12 +100,12 @@ Local Ltac ud_remember_rel x n :=
     Sec.wots.analysis. *)
 
 Lemma wsignE pp (xs : seq (wcp_N P)) (ds : seq nat) :
-  Sec.lib.chain.core.sign_digits (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (Fw P) pp xs ds
+  Sec.lib.chain.core.sign_digits (wcp_PP P) (wcp_N P) (Fw P) (wcp_chain_count P) pp xs ds
   = (sign_chains P) pp xs ds.
 Proof. by []. Qed.
 
 Lemma wpk_ofE pp (xs : seq (wcp_N P)) :
-  (wcp_T_sf P) pp (pk_adrs P) (Sec.lib.chain.core.chain_ends (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (Fw P) pp xs)
+  (wcp_T_sf P) pp (pk_adrs P) (Sec.lib.chain.core.chain_ends (wcp_PP P) (wcp_N P) (Fw P) (wcp_chain_count P) (wcp_w P) pp xs)
   = (shrincs_wots_pubkey P) pp xs.
 Proof. by []. Qed.
 
@@ -145,11 +146,11 @@ Definition HGw (s : nat) (b : bool) : game (I_KOTS (shrincs_wots_scheme P)) :=
       let d := (digest_of P) pp m c in
       xs ← sample_seq (wcp_dN P) (wcp_chain_count P) ;;
       #put ud_hybrid_pk_loc :=
-        Some (pp, (wcp_T_sf P) pp (pk_adrs P) ((complete_ends P) pp d (roots_map (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp s 0 d xs))) ;;
+        Some (pp, (wcp_T_sf P) pp (pk_adrs P) ((complete_ends P) pp d (roots_map (wcp_PP P) (wcp_N P) (Fw P) pp s 0 d xs))) ;;
       #put ud_hybrid_log_loc := [:: m] ;;
-      #put ud_hybrid_sig_loc := Some (roots_map (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp s 0 d xs, c) ;;
-      ret ((pp, (wcp_T_sf P) pp (pk_adrs P) ((complete_ends P) pp d (roots_map (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp s 0 d xs))),
-           Some (roots_map (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp s 0 d xs, c))
+      #put ud_hybrid_sig_loc := Some (roots_map (wcp_PP P) (wcp_N P) (Fw P) pp s 0 d xs, c) ;;
+      ret ((pp, (wcp_T_sf P) pp (pk_adrs P) ((complete_ends P) pp d (roots_map (wcp_PP P) (wcp_N P) (Fw P) pp s 0 d xs))),
+           Some (roots_map (wcp_PP P) (wcp_N P) (Fw P) pp s 0 d xs, c))
     } ;
     [ KFORGE ] : { Msg (shrincs_wots_scheme P) × Sig (shrincs_wots_scheme P) ~> 'bool } '(m, sg) {
       pk ← getSome ud_hybrid_pk_loc ;;
@@ -197,7 +198,7 @@ simplify_eq_rel arg.
     := size_digest_of P pp m _.
   eapply r_sample_seq_size => xs hxs.
   rewrite !(wcendsE P) !ends_from_roots_map0 // !wpk_ofE
-          !(roots_map_sign (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (Fw P)) // !wsignE.
+          !(roots_map_sign (wcp_PP P) (wcp_N P) (Fw P) (wcp_chain_count P)) // !wsignE.
   do 3 apply r_put_vs_put.
   ssprove_restore_mem.
   { ssprove_invariant. }
@@ -233,7 +234,7 @@ simplify_eq_rel arg.
             = sample_seq (wcp_dN P) (size ((digest_of P) pp m (odflt 0 ((find_counter P) pp m)))).
   { by rewrite size_digest_of. }
   eapply r_sample_sig_roots => xs hxs.
-  rewrite !(sig_map_roots (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P)) //.
+  rewrite !(sig_map_roots (wcp_PP P) (wcp_N P) (Fw P) (wcp_w P)) //.
   do 3 apply r_put_vs_put.
   ssprove_restore_mem.
   { ssprove_invariant. }
@@ -336,11 +337,11 @@ Proof.
       ys ← r_ud_loop s 0 d ;;
       pp ← (call [ UGETPP ] : { 'unit ~> (wcp_PP P) } tt) ;;
       #put r_ud_pk_loc :=
-        Some (pp, (wcp_T_sf P) pp (pk_adrs P) ((complete_ends P) pp d (rud_sig (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp s 0 d ys))) ;;
+        Some (pp, (wcp_T_sf P) pp (pk_adrs P) ((complete_ends P) pp d (rud_sig (wcp_PP P) (wcp_N P) (Fw P) pp s 0 d ys))) ;;
       #put r_ud_log_loc := [:: m] ;;
-      #put r_ud_sig_loc := Some (rud_sig (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp s 0 d ys, c) ;;
-      ret ((pp, (wcp_T_sf P) pp (pk_adrs P) ((complete_ends P) pp d (rud_sig (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp s 0 d ys))),
-           Some (rud_sig (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp s 0 d ys, c))
+      #put r_ud_sig_loc := Some (rud_sig (wcp_PP P) (wcp_N P) (Fw P) pp s 0 d ys, c) ;;
+      ret ((pp, (wcp_T_sf P) pp (pk_adrs P) ((complete_ends P) pp d (rud_sig (wcp_PP P) (wcp_N P) (Fw P) pp s 0 d ys))),
+           Some (rud_sig (wcp_PP P) (wcp_N P) (Fw P) pp s 0 d ys, c))
     } ;
     [ KFORGE ] : { Msg (shrincs_wots_scheme P) × Sig (shrincs_wots_scheme P) ~> 'bool } '(m, sg) {
       pk ← getSome r_ud_pk_loc ;;
@@ -432,7 +433,7 @@ Lemma r_rw_loop_real (pp : (wcp_PP P)) (s i : nat) (ds : seq nat)
     ≈ code_link (r_ud_loop s i ds) (SMUD_game (thf_chain P) (coll_chain P) (wcp_chain_count P) true)
   ⦃ λ '(xs, s₀) '(ys, s₁),
       (r_ud_pre pp (s₀, s₁) /\ size xs = size ds)
-      /\ ys = uq_real_map (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp s i ds xs ⦄.
+      /\ ys = uq_real_map (wcp_PP P) (wcp_N P) (Fw P) pp s i ds xs ⦄.
 Proof.
 move=> hs.
 elim: ds i tws => [|d ds IH] i tws hicc hcnt hfresh /=.
@@ -483,7 +484,7 @@ elim: ds i tws => [|d ds IH] i tws hicc hcnt hfresh /=.
          fold (the [otf]/[fto] cancel). *)
       congr (_ :: _); last exact: hys.
       have hsw : (s < (wcp_w P))%N by apply: (ltn_trans hs); rewrite ltn_predL; apply: (ltnW (wcp_Hw P)).
-      by rewrite core_decodeE (decode_chain_tweak P) (FcE (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp i s x hsw).
+      by rewrite core_decodeE (decode_chain_tweak P).
   + (* direct sample *)
     ssprove_code_simpl; simpl.
     rewrite (code_link_scheme _ _ _ _ (prog_valid (wcp_dN P))) bind_ret.
@@ -581,7 +582,7 @@ Lemma r_rw_loop_real_l (pp : (wcp_PP P)) (s : nat) (ds : seq nat) :
     ≈ code_link (r_ud_loop s 0 ds) (SMUD_game (thf_chain P) (coll_chain P) (wcp_chain_count P) true)
   ⦃ λ '(xs, s₀) '(ys, s₁),
       (r_ud_pre pp (s₀, s₁) /\ size xs = (wcp_chain_count P))
-      /\ ys = uq_real_map (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp s 0 ds xs ⦄.
+      /\ ys = uq_real_map (wcp_PP P) (wcp_N P) (Fw P) pp s 0 ds xs ⦄.
 Proof.
 move=> hs hds.
 have hcnt : (size ([::] : seq (wc_adrs_ch P))

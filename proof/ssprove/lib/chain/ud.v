@@ -37,7 +37,8 @@
 
 From Sec.lib Require Import prelude sig.scheme
   toolkit.sample_seq toolkit.relational_rules chain.core.
-From Model Require Import math.chain math.encoding.
+From Model Require Import math.encoding.
+From Sec.lib Require Import math.chain.
 
 Import PackageNotation.
 #[local] Open Scope package_scope.
@@ -45,12 +46,11 @@ Import PackageNotation.
 Section ChainUD.
 
 Context (PP N : choice_type).
-Context (l w : nat).
-(** Position-tweaked hash in [Model.math.chain]'s DEPENDENT shape (the
-    abstract [F'] of [Sec.lib.chain.core]): all chain walks below go
-    through the total fold [chainc] and its total step [Fc]. *)
-Context (F' : PP -> nat -> forall p : nat, (p < w)%N -> N -> N).
+(** Position-tweaked hash, the abstract [F] of [Sec.lib.chain.core]:
+    all chain walks below go through [Sec.lib.math.chain]'s [chain]. *)
+Context (F : PP -> nat * nat -> N -> N).
 Context (dN : dist N).
+Context (l w : nat).
 
 (* ------------------------------------------------------------------ *)
 (** ** Pure layer: the per-chain sampling maps *)
@@ -59,7 +59,7 @@ Fixpoint roots_map (pp : PP) (s i : nat) (m : seq nat) (xs : seq N)
     {struct m} : seq N :=
   match m, xs with
   | d :: m', x :: xs' =>
-      chainc PP N w F' pp i x (minn s d.-1) (d - minn s d.-1)
+      chain (chainf PP N F pp i) x (minn s d.-1) (d - minn s d.-1)
         :: roots_map pp s i.+1 m' xs'
   | _, _ => [::]
   end.
@@ -68,7 +68,7 @@ Fixpoint uq_real_map (pp : PP) (s i : nat) (m : seq nat) (xs : seq N)
     {struct m} : seq N :=
   match m, xs with
   | d :: m', x :: xs' =>
-      (if s.+2 <= d then Fc PP N w F' pp (i, s) x else x)
+      (if s.+2 <= d then F pp (i, s) x else x)
         :: uq_real_map pp s i.+1 m' xs'
   | _, _ => [::]
   end.
@@ -78,8 +78,8 @@ Fixpoint rud_sig (pp : PP) (s i : nat) (m : seq nat) (ys : seq N)
   match m, ys with
   | d :: m', y :: ys' =>
       (if s.+2 <= d
-       then chainc PP N w F' pp i y s.+1 (d - s.+1)
-       else chainc PP N w F' pp i y (minn s d.-1) (d - minn s d.-1))
+       then chain (chainf PP N F pp i) y s.+1 (d - s.+1)
+       else chain (chainf PP N F pp i) y (minn s d.-1) (d - minn s d.-1))
         :: rud_sig pp s i.+1 m' ys'
   | _, _ => [::]
   end.
@@ -88,7 +88,7 @@ Fixpoint sig_map (pp : PP) (i : nat) (m : seq nat) (xs : seq N)
     {struct m} : seq N :=
   match m, xs with
   | d :: m', x :: xs' =>
-      (if d is d'.+1 then Fc PP N w F' pp (i, d') x else x)
+      (if d is d'.+1 then F pp (i, d') x else x)
         :: sig_map pp i.+1 m' xs'
   | _, _ => [::]
   end.
@@ -117,7 +117,7 @@ have hs1 : s.+1 <= d.-1 := big_digit_pred _ _ hd.
 have hsd : s < d := ltnW hd.
 have -> : minn s d.-1 = s by apply/minn_idPl; exact: ltnW hs1.
 have -> : d - s = (d - s.+1).+1 by rewrite subnS prednK // subn_gt0.
-by rewrite (chainc_shift PP N w F' pp i x s (d - s.+1)).
+by rewrite (chainS (chainf PP N F pp i) x s (d - s.+1)).
 Qed.
 
 (** The reduction's post-processing of the IDEAL oracle answers (the
@@ -139,7 +139,7 @@ Qed.
     chain walk. *)
 Lemma roots_map0E (pp : PP) (i : nat) (ds : seq nat) (xs : seq N) :
   roots_map pp 0 i ds xs
-  = [seq chainc PP N w F' pp q.1.1 q.1.2 0 q.2
+  = [seq chain (chainf PP N F pp q.1.1) q.1.2 0 q.2
     | q <- zip (zip (iota i (size ds)) xs) ds].
 Proof.
 by elim: ds i xs => [|d ds IH] i [|x xs] //=; rewrite min0n subn0 IH.
@@ -147,7 +147,7 @@ Qed.
 
 Lemma roots_map_sign (pp : PP) (m : seq nat) (xs : seq N) :
   size m = l ->
-  roots_map pp 0 0 m xs = sign_digits PP N l w F' pp xs m.
+  roots_map pp 0 0 m xs = sign_digits PP N F l pp xs m.
 Proof. by move=> hm; rewrite roots_map0E /sign_digits hm. Qed.
 
 (** Endpoint [s = 0], public ends: completing the [roots_map 0] digit
@@ -155,21 +155,21 @@ Proof. by move=> hm; rewrite roots_map0E /sign_digits hm. Qed.
     [chain x 0 w.-1] ([chain_split]). *)
 Lemma ends_roots_map0 (pp : PP) (i : nat) (ds : seq nat) (xs : seq N) :
   wf_digits w ds ->
-  [seq chainc PP N w F' pp q.1 q.2.2 q.2.1 (w.-1 - q.2.1)
+  [seq chain (chainf PP N F pp q.1) q.2.2 q.2.1 (w.-1 - q.2.1)
   | q <- zip (iota i (size ds)) (zip ds (roots_map pp 0 i ds xs))]
-  = [seq chainc PP N w F' pp ix.1 ix.2 0 w.-1 | ix <- zip (iota i (size ds)) xs].
+  = [seq chain (chainf PP N F pp ix.1) ix.2 0 w.-1 | ix <- zip (iota i (size ds)) xs].
 Proof.
 elim: ds i xs => [|d ds IH] i [|x xs] //= /andP[hd hds].
 rewrite min0n subn0 IH //; congr cons.
 have hdw : d <= w.-1 by rewrite -ltnS (ltn_predK hd).
-have h := chainc_split PP N w F' pp i x 0 d w.-1 (leq0n d) hdw.
+have h := chain_split (chainf PP N F pp i) x (leq0n d) hdw.
 by rewrite !subn0 in h; rewrite -h.
 Qed.
 
 Lemma ends_from_roots_map0 (pp : PP) (m : seq nat) (xs : seq N) :
   size m = l -> wf_digits w m ->
-  ends_from_sig PP N l w F' pp m (roots_map pp 0 0 m xs)
-  = chain_ends PP N l w F' pp xs.
+  ends_from_sig PP N F l w pp m (roots_map pp 0 0 m xs)
+  = chain_ends PP N F l w pp xs.
 Proof.
 move=> hm hwd.
 by rewrite /ends_from_sig /chain_ends -hm ends_roots_map0.
@@ -225,7 +225,7 @@ Lemma r_sample_sig_roots {B : choiceType} (pp : PP) (i : nat)
   (forall xs : seq N, size xs = size m ->
     ⊢ ⦃ pre ⦄ k₀ (sig_map pp i m xs) ≈ k₁ xs ⦃ post ⦄) ->
   ⊢ ⦃ pre ⦄
-    sg ← sample_sig_roots PP N w F' dN pp i m ;; k₀ sg
+    sg ← sample_sig_roots PP N F dN pp i m ;; k₀ sg
     ≈ xs ← sample_seq dN (size m) ;; k₁ xs
   ⦃ post ⦄.
 Proof.

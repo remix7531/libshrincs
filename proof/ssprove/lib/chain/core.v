@@ -25,34 +25,29 @@
       - [ChainDecisionTCR] / [ChainDecisionPRE] : the computable
                           SM-TCR / SM-PRE forgery classifiers.
 
-    DEPENDENT-FOLD BRIDGE.  [Model.math.chain] is now width-bounded: its
-    step [f : forall p, (p < w)%N -> A -> A] RECEIVES the in-range proof
-    and the fold [chain x s n] is a FUNCTION of a bound proof
-    [(s + n <= w)%N].  The abstract step of THIS layer is re-typed to
-    match — [Context (F' : PP -> nat -> forall p, (p < w)%N -> N -> N)] —
-    so a later phase (the concrete address builder) can construct an
-    EXACT [fin]-bounded position at every step with NO saturating clamp.
-    Because the many step-application sites here (chain ends, signing,
-    verification checks, the reduction's query/target lists) live in
-    [map]/boolean/[flatten] contexts with no bound in scope, we expose a
-    TOTAL step [Fc] (guards the position, else identity) and a TOTAL
-    fold [chainc] (structural [Fixpoint] over [Fc]).  On every in-range
-    input these agree with [Model.math.chain]'s dependent [f]/[chain]
-    ([FcE], [chaincE]); the composition algebra [chainc_cat] /
-    [chainc_split] / [chainc_rcons] holds UNCONDITIONALLY (the fold is
-    total), so all the public definitions keep their exact statement
-    shapes and the value/forgery lemmas gain only [_ <= w] / [_ < w]
-    side conditions where they invoke [Model.math.chain]'s [*P] specs.
-    [chain_searchc] / [chain_extractc] are the analogous total mirrors of
-    [chain_search] / [chain_extract], with bridges [chain_searchcE] /
-    [chain_extractcE].  This keeps the step [F']'s in-range proof live at
-    the leaves while insulating the bookkeeping from the bound.
+    THE CHAIN LADDER.  The fold, the forged/honest walk and the forgery
+    classifier are [Sec.lib.math.chain]'s [chain] / [chain_search] /
+    [chain_extract], applied at the step [chainf pp i] of chain [i].
+    That is the ONE generic ladder in this repo: both the native
+    single-anchor WOTS+C proof ([Sec.wots.*]) and the banked FXMSS leaf
+    bound ([SHRINCS.fxmss.leaf2_*]) instantiate it.
+
+    [Model.math.chain] is the separate, width-bounded formulation kept
+    for the C-facing model: its step [f : forall p, (p < w)%N -> A -> A]
+    RECEIVES the in-range proof and its fold is a FUNCTION of a bound
+    proof [(s + n <= w)%N].  [chaincE] below is the bridge between the
+    two, and the only place this layer mentions it.  (Before the
+    exact-or-zero address facade landed, this layer's own step carried
+    that dependent type and had to be wrapped in a position-guarding
+    total step [Fc] with a bridge [FcE]; every concrete step now ignores
+    the bound proof, so the guard had no content left and both are
+    gone.)
 
     See each section's header comment for details. *)
 
-From Sec.lib Require Import prelude sig.scheme
-  toolkit.sample_seq.
 From Model Require Import math.chain math.encoding.
+From Sec.lib Require Import prelude sig.scheme
+  toolkit.sample_seq math.chain.
 
 Import PackageNotation.
 #[local] Open Scope package_scope.
@@ -174,6 +169,14 @@ Lemma all_lt_tlt i k (ts : seq (nat * nat)) :
   all (λ t : nat * nat, t.1 < i) ts -> all (tweak_lt i k) ts.
 Proof. by apply: sub_all => t; rewrite /tweak_lt => ->. Qed.
 
+(** Widen a per-chain bound to the next chain index. *)
+Lemma all_tlt_lt i k (ts : seq (nat * nat)) :
+  all (tweak_lt i k) ts -> all (λ t : nat * nat, t.1 < i.+1) ts.
+Proof.
+apply: sub_all => t; rewrite /tweak_lt => /orP[h|/andP[/eqP -> _]] //.
+exact: ltnW.
+Qed.
+
 Lemma lt_notin st d' (ts : seq (nat * nat)) :
   all (λ t : nat * nat, t.1 < st) ts -> (st, d') \notin ts.
 Proof.
@@ -205,146 +208,48 @@ Proof. by case: s => //= a s [<-]; rewrite in_cons eqxx. Qed.
 (* ================= merged Sec.lib.chain.* ================= *)
 
 (** All the [F]-using content is one [Section] so the four former
-    [Chain.*] layers share the width-bounded step [F'] and the total
-    wrappers [Fc] / [chainc] / [chain_extractc] (which must be in scope
-    across all four).  Section-variable generalisation still drops the
-    variables a given definition does not use, so each public name keeps
-    its natural parameter list. *)
+    [Chain.*] layers share the step [F] and its per-chain currying
+    [chainf] (which must be in scope across all four).  The context is
+    declared in the order [PP N; F; dPP dN; l w tsum]; section-variable
+    generalisation drops the variables a given definition does not use,
+    so each public name keeps its natural parameter list. *)
 
 Section ChainCore.
 
 (** Public parameter and hash domain (one hash-output type [N]). *)
 Context (PP N : choice_type).
 
+(** Position-tweaked hash; the tweak is (chain index, chain position). *)
+Context (F : PP -> nat * nat -> N -> N).
+
+(** Samplers for key generation and for the SM-UD root sampler. *)
+Context (dPP : dist PP) (dN : dist N).
+
 (** Number of chains, digit bound (digits in [0..w-1]), target sum. *)
 Context (l w tsum : nat).
 
-(** Position-tweaked hash: applying at position [p] SUPPLIES the proof
-    [p < w] (the [Model.math.chain] dependent-step convention), so a
-    consumer builds an exact [fin] position with no clamp. *)
-Context (F' : PP -> nat -> forall p : nat, (p < w)%N -> N -> N).
+(** Chain step of chain [i], in [Sec.lib.math.chain]'s position-first
+    shape: the position is the step function's first argument. *)
+Definition chainf (pp : PP) (i : nat) : nat -> N -> N :=
+  fun pos x => F pp (i, pos) x.
 
-(** Output distribution for the SM-UD signature-root sampler. *)
-Context (dN : dist N).
+(* ------------------------------------------------------------------ *)
+(** ** Bridge to the width-bounded model chain
 
-(* ================================================================== *)
-(** ** Dependent-fold bridge: total wrappers over [Model.math.chain] *)
-
-(** The dependent chain step of chain [i] fed to [Model.math.chain]. *)
-Definition chainf (pp : PP) (i : nat) : forall p : nat, (p < w)%N -> N -> N :=
-  fun p H x => F' pp i p H x.
-
-(** TOTAL step: apply [F'] at position [p] when [p < w], else identity.
-    The guard is a [Bool.bool_dec] sumbool (NOT [boolP]): its branch
-    binder carries the CONCRETE [p < w] equation, so reasoning about the
-    wrapper never abstracts the bound out of [F']'s proof argument. *)
-Definition Fc (pp : PP) (t : nat * nat) (x : N) : N :=
-  match Bool.bool_dec ((t.2)%N < w)%N true with
-  | left H => F' pp t.1 t.2 H x
-  | right _ => x
-  end.
-
-(** In range, [Fc] IS the dependent step (proof-irrelevantly). *)
-Lemma FcE pp i p x (H : (p < w)%N) : Fc pp (i, p) x = F' pp i p H x.
-Proof.
-rewrite /Fc /=; case: (Bool.bool_dec (p < w)%N true) => [H0|H0].
-- by rewrite (bool_irrelevance H0 H).
-- by case: (H0 H).
-Qed.
-
-Lemma chainf_Fc pp i p x (H : (p < w)%N) : chainf pp i p H x = Fc pp (i, p) x.
-Proof. by rewrite (FcE pp i p x H). Qed.
-
-(** TOTAL fold: apply [Fc] at positions [s, ..., s + n - 1] from [x].
-    A plain structural [Fixpoint] (mirrors the shape of the old total
-    [chain]); no bound proof needed since [Fc] is total. *)
-Fixpoint chainc (pp : PP) (i : nat) (x : N) (s n : nat) {struct n} : N :=
-  if n is n'.+1 then chainc pp i (Fc pp (i, s) x) s.+1 n' else x.
-
-Lemma chainc_0 pp i x s : chainc pp i x s 0 = x.
-Proof. by []. Qed.
-
-(** Definitional front-peel (unconditional): the one-step peel the
-    query/walk lemmas rely on. *)
-Lemma chainc_shift pp i x k j :
-  chainc pp i x k j.+1 = chainc pp i (Fc pp (i, k) x) k.+1 j.
-Proof. by []. Qed.
-
-(** In range, [chainc] IS the dependent fold. *)
+    [Model.math.chain] is the C-facing, width-bounded formulation: its
+    step [f : forall p, (p < w)%N -> A -> A] RECEIVES the in-range proof
+    and its fold is a FUNCTION of a bound proof.  Below the chain width
+    the two folds agree; this is the one lemma that ties the model chain
+    to the (total) library fold used everywhere here. *)
 Lemma chaincE pp i x s n (H : (s + n <= w)%N) :
-  chainc pp i x s n = @Model.math.chain.chain N w (chainf pp i) x s n H.
+  chain (chainf pp i) x s n
+  = @Model.math.chain.chain N w (fun p (_ : (p < w)%N) => F pp (i, p)) x s n H.
 Proof.
 elim: n s x H => [|n IH] s x H.
-- by rewrite (@Model.math.chain.chain0 N w (chainf pp i) x s H).
+- by rewrite (@Model.math.chain.chain0 N w _ x s H).
 - have Hf : (s < w)%N := @Model.math.chain.chain_hd_lt w s n H.
   have Ht : (s.+1 + n <= w)%N := @Model.math.chain.chain_tl_le w s n H.
-  rewrite (@Model.math.chain.chainSr N w (chainf pp i) x s n H Hf Ht).
-  rewrite (chainf_Fc pp i s x Hf).
-  exact: (IH s.+1 (Fc pp (i, s) x) Ht).
-Qed.
-
-(** Composition (UNCONDITIONAL — the fold is total). *)
-Lemma chainc_cat pp i x s m n :
-  chainc pp i x s (m + n) = chainc pp i (chainc pp i x s m) (s + m) n.
-Proof.
-elim: m s x => [|m IH] s x; first by rewrite add0n addn0.
-by rewrite addSn /= IH addSnnS.
-Qed.
-
-(** Re-split at an intermediate position (UNCONDITIONAL). *)
-Lemma chainc_split pp i y j i0 e :
-  j <= i0 -> i0 <= e ->
-  chainc pp i y j (e - j) = chainc pp i (chainc pp i y j (i0 - j)) i0 (e - i0).
-Proof.
-move=> hji hie.
-have E : (e - j = (i0 - j) + (e - i0))%N.
-  by rewrite addnBA // addnC addnBA // subnAC addnK.
-by rewrite E chainc_cat subnKC.
-Qed.
-
-(** End-peel (UNCONDITIONAL). *)
-Lemma chainc_rcons pp i x s n :
-  chainc pp i x s n.+1 = Fc pp (i, (s + n)%N) (chainc pp i x s n).
-Proof.
-elim: n s x => [|n IH] s x; first by rewrite addn0.
-rewrite (chainc_shift pp i x s n.+1) IH (chainc_shift pp i x s n).
-by rewrite addSnnS.
-Qed.
-
-(** TOTAL forged/honest walk (mirror of [Model.math.chain.chain_search]
-    with the total step). *)
-Fixpoint chain_searchc (pp : PP) (i : nat) (u v : N) (k n : nat) {struct n}
-    : @Model.math.chain.ccase N :=
-  if n is n'.+1 then
-    (if u == v then @Model.math.chain.ChainMeet N
-     else if Fc pp (i, k) u == Fc pp (i, k) v then @Model.math.chain.ChainColl N k u v
-     else chain_searchc pp i (Fc pp (i, k) u) (Fc pp (i, k) v) k.+1 n')
-  else @Model.math.chain.ChainMeet N.
-
-Lemma chain_searchcE pp i u v k n (H : (k + n <= w)%N) :
-  chain_searchc pp i u v k n
-  = @Model.math.chain.chain_search N w (chainf pp i) u v k n H.
-Proof.
-elim: n u v k H => [//|n IH] u v k H /=.
-rewrite (chainf_Fc pp i k u (@Model.math.chain.chain_hd_lt w k n H)).
-rewrite (chainf_Fc pp i k v (@Model.math.chain.chain_hd_lt w k n H)).
-case: ifP => // _.
-by case: ifP => // _.
-Qed.
-
-(** TOTAL forgery classifier (mirror of [Model.math.chain.chain_extract]). *)
-Definition chain_extractc (pp : PP) (i : nat) (y : N) (j : nat) (z : N) (i' e : nat)
-    : @Model.math.chain.ccase N :=
-  chain_searchc pp i (chainc pp i y j (i' - j)) z i' (e - i').
-
-Lemma chain_extractcE pp i y j z i' e
-    (Hij : (j + (i' - j) <= w)%N) (Hie : (i' + (e - i') <= w)%N) :
-  chain_extractc pp i y j z i' e
-  = @Model.math.chain.chain_extract N w (chainf pp i) y j z i' e Hij Hie.
-Proof.
-rewrite /chain_extractc.
-rewrite (chaincE pp i y j (i' - j) Hij).
-by rewrite (chain_searchcE pp i _ z i' (e - i') Hie).
+  by rewrite (@Model.math.chain.chainSr N w _ x s n H Hf Ht) -IH.
 Qed.
 
 (* ================= former Sec.lib.chain.scheme ================= *)
@@ -360,18 +265,18 @@ Definition valid_msg (m : seq nat) : bool :=
 (** Public chain ends: the [i]-th component is the end (position
     [w.-1]) of the [i]-th chain started from the [i]-th secret. *)
 Definition chain_ends (pp : PP) (xs : seq N) : seq N :=
-  [seq chainc pp ix.1 ix.2 0 w.-1 | ix <- zip (iota 0 l) xs].
+  [seq chain (chainf pp ix.1) ix.2 0 w.-1 | ix <- zip (iota 0 l) xs].
 
 (** Signature digits: the [i]-th component is the [i]-th chain walked
     from the secret start to position [m_i]. *)
 Definition sign_digits (pp : PP) (xs : seq N) (m : seq nat) : seq N :=
-  [seq chainc pp ixd.1.1 ixd.1.2 0 ixd.2
+  [seq chain (chainf pp ixd.1.1) ixd.1.2 0 ixd.2
   | ixd <- zip (zip (iota 0 l) xs) m].
 
 (** One verification check: completing the [i]-th chain from the
     claimed value [y] at position [d] must reach the public end. *)
 Definition chain_check (pp : PP) (i d : nat) (y e : N) : bool :=
-  chainc pp i y d (w.-1 - d) == e.
+  chain (chainf pp i) y d (w.-1 - d) == e.
 
 Definition verify_sig (pp : PP) (ends : seq N) (m : seq nat) (sg : seq N) : bool :=
   [&& valid_msg m, size sg == l
@@ -403,23 +308,23 @@ Proof. by move=> hxs hm; rewrite size_sign_digits hxs hm !minnn. Qed.
     that induction on the secrets goes through.  For each position:
     completing the honest signature value (chain from [x] to position
     [d]) with [w.-1 - d] more steps reaches the chain end; this is
-    exactly [chainc_split] with [j := 0], [i := d], [e := w.-1]
+    exactly [chain_split] with [j := 0], [i := d], [e := w.-1]
     (where [d <= w.-1] because [d < w]). *)
 Lemma all_chain_checks pp st (xs : seq N) (m : seq nat) :
   size m = size xs -> wf_digits w m ->
   all (fun q => chain_check pp q.1 q.2.1 q.2.2.1 q.2.2.2)
       (zip (iota st (size xs))
            (zip m
-                (zip [seq chainc pp ixd.1.1 ixd.1.2 0 ixd.2
+                (zip [seq chain (chainf pp ixd.1.1) ixd.1.2 0 ixd.2
                      | ixd <- zip (zip (iota st (size xs)) xs) m]
-                     [seq chainc pp ix.1 ix.2 0 w.-1
+                     [seq chain (chainf pp ix.1) ix.2 0 w.-1
                      | ix <- zip (iota st (size xs)) xs]))).
 Proof.
 elim: xs st m => [|x xs IH] st [|d m] //= [hsz] /andP[hd hm].
 apply/andP; split; last by apply: IH.
 rewrite /chain_check; apply/eqP.
 have hdw : (d <= w.-1)%N by rewrite -ltnS (ltn_predK hd).
-have hsp := chainc_split pp st x 0 d w.-1 (leq0n d) hdw.
+have hsp := chain_split (chainf pp st) x (leq0n d) hdw.
 by rewrite !subn0 in hsp; rewrite -hsp.
 Qed.
 
@@ -437,6 +342,35 @@ rewrite /chain_ends /sign_digits -hxs.
 by apply: all_chain_checks; rewrite ?hm ?hxs.
 Qed.
 
+(* ------------------------------------------------------------------ *)
+(** ** The scheme as a [sig_scheme]
+
+    The generic checksum-free fixed-sum Winternitz one-time signature:
+    WOTS+C minus grinding and minus concrete addressing, with the fixed
+    digit sum playing the role of the WOTS+ checksum.  [sign] returns
+    the key unchanged (the EU-CMA one-time statement uses signing budget
+    [q_s = 1]) and refuses ([None]) on messages outside the fixed-sum
+    space.  The public parameter is sampled by [keygen] and carried in
+    both keys (no separate parameter phase: PKseed is part of the public
+    key). *)
+
+Definition fixed_sum_scheme : sig_scheme := {|
+  Pk := PP × 'list N ;
+  Sk := PP × 'list N ;
+  Msg := 'list ('nat) ;
+  Sig := 'list N ;
+  SParam := 'unit ;
+  keygen := fun _ => {code
+    pp ← dPP ;;
+    xs ← sample_seq dN l ;;
+    ret ((pp, xs), (pp, chain_ends pp xs)) } ;
+  sign := fun sk m => {code
+    if valid_msg m
+    then ret (Some (sign_digits sk.1 sk.2 m, sk))
+    else ret None } ;
+  verify := fun pk m sg => verify_sig pk.1 pk.2 m sg
+|}.
+
 (* ================= former Sec.lib.chain.Sample ================= *)
 
 Fixpoint sample_sig_roots (pp : PP) (i : nat) (m : seq nat) :
@@ -446,7 +380,7 @@ Fixpoint sample_sig_roots (pp : PP) (i : nat) (m : seq nat) :
   | d :: m' =>
       u ← dN ;;
       sg ← sample_sig_roots pp i.+1 m' ;;
-      ret ((if d is d'.+1 then Fc pp (i, d') u else u) :: sg)
+      ret ((if d is d'.+1 then F pp (i, d') u else u) :: sg)
   end.
 
 #[export] Instance sample_sig_roots_valid
@@ -464,7 +398,7 @@ Qed.
     end completes the [i]-th chain from value [σ_i] at position
     [m_i]. *)
 Definition ends_from_sig (pp : PP) (m : seq nat) (sg : seq N) : seq N :=
-  [seq chainc pp q.1 q.2.2 q.2.1 (w.-1 - q.2.1)
+  [seq chain (chainf pp q.1) q.2.2 q.2.1 (w.-1 - q.2.1)
   | q <- zip (iota 0 l) (zip m sg)].
 
 (* ================= former Sec.lib.chain.Forgery ================= *)
@@ -507,77 +441,59 @@ Qed.
 (** THE classifier (restatement of [chain.chain_extractP] with
     [y := sigstar], [j := dstar], [z := sigi], [i := d], [e := w.-1]):
     on the selected chain [i], the signer revealed [sigi] at position
-    [d] and published [end_i = chainc sigi d (w.-1 - d)]; the forger
+    [d] and published [end_i = chain (chainf pp i) sigi d (w.-1 - d)];
+    the forger
     claims [sigstar] at the strictly smaller position [dstar] and
     verification forces the same endpoint.  Then
-    [chain_extractc pp i sigstar dstar sigi d w.-1] returns
+    [chain_extract (chainf pp i) sigstar dstar sigi d w.-1] returns
     - [ChainColl k u v] with [d <= k < w.-1]: [v] is the HONEST chain
       value at position [k], recomputable from [sigi] — exactly the
       input of the TCR target the reduction committed at tweak [(i, k)]
-      — and [u != v] with [Fc pp (i,k) u = Fc pp (i,k) v]:
+      — and [u != v] with [F pp (i,k) u = F pp (i,k) v]:
       [(tcr_index m i k, u)] wins SM-TCR's CHECK;
     - [ChainMeet]: the forged chain reaches [sigi] at position [d]
       (note [0 < d] since [dstar < d]); [forgery_pre_preimage] below
       extracts the SM-PRE witness.
-    ([chain_extract_ok]'s [u]-component [u = chainc sigstar dstar
-    (k - dstar)] is dropped: the reduction submits [u] itself.) *)
+    ([chain_extract_ok]'s [u]-component [u = chain (chainf pp i) sigstar
+    dstar (k - dstar)] is dropped: the reduction submits [u] itself.) *)
 Lemma forgery_cases pp i d (sigi : N) dstar (sigstar : N) :
   dstar < d -> d < w ->
-  chainc pp i sigstar dstar (w.-1 - dstar)
-    = chainc pp i sigi d (w.-1 - d) ->
-  match chain_extractc pp i sigstar dstar sigi d w.-1 with
+  chain (chainf pp i) sigstar dstar (w.-1 - dstar)
+    = chain (chainf pp i) sigi d (w.-1 - d) ->
+  match chain_extract (chainf pp i) sigstar dstar sigi d w.-1 with
   | ChainColl k u v =>
       [/\ d <= k < w.-1,
-          v = chainc pp i sigi d (k - d),
+          v = chain (chainf pp i) sigi d (k - d),
           u != v
-        & Fc pp (i, k) u = Fc pp (i, k) v]
-  | ChainMeet => chainc pp i sigstar dstar (d - dstar) = sigi
+        & F pp (i, k) u = F pp (i, k) v]
+  | ChainMeet => chain (chainf pp i) sigstar dstar (d - dstar) = sigi
   end.
 Proof.
 move=> hdd hdw heq.
 have hji : (dstar <= d)%N := ltnW hdd.
 have hie : (d <= w.-1)%N by rewrite -ltnS (ltn_predK hdw).
-have hew : (w.-1 <= w)%N := leq_pred w.
-have Hij : (dstar + (d - dstar) <= w)%N by rewrite (subnKC hji) (leq_trans (ltnW hdw) (leqnn w)).
-have Hie : (d + (w.-1 - d) <= w)%N by rewrite (subnKC hie).
-have Hej : (dstar + (w.-1 - dstar) <= w)%N by rewrite (subnKC (leq_trans hji hie)).
-rewrite (chaincE pp i sigstar dstar (w.-1 - dstar) Hej)
-        (chaincE pp i sigi d (w.-1 - d) Hie) in heq.
-have hspec := @Model.math.chain.chain_extractP N w (chainf pp i)
-                sigstar dstar sigi d w.-1 Hij Hie Hej hji hie heq.
-rewrite (chain_extractcE pp i sigstar dstar sigi d w.-1 Hij Hie).
-move: hspec; rewrite /Model.math.chain.chain_extract_ok.
-case: (Model.math.chain.chain_extract _ _ _ _ _) => [k u v|].
-- move=> [hk _ hv hne hcol]; split => //.
-  + have hik : (d <= k)%N by case/andP: hk.
-    have hkw : (k < w.-1)%N by case/andP: hk.
-    have Hk : (d + (k - d) <= w)%N by rewrite (subnKC hik) (leq_trans (ltnW hkw) hew).
-    rewrite (chaincE pp i sigi d (k - d) Hk).
-    exact: (hv Hk).
-  + have hkw : (k < w)%N by case/andP: hk => _ hkw; exact: leq_trans hkw hew.
-    rewrite -(chainf_Fc pp i k u hkw) -(chainf_Fc pp i k v hkw).
-    exact: (hcol hkw).
-- move=> hmeet.
-  rewrite (chaincE pp i sigstar dstar (d - dstar) Hij).
-  exact: (hmeet Hij).
+have := chain_extractP hji hie heq.
+rewrite /chain_extract_ok.
+case: (chain_extract _ _ _ _ _ _) => [k u v|] //.
+by case=> hk _ hv hne hcol; split.
 Qed.
 
 (** PRE-case post-processing: if the forged chain meets [sigi] at
     position [d] then its value ONE step earlier (recomputable by the
-    reduction from the forged signature) is an [Fc]-preimage of [sigi] at
-    tweak [(i, d.-1)].  Post-UD, [sigi = Fc pp (i, d.-1) u_i] with [u_i]
+    reduction from the forged signature) is an [F]-preimage of [sigi] at
+    tweak [(i, d.-1)].  Post-UD, [sigi = F pp (i, d.-1) u_i] with [u_i]
     hidden uniform — i.e. [sigi] is literally the SM-PRE oracle's answer
     at tweak [(i, d.-1)], so this is the message that wins PCHECK. *)
 Lemma forgery_pre_preimage pp i d (sigi sigstar : N) dstar :
   dstar < d ->
-  chainc pp i sigstar dstar (d - dstar) = sigi ->
-  Fc pp (i, d.-1) (chainc pp i sigstar dstar (d.-1 - dstar)) = sigi.
+  chain (chainf pp i) sigstar dstar (d - dstar) = sigi ->
+  F pp (i, d.-1) (chain (chainf pp i) sigstar dstar (d.-1 - dstar)) = sigi.
 Proof.
 move=> hdd hmeet.
 have hd1 : dstar <= d.-1 by rewrite -ltnS (ltn_predK hdd).
 have hn : d - dstar = (d.-1 - dstar).+1.
   by rewrite -subSn // (ltn_predK hdd).
-by move: hmeet; rewrite hn chainc_rcons subnKC.
+by move: hmeet; rewrite hn chain_rcons subnKC.
 Qed.
 
 (* ------------------------------------------------------------------ *)
@@ -589,7 +505,7 @@ Lemma verify_sig_nth pp (ends : seq N) (m : seq nat) (sg : seq N)
     (y0 : N) i :
   verify_sig pp ends m sg ->
   size ends = l -> i < l ->
-  chainc pp i (nth y0 sg i) (nth 0 m i) (w.-1 - nth 0 m i)
+  chain (chainf pp i) (nth y0 sg i) (nth 0 m i) (w.-1 - nth 0 m i)
   = nth y0 ends i.
 Proof.
 case/and3P=> /and3P[/eqP hm _ _] /eqP hsg hall hends hi.
@@ -616,7 +532,7 @@ Qed.
 Lemma ends_from_sig_nth pp (m : seq nat) (sg : seq N) (y0 : N) i :
   size m = l -> size sg = l -> i < l ->
   nth y0 (ends_from_sig pp m sg) i
-  = chainc pp i (nth y0 sg i) (nth 0 m i) (w.-1 - nth 0 m i).
+  = chain (chainf pp i) (nth y0 sg i) (nth 0 m i) (w.-1 - nth 0 m i).
 Proof.
 move=> hm hsg hi.
 rewrite /ends_from_sig (nth_map (0, (0, y0))) ?size_zip ?size_iota
@@ -634,16 +550,16 @@ Lemma forgery_classify pp (m mstar : seq nat) (sg sgstar : seq N)
   mstar != m ->
   exists2 i, i < l &
     [/\ nth 0 mstar i < nth 0 m i, nth 0 m i < w &
-        match chain_extractc pp i (nth y0 sgstar i) (nth 0 mstar i)
+        match chain_extract (chainf pp i) (nth y0 sgstar i) (nth 0 mstar i)
                             (nth y0 sg i) (nth 0 m i) w.-1 with
         | ChainColl k u v =>
             [/\ nth 0 m i <= k < w.-1,
-                v = chainc pp i (nth y0 sg i) (nth 0 m i)
+                v = chain (chainf pp i) (nth y0 sg i) (nth 0 m i)
                           (k - nth 0 m i),
                 u != v
-              & Fc pp (i, k) u = Fc pp (i, k) v]
+              & F pp (i, k) u = F pp (i, k) v]
         | ChainMeet =>
-            chainc pp i (nth y0 sgstar i) (nth 0 mstar i)
+            chain (chainf pp i) (nth y0 sgstar i) (nth 0 mstar i)
                   (nth 0 m i - nth 0 mstar i) = nth y0 sg i
         end].
 Proof.
@@ -669,7 +585,7 @@ Qed.
     digit. *)
 Definition tcr_chain (pp : PP) (i d : nat) (sg : N) :
     seq ((nat * nat) * N) :=
-  [seq ((i, k), chainc pp i sg d (k - d)) | k <- iota d (w.-1 - d)].
+  [seq ((i, k), chain (chainf pp i) sg d (k - d)) | k <- iota d (w.-1 - d)].
 
 (** The full committed target list. *)
 Definition tcr_targets (pp : PP) (m : seq nat) (sigs : seq N) :
@@ -701,7 +617,7 @@ Lemma tcr_targets_from_nth pp st (ds : seq nat) (ss : seq N) i k
              | q <- zip (iota st (size ds)) (zip ds ss)])
     (sumn [seq w.-1 - d | d <- take i ds] + (k - nth 0 ds i))
   = (((st + i)%N, k),
-     chainc pp (st + i) (nth y0 ss i) (nth 0 ds i)
+     chain (chainf pp (st + i)) (nth y0 ss i) (nth 0 ds i)
            (k - nth 0 ds i)).
 Proof.
 elim: ds st ss i => [|d ds IH] st ss i hss hi hk.
@@ -791,7 +707,7 @@ Lemma tcr_targets_nth pp (m : seq nat) (sigs : seq N) i k
   nth 0 m i <= k < w.-1 ->
   nth x0 (tcr_targets pp m sigs) (tcr_index m i k)
   = ((i, k),
-     chainc pp i (nth y0 sigs i) (nth 0 m i) (k - nth 0 m i)).
+     chain (chainf pp i) (nth y0 sigs i) (nth 0 m i) (k - nth 0 m i)).
 Proof.
 move=> hm hsigs hi hk.
 have hss : size sigs = size m by rewrite hsigs hm.
@@ -857,19 +773,19 @@ Local Notation qentry := ((nat * nat) * N)%type.
 
 (** Signature digit of chain [i] with digit [d] from root [u]. *)
 Definition sig_of_root (pp : PP) (i d : nat) (u : N) : N :=
-  if d is d'.+1 then Fc pp (i, d') u else u.
+  if d is d'.+1 then F pp (i, d') u else u.
 
 (** Queries of the upward walk of chain [i]: positions [k .. k+n-1],
     inputs the successive chain values from [x] at [k]. *)
 Definition walkq (pp : PP) (i k n : nat) (x : N) : seq qentry :=
-  [seq ((i, (j + k)%N), chainc pp i x k j) | j <- iota 0 n].
+  [seq ((i, (j + k)%N), chain (chainf pp i) x k j) | j <- iota 0 n].
 
 Lemma size_walkq pp i k n x : size (walkq pp i k n x) = n.
 Proof. by rewrite size_map size_iota. Qed.
 
 Lemma walkq_cons pp i k n x :
   walkq pp i k n.+1 x
-  = ((i, k), x) :: walkq pp i k.+1 n (Fc pp (i, k) x).
+  = ((i, k), x) :: walkq pp i k.+1 n (F pp (i, k) x).
 Proof.
 rewrite /walkq /=; congr (_ :: _).
 rewrite -[1]/(1 + 0)%N iotaDl -map_comp.
@@ -959,7 +875,7 @@ case: i => [|i] hi hu.
 Qed.
 
 Definition ends_of (pp : PP) (st : nat) (ds : seq nat) (sgs : seq N) : seq N :=
-  [seq chainc pp q.1 q.2.2 q.2.1 (w.-1 - q.2.1)
+  [seq chain (chainf pp q.1) q.2.2 q.2.1 (w.-1 - q.2.1)
   | q <- zip (iota st (size ds)) (zip ds sgs)].
 
 Lemma ends_of_from_sig pp (m : seq nat) (sgs : seq N) :
@@ -975,13 +891,13 @@ Definition q_index (ds : seq nat) (i k : nat) : nat :=
 Lemma qnth_chain_queries pp i d u k :
   d <= k < w.-1 ->
   qnth (chain_queries pp i d u) ((0 < d) + (k - d))
-  = Some ((i, k), chainc pp i (sig_of_root pp i d u) d (k - d)).
+  = Some ((i, k), chain (chainf pp i) (sig_of_root pp i d u) d (k - d)).
 Proof.
 move=> /andP[hdk hkw].
 have hdw : d < w.-1 := leq_ltn_trans hdk hkw.
 have hlt : k - d < w.-1 - d := ltn_sub2r hdw hkw.
 have hw : qnth (walkq pp i d (w.-1 - d) (sig_of_root pp i d u)) (k - d)
-          = Some ((i, k), chainc pp i (sig_of_root pp i d u) d (k - d)).
+          = Some ((i, k), chain (chainf pp i) (sig_of_root pp i d u) d (k - d)).
   rewrite /qnth /walkq -map_drop (drop_nth 0) ?size_iota //=.
   by rewrite nth_iota // add0n subnK.
 by case: d hdk hdw hlt hw => [|d'] hdk hdw hlt hw; rewrite /chain_queries //=.
@@ -993,7 +909,7 @@ Lemma qnth_commit_queries pp st ds us i k ui :
   nth 0 ds i <= k < w.-1 ->
   qnth (commit_queries pp st ds us) (q_index ds i k)
   = Some (((st + i)%N, k),
-          chainc pp (st + i)%N (sig_of_root pp (st + i)%N (nth 0 ds i) ui)
+          chain (chainf pp (st + i)%N) (sig_of_root pp (st + i)%N (nth 0 ds i) ui)
                 (nth 0 ds i) (k - nth 0 ds i)%N).
 Proof.
 elim: ds st us i => [|d ds IH] st us i //; case: us => [|u us] //= [hsz].
@@ -1018,7 +934,7 @@ Definition tcr_decision (pp : PP) (m mstar : seq nat) (sgs sgstar : seq N) :
   | Some i =>
       match qnth sgs i, qnth sgstar i with
       | Some si, Some si' =>
-          match chain_extractc pp i si' (nth 0 mstar i) si (nth 0 m i) w.-1 with
+          match chain_extract (chainf pp i) si' (nth 0 mstar i) si (nth 0 m i) w.-1 with
           | ChainColl k u _ => Some (q_index m i k, u)
           | ChainMeet => None
           end
@@ -1029,7 +945,7 @@ Definition tcr_decision (pp : PP) (m mstar : seq nat) (sgs sgstar : seq N) :
 
 (** Specification: on a verifying fresh forgery against the
     [ends_from_sig] key, a [Some (j, u)] decision points at a committed
-    pair [(t, v)] with [u != v] and [Fc pp t u = Fc pp t v]. *)
+    pair [(t, v)] with [u != v] and [F pp t u = F pp t v]. *)
 Lemma tcr_decisionP (pp : PP) (m mstar : seq nat) (us sgstar : seq N) :
   valid_msg m -> size us = l ->
   verify_sig pp
@@ -1039,7 +955,7 @@ Lemma tcr_decisionP (pp : PP) (m mstar : seq nat) (us sgstar : seq N) :
   | Some (j, u) =>
       exists t v,
         [/\ qnth (commit_queries pp 0 m us) j = Some (t, v),
-            u != v & Fc pp t u = Fc pp t v]
+            u != v & F pp t u = F pp t v]
   | None => True
   end.
 Proof.
@@ -1059,7 +975,7 @@ have h1 := verify_sig_nth pp _ mstar sgstar si' i hver hends hil.
 rewrite (ends_from_sig_nth pp m _ si' i hm hsgs hil) in h1.
 rewrite (qnth_nth si' _ _ _ E3) (qnth_nth si' _ _ _ E2) in h1.
 have := forgery_cases pp i (nth 0 m i) si (nth 0 mstar i) si' hlt hdw h1.
-case E4: (chain_extractc pp i si' (nth 0 mstar i) si (nth 0 m i) w.-1) => [k u v|];
+case E4: (chain_extract (chainf pp i) si' (nth 0 mstar i) si (nth 0 m i) w.-1) => [k u v|];
   last by [].
 move=> [hk hv hne hcol].
 have hilm : (i < size m)%N by rewrite hm.
@@ -1137,12 +1053,12 @@ Definition pre_decision (pp : PP) (m mstar : seq nat)
   | Some i =>
       match qnth sgs i, qnth sgstar i with
       | Some si, Some si' =>
-          match chain_extractc pp i si' (nth 0 mstar i) si
+          match chain_extract (chainf pp i) si' (nth 0 mstar i) si
                   (nth 0 m i) w.-1 with
           | ChainColl _ _ _ => None
           | ChainMeet =>
               Some (pre_index m i,
-                    chainc pp i si' (nth 0 mstar i)
+                    chain (chainf pp i) si' (nth 0 mstar i)
                           ((nth 0 m i).-1 - nth 0 mstar i))
           end
       | _, _ => None
@@ -1151,7 +1067,7 @@ Definition pre_decision (pp : PP) (m mstar : seq nat)
   end.
 
 (** Specification of the [Some] case: the submitted message is an
-    [Fc]-preimage of the stored target's image. *)
+    [F]-preimage of the stored target's image. *)
 Lemma pre_decisionP (pp : PP) (m mstar : seq nat) (us sgstar : seq N) :
   valid_msg m -> size us = l ->
   verify_sig pp
@@ -1162,7 +1078,7 @@ Lemma pre_decisionP (pp : PP) (m mstar : seq nat) (us sgstar : seq N) :
   | Some (j, x) =>
       exists t u,
         [/\ qnth (pre_queries 0 m us) j = Some (t, u)
-          & Fc pp t x = Fc pp t u]
+          & F pp t x = F pp t u]
   | None => True
   end.
 Proof.
@@ -1176,7 +1092,7 @@ case E1: (ohead _) => [i|]; last by [].
 move: (ohead_mem E1); rewrite mem_filter mem_iota /= add0n => /andP[hlt hil].
 case E2: (qnth (sigs_of pp 0 m us) i) => [si|]; last by [].
 case E3: (qnth sgstar i) => [si'|]; last by [].
-case E4: (chain_extractc pp i si' (nth 0 mstar i) si (nth 0 m i) w.-1) => [k u v|];
+case E4: (chain_extract (chainf pp i) si' (nth 0 mstar i) si (nth 0 m i) w.-1) => [k u v|];
   first by [].
 have hdw : (nth 0 m i < w)%N := valid_msg_digit _ _ hvm hil.
 have hends := size_ends_from_sig pp m _ hm hsgs.
@@ -1195,7 +1111,7 @@ rewrite add0n E2 in hsig0.
 case: hsig0 => hsig.
 have hd0 : 0 < nth 0 m i := leq_ltn_trans (leq0n _) hlt.
 have hsr : sig_of_root pp i (nth 0 m i) ui
-           = Fc pp (i, (nth 0 m i).-1) ui.
+           = F pp (i, (nth 0 m i).-1) ui.
   by case: (nth 0 m i) hd0.
 exists ((i, (nth 0 m i).-1)), ui; split.
 - by rewrite (qnth_pre_queries 0 m us i ui hussz hilm hui hd0).
@@ -1235,7 +1151,7 @@ have hsgst : size sgstar = l.
 have [si' E3] : exists si', qnth sgstar i = Some si'.
   by apply: qnth_some; rewrite hsgst.
 rewrite E2 E3.
-by case: (chain_extractc pp i si' (nth 0 mstar i) si (nth 0 m i) w.-1).
+by case: (chain_extract (chainf pp i) si' (nth 0 mstar i) si (nth 0 m i) w.-1).
 Qed.
 
 End ChainCore.

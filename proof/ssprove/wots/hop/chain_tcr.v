@@ -19,7 +19,8 @@ From mathcomp.experimental_reals Require Import distr.
 From Sec.lib Require Import prelude sig.scheme sig.kots
   games.thf games.smtcr games.smpre toolkit.sample_seq toolkit.relational_rules
   toolkit.hop_tactics.
-From Model Require Import math.chain math.encoding.
+From Model Require Import math.encoding.
+From Sec.lib Require Import math.chain.
 From Sec.lib Require Import chain.core.
 From Sec Require Import addressing.
 From Sec.wots Require Import addressing.
@@ -499,7 +500,7 @@ Lemma r_ctquery_known (b : bool) {B : choiceType} (pp : (wcp_PP P))
   size Q < tcr_budget (wcp_chain_count P) (wcp_w P) ->
   (i, k) \notin unzip1 Q ->
   ⊢ ⦃ λ '(s0, s1), tblk (Some pp) false (rcons Q ((i, k), x)) (s0, s1) ⦄
-     c0 ≈ k1 (Fc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp (i, k) x) ⦃ post ⦄ ->
+     c0 ≈ k1 ((Fw P) pp (i, k) x) ⦃ post ⦄ ->
   ⊢ ⦃ λ '(s0, s1), tblk (Some pp) false Q (s0, s1) ⦄
      c0 ≈ bind (resolve (SMT b) ct_tqo (chain_tweak P i k, x)) k1 ⦃ post ⦄.
 Proof.
@@ -547,8 +548,8 @@ Lemma r_ctwalk_spec (b : bool) {B : choiceType} (pp : (wcp_PP P))
   (size Q + n <= tcr_budget (wcp_chain_count P) (wcp_w P))%N ->
   all (tweak_lt i k) (unzip1 Q) ->
   ⊢ ⦃ λ '(s0, s1), tblk (Some pp) false
-         (Q ++ walkq (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp i k n x) (s0, s1) ⦄
-     c0 ≈ k1 (chainc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp i x k n) ⦃ post ⦄ ->
+         (Q ++ walkq (wcp_PP P) (wcp_N P) (Fw P) pp i k n x) (s0, s1) ⦄
+     c0 ≈ k1 (chain (Sec.lib.chain.core.chainf (wcp_PP P) (wcp_N P) (Fw P) pp i) x k n) ⦃ post ⦄ ->
   ⊢ ⦃ λ '(s0, s1), tblk (Some pp) false Q (s0, s1) ⦄
      c0 ≈ bind (code_link (ct_walk i k n x) (SMT b)) k1 ⦃ post ⦄.
 Proof.
@@ -567,7 +568,7 @@ elim=> [|n IH] i k x Q c0 k1 hi hkn hQr hbud hfresh h.
     * rewrite /unzip1 map_rcons all_rcons; apply/andP; split.
       -- by rewrite /tweak_lt /= ltnn eqxx ltnSn.
       -- exact: all_tlt_widen hfresh.
-    * by move: h; rewrite (walkq_cons (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P)) cat_rcons.
+    * by move: h; rewrite (walkq_cons (wcp_PP P) (wcp_N P) (Fw P)) cat_rcons.
 Qed.
 
 (** The per-chain induction: lhs [sample_sig_roots] at [FW] (the lhs
@@ -590,7 +591,7 @@ Lemma r_ctchains_spec (b : bool) {B : choiceType} (pp : (wcp_PP P))
       ≈ K1 ((wsigs P) pp st ds us, (wends P) pp st ds ((wsigs P) pp st ds us))
      ⦃ post ⦄) ->
   ⊢ ⦃ λ '(s0, s1), tblk (Some pp) false Q (s0, s1) ⦄
-     bind (sample_sig_roots (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) (wcp_dN P) pp st ds) K0
+     bind (sample_sig_roots (wcp_PP P) (wcp_N P) (Fw P) (wcp_dN P) pp st ds) K0
    ≈ bind (code_link (ct_chains st ds) (SMT b)) K1 ⦃ post ⦄.
 Proof.
 have hw0 : (0 < (wcp_w P))%N := ltnW (wcp_Hw P).
@@ -622,16 +623,16 @@ elim=> [|d ds IH] st Q K0 K1 hst hds hQr hbud hfresh h.
       eapply IH => //.
       -- rewrite unzip1_cat all_cat; apply/andP; split; first exact: hQr.
          apply/allP => t ht; apply/andP; split.
-         ++ by move: (allP (walkq_tweak1 (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp st 0 ((wcp_w P).-1 - 0) u) t ht) => /eqP ->.
-         ++ exact: (allP (walkq_tweak2 (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp st 0 ((wcp_w P).-1 - 0) u (wcp_w P).-1 hkn0) t ht).
+         ++ by move: (allP (walkq_tweak1 (wcp_PP P) (wcp_N P) (Fw P) pp st 0 ((wcp_w P).-1 - 0) u) t ht) => /eqP ->.
+         ++ exact: (allP (walkq_tweak2 (wcp_PP P) (wcp_N P) (Fw P) pp st 0 ((wcp_w P).-1 - 0) u (wcp_w P).-1 hkn0) t ht).
       -- by rewrite size_cat size_walkq -addnA.
       -- rewrite unzip1_cat all_cat; apply/andP; split.
          ++ by apply: sub_all hfresh => t /= /ltnW; rewrite ltnS.
-         ++ apply: sub_all (walkq_tweak1 (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp st 0 _ u) => t /= /eqP ->.
+         ++ apply: sub_all (walkq_tweak1 (wcp_PP P) (wcp_N P) (Fw P) pp st 0 _ u) => t /= /eqP ->.
             exact: ltnSn.
       -- move=> us hus.
          move: (h (u :: us)); rewrite /= hus => /(_ erefl).
-         by rewrite /wcommitq (commit_queries_cons (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P)) /chain_queries /= catA.
+         by rewrite /wcommitq (commit_queries_cons (wcp_PP P) (wcp_N P) (Fw P) (wcp_w P)) /chain_queries /= catA.
   + (* d = d'.+1 : sigma query first ([d' < w.-1] from [d = d'.+1 < w]). *)
     have hdw1 : (d'.+1 <= (wcp_w P).-1)%N by rewrite -ltnS prednK.
     have hkn1 : (d'.+1 + ((wcp_w P).-1 - d'.+1) <= (wcp_w P).-1)%N by rewrite subnKC.
@@ -642,9 +643,9 @@ elim=> [|d ds IH] st Q K0 K1 hst hds hQr hbud hfresh h.
       by rewrite addnS ltnS leq_addr.
     * exact: lt_notin.
     * rewrite /= (code_link_bind (ct_walk st d'.+1 ((wcp_w P).-1 - d'.+1)
-                    (Fc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp (st, d') u))) bind_assoc.
+                    ((Fw P) pp (st, d') u))) bind_assoc.
       eapply (r_ctwalk_spec b pp post ((wcp_w P).-1 - d'.+1) st d'.+1
-                (Fc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp (st, d') u) (rcons Q ((st, d'), u))) => //.
+                ((Fw P) pp (st, d') u) (rcons Q ((st, d'), u))) => //.
       -- rewrite /unzip1 map_rcons all_rcons hQr /=.
          by rewrite hstcc hdw1.
       -- rewrite size_rcons addSnnS; apply: leq_trans hbud.
@@ -658,23 +659,23 @@ elim=> [|d ds IH] st Q K0 K1 hst hds hQr hbud hfresh h.
             ** rewrite /unzip1 map_rcons all_rcons hQr /=.
                by rewrite hstcc hdw1.
             ** apply/allP => t ht; apply/andP; split.
-               --- by move: (allP (walkq_tweak1 (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp st d'.+1
-                             ((wcp_w P).-1 - d'.+1) (Fc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp (st, d') u)) t ht) => /eqP ->.
-               --- exact: (allP (walkq_tweak2 (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp st d'.+1
-                             ((wcp_w P).-1 - d'.+1) (Fc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp (st, d') u) (wcp_w P).-1 hkn1) t ht).
+               --- by move: (allP (walkq_tweak1 (wcp_PP P) (wcp_N P) (Fw P) pp st d'.+1
+                             ((wcp_w P).-1 - d'.+1) ((Fw P) pp (st, d') u)) t ht) => /eqP ->.
+               --- exact: (allP (walkq_tweak2 (wcp_PP P) (wcp_N P) (Fw P) pp st d'.+1
+                             ((wcp_w P).-1 - d'.+1) ((Fw P) pp (st, d') u) (wcp_w P).-1 hkn1) t ht).
          ++ rewrite size_cat size_rcons size_walkq.
             apply: leq_trans hbud.
             by rewrite addSnnS -addnA leq_add2l /total_query_count /= /chain_query_count /= add1n.
          ++ rewrite unzip1_cat all_cat /unzip1 map_rcons all_rcons.
             apply/andP; split; last first.
-            ** apply: sub_all (walkq_tweak1 (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp st d'.+1 _ _)
+            ** apply: sub_all (walkq_tweak1 (wcp_PP P) (wcp_N P) (Fw P) pp st d'.+1 _ _)
                  => t /= /eqP ->.
                exact: ltnSn.
             ** apply/andP; split; first by rewrite /= ltnSn.
                by apply: sub_all hfresh => t /= /ltnW; rewrite ltnS.
          ++ move=> us hus.
             move: (h (u :: us)); rewrite /= hus => /(_ erefl).
-            by rewrite /wcommitq (commit_queries_cons (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P)) /chain_queries
+            by rewrite /wcommitq (commit_queries_cons (wcp_PP P) (wcp_N P) (Fw P) (wcp_w P)) /chain_queries
                        cat_rcons catA.
 Qed.
 

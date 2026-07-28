@@ -37,8 +37,7 @@
     budget is consumed at the reprogramming hop, not here). *)
 
 Set Warnings "-notation-overridden,-ambiguous-paths,-notation-incompatible-prefix".
-From HBS Require Import prelude math.bin_tree math.merkle sig.scheme
-  games.thf toolkit.sample_seq.
+From Sec.lib Require Import prelude math.bin_tree math.merkle sig.scheme games.thf toolkit.sample_seq.
 From SHRINCS Require Import addressing wotsc.scheme wotsc.games
   fxmss.scheme fxmss.games fxmss.late_games.
 Set Warnings "notation-overridden,ambiguous-paths,notation-incompatible-prefix".

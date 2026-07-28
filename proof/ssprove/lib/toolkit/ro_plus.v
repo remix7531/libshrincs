@@ -3,7 +3,7 @@
  * libshrincs - formally verified SHRINCS implementations.
  *)
 
-(** * HBS.toolkit.ro_plus
+(** * Sec.lib.toolkit.ro_plus
 
     Random oracle with adaptive reprogramming, as a bool-indexed game
     pair.
@@ -12,7 +12,7 @@
     reprogramming.tex, Definition "Adaptive reprogramming"
     (def:QROM reprogramming, after [AC:GHHM21]), classical access.
     The classical bound (lemma:ROM reprogramming) is proved in
-    HBS.toolkit.Reprogram.
+    Sec.lib.toolkit.reprogram.
 
     ** The experiment
 
@@ -46,7 +46,7 @@
     Micro-test at the end of the file (docs/STYLE.md rule 12). *)
 
 Set Warnings "-notation-overridden,-ambiguous-paths".
-From HBS Require Import prelude.
+From Sec.lib Require Import prelude.
 Set Warnings "notation-overridden,ambiguous-paths".
 
 Import PackageNotation.

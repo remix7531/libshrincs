@@ -14,7 +14,7 @@
     ** The forgery classifier
 
     [shrincs_fxmss_forgery_case pp sp xss zi md ws ap] applies
-    [merkle.extract] from [HBS.math.merkle] with:
+    [merkle.extract] from [Sec.lib.math.merkle] with:
       - node hash [h := shrincs_fxmss_node_hash pp]  (the [Htree]-at-shrincs_fxmss_adr_tree map),
       - honest tree [t := value_tree_x pp sp xss]  (the stored keys),
       - forged path [path_of_idx (h_sf - zi.1) zi.2],
@@ -43,8 +43,7 @@
     exhaustion consume [G8f_forge_false] and the structural cases. *)
 
 Set Warnings "-notation-overridden,-ambiguous-paths,-notation-incompatible-prefix".
-From HBS Require Import prelude math.bin_tree math.merkle sig.scheme
-  games.thf toolkit.sample_seq.
+From Sec.lib Require Import prelude math.bin_tree math.merkle sig.scheme games.thf toolkit.sample_seq.
 From SHRINCS Require Import addressing wotsc.scheme wotsc.games
   fxmss.scheme fxmss.games.
 (* [Export], not [Import]: files that [Require Import fxmss.late_games]

@@ -76,6 +76,10 @@ ssprove-prove: Makefile.coq
 # NOTE: ssprove-prove above builds ONLY ssprove/ -- fxmss/ has its own
 # fxmss-prove target below (P8/G4 baseline: ssprove-prove is the native
 # WOTS+C tree's cold build time, and must not silently include fxmss).
+# Since the HBS root was retired, ssprove/ also holds the SHARED generic
+# library (Sec.lib.*: chain ladder, Merkle maths, random-oracle toolkit,
+# fixed-sum WOTS hops) that fxmss/ instantiates -- so ssprove-prove's
+# scope grew by that library, while fxmss/ itself is still excluded.
 
 # fxmss-prove builds ONLY the fxmss tree (plus its model/ssprove
 # dependencies) through its own generated Makefile.fxmss.coq, instead of

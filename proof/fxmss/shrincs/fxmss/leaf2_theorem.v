@@ -21,7 +21,7 @@
       Σ_{s<w-2} SM-UD(F)[n_max·l] (B∘R_ud_leaf true s)          (sub_ud_up)
       + STCRP(Hgrind)[n_max]      (B∘R_gr_leaf)                  (sub_gr)
       + SM-TCR(Θl)[n_max]         (B∘R_cp_leaf)                  (sub_cp)
-      + SM-TCR(F)[n_max·p_tcr]    (B∘R_ctcr_leaf)                (sub_ctcr)
+      + SM-TCR(F)[n_max·tcr_budget]    (B∘R_ctcr_leaf)                (sub_ctcr)
       + SM-PRE(F)[n_max·l]        (B∘R_cpre_leaf)                (sub_cpre)
       + Σ_{s<w-2} SM-UD(F)[n_max·l] (B∘R_ud_leaf false s).       (sub_ud_down)
 
@@ -39,11 +39,10 @@
     - [Hrange : Hgrind < w^l] — the grinding data side condition ([sub_gr]). *)
 
 Set Warnings "-notation-overridden,-ambiguous-paths,-notation-incompatible-prefix,-deprecated-coq-env-var".
-From HBS Require Import prelude math.bin_tree math.merkle math.chain math.encoding
-  sig.scheme games.thf games.smtcr games.smpre games.stcrp games.smud
-  toolkit.sample_seq.
-From HBS Require Import wots.games wots.tcr_hop
-  wots.ud_hop.
+From Sec.lib Require Import prelude math.bin_tree math.merkle math.chain.
+From Model Require Import math.encoding.
+From Sec.lib Require Import sig.scheme games.thf games.smtcr games.smpre games.stcrp games.smud toolkit.sample_seq.
+From Sec.lib Require Import chain.core wots.games wots.tcr_hop wots.ud_hop.
 From SHRINCS Require Import addressing wotsc.scheme wotsc.games
   fxmss.scheme fxmss.games fxmss.late_games fxmss.tree_hop
   fxmss.leaf_reduction fxmss.leaf_km fxmss.leaf2_common fxmss.leaf2_games
@@ -124,7 +123,7 @@ Theorem Leaf_MIW_km_bound
     <= \sum_(0 <= s < w.-2) AdvOf (SMUD_game TFn CUDn (n_max * l)) (B ∘ RUD true s)
      + (AdvOf (STCRP_game TGRn CGRn D genc gprp c_max n_max) (B ∘ RGR)
         + (AdvOf (SMTCR_game TPn CPn n_max) (B ∘ RCP)
-           + (AdvOf (SMTCR_game TFn CTn (n_max * p_tcr l w)) (B ∘ RCT)
+           + (AdvOf (SMTCR_game TFn CTn (n_max * tcr_budget l w)) (B ∘ RCT)
               + (AdvOf (SMPRE_game TFn CPRn (n_max * l)) (B ∘ RPR)
                  + \sum_(0 <= s < w.-2) AdvOf (SMUD_game TFn CUDn (n_max * l)) (B ∘ RUD false s))))).
 Proof.
@@ -177,7 +176,7 @@ Theorem Leaf_hop
     <= \sum_(0 <= s < w.-2) AdvOf (SMUD_game TFn CUDn (n_max * l)) ((A ∘ Rleaf b) ∘ RUD true s)
      + (AdvOf (STCRP_game TGRn CGRn D genc gprp c_max n_max) ((A ∘ Rleaf b) ∘ RGR)
         + (AdvOf (SMTCR_game TPn CPn n_max) ((A ∘ Rleaf b) ∘ RCP)
-           + (AdvOf (SMTCR_game TFn CTn (n_max * p_tcr l w)) ((A ∘ Rleaf b) ∘ RCT)
+           + (AdvOf (SMTCR_game TFn CTn (n_max * tcr_budget l w)) ((A ∘ Rleaf b) ∘ RCT)
               + (AdvOf (SMPRE_game TFn CPRn (n_max * l)) ((A ∘ Rleaf b) ∘ RPR)
                  + \sum_(0 <= s < w.-2) AdvOf (SMUD_game TFn CUDn (n_max * l)) ((A ∘ Rleaf b) ∘ RUD false s))))).
 Proof.

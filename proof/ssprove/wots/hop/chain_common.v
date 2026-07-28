@@ -22,7 +22,8 @@
 From mathcomp.experimental_reals Require Import distr.
 From Sec.lib Require Import prelude sig.scheme sig.kots
   games.thf games.smtcr games.smpre toolkit.sample_seq toolkit.relational_rules.
-From Model Require Import math.chain math.encoding.
+From Model Require Import math.encoding.
+From Sec.lib Require Import math.chain.
 From Sec.lib Require Import chain.core.
 From Sec Require Import addressing.
 From Sec.wots Require Import addressing.
@@ -104,17 +105,17 @@ by rewrite /shrincs_wots_tweak /th_eval /thf_chain /thf_chain_core /= core_decod
 Qed.
 
 (** In range, the SM-TCR(F) oracle at a chain tweak IS the abstract total
-    chain step [Fc]: [th_eval TF (wtw t)] evaluates [F] at the exact
-    chain address, which is [Fc]'s in-range value ([FcE]).  This is the
+    chain step [Fw]: [th_eval TF (wtw t)] evaluates [F] at the exact
+    chain address, which is exactly what [Fw] is.  This is the
     bridge the relational cores use to identify oracle answers with the
-    [chainc]/[Fc]-computed chain values (positions are always [< w.-1 < w]). *)
+    [chain]/[Fw]-computed chain values (positions are always [< w.-1 < w]). *)
 Lemma Fc_wtw pp (t : nat * nat) (x : wcp_N P) :
   (t.2 < wcp_w P)%N ->
   th_eval (thf_chain P) pp (shrincs_wots_tweak P t) x
-  = Fc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp t x.
+  = (Fw P) pp t x.
 Proof.
 case: t => t1 t2 htw.
-by rewrite (th_eval_wtw pp (t1, t2) x) (FcE (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp t1 t2 x htw).
+by rewrite (th_eval_wtw pp (t1, t2) x).
 Qed.
 
 (** Every tweak committed by the chain queries has position [< w.-1]
@@ -126,23 +127,23 @@ Lemma commit_queries_pos_all pp st (ds : seq nat) (us : seq (wcp_N P)) :
   all (λ t : nat * nat, (t.2 < (wcp_w P).-1)%N) (unzip1 (wcommitq P pp st ds us)).
 Proof.
 elim: ds st us => [|d ds IH] st [|u us] //= [hsz] /andP[hd hds].
-rewrite /wcommitq (commit_queries_cons (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P)) unzip1_cat all_cat.
+rewrite /wcommitq (commit_queries_cons (wcp_PP P) (wcp_N P) (Fw P) (wcp_w P)) unzip1_cat all_cat.
 apply/andP; split; last exact: IH.
 have hdle : (d <= (wcp_w P).-1)%N by rewrite -ltnS (ltn_predK (wcp_Hw P)).
 rewrite /chain_queries unzip1_cat all_cat; apply/andP; split.
 - case: d hd hdle => [|d'] hd hdle //=.
   by rewrite andbT.
 - have hk : (d + ((wcp_w P).-1 - d) <= (wcp_w P).-1)%N by rewrite subnKC.
-  exact: (walkq_tweak2 (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp st d ((wcp_w P).-1 - d) _ (wcp_w P).-1 hk).
+  exact: (walkq_tweak2 (wcp_PP P) (wcp_N P) (Fw P) pp st d ((wcp_w P).-1 - d) _ (wcp_w P).-1 hk).
 Qed.
 
 (** THE bridge consumed by the KFORGE tails: a committed target of a
-    valid message evaluates its SM-TCR(F) oracle as the abstract [Fc]. *)
+    valid message evaluates its SM-TCR(F) oracle as the abstract [Fw]. *)
 Lemma wcheck_bridge pp (m : wcp_M P) (c : nat) (us : seq (wcp_N P)) j t v (x : wcp_N P) :
   good_counter P pp m c -> size us = wcp_chain_count P ->
   qnth (wcommitq P pp 0 (digest_of P pp m c) us) j = Some (t, v) ->
   th_eval (thf_chain P) pp (shrincs_wots_tweak P t) x
-  = Fc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp t x.
+  = (Fw P) pp t x.
 Proof.
 move=> hgood hus hqn.
 have hsz : size (digest_of P pp m c) = wcp_chain_count P
@@ -177,7 +178,7 @@ Lemma wpre_check_bridge pp (m : wcp_M P) (c : nat) (us : seq (wcp_N P)) j t v (x
   good_counter P pp m c -> size us = wcp_chain_count P ->
   qnth (wpreq P 0 (digest_of P pp m c) us) j = Some (t, v) ->
   th_eval (thf_chain P) pp (shrincs_wots_tweak P t) x
-  = Fc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp t x.
+  = (Fw P) pp t x.
 Proof.
 move=> hgood hus hqn.
 have hsz : size (digest_of P pp m c) = wcp_chain_count P
@@ -219,10 +220,10 @@ Qed.
 (** Completing a forged signature against its own completion list
     passes every chain check (each check is [x == x]). *)
 Lemma all_check_refl pp st n (ds : seq nat) (ys : seq (wcp_N P)) :
-  all (fun q => chain_check (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp q.1 q.2.1 q.2.2.1 q.2.2.2)
+  all (fun q => chain_check (wcp_PP P) (wcp_N P) (Fw P) (wcp_w P) pp q.1 q.2.1 q.2.2.1 q.2.2.2)
       (zip (iota st n)
            (zip ds (zip ys
-              [seq chainc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp q.1 q.2.2 q.2.1 ((wcp_w P).-1 - q.2.1)
+              [seq chain (Sec.lib.chain.core.chainf (wcp_PP P) (wcp_N P) (Fw P) pp q.1) q.2.2 q.2.1 ((wcp_w P).-1 - q.2.1)
               | q <- zip (iota st n) (zip ds ys)]))).
 Proof.
 elim: n st ds ys => [|n IH] st ds ys;
@@ -237,10 +238,10 @@ Qed.
 Lemma verify_from_ends pp (mstar ds : seq nat) (ystar sg : seq (wcp_N P)) :
   valid_msg (wcp_chain_count P) (wcp_w P) (wcp_constant_sum P) mstar ->
   (size ystar == wcp_chain_count P)%B ->
-  ends_from_sig (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (Fw P) pp mstar ystar
-    = ends_from_sig (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (Fw P) pp ds sg ->
-  verify_sig (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (wcp_constant_sum P) (Fw P) pp
-    (ends_from_sig (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (Fw P) pp ds sg) mstar ystar.
+  ends_from_sig (wcp_PP P) (wcp_N P) (Fw P) (wcp_chain_count P) (wcp_w P) pp mstar ystar
+    = ends_from_sig (wcp_PP P) (wcp_N P) (Fw P) (wcp_chain_count P) (wcp_w P) pp ds sg ->
+  verify_sig (wcp_PP P) (wcp_N P) (Fw P) (wcp_chain_count P) (wcp_w P) (wcp_constant_sum P) pp
+    (ends_from_sig (wcp_PP P) (wcp_N P) (Fw P) (wcp_chain_count P) (wcp_w P) pp ds sg) mstar ystar.
 Proof.
 move=> hvm hys heq.
 rewrite /Sec.lib.chain.core.verify_sig hvm hys /=.
@@ -268,8 +269,8 @@ Lemma wtcr_decisionP pp (m mstar : wcp_M P) (c cstar : nat) (us ystar : seq (wcp
       exists t v,
         [/\ qnth (wcommitq P pp 0 (digest_of P pp m c) us) j = Some (t, v),
             u != v
-          & Fc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp t u
-            = Fc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp t v]
+          & (Fw P) pp t u
+            = (Fw P) pp t v]
   | None => True
   end.
 Proof.
@@ -280,15 +281,15 @@ have hvm' : valid_msg (wcp_chain_count P) (wcp_w P) (wcp_constant_sum P) (digest
   := vdigest_valid_msg P pp mstar cstar hvd'.
 have hd : size (digest_of P pp m c) = wcp_chain_count P
   := size_digest_of P pp m c.
-have hver : verify_sig (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (wcp_constant_sum P) (Fw P) pp
-    (ends_of (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp 0 (digest_of P pp m c)
+have hver : verify_sig (wcp_PP P) (wcp_N P) (Fw P) (wcp_chain_count P) (wcp_w P) (wcp_constant_sum P) pp
+    (ends_of (wcp_PP P) (wcp_N P) (Fw P) (wcp_w P) pp 0 (digest_of P pp m c)
        (wsigs P pp 0 (digest_of P pp m c) us))
     (digest_of P pp mstar cstar) ystar.
-  rewrite (ends_of_from_sig (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (Fw P) pp _ _ hd).
+  rewrite (ends_of_from_sig (wcp_PP P) (wcp_N P) (Fw P) (wcp_chain_count P) (wcp_w P) pp _ _ hd).
   by apply: verify_from_ends.
 have hnin : digest_of P pp mstar cstar \notin [:: digest_of P pp m c].
   by rewrite inE.
-exact: (tcr_decisionP (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (wcp_constant_sum P) (Fw P)
+exact: (tcr_decisionP (wcp_PP P) (wcp_N P) (Fw P) (wcp_chain_count P) (wcp_w P) (wcp_constant_sum P)
           pp _ _ us ystar hvm hus hver hnin).
 Qed.
 
@@ -303,8 +304,8 @@ Lemma wpre_decisionP pp (m mstar : wcp_M P) (c cstar : nat) (us ystar : seq (wcp
   | Some (j, x) =>
       exists t u,
         qnth (wpreq P 0 (digest_of P pp m c) us) j = Some (t, u)
-        /\ Fc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp t x
-           = Fc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp t u
+        /\ (Fw P) pp t x
+           = (Fw P) pp t u
   | None => True
   end.
 Proof.
@@ -313,14 +314,14 @@ have hvm : valid_msg (wcp_chain_count P) (wcp_w P) (wcp_constant_sum P) (digest_
   := vdigest_valid_msg P pp m c hgood.
 have hvm' : valid_msg (wcp_chain_count P) (wcp_w P) (wcp_constant_sum P) (digest_of P pp mstar cstar)
   := vdigest_valid_msg P pp mstar cstar hvd'.
-have hver : verify_sig (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (wcp_constant_sum P) (Fw P) pp
-    (ends_from_sig (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (Fw P) pp
+have hver : verify_sig (wcp_PP P) (wcp_N P) (Fw P) (wcp_chain_count P) (wcp_w P) (wcp_constant_sum P) pp
+    (ends_from_sig (wcp_PP P) (wcp_N P) (Fw P) (wcp_chain_count P) (wcp_w P) pp
        (digest_of P pp m c) (wsigs P pp 0 (digest_of P pp m c) us))
     (digest_of P pp mstar cstar) ystar.
   by apply: verify_from_ends.
 have hnin : digest_of P pp mstar cstar \notin [:: digest_of P pp m c].
   by rewrite inE.
-exact: (pre_decisionP (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (wcp_constant_sum P) (Fw P)
+exact: (pre_decisionP (wcp_PP P) (wcp_N P) (Fw P) (wcp_chain_count P) (wcp_w P) (wcp_constant_sum P)
           pp _ _ us ystar hvm hus hver hnin).
 Qed.
 
@@ -342,14 +343,14 @@ have hvm : valid_msg (wcp_chain_count P) (wcp_w P) (wcp_constant_sum P) (digest_
   := vdigest_valid_msg P pp m c hgood.
 have hvm' : valid_msg (wcp_chain_count P) (wcp_w P) (wcp_constant_sum P) (digest_of P pp mstar cstar)
   := vdigest_valid_msg P pp mstar cstar hvd'.
-have hver : verify_sig (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (wcp_constant_sum P) (Fw P) pp
-    (ends_from_sig (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (Fw P) pp
+have hver : verify_sig (wcp_PP P) (wcp_N P) (Fw P) (wcp_chain_count P) (wcp_w P) (wcp_constant_sum P) pp
+    (ends_from_sig (wcp_PP P) (wcp_N P) (Fw P) (wcp_chain_count P) (wcp_w P) pp
        (digest_of P pp m c) (wsigs P pp 0 (digest_of P pp m c) us))
     (digest_of P pp mstar cstar) ystar.
   by apply: verify_from_ends.
 have hnin : digest_of P pp mstar cstar \notin [:: digest_of P pp m c].
   by rewrite inE.
-exact: (classify_some (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (wcp_constant_sum P) (Fw P)
+exact: (classify_some (wcp_PP P) (wcp_N P) (Fw P) (wcp_chain_count P) (wcp_w P) (wcp_constant_sum P)
           pp _ _ us ystar hvm hus hver hnin).
 Qed.
 

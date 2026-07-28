@@ -16,14 +16,22 @@ tracked here.
 
 | range   | file                          | members |
 |---------|-------------------------------|---------|
+| 20-22   | ssprove/lib/toolkit/ro_plus.v | ro_map/qcnt_loc (20-21; 22 reserved) |
 | 31-33   | ssprove/lib/games/prf_adaptive.v | prf_key/tab/cnt_loc |
 | 44-47   | ssprove/lib/games/smtcr.v     | tcr_pp/tgts/tws/rev_loc |
 | 54-57   | ssprove/lib/games/smpre.v     | pre_pp/tgts/tws/rev_loc |
 | 64-66   | ssprove/lib/games/smud.v      | ud_pp/tws/rev_loc |
 | 74-77   | ssprove/lib/games/stcrp.v     | stcr_pp/tgts/tws/rev_loc |
+| 78      | ssprove/lib/toolkit/ro_plus.v | ro_rcnt_loc (moved off 64: collided with smud's ud_pp_loc) |
 | 84-85   | ssprove/lib/games/prf.v       | prf_k/qs_loc |
+| 95-98   | ssprove/lib/games/tcrx.v      | tcrx_pp/tgts/tws/rev_loc |
 | 115-116 | ssprove/lib/sig/kots.v        | kots_pk/log_loc |
 | 125-127 | ssprove/lib/sig/eucma.v       | eucma_sk/pk/log_loc |
+| 200-201 | ssprove/lib/wots/games.v      | g0_pk/log_loc |
+| 210-211 | ssprove/lib/wots/analysis.v   | g0v_pk/log_loc |
+| 230-233 | ssprove/lib/wots/tcr_hop.v    | rt_pk/log/sig_loc, gm_sig_loc |
+| 240-242 | ssprove/lib/wots/pre_hop.v    | rp_pk/log/sig_loc |
+| 250-253 | ssprove/lib/wots/ud_hop.v     | hud_pk/log_loc (250-251), rud_pk/log_loc (252-253) |
 | 300-302 | ssprove/wots/games.v          | forge_pk/log/sig_loc |
 | 310-315 | ssprove/wots/hop/ud.v         | ud_hybrid_*(310-312), r_ud_*(313-315) |
 | 330-332 | ssprove/wots/hop/grind.v      | r_grind_pk/log/sig_loc |
@@ -32,22 +40,15 @@ tracked here.
 | 360-362 | ssprove/wots/hop/chain_pre.v  | r_chain_pre_pk/log/sig_loc |
 | 370-372 | ssprove/wots/hop/prf.v        | r_prf_pk/log/sig_loc |
 
-## proof/fxmss/hbs (`HBS.*` generic tree; `hbs/games/*.v` mostly re-exports `Sec.lib.games.*`)
-
-| range   | file                       | members |
-|---------|----------------------------|---------|
-| 20-22   | hbs/toolkit/ro_plus.v      | ro_map/qcnt_loc (20-21; 22 reserved) |
-| 78      | hbs/toolkit/ro_plus.v      | ro_rcnt_loc (moved off 64: collided with smud's ud_pp_loc) |
-| 95-98   | hbs/games/tcrx.v           | tcrx_pp/tgts/tws/rev_loc |
-| 200-201 | hbs/wots/games.v           | g0_pk/log_loc |
-| 210-211 | hbs/wots/analysis.v        | g0v_pk/log_loc |
-| 230-233 | hbs/wots/tcr_hop.v         | rt_pk/log/sig_loc, gm_sig_loc |
-| 240-242 | hbs/wots/pre_hop.v         | rp_pk/log/sig_loc |
-| 250-253 | hbs/wots/ud_hop.v          | hud_pk/log_loc (250-251), rud_pk/log_loc (252-253) |
-
 Note: `ro_map_loc`/`ro_qcnt_loc` (20-21) were left where they already were
 relative to each other; only the colliding member (`ro_rcnt_loc`, old id 64)
 moved, to 78, to keep the diff minimal.
+
+The eight families in ranges 20-22, 78, 95-98 and 200-253 used to live under
+`proof/fxmss/hbs` (logical root `HBS`), which was retired: the generic
+hash-based-signature library it held is now `Sec.lib.*` and both the native
+WOTS+C proof and the FXMSS tree instantiate it. Only the file paths moved --
+every id is unchanged.
 
 ## proof/fxmss/shrincs/wotsc (standalone FXMSS WOTS+C tree)
 

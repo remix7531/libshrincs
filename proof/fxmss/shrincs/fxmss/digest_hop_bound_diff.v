@@ -10,8 +10,7 @@
 
 Set Warnings "-notation-overridden,-ambiguous-paths,-notation-incompatible-prefix".
 From mathcomp Require Import reals distr realsum.
-From HBS Require Import prelude math.bin_tree math.merkle sig.scheme
-  games.thf toolkit.sample_seq toolkit.ro_plus toolkit.reprogram.
+From Sec.lib Require Import prelude math.bin_tree math.merkle sig.scheme games.thf toolkit.sample_seq toolkit.ro_plus toolkit.reprogram.
 From SHRINCS Require Import addressing wotsc.scheme wotsc.games
   fxmss.scheme fxmss.games fxmss.prf_hop fxmss.repro_hop fxmss.digest_hop.
 Set Warnings "notation-overridden,ambiguous-paths,notation-incompatible-prefix".

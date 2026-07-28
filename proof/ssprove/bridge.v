@@ -64,7 +64,8 @@
     [Model.wots.H_grind]'s use of [Model.address.adrs_bytes]). *)
 
 From mathcomp Require Import all_boot all_order.
-From Model Require Import math.chain math.encoding.
+From Model Require Import math.encoding.
+From Sec.lib Require Import math.chain.
 From Model Require wots byte address.
 Require Model.theory.wots.
 From HB Require Import structures.

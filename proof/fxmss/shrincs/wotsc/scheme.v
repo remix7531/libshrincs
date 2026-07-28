@@ -14,7 +14,7 @@
     chaining function, grinding step, kg / sign / vf / pkFromSig);
     construction.tex sec:functions for the typed building blocks F,
     Th_l, Hgrind and sec:adressing-stateful for their address types.
-    The generic fixed-sum WOTS construction in [HBS.wots.scheme]
+    The generic fixed-sum WOTS construction in [Sec.lib.chain.core]
     supplies its checksum-free chain core. WOTS+C adds grinding,
     public-key compression, and the concrete stateful addresses from
     [SHRINCS.addressing].
@@ -40,7 +40,7 @@
     (tex: l = ceil(n / log w)), [S_wn] the target chain-sum
     (0 <= S_wn <= l(w-1)), [c_max] the grinding-counter bound (the
     tex counter is an 8c-bit value, so c_max = 2^{8c}; bounded search
-    exactly as in HBS.games.STCRP).  The instance is anchored at the
+    exactly as in Sec.lib.games.stcrp).  The instance is anchored at the
     imaginary-tree position (z_star, i_star) (wotsc.tex kg: "with
     node-height and node-index fields set to the imaginary-tree
     position (z_star, i_star) of this WOTS+C instance").
@@ -57,7 +57,7 @@
       which here is the section anchor (z_star, i_star).
     - Grinding failure: if no counter below [c_max] satisfies the
       digit-sum predicate, [find_ctr] is None and [sign] refuses
-      (option signing of HBS.sig.Scheme; "no loops in packages",
+      (option signing of Sec.lib.sig.scheme; "no loops in packages",
       docs/ARCHITECTURE.md).  [find_ctr] is a pure function, so "the
       counter iteration must always be the same" (wotsc.tex RED note
       under the grinding step) holds by construction.
@@ -71,7 +71,9 @@
       statement will use signing budget q_s = 1). *)
 
 Set Warnings "-notation-overridden,-ambiguous-paths".
-From HBS Require Import prelude math.chain math.encoding sig.scheme toolkit.sample_seq.
+From Sec.lib Require Import prelude math.chain.
+From Model Require Import math.encoding.
+From Sec.lib Require Import sig.scheme toolkit.sample_seq.
 From SHRINCS Require Import addressing.
 Set Warnings "notation-overridden,ambiguous-paths".
 
@@ -186,7 +188,7 @@ Proof. by move=> /find_ctrP /andP[_ h]. Qed.
 (* ------------------------------------------------------------------ *)
 (** ** Pure scheme functions *)
 
-(** Chain step of the [i]-th chain (HBS.math.Chain conventions: the
+(** Chain step of the [i]-th chain (Sec.lib.math.chain conventions: the
     chain position [pos] is the first argument of the step function);
     tex: the chaining function c^{j,k} on ADRS^h. *)
 Definition chainf (pp : PP) (i : nat) : nat -> N -> N :=

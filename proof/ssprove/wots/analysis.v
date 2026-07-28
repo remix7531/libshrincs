@@ -89,7 +89,8 @@
 
 From Sec.lib Require Import prelude sig.scheme sig.kots
   games.thf toolkit.sample_seq.
-From Model Require Import math.chain math.encoding.
+From Model Require Import math.encoding.
+From Sec.lib Require Import math.chain.
 From Sec.lib Require Import chain.core.
 From Sec Require Import addressing.
 From Sec.wots Require Import addressing.
@@ -113,7 +114,7 @@ Context (P : wc_params).
     rewrite instead of relying on implicit conversion. *)
 
 Lemma wcendsE pp (ds : seq nat) (ys : seq (wcp_N P)) :
-  complete_ends P pp ds ys = ends_from_sig (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (Fw P) pp ds ys.
+  complete_ends P pp ds ys = ends_from_sig (wcp_PP P) (wcp_N P) (Fw P) (wcp_chain_count P) (wcp_w P) pp ds ys.
 Proof. by []. Qed.
 
 (** A grinded digest is a valid chain-library message (digit vector
@@ -161,43 +162,35 @@ Qed.
 
 Lemma shrincs_wots_chain_cases pp i d (sigi : wcp_N P) dstar (sigstar : wcp_N P) :
   dstar < d -> d < wcp_w P ->
-  chainc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp i sigstar dstar ((wcp_w P).-1 - dstar)
-    = chainc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp i sigi d ((wcp_w P).-1 - d) ->
-  match chain_extractc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp i sigstar dstar sigi d (wcp_w P).-1 with
+  chain (Sec.lib.chain.core.chainf (wcp_PP P) (wcp_N P) (Fw P) pp i) sigstar dstar ((wcp_w P).-1 - dstar)
+    = chain (Sec.lib.chain.core.chainf (wcp_PP P) (wcp_N P) (Fw P) pp i) sigi d ((wcp_w P).-1 - d) ->
+  match chain_extract (Sec.lib.chain.core.chainf (wcp_PP P) (wcp_N P) (Fw P) pp i) sigstar dstar sigi d (wcp_w P).-1 with
   | ChainColl k u v =>
       [/\ d <= k < (wcp_w P).-1,
-          v = chainc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp i sigi d (k - d),
+          v = chain (Sec.lib.chain.core.chainf (wcp_PP P) (wcp_N P) (Fw P) pp i) sigi d (k - d),
           u != v
         & wcp_F P pp (chain_adrs P i k) u = wcp_F P pp (chain_adrs P i k) v]
-  | ChainMeet => chainc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp i sigstar dstar (d - dstar) = sigi
+  | ChainMeet => chain (Sec.lib.chain.core.chainf (wcp_PP P) (wcp_N P) (Fw P) pp i) sigstar dstar (d - dstar) = sigi
   end.
 Proof.
 move=> hlt hdw hch.
-move: (forgery_cases (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp i d sigi dstar sigstar hlt hdw hch).
-case: (chain_extractc _ _ _ _ _ _ _ _ _ _ _) => [k u v|]; last by [].
-move=> [hk hv hne hcol]; split=> //.
-have hkw : (k < wcp_w P)%N by case/andP: hk => _ h; apply: leq_trans h (leq_pred (wcp_w P)).
-rewrite (FcE (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp i k u hkw)
-        (FcE (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp i k v hkw) in hcol.
-exact: hcol.
+move: (forgery_cases (wcp_PP P) (wcp_N P) (Fw P) (wcp_w P) pp i d sigi dstar sigstar hlt hdw hch).
+case: (chain_extract _ _ _ _ _ _) => [k u v|]; last by [].
+by move=> [hk hv hne hcol]; split.
 Qed.
 
 (** Case-4 post-processing ([forgery_pre_preimage] at [FW]): a chain
     meet at position [d] yields the F-preimage of [sigi] at chain
-    address (i, d-1) that wins SM-PRE's PCHECK.  ([d < w] is now needed
-    to reduce the total step [Fc] at position [d.-1] to the raw [F] at
-    the exact chain address.) *)
+    address (i, d-1) that wins SM-PRE's PCHECK. *)
 Lemma shrincs_wots_pre_preimage pp i d (sigi sigstar : wcp_N P) (dstar : nat) :
   dstar < d -> d < wcp_w P ->
-  chainc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp i sigstar dstar (d - dstar) = sigi ->
+  chain (Sec.lib.chain.core.chainf (wcp_PP P) (wcp_N P) (Fw P) pp i) sigstar dstar (d - dstar) = sigi ->
   wcp_F P pp (chain_adrs P i d.-1)
-    (chainc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp i sigstar dstar (d.-1 - dstar)) = sigi.
+    (chain (Sec.lib.chain.core.chainf (wcp_PP P) (wcp_N P) (Fw P) pp i) sigstar dstar (d.-1 - dstar)) = sigi.
 Proof.
 move=> hlt hdw hmeet.
-have hd1w : (d.-1 < wcp_w P)%N := leq_ltn_trans (leq_pred d) hdw.
-have H := forgery_pre_preimage (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp i d sigi sigstar dstar hlt hmeet.
-rewrite (FcE (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp i d.-1 _ hd1w) in H.
-exact: H.
+exact: (forgery_pre_preimage (wcp_PP P) (wcp_N P) (Fw P) pp i d sigi sigstar
+          dstar hlt hmeet).
 Qed.
 
 (** nth-form access to an equality of completed-ends lists: at every
@@ -207,12 +200,12 @@ Lemma wcends_nth_eq pp (ds ds' : seq nat) (ys ys' : seq (wcp_N P)) (y0 : wcp_N P
   size ds = wcp_chain_count P -> size ys = wcp_chain_count P ->
   size ds' = wcp_chain_count P -> size ys' = wcp_chain_count P -> i < wcp_chain_count P ->
   complete_ends P pp ds ys = complete_ends P pp ds' ys' ->
-  chainc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp i (nth y0 ys i) (nth 0 ds i) ((wcp_w P).-1 - nth 0 ds i)
-  = chainc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp i (nth y0 ys' i) (nth 0 ds' i) ((wcp_w P).-1 - nth 0 ds' i).
+  chain (Sec.lib.chain.core.chainf (wcp_PP P) (wcp_N P) (Fw P) pp i) (nth y0 ys i) (nth 0 ds i) ((wcp_w P).-1 - nth 0 ds i)
+  = chain (Sec.lib.chain.core.chainf (wcp_PP P) (wcp_N P) (Fw P) pp i) (nth y0 ys' i) (nth 0 ds' i) ((wcp_w P).-1 - nth 0 ds' i).
 Proof.
 move=> h1 h2 h3 h4 hi /(congr1 (fun s => nth y0 s i)).
-rewrite !wcendsE (ends_from_sig_nth (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (Fw P) pp ds ys y0 i h1 h2 hi)
-        (ends_from_sig_nth (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (Fw P) pp ds' ys' y0 i h3 h4 hi).
+rewrite !wcendsE (ends_from_sig_nth (wcp_PP P) (wcp_N P) (Fw P) (wcp_chain_count P) (wcp_w P) pp ds ys y0 i h1 h2 hi)
+        (ends_from_sig_nth (wcp_PP P) (wcp_N P) (Fw P) (wcp_chain_count P) (wcp_w P) pp ds' ys' y0 i h3 h4 hi).
 exact: id.
 Qed.
 
@@ -250,11 +243,11 @@ Lemma shrincs_wots_forgery_classify
       exists i k (u : wcp_N P),
         [/\ i < wcp_chain_count P,
             nth 0 (digest_of P pp m c) i <= k < (wcp_w P).-1,
-            u != chainc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp i (nth y0 sg i) (nth 0 (digest_of P pp m c) i)
+            u != chain (Sec.lib.chain.core.chainf (wcp_PP P) (wcp_N P) (Fw P) pp i) (nth y0 sg i) (nth 0 (digest_of P pp m c) i)
                        (k - nth 0 (digest_of P pp m c) i)
           & wcp_F P pp (chain_adrs P i k) u
             = wcp_F P pp (chain_adrs P i k)
-                (chainc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp i (nth y0 sg i) (nth 0 (digest_of P pp m c) i)
+                (chain (Sec.lib.chain.core.chainf (wcp_PP P) (wcp_N P) (Fw P) pp i) (nth y0 sg i) (nth 0 (digest_of P pp m c) i)
                        (k - nth 0 (digest_of P pp m c) i))]
    |  (* 4: CHAIN MEET — PCHECK (pre-index of i, preimage) wins
          SM-PRE(F) at tweak encode_tweak (chain_adrs i (d_i - 1)) *)
@@ -262,7 +255,7 @@ Lemma shrincs_wots_forgery_classify
         [/\ i < wcp_chain_count P,
             nth 0 (digest_of P pp mstar cstar) i < nth 0 (digest_of P pp m c) i
           & wcp_F P pp (chain_adrs P i (nth 0 (digest_of P pp m c) i).-1)
-              (chainc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp i (nth y0 ystar i)
+              (chain (Sec.lib.chain.core.chainf (wcp_PP P) (wcp_N P) (Fw P) pp i) (nth y0 ystar i)
                      (nth 0 (digest_of P pp mstar cstar) i)
                      ((nth 0 (digest_of P pp m c) i).-1
                         - nth 0 (digest_of P pp mstar cstar) i))
@@ -295,7 +288,7 @@ case: (altP (digest_of P pp mstar cstar =P digest_of P pp m c)) => [heqd|hned].
     have hch := wcends_nth_eq pp _ _ _ _ y0 i hsz' hsy hsz hsg hi heqe.
     have := shrincs_wots_chain_cases pp i (nth 0 (digest_of P pp m c) i) (nth y0 sg i)
               (nth 0 (digest_of P pp mstar cstar) i) (nth y0 ystar i) hlt hdw hch.
-    case: (chain_extractc _ _ _ _ _ _ _ _ _ _ _) => [k u v|].
+    case: (chain_extract _ _ _ _ _ _) => [k u v|].
     * (* 3 *)
       case=> hk hv hneuv hcol.
       apply: Or43; exists i, k, u.
@@ -344,14 +337,14 @@ Qed.
 Definition shrincs_wots_tcr_targets (pp : wcp_PP P) (ds : seq nat) (sigs : seq (wcp_N P)) :
     seq (wc_adrs_ch P * wcp_N P) :=
   [seq (shrincs_wots_tweak q.1, q.2)
-  | q <- tcr_targets (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (Fw P) pp ds sigs].
+  | q <- tcr_targets (wcp_PP P) (wcp_N P) (Fw P) (wcp_chain_count P) (wcp_w P) pp ds sigs].
 
 Lemma size_wotsc_tcr_targets pp (ds : seq nat) (sigs : seq (wcp_N P)) :
   size ds = wcp_chain_count P -> size sigs = wcp_chain_count P ->
   size (shrincs_wots_tcr_targets pp ds sigs) = sumn [seq (wcp_w P).-1 - d | d <- ds].
 Proof.
 move=> h1 h2; rewrite size_map.
-exact: (size_tcr_targets (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (Fw P) pp ds sigs h1 h2).
+exact: (size_tcr_targets (wcp_PP P) (wcp_N P) (Fw P) (wcp_chain_count P) (wcp_w P) pp ds sigs h1 h2).
 Qed.
 
 (** The SM-TCR budget [chain_count * w] suffices for the full list. *)
@@ -360,7 +353,7 @@ Lemma size_wotsc_tcr_targets_leq pp (ds : seq nat) (sigs : seq (wcp_N P)) :
   size (shrincs_wots_tcr_targets pp ds sigs) <= wcp_chain_count P * wcp_w P.
 Proof.
 move=> h1 h2; rewrite size_map.
-exact: (size_tcr_targets_leq (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (Fw P) pp ds sigs h1 h2).
+exact: (size_tcr_targets_leq (wcp_PP P) (wcp_N P) (Fw P) (wcp_chain_count P) (wcp_w P) pp ds sigs h1 h2).
 Qed.
 
 (** The CHECK index of target (i, k) is in range. *)
@@ -385,15 +378,15 @@ Lemma shrincs_wots_tcr_targets_nth pp (ds : seq nat) (sigs : seq (wcp_N P)) i k
   i < wcp_chain_count P -> nth 0 ds i <= k < (wcp_w P).-1 ->
   nth x0 (shrincs_wots_tcr_targets pp ds sigs) (tcr_index (wcp_w P) ds i k)
   = (shrincs_wots_tweak (i, k),
-     chainc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp i (nth y0 sigs i) (nth 0 ds i) (k - nth 0 ds i)).
+     chain (Sec.lib.chain.core.chainf (wcp_PP P) (wcp_N P) (Fw P) pp i) (nth y0 sigs i) (nth 0 ds i) (k - nth 0 ds i)).
 Proof.
 move=> hds hsigs hi hk.
 have hlt : tcr_index (wcp_w P) ds i k
-             < size (tcr_targets (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (Fw P) pp ds sigs).
-  rewrite (size_tcr_targets (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (Fw P) pp ds sigs hds hsigs).
+             < size (tcr_targets (wcp_PP P) (wcp_N P) (Fw P) (wcp_chain_count P) (wcp_w P) pp ds sigs).
+  rewrite (size_tcr_targets (wcp_PP P) (wcp_N P) (Fw P) (wcp_chain_count P) (wcp_w P) pp ds sigs hds hsigs).
   exact: (tcr_index_lt (wcp_chain_count P) (wcp_w P) ds i k hds hi hk).
 rewrite /shrincs_wots_tcr_targets (nth_map ((0, 0), y0)) //.
-by rewrite (tcr_targets_nth (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (Fw P) pp ds sigs i k ((0, 0), y0) y0).
+by rewrite (tcr_targets_nth (wcp_PP P) (wcp_N P) (Fw P) (wcp_chain_count P) (wcp_w P) pp ds sigs i k ((0, 0), y0) y0).
 Qed.
 
 (** Tweak distinctness of the committed list (the TQUERY freshness
@@ -405,15 +398,15 @@ move=> hds.
 have he : (fst \o (fun q : (nat * nat) * (wcp_N P) => (shrincs_wots_tweak q.1, q.2)))
             =1 (shrincs_wots_tweak \o fst).
   by [].
-have hinj : {in unzip1 (tcr_targets (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (Fw P) pp ds sigs) &,
+have hinj : {in unzip1 (tcr_targets (wcp_PP P) (wcp_N P) (Fw P) (wcp_chain_count P) (wcp_w P) pp ds sigs) &,
               injective shrincs_wots_tweak}.
   move=> x y hx hy.
-  have [hx1 hx2] := tcr_targets_mem_range (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (Fw P) pp ds sigs x hds hx.
-  have [hy1 hy2] := tcr_targets_mem_range (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (Fw P) pp ds sigs y hds hy.
+  have [hx1 hx2] := tcr_targets_mem_range (wcp_PP P) (wcp_N P) (Fw P) (wcp_chain_count P) (wcp_w P) pp ds sigs x hds hx.
+  have [hy1 hy2] := tcr_targets_mem_range (wcp_PP P) (wcp_N P) (Fw P) (wcp_chain_count P) (wcp_w P) pp ds sigs y hds hy.
   exact: (shrincs_wots_tweak_inj x y hx1 hy1 hx2 hy2).
 rewrite /shrincs_wots_tcr_targets /unzip1 -map_comp (eq_map he) map_comp.
 rewrite (map_inj_in_uniq hinj).
-exact: (tcr_targets_tweaks_uniq (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (Fw P) pp ds sigs hds).
+exact: (tcr_targets_tweaks_uniq (wcp_PP P) (wcp_N P) (Fw P) (wcp_chain_count P) (wcp_w P) pp ds sigs hds).
 Qed.
 
 End WOTSCAnalysis.

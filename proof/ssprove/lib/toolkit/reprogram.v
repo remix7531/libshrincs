@@ -3,10 +3,10 @@
  * libshrincs - formally verified SHRINCS implementations.
  *)
 
-(** * HBS.toolkit.reprogram
+(** * Sec.lib.toolkit.reprogram
 
     The CLASSICAL adaptive-reprogramming bound for the game pair of
-    HBS.toolkit.ROPlus.
+    Sec.lib.toolkit.ro_plus.
 
     Counterpart: resources/SHRINCS-security-specification/
     reprogramming.tex, lemma:ROM reprogramming — for a classical
@@ -69,7 +69,7 @@
 
 Set Warnings "-notation-overridden,-ambiguous-paths,-notation-incompatible-prefix".
 From mathcomp Require Import reals distr realsum.
-From HBS Require Import prelude toolkit.ro_plus.
+From Sec.lib Require Import prelude toolkit.ro_plus.
 Set Warnings "notation-overridden,ambiguous-paths,notation-incompatible-prefix".
 
 Import PackageNotation.

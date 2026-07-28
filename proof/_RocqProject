@@ -4,7 +4,6 @@
 -Q assumptions Assumptions
 # FXMSS proof (see fxmss/README.md). These roots are disjoint from
 # Sec/Model/Vst/Assumptions above.
--Q fxmss/hbs HBS
 -Q fxmss/shrincs SHRINCS
 -arg -w -arg -deprecated-from-Coq,-notation-overridden,-ambiguous-paths
 # -deprecated-from-Coq exists SOLELY for the three clightgen-generated
@@ -77,9 +76,16 @@ vst/verif/body_shrincs_wots_pubkey_from_sig.v
 vst/verif/body_shrincs_wots_verify.v
 vst/verif/all_bodies.v
 
-# --- ssprove: Lib (reusable hash-based-signature library slice) ---
+# --- ssprove: Lib (the shared hash-based-signature library) ---
+# Sec.lib.* is instantiated by BOTH the native single-anchor WOTS+C proof
+# below and the banked FXMSS leaf bound in fxmss/ (there is no separate
+# HBS root any more): Sec.lib.math.chain is the one generic chain ladder,
+# Sec.lib.chain.core the one fixed-sum WOTS+ development over it.
 ssprove/lib/prelude.v
 ssprove/lib/fin_fin.v
+ssprove/lib/math/bin_tree.v
+ssprove/lib/math/merkle.v
+ssprove/lib/math/chain.v
 ssprove/lib/sig/scheme.v
 ssprove/lib/sig/kots.v
 ssprove/lib/sig/eucma.v
@@ -88,6 +94,7 @@ ssprove/lib/games/smtcr.v
 ssprove/lib/games/smpre.v
 ssprove/lib/games/smud.v
 ssprove/lib/games/stcrp.v
+ssprove/lib/games/tcrx.v
 ssprove/lib/games/prf.v
 ssprove/lib/games/prf_adaptive.v
 ssprove/lib/games/prf_link.v
@@ -95,9 +102,15 @@ ssprove/lib/games/prf_derive.v
 ssprove/lib/toolkit/sample_seq.v
 ssprove/lib/toolkit/relational_rules.v
 ssprove/lib/toolkit/hop_tactics.v
+ssprove/lib/toolkit/ro_plus.v
+ssprove/lib/toolkit/reprogram.v
 ssprove/lib/chain/core.v
 ssprove/lib/chain/ud.v
-
+ssprove/lib/wots/games.v
+ssprove/lib/wots/analysis.v
+ssprove/lib/wots/ud_hop.v
+ssprove/lib/wots/tcr_hop.v
+ssprove/lib/wots/pre_hop.v
 ssprove/bridge.v
 
 # --- ssprove: WOTS+C scheme + one-time security proof ---
@@ -132,33 +145,9 @@ ssprove/axioms.v
 ssprove/wots/model_bridge.v
 
 # --- FXMSS proof (see fxmss/README.md) ---
-# The generic HBS closure remains isolated from the native Sec.* WOTS+C proof.
+# The generic Sec.lib closure it shares with the native tree now
+# lives under ssprove/lib (there is no separate HBS root).
 # Entry: SHRINCS.fxmss.theorem.shrincs_fxmss_secure.
-# HBS framework closure:
-fxmss/hbs/math/bin_tree.v
-fxmss/hbs/math/merkle.v
-fxmss/hbs/math/chain.v
-fxmss/hbs/math/encoding.v
-fxmss/hbs/prelude.v
-fxmss/hbs/games/thf.v
-fxmss/hbs/games/prf.v
-fxmss/hbs/games/smtcr.v
-fxmss/hbs/games/smpre.v
-fxmss/hbs/games/smud.v
-fxmss/hbs/games/stcrp.v
-fxmss/hbs/games/tcrx.v
-fxmss/hbs/toolkit/sample_seq.v
-fxmss/hbs/toolkit/ro_plus.v
-fxmss/hbs/toolkit/reprogram.v
-fxmss/hbs/sig/scheme.v
-fxmss/hbs/sig/kots.v
-# Generic fixed-sum WOTS abstraction used by the FXMSS leaf proof:
-fxmss/hbs/wots/scheme.v
-fxmss/hbs/wots/games.v
-fxmss/hbs/wots/analysis.v
-fxmss/hbs/wots/ud_hop.v
-fxmss/hbs/wots/tcr_hop.v
-fxmss/hbs/wots/pre_hop.v
 # SHRINCS addressing + WOTS+C leaf (closure):
 fxmss/shrincs/addressing.v
 fxmss/shrincs/wotsc/scheme.v

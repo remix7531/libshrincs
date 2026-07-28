@@ -32,8 +32,9 @@
     false. *)
 
 Set Warnings "-notation-overridden,-ambiguous-paths,-notation-incompatible-prefix".
-From HBS Require Import prelude math.bin_tree math.merkle math.encoding
-  sig.scheme games.thf games.smtcr toolkit.sample_seq.
+From Sec.lib Require Import prelude math.bin_tree math.merkle.
+From Model Require Import math.encoding.
+From Sec.lib Require Import sig.scheme games.thf games.smtcr toolkit.sample_seq.
 From SHRINCS Require Import addressing wotsc.scheme wotsc.games
   fxmss.scheme fxmss.games fxmss.late_games.
 Set Warnings "notation-overridden,ambiguous-paths,notation-incompatible-prefix".
@@ -189,7 +190,7 @@ Proof. by rewrite /value_tree_x internal_paths_posmap. Qed.
 
 (** Every internal position of the value tree has size <= h_sf (it is
     a position of a well-formed shape; [internal_path_depth] is
-    HBS.math.bin_tree's generic depth bound). *)
+    Sec.lib.math.bin_tree's generic depth bound). *)
 Lemma internal_path_size sp (q : seq bool) :
   q \in internal_paths (tshape sp) -> (size q <= h_sf)%N.
 Proof.

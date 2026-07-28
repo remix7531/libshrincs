@@ -3,7 +3,7 @@
  * libshrincs - formally verified SHRINCS implementations.
  *)
 
-(** * HBS.wots.ud_hop
+(** * Sec.lib.wots.ud_hop
 
     The SM-UD hybrid telescope of the fixed-sum WOTS security proof,
     relating [G0v]
@@ -57,75 +57,15 @@
 
 Set Warnings "-notation-overridden,-ambiguous-paths".
 From mathcomp Require Import reals.
-From HBS Require Import prelude math.chain math.encoding sig.scheme sig.kots
-  games.thf games.smud toolkit.sample_seq.
-From HBS Require Import wots.scheme wots.games
-  wots.analysis.
+From Sec.lib Require Import prelude math.chain.
+From Model Require Import math.encoding.
+From Sec.lib Require Import sig.scheme sig.kots games.thf games.smud toolkit.sample_seq.
+From Sec.lib Require Import chain.core chain.ud toolkit.relational_rules wots.games wots.analysis.
 Set Warnings "notation-overridden,ambiguous-paths".
 
 Import PackageNotation.
 #[local] Open Scope package_scope.
 #[local] Open Scope sep_scope.
-
-(* ------------------------------------------------------------------ *)
-(** ** Generic relational mini-rules
-
-    The SM-UD reduction's query loop reads and writes ONLY rhs-side
-    oracle state, whose values are pinned by a Prop-style
-    precondition carried through the loop induction (the
-    [set_rhs]/[rem_rhs] combinator preconditions of the ssprove
-    tactic layer do not recurse).  Building blocks: a rhs-only get
-    with pinned value, a rhs-only put with explicit precondition
-    transformation, and preservation of [heap_ignore] under
-    one-sided writes to ignored locations. *)
-
-Lemma r_get_rhs_pin {A B : choiceType} (ℓ : Location) (v : ℓ)
-    (pre : precond) (c₀ : raw_code A) (k : ℓ -> raw_code B)
-    (post : postcond A B) :
-  (forall s₀ s₁, pre (s₀, s₁) -> get_heap s₁ ℓ = v) ->
-  ⊢ ⦃ λ '(s₀, s₁), pre (s₀, s₁) ⦄ c₀ ≈ k v ⦃ post ⦄ ->
-  ⊢ ⦃ λ '(s₀, s₁), pre (s₀, s₁) ⦄ c₀ ≈ x ← get ℓ ;; k x ⦃ post ⦄.
-Proof.
-move=> hv h.
-eapply r_get_remember_rhs => x.
-eapply rpre_hypothesis_rule => s₀ s₁ [hpre hrem].
-move: hrem; rewrite /rem_inv /= => hx.
-subst x; rewrite (hv _ _ hpre).
-eapply rpre_weaken_rule; [exact: h|] => ? ? /= [-> ->] //.
-Qed.
-
-Lemma r_put_rhs_pre {A B : choiceType} (ℓ : Location) (v : ℓ)
-    (pre pre' : precond) (c₀ : raw_code A) (c₁ : raw_code B)
-    (post : postcond A B) :
-  (forall s₀ s₁, pre (s₀, s₁) -> pre' (s₀, set_heap s₁ ℓ v)) ->
-  ⊢ ⦃ λ '(s₀, s₁), pre' (s₀, s₁) ⦄ c₀ ≈ c₁ ⦃ post ⦄ ->
-  ⊢ ⦃ λ '(s₀, s₁), pre (s₀, s₁) ⦄ c₀ ≈ #put ℓ := v ;; c₁ ⦃ post ⦄.
-Proof.
-move=> hset h.
-apply r_put_rhs.
-eapply rpre_weaken_rule; [exact: h|] => s₀ s₁ [s₁' [hpre ->]].
-exact: hset.
-Qed.
-
-Lemma heap_ignore_set_rhs (L : Locations) (ℓ : Location) (v : ℓ)
-    (s₀ s₁ : heap) :
-  ℓ.1 \in domm L ->
-  heap_ignore L (s₀, s₁) -> heap_ignore L (s₀, set_heap s₁ ℓ v).
-Proof.
-move=> hin h; rewrite /heap_ignore => ℓ' hl'.
-rewrite get_set_heap_neq; first exact: h.
-by apply/eqP => e; rewrite e hin in hl'.
-Qed.
-
-Lemma heap_ignore_set_lhs (L : Locations) (ℓ : Location) (v : ℓ)
-    (s₀ s₁ : heap) :
-  ℓ.1 \in domm L ->
-  heap_ignore L (s₀, s₁) -> heap_ignore L (set_heap s₀ ℓ v, s₁).
-Proof.
-move=> hin h; rewrite /heap_ignore => ℓ' hl'.
-rewrite get_set_heap_neq; first exact: h.
-by apply/eqP => e; rewrite e hin in hl'.
-Qed.
 
 Section wots_ud_hop.
 
@@ -137,211 +77,21 @@ Context (l w tsum : nat).
 
 Local Notation FS := (fixed_sum_scheme PP N F dPP dN l w tsum).
 Local Notation cf := (chainf PP N F).
+
+(** The pure sampling maps of [Sec.lib.chain.ud] at this instance. *)
+Local Notation roots_map := (Sec.lib.chain.ud.roots_map PP N F).
+Local Notation uq_real_map := (Sec.lib.chain.ud.uq_real_map PP N F).
+Local Notation rud_sig := (Sec.lib.chain.ud.rud_sig PP N F).
+Local Notation sig_map := (Sec.lib.chain.ud.sig_map PP N F).
 Local Notation T := (Tots PP N F dPP dN).
 Local Notation C := (Cots PP N F dPP dN).
 
-(* ------------------------------------------------------------------ *)
-(** ** Pure layer: the per-chain sampling maps
-
-    All hybrid/reduction games sample ONE uniform value per chain and
-    post-process it purely.  The post-processings, as maps over
-    (digit list, sampled list) — recursion on the digit list with the
-    chain index [i] threaded through, truncating like [zip]:
-
-    - [roots_map s]: the hybrid [Hud s]'s signature digits: root at
-      position [minn s d.-1], chained up to the digit.
-    - [uq_real_map s]: what the real SM-UD oracle hands the reduction
-      for the queried chains ([F pp (i,s) x]), the raw root for the
-      others.
-    - [rud_sig s]: how the reduction turns the oracle answers into
-      signature digits (queried chains: continue from position
-      [s + 1]; others: from the root position [minn s d.-1]).
-    - [sig_map]: Games.v's [sample_sig_roots] post-processing (G1v's
-      shape: one [F]-step below the digit). *)
-
-Fixpoint roots_map (pp : PP) (s i : nat) (m : seq nat) (xs : seq N)
-    {struct m} : seq N :=
-  match m, xs with
-  | d :: m', x :: xs' =>
-      chain (cf pp i) x (minn s d.-1) (d - minn s d.-1)
-        :: roots_map pp s i.+1 m' xs'
-  | _, _ => [::]
-  end.
-
-Fixpoint uq_real_map (pp : PP) (s i : nat) (m : seq nat) (xs : seq N)
-    {struct m} : seq N :=
-  match m, xs with
-  | d :: m', x :: xs' =>
-      (if s.+2 <= d then F pp (i, s) x else x)
-        :: uq_real_map pp s i.+1 m' xs'
-  | _, _ => [::]
-  end.
-
-Fixpoint rud_sig (pp : PP) (s i : nat) (m : seq nat) (ys : seq N)
-    {struct m} : seq N :=
-  match m, ys with
-  | d :: m', y :: ys' =>
-      (if s.+2 <= d
-       then chain (cf pp i) y s.+1 (d - s.+1)
-       else chain (cf pp i) y (minn s d.-1) (d - minn s d.-1))
-        :: rud_sig pp s i.+1 m' ys'
-  | _, _ => [::]
-  end.
-
-Fixpoint sig_map (pp : PP) (i : nat) (m : seq nat) (xs : seq N)
-    {struct m} : seq N :=
-  match m, xs with
-  | d :: m', x :: xs' =>
-      (if d is d'.+1 then F pp (i, d') x else x)
-        :: sig_map pp i.+1 m' xs'
-  | _, _ => [::]
-  end.
-
-(* ------------------------------------------------------------------ *)
-(** *** Pure identities between the maps *)
-
-(** Digit arithmetic for the queried chains ([d >= s + 2]). *)
-Let big_digit_pred s d : s.+2 <= d -> s.+1 <= d.-1.
-Proof.
-move=> hd.
-have h0d : 0 < d := leq_trans (ltn0Sn s.+1) hd.
-by rewrite -ltnS (ltn_predK h0d).
-Qed.
-
-(** The reduction's post-processing of the REAL oracle answers is the
-    [Hud s] sampling map: queried chains walk [F pp (i,s) x] from
-    [s+1], which is the root [x] at [s] walked one step further. *)
-Lemma rud_sig_real (pp : PP) (s i : nat) (m : seq nat) (xs : seq N) :
-  rud_sig pp s i m (uq_real_map pp s i m xs) = roots_map pp s i m xs.
-Proof.
-elim: m i xs => [|d m IH] i [|x xs] //=.
-case: (boolP (s.+2 <= d)) => hd; rewrite IH //.
-congr cons.
-have hs1 : s.+1 <= d.-1 := big_digit_pred _ _ hd.
-have hsd : s < d := ltnW hd.
-have -> : minn s d.-1 = s by apply/minn_idPl; exact: ltnW hs1.
-have -> : d - s = (d - s.+1).+1 by rewrite subnS prednK // subn_gt0.
-by rewrite chainS.
-Qed.
-
-(** The reduction's post-processing of the IDEAL oracle answers (the
-    raw fresh values) is the [Hud s.+1] sampling map. *)
-Lemma rud_sig_ideal (pp : PP) (s i : nat) (m : seq nat) (ys : seq N) :
-  rud_sig pp s i m ys = roots_map pp s.+1 i m ys.
-Proof.
-elim: m i ys => [|d m IH] i [|y ys] //=.
-rewrite IH; congr cons.
-case: (boolP (s.+2 <= d)) => hd.
-- have hs1 : s.+1 <= d.-1 := big_digit_pred _ _ hd.
-  by rewrite (minn_idPl hs1).
-- rewrite -ltnNge ltnS in hd.
-  have hds : d.-1 <= s by rewrite -subn1 leq_subLR add1n.
-  by rewrite (minn_idPr hds) (minn_idPr (leq_trans hds (leqnSn s))).
-Qed.
-
-(** Endpoint [s = 0]: roots at position 0, signature digit = the
-    G0v honest chain walk. *)
-Lemma roots_map0E (pp : PP) (i : nat) (ds : seq nat) (xs : seq N) :
-  roots_map pp 0 i ds xs
-  = [seq chain (cf pp q.1.1) q.1.2 0 q.2
-    | q <- zip (zip (iota i (size ds)) xs) ds].
-Proof.
-by elim: ds i xs => [|d ds IH] i [|x xs] //=; rewrite min0n subn0 IH.
-Qed.
-
-Lemma roots_map_sign (pp : PP) (m : seq nat) (xs : seq N) :
-  size m = l ->
-  roots_map pp 0 0 m xs = sign_digits PP N F l pp xs m.
-Proof. by move=> hm; rewrite roots_map0E /sign_digits hm. Qed.
-
-(** Endpoint [s = 0], public ends: completing the [Hud 0] digit
-    [chain x 0 d] with [w.-1 - d] more steps is the G0v chain end
-    [chain x 0 w.-1] ([chain_split]). *)
-Lemma ends_roots_map0 (pp : PP) (i : nat) (ds : seq nat) (xs : seq N) :
-  wf_digits w ds ->
-  [seq chain (cf pp q.1) q.2.2 q.2.1 (w.-1 - q.2.1)
-  | q <- zip (iota i (size ds)) (zip ds (roots_map pp 0 i ds xs))]
-  = [seq chain (cf pp ix.1) ix.2 0 w.-1 | ix <- zip (iota i (size ds)) xs].
-Proof.
-elim: ds i xs => [|d ds IH] i [|x xs] //= /andP[hd hds].
-rewrite min0n subn0 IH //; congr cons.
-have hdw : d <= w.-1 by rewrite -ltnS (ltn_predK hd).
-have h := chain_split (cf pp i) x (leq0n d) hdw.
-by rewrite !subn0 in h; rewrite -h.
-Qed.
-
-Lemma ends_from_roots_map0 (pp : PP) (m : seq nat) (xs : seq N) :
-  size m = l -> wf_digits w m ->
-  ends_from_sig PP N F l w pp m (roots_map pp 0 0 m xs)
-  = chain_ends PP N F l w pp xs.
-Proof.
-move=> hm hwd.
-by rewrite /ends_from_sig /chain_ends -hm ends_roots_map0.
-Qed.
-
-(** Endpoint [s = w.-2]: for valid digits ([d < w]) the root position
-    [minn w.-2 d.-1] is [d.-1], so the [Hud w.-2] digit is G1v's
-    [sample_sig_roots] shape ([x] itself for [d = 0], one [F]-step
-    for [d > 0]). *)
-Lemma sig_map_roots (pp : PP) (i : nat) (ds : seq nat) (xs : seq N) :
-  wf_digits w ds ->
-  sig_map pp i ds xs = roots_map pp w.-2 i ds xs.
-Proof.
-elim: ds i xs => [|d ds IH] i [|x xs] //= /andP[hd hds].
-rewrite IH //; congr cons.
-case: d hd => [|d'] hd.
-- by rewrite minn0 subn0.
-- have hle1 : d' < w.-1 by rewrite -ltnS (ltn_predK hd).
-  have hle2 : d' <= w.-2 by rewrite -ltnS (ltn_predK hle1).
-  by rewrite (minn_idPr hle2) subSnn chain1.
-Qed.
-
-(* ------------------------------------------------------------------ *)
-(** ** Relational sampler couplings
-
-    [sample_seq dN n] is the reference sampler of all games here; the
-    two lemmas below couple it (identically) with itself resp. with
-    G1v's [sample_sig_roots], handing the continuation the size of
-    the sampled list resp. the pure post-processing.  Both are stated
-    in continuation-passing form under an ARBITRARY precondition, as
-    [r_scheme_bind] (Games.v). *)
-
-Lemma r_sample_seq_size {B : choiceType} (n : nat) (pre : precond)
-    (post : postcond B B) (k₀ k₁ : chList N -> raw_code B) :
-  (forall xs : seq N, size xs = n -> ⊢ ⦃ pre ⦄ k₀ xs ≈ k₁ xs ⦃ post ⦄) ->
-  ⊢ ⦃ pre ⦄
-    xs ← sample_seq dN n ;; k₀ xs ≈ xs ← sample_seq dN n ;; k₁ xs
-  ⦃ post ⦄.
-Proof.
-elim: n k₀ k₁ => [|n IH] k₀ k₁ hk /=.
-- exact: (hk [::] erefl).
-- rewrite !bind_assoc.
-  eapply r_scheme_bind; [exact _|] => x.
-  rewrite !bind_assoc.
-  apply: IH => xs hxs.
-  apply: (hk (x :: xs)).
-  by rewrite /= hxs.
-Qed.
-
-Lemma r_sample_sig_roots {B : choiceType} (pp : PP) (i : nat)
-    (m : seq nat) (pre : precond) (post : postcond B B)
-    (k₀ k₁ : chList N -> raw_code B) :
-  (forall xs : seq N, size xs = size m ->
-    ⊢ ⦃ pre ⦄ k₀ (sig_map pp i m xs) ≈ k₁ xs ⦃ post ⦄) ->
-  ⊢ ⦃ pre ⦄
-    sg ← sample_sig_roots PP N F dN pp i m ;; k₀ sg
-    ≈ xs ← sample_seq dN (size m) ;; k₁ xs
-  ⦃ post ⦄.
-Proof.
-elim: m i k₀ k₁ => [|d m IH] i k₀ k₁ hk /=.
-- exact: (hk [::] erefl).
-- rewrite !bind_assoc.
-  eapply r_scheme_bind; [exact _|] => x.
-  rewrite !bind_assoc.
-  apply: IH => xs hxs.
-  apply: (hk (x :: xs)).
-  by rewrite /= hxs.
-Qed.
+(** The per-chain sampling maps every hybrid/reduction game below
+    post-processes its one uniform sample with -- [roots_map],
+    [uq_real_map], [rud_sig], [sig_map], their identities, and the two
+    reference-sampler couplings [r_sample_seq_size] /
+    [r_sample_sig_roots] -- are [Sec.lib.chain.ud], shared with the
+    native WOTS+C proof. *)
 
 (* ------------------------------------------------------------------ *)
 (** ** The hybrid games Hud s *)
@@ -405,7 +155,7 @@ simplify_eq_rel arg.
   have hwd : wf_digits w m by case/and3P: hv.
   eapply r_scheme_bind; [exact _|] => pp.
   eapply r_sample_seq_size => xs hxs.
-  rewrite ends_from_roots_map0 // roots_map_sign //.
+  rewrite (ends_from_roots_map0 PP N F l w) // (roots_map_sign PP N F l) //.
   apply r_put_vs_put.
   apply r_put_vs_put.
   ssprove_restore_mem.
@@ -443,7 +193,7 @@ simplify_eq_rel arg.
   eapply r_scheme_bind; [exact _|] => pp.
   have -> : sample_seq dN l = sample_seq dN (size m) by rewrite hm.
   eapply r_sample_sig_roots => xs hxs.
-  rewrite sig_map_roots //.
+  rewrite (sig_map_roots PP N F w) //.
   apply r_put_vs_put.
   apply r_put_vs_put.
   ssprove_restore_mem.
@@ -556,7 +306,7 @@ Lemma rud_pre_set_tws (pp : PP) (v : ud_tws_loc T) (s₀ s₁ : heap) :
   rud_pre pp (s₀, set_heap s₁ (ud_tws_loc T) v).
 Proof.
 case=> h1 h2 h3; split.
-- by apply: heap_ignore_set_rhs h1; apply: fhas_in; fmap_solve.
+- by apply: heap_ignore_set_r h1; apply: fhas_in; fmap_solve.
 - by rewrite get_set_heap_neq.
 - by rewrite get_set_heap_neq.
 Qed.
@@ -749,7 +499,7 @@ simplify_eq_rel arg.
     move: hcr2 hcr3; rewrite !rel_app_cons /= => hcr2 hcr3.
     move: hrr; rewrite /rem_inv /= => hrr.
     split; first split.
-    - by apply: heap_ignore_set_rhs hig; apply: fhas_in; fmap_solve.
+    - by apply: heap_ignore_set_r hig; apply: fhas_in; fmap_solve.
     - exact: get_set_heap_eq.
     - rewrite get_set_heap_neq //; exact: hcr2 hrr.
     - rewrite get_set_heap_neq //; exact: hcr3 hrr. }
@@ -771,17 +521,17 @@ simplify_eq_rel arg.
   eapply (r_put_rhs_pre ud_rev_loc true _
     (λ '(h₀, h₁), heap_ignore LL (h₀, h₁))).
   { move=> h₀ h₁ [hig _ _].
-    by apply: heap_ignore_set_rhs hig; apply: fhas_in; fmap_solve. }
+    by apply: heap_ignore_set_r hig; apply: fhas_in; fmap_solve. }
   rewrite rud_sig_real.
   apply r_put_vs_put.
   apply r_put_vs_put.
   apply r_ret => h₀ h₁ [a [[b' [[c [[d [hig ->]] ->]] ->]] ->]].
   split; first by [].
   split; first split; first split; first split; first split.
-  - apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve.
-    apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve.
-    apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve.
-    apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve.
+  - apply: heap_ignore_set_l; first by apply: fhas_in; fmap_solve.
+    apply: heap_ignore_set_r; first by apply: fhas_in; fmap_solve.
+    apply: heap_ignore_set_l; first by apply: fhas_in; fmap_solve.
+    apply: heap_ignore_set_r; first by apply: fhas_in; fmap_solve.
     exact: hig.
   - rewrite !rel_app_cons /= get_set_heap_neq // get_set_heap_eq.
     by rewrite get_set_heap_neq // get_set_heap_eq.
@@ -850,7 +600,7 @@ simplify_eq_rel arg.
     move: hcr2 hcr3; rewrite !rel_app_cons /= => hcr2 hcr3.
     move: hrr; rewrite /rem_inv /= => hrr.
     split; first split.
-    - by apply: heap_ignore_set_rhs hig; apply: fhas_in; fmap_solve.
+    - by apply: heap_ignore_set_r hig; apply: fhas_in; fmap_solve.
     - exact: get_set_heap_eq.
     - rewrite get_set_heap_neq //; exact: hcr2 hrr.
     - rewrite get_set_heap_neq //; exact: hcr3 hrr. }
@@ -872,17 +622,17 @@ simplify_eq_rel arg.
   eapply (r_put_rhs_pre ud_rev_loc true _
     (λ '(h₀, h₁), heap_ignore LL (h₀, h₁))).
   { move=> h₀ h₁ [hig _ _].
-    by apply: heap_ignore_set_rhs hig; apply: fhas_in; fmap_solve. }
+    by apply: heap_ignore_set_r hig; apply: fhas_in; fmap_solve. }
   rewrite rud_sig_ideal.
   apply r_put_vs_put.
   apply r_put_vs_put.
   apply r_ret => h₀ h₁ [a [[b' [[c [[d [hig ->]] ->]] ->]] ->]].
   split; first by [].
   split; first split; first split; first split; first split.
-  - apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve.
-    apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve.
-    apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve.
-    apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve.
+  - apply: heap_ignore_set_l; first by apply: fhas_in; fmap_solve.
+    apply: heap_ignore_set_r; first by apply: fhas_in; fmap_solve.
+    apply: heap_ignore_set_l; first by apply: fhas_in; fmap_solve.
+    apply: heap_ignore_set_r; first by apply: fhas_in; fmap_solve.
     exact: hig.
   - rewrite !rel_app_cons /= get_set_heap_neq // get_set_heap_eq.
     by rewrite get_set_heap_neq // get_set_heap_eq.

@@ -120,7 +120,8 @@
 
 From Sec.lib Require Import prelude sig.scheme sig.kots
   games.thf games.smtcr games.smpre games.smud games.stcrp toolkit.sample_seq.
-From Model Require Import math.chain math.encoding.
+From Model Require Import math.encoding.
+From Sec.lib Require Import math.chain.
 From Sec.lib Require Import chain.core.
 From Sec Require Import addressing.
 From Sec.wots Require Import scheme.
@@ -289,26 +290,26 @@ Qed.
     THE bridge that lets the chain library's analysis and its
     [sample_sig_roots] re-rooting machinery apply to WOTS+C. *)
 
-Definition Fw (pp : wcp_PP P) (i : nat) (p : nat) (_ : (p < wcp_w P)%N) (x : wcp_N P) : wcp_N P :=
-  wcp_F P pp (chain_adrs P i p) x.
+Definition Fw (pp : wcp_PP P) (t : nat * nat) (x : wcp_N P) : wcp_N P :=
+  wcp_F P pp (chain_adrs P t.1 t.2) x.
 
 (** [Fw]'s chain steps are the scheme's ([chainf] of Sec.wots.scheme ==
     the chain library's [chainf] at [Fw]); stated once so consumers
     can rewrite instead of relying on conversion. *)
 Lemma chainf_Fw pp i :
-  Sec.lib.chain.core.chainf (wcp_PP P) (wcp_N P) (wcp_w P) Fw pp i = chainf P pp i.
+  Sec.lib.chain.core.chainf (wcp_PP P) (wcp_N P) Fw pp i = chainf P pp i.
 Proof. by []. Qed.
 
 (* ------------------------------------------------------------------ *)
 (** ** Shared reduction vocabulary (header): the chain library's
     query/decision combinators at this instance's [Fw]. *)
 
-Definition wsigs := sigs_of (wcp_PP P) (wcp_N P) (wcp_w P) Fw.
-Definition wends := ends_of (wcp_PP P) (wcp_N P) (wcp_w P) Fw.
-Definition wcommitq := commit_queries (wcp_PP P) (wcp_N P) (wcp_w P) Fw.
+Definition wsigs := sigs_of (wcp_PP P) (wcp_N P) Fw.
+Definition wends := ends_of (wcp_PP P) (wcp_N P) Fw (wcp_w P).
+Definition wcommitq := commit_queries (wcp_PP P) (wcp_N P) Fw (wcp_w P).
 Definition wpreq := pre_queries (wcp_N P).
-Definition wtcr_dec := tcr_decision (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) Fw.
-Definition wpre_dec := pre_decision (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) Fw.
+Definition wtcr_dec := tcr_decision (wcp_PP P) (wcp_N P) Fw (wcp_chain_count P) (wcp_w P).
+Definition wpre_dec := pre_decision (wcp_PP P) (wcp_N P) Fw (wcp_chain_count P) (wcp_w P).
 
 (* ------------------------------------------------------------------ *)
 (** ** G_forge_sampledkey: the flat valid-commit known-message game *)
@@ -367,7 +368,7 @@ Definition G_forge_uniformchains (b : bool) : game (I_KOTS (shrincs_wots_scheme 
       pp ← wcp_dPP P ;;
       #assert (isSome (find_counter P pp m)) ;;
       let c := odflt 0 (find_counter P pp m) in
-      sg ← sample_sig_roots (wcp_PP P) (wcp_N P) (wcp_w P) Fw (wcp_dN P) pp 0 (digest_of P pp m c) ;;
+      sg ← sample_sig_roots (wcp_PP P) (wcp_N P) Fw (wcp_dN P) pp 0 (digest_of P pp m c) ;;
       #put forge_pk_loc := Some (pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp (digest_of P pp m c) sg)) ;;
       #put forge_log_loc := [:: m] ;;
       #put forge_sig_loc := Some (sg, c) ;;

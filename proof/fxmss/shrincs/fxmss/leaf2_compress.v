@@ -18,10 +18,10 @@
     inequality after projecting to the leaf coordinate. *)
 
 Set Warnings "-notation-overridden,-ambiguous-paths,-notation-incompatible-prefix,-deprecated-coq-env-var".
-From HBS Require Import prelude math.bin_tree math.merkle math.chain math.encoding
-  sig.scheme games.thf games.smtcr toolkit.sample_seq.
-From HBS Require Import wots.scheme wots.games
-  wots.analysis wots.tcr_hop.
+From Sec.lib Require Import prelude math.bin_tree math.merkle math.chain.
+From Model Require Import math.encoding.
+From Sec.lib Require Import sig.scheme games.thf games.smtcr toolkit.sample_seq.
+From Sec.lib Require Import toolkit.relational_rules chain.core wots.games wots.analysis wots.tcr_hop.
 From SHRINCS Require Import addressing wotsc.scheme wotsc.games wotsc.analysis
   fxmss.scheme fxmss.games fxmss.late_games fxmss.tree_hop
   fxmss.leaf_reduction fxmss.leaf_km fxmss.leaf2_common fxmss.leaf2_games.
@@ -418,7 +418,7 @@ Local Notation Srv := tcr_rev_loc.
 
 (** Leaf-coordinate chain shorthands (fixed_sum_scheme at the leaf [Fw]). *)
 Local Notation FWl zi := (Fw PP N F zi.1 zi.2).
-Local Notation cfWl zi := (HBS.wots.scheme.chainf PP N (FWl zi)).
+Local Notation cfWl zi := (Sec.lib.chain.core.chainf PP N (FWl zi)).
 Local Notation wsigs zi := (sigs_of PP N (FWl zi)).
 Local Notation wends zi := (ends_of PP N (FWl zi) w).
 Local Notation lfind zi pp md :=

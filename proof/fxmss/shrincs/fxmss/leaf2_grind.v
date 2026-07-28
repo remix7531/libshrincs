@@ -52,10 +52,10 @@
       side condition), as in the single-instance [R_gr_real]. *)
 
 Set Warnings "-notation-overridden,-ambiguous-paths,-notation-incompatible-prefix,-deprecated-coq-env-var".
-From HBS Require Import prelude math.bin_tree math.merkle math.chain math.encoding
-  sig.scheme games.thf games.smtcr games.stcrp toolkit.sample_seq.
-From HBS Require Import wots.scheme wots.games
-  wots.analysis wots.tcr_hop.
+From Sec.lib Require Import prelude math.bin_tree math.merkle math.chain.
+From Model Require Import math.encoding.
+From Sec.lib Require Import sig.scheme games.thf games.smtcr games.stcrp toolkit.sample_seq.
+From Sec.lib Require Import toolkit.relational_rules chain.core wots.games wots.analysis wots.tcr_hop.
 From SHRINCS Require Import addressing wotsc.scheme wotsc.games wotsc.analysis
   fxmss.scheme fxmss.games fxmss.late_games fxmss.tree_hop
   fxmss.leaf_reduction fxmss.leaf_km fxmss.leaf2_common fxmss.leaf2_games.
@@ -809,7 +809,7 @@ Lemma r_lgrwalk_spec (b : bool) {B : choiceType} (pp : PP) (zi : nat * nat)
   forall n i k (x : N)
          (c0 : raw_code B) (k1 : N -> raw_code B),
   ⊢ ⦃ λ '(s0, s1), pre (s0, s1) ⦄
-     c0 ≈ k1 (chain (HBS.wots.scheme.chainf PP N (FWl zi) pp i) x k n)
+     c0 ≈ k1 (chain (Sec.lib.chain.core.chainf PP N (FWl zi) pp i) x k n)
    ⦃ post ⦄ ->
   ⊢ ⦃ λ '(s0, s1), pre (s0, s1) ⦄
      c0 ≈ bind (code_link (lgr_walk zi i k n x) (STB b)) k1 ⦃ post ⦄.

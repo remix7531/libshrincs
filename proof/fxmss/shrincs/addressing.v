@@ -30,7 +30,7 @@ Set Warnings "-notation-overridden,-ambiguous-paths".
 From Sec.lib Require Import prelude.
 From Sec Require addressing.
 From Model Require Import address fin.
-From HBS.math Require Import bin_tree.
+From Sec.lib Require Import math.bin_tree.
 From Stdlib Require Import ZArith Lia.
 Set Warnings "notation-overridden,ambiguous-paths".
 

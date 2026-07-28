@@ -86,7 +86,8 @@
 From mathcomp.experimental_reals Require Import distr.
 From Sec.lib Require Import prelude sig.scheme sig.kots
   games.thf games.stcrp toolkit.sample_seq toolkit.relational_rules.
-From Model Require Import math.chain math.encoding.
+From Model Require Import math.encoding.
+From Sec.lib Require Import math.chain.
 From Sec.lib Require Import chain.core
   toolkit.hop_tactics.
 From Sec Require Import addressing.
@@ -130,7 +131,7 @@ Definition R_grind : package (I_STCRP (thf_grind P) (coll_grind P) (wcp_M P)) (I
       #assert ~~ (isSome pko) ;;
       res ← opr gsqo (encode_tweak P (grind_adrs P), m) (λ r, ret r) ;;
       pp ← opr ggpo Datatypes.tt (λ p, ret p) ;;
-      sg ← sample_sig_roots (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) (wcp_dN P) pp 0 (rev (digits_w (wcp_w P) (wcp_chain_count P) res.1)) ;;
+      sg ← sample_sig_roots (wcp_PP P) (wcp_N P) (Fw P) (wcp_dN P) pp 0 (rev (digits_w (wcp_w P) (wcp_chain_count P) res.1)) ;;
       #put r_grind_pk_loc := Some (pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp (rev (digits_w (wcp_w P) (wcp_chain_count P) res.1)) sg)) ;;
       #put r_grind_log_loc := [:: m] ;;
       #put r_grind_sig_loc := Some (sg, res.2) ;;
@@ -405,12 +406,12 @@ Lemma r_commit_tail (pp : wcp_PP P) (m : wcp_M P) (c : nat) :
   ⊢ ⦃ λ '(s0, s1),
         gblk (Some pp) true [:: encode_tweak P (grind_adrs P)] (setm emptym 0 (encode_tweak P (grind_adrs P), (m, c)))
           (s0, s1) ⦄
-     (sg ← sample_sig_roots (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) (wcp_dN P) pp 0 (digest_of P pp m c) ;;
+     (sg ← sample_sig_roots (wcp_PP P) (wcp_N P) (Fw P) (wcp_dN P) pp 0 (digest_of P pp m c) ;;
       #put forge_pk_loc P := Some (pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp (digest_of P pp m c) sg)) ;;
       #put forge_log_loc P := [:: m] ;;
       #put forge_sig_loc P := Some (sg, c) ;;
       ret ((pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp (digest_of P pp m c) sg)), Some (sg, c)))
-   ≈ (sg ← sample_sig_roots (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) (wcp_dN P) pp 0 (digest_of P pp m c) ;;
+   ≈ (sg ← sample_sig_roots (wcp_PP P) (wcp_N P) (Fw P) (wcp_dN P) pp 0 (digest_of P pp m c) ;;
       #put r_grind_pk_loc := Some (pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp (digest_of P pp m c) sg)) ;;
       #put r_grind_log_loc := [:: m] ;;
       #put r_grind_sig_loc := Some (sg, c) ;;
@@ -512,10 +513,10 @@ simplify_eq_rel arg.
     simpl.
     eapply r_put_rhs_weak.
       { move=> s0 s1 hpre; exact: (gblk_set_rev _ _ _ _ _ hpre). }
-    rewrite (code_link_bind (sample_sig_roots (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) (wcp_dN P) pp 0
+    rewrite (code_link_bind (sample_sig_roots (wcp_PP P) (wcp_N P) (Fw P) (wcp_dN P) pp 0
               (rev (digits_w (wcp_w P) (wcp_chain_count P) (th_eval (thf_grind P) pp (encode_tweak P (grind_adrs P)) (grind_enc P m c)))))).
     rewrite (code_link_scheme _ _ _ _
-              (sample_sig_roots_valid (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) (wcp_dN P) emptym _ pp 0 _)).
+              (sample_sig_roots_valid (wcp_PP P) (wcp_N P) (Fw P) (wcp_dN P) emptym _ pp 0 _)).
     rewrite !digest_resE.
     exact: r_commit_tail.
 - (* KFORGE *)
@@ -676,10 +677,10 @@ simplify_eq_rel arg.
     simpl.
     eapply r_put_rhs_weak.
       { move=> s0 s1 hpre; exact: (gblk_set_rev _ _ _ _ _ hpre). }
-    rewrite (code_link_bind (sample_sig_roots (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) (wcp_dN P) pp 0
+    rewrite (code_link_bind (sample_sig_roots (wcp_PP P) (wcp_N P) (Fw P) (wcp_dN P) pp 0
               (rev (digits_w (wcp_w P) (wcp_chain_count P) (th_eval (thf_grind P) pp (encode_tweak P (grind_adrs P)) (grind_enc P m c)))))).
     rewrite (code_link_scheme _ _ _ _
-              (sample_sig_roots_valid (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) (wcp_dN P) emptym _ pp 0 _)).
+              (sample_sig_roots_valid (wcp_PP P) (wcp_N P) (Fw P) (wcp_dN P) emptym _ pp 0 _)).
     rewrite !digest_resE.
     exact: r_commit_tail.
 - (* KFORGE *)

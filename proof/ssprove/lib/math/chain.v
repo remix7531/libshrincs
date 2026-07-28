@@ -3,7 +3,7 @@
  * libshrincs - formally verified SHRINCS implementations.
  *)
 
-(** * HBS.math.chain
+(** * Sec.lib.math.chain
 
     Winternitz hash chains with the chain POSITION as abstract tweak,
     and the collision-or-preimage extraction lemma that is the pure
@@ -13,7 +13,7 @@
     collision/preimage machinery ([is_coll], [find_collidx_l]/
     [find_collidx_r], [extr_coll_l]/[extr_coll_r], [extr_pre]) of
     [resources/FV-SPHINCSPLUS-EC/proofs/WOTS_TW_ES.ec].  As in
-    HBS.math.Merkle, the extraction is a total computable classifier
+    Sec.lib.math.merkle, the extraction is a total computable classifier
     ([chain_extract]) with a spec lemma in [match]-style
     ([chain_extractP], cf. [extractP] there).
 

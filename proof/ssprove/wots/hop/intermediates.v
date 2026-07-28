@@ -29,7 +29,8 @@
 From mathcomp.experimental_reals Require Import distr.
 From Sec.lib Require Import prelude sig.scheme sig.kots
   chain.core.
-From Model Require Import math.chain math.encoding.
+From Model Require Import math.encoding.
+From Sec.lib Require Import math.chain.
 From Sec Require Import addressing.
 From Sec.wots Require Import scheme games analysis.
 
@@ -81,7 +82,7 @@ Lemma wendsE (pp : wcp_PP P) (ds : seq nat) (ys : seq (wcp_N P)) :
 Proof.
 move=> h.
 rewrite /wends.
-by rewrite (ends_of_from_sig (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (Fw P) pp ds ys h)
+by rewrite (ends_of_from_sig (wcp_PP P) (wcp_N P) (Fw P) (wcp_chain_count P) (wcp_w P) pp ds ys h)
    (wcendsE P pp ds ys).
 Qed.
 
@@ -97,7 +98,7 @@ Definition G_post_grind : game (I_KOTS (shrincs_wots_scheme P)) :=
       pp ← wcp_dPP P ;;
       #assert (isSome (find_counter P pp m)) ;;
       let c := odflt 0 (find_counter P pp m) in
-      sg ← sample_sig_roots (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) (wcp_dN P) pp 0 (digest_of P pp m c) ;;
+      sg ← sample_sig_roots (wcp_PP P) (wcp_N P) (Fw P) (wcp_dN P) pp 0 (digest_of P pp m c) ;;
       #put forge_pk_loc P := Some (pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp (digest_of P pp m c) sg)) ;;
       #put forge_log_loc P := [:: m] ;;
       #put forge_sig_loc P := Some (sg, c) ;;
@@ -132,7 +133,7 @@ Definition G_post_compress : game (I_KOTS (shrincs_wots_scheme P)) :=
       pp ← wcp_dPP P ;;
       #assert (isSome (find_counter P pp m)) ;;
       let c := odflt 0 (find_counter P pp m) in
-      sg ← sample_sig_roots (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) (wcp_dN P) pp 0 (digest_of P pp m c) ;;
+      sg ← sample_sig_roots (wcp_PP P) (wcp_N P) (Fw P) (wcp_dN P) pp 0 (digest_of P pp m c) ;;
       #put forge_pk_loc P := Some (pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp (digest_of P pp m c) sg)) ;;
       #put forge_log_loc P := [:: m] ;;
       #put forge_sig_loc P := Some (sg, c) ;;
@@ -171,7 +172,7 @@ Definition G_post_chain : game (I_KOTS (shrincs_wots_scheme P)) :=
       pp ← wcp_dPP P ;;
       #assert (isSome (find_counter P pp m)) ;;
       let c := odflt 0 (find_counter P pp m) in
-      sg ← sample_sig_roots (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) (wcp_dN P) pp 0 (digest_of P pp m c) ;;
+      sg ← sample_sig_roots (wcp_PP P) (wcp_N P) (Fw P) (wcp_dN P) pp 0 (digest_of P pp m c) ;;
       #put forge_pk_loc P := Some (pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp (digest_of P pp m c) sg)) ;;
       #put forge_log_loc P := [:: m] ;;
       #put forge_sig_loc P := Some (sg, c) ;;

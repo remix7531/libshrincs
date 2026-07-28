@@ -3,7 +3,7 @@
  * libshrincs - formally verified SHRINCS implementations.
  *)
 
-(** * HBS.math.merkle
+(** * Sec.lib.math.merkle
 
     Merkle-tree evaluation, authentication paths and forgery analysis
     over trees of ARBITRARY shape, with node positions (root-to-node
@@ -28,7 +28,7 @@
 
     The node hash [h] takes the absolute position as tweak; consumers
     compose it from a tweakable hash and an injective position-to-
-    address map (HBS.math.Address).
+    address map (Sec.lib.math.bin_tree).
 
     Pure MathComp; no SSProve imports (docs/STYLE.md rule 5). *)
 
@@ -36,7 +36,7 @@ Set Warnings "-notation-overridden,-ambiguous-paths".
 From mathcomp Require Import all_boot all_order.
 Set Warnings "notation-overridden,ambiguous-paths".
 
-From HBS Require Import math.bin_tree.
+From Sec.lib Require Import math.bin_tree.
 
 Set Implicit Arguments.
 Unset Strict Implicit.

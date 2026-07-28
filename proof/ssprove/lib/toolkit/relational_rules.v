@@ -101,6 +101,20 @@ eapply rpre_weaken_rule; first exact: h.
 by move=> s0 s1 [s1' [hpre ->]]; exact: hp.
 Qed.
 
+(** One lhs put, one precondition transformer. *)
+Lemma r_put_lhs_weak {A B : choiceType} (ℓ : Location) (v : ℓ)
+    (pre pre' : precond) (c0 : raw_code A) (c1 : raw_code B)
+    (post : postcond A B) :
+  (forall s0 s1, pre (s0, s1) -> pre' (set_heap s0 ℓ v, s1)) ->
+  ⊢ ⦃ λ '(s0, s1), pre' (s0, s1) ⦄ c0 ≈ c1 ⦃ post ⦄ ->
+  ⊢ ⦃ λ '(s0, s1), pre (s0, s1) ⦄ #put ℓ := v ;; c0 ≈ c1 ⦃ post ⦄.
+Proof.
+move=> hp h.
+apply r_put_lhs.
+eapply rpre_weaken_rule; first exact: h.
+by move=> s0 s1 [s0' [hpre ->]]; exact: hp.
+Qed.
+
 (** Two successive rhs puts, one transformer. *)
 Lemma r_put2_rhs_weak {A B : choiceType} (ℓ1 : Location) (v1 : ℓ1)
     (ℓ2 : Location) (v2 : ℓ2)

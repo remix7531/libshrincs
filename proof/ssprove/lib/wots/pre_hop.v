@@ -3,7 +3,7 @@
  * libshrincs - formally verified SHRINCS implementations.
  *)
 
-(** * HBS.wots.pre_hop
+(** * Sec.lib.wots.pre_hop
 
     The SM-PRE reduction package for the PRE half of the fixed-sum
     WOTS G1 to SM-TCR/SM-PRE split, and
@@ -68,7 +68,7 @@
       have to cancel a one-sided sample against G1v-false's plain
       [ret false].
     - Budget: [l] (one PQUERY per positive-digit chain;
-      [npq m <= size m = l]).
+      [preimage_query_count m <= size m = l]).
 
     Locations 240+ ([rp_pk_loc]/[rp_log_loc]/[rp_sig_loc] = 240-242).
     The proof architecture (block precondition [pblk_pre], bind-headed
@@ -80,50 +80,16 @@
 
 Set Warnings "-notation-overridden,-ambiguous-paths".
 From mathcomp.experimental_reals Require Import distr.
-From HBS Require Import prelude math.chain math.encoding sig.scheme sig.kots
-  games.thf games.smpre toolkit.sample_seq.
-From HBS Require Import wots.scheme wots.games
-  wots.analysis wots.tcr_hop.
+From Sec.lib Require Import prelude math.chain.
+From Model Require Import math.encoding.
+From Sec.lib Require Import sig.scheme sig.kots games.thf games.smpre toolkit.sample_seq.
+From Sec.lib Require Import chain.core toolkit.relational_rules wots.games wots.analysis wots.tcr_hop.
 From SSProve.Crypt Require Import SubDistr Couplings.
 Set Warnings "notation-overridden,ambiguous-paths".
 
 Import PackageNotation.
 #[local] Open Scope package_scope.
 #[local] Open Scope sep_scope.
-
-(* ------------------------------------------------------------------ *)
-(** ** Generic rules missing from TCRHop's kit *)
-
-(** A failing program is related to any bind whose head fails (the
-    composite has null semantics).  Used for the pre-commitment
-    KFORGE gadget: Gmid's [getSome] assert on the left, the linked
-    real PCHECK's phase assert on the right (under a continuation).
-    Same semantic proof as SSProve's [r_fail]. *)
-Lemma r_fail_bind_rhs {A B C : choice_type} (k : B -> raw_code C)
-    (pre : precond) (post : postcond A C) :
-  ⊢ ⦃ pre ⦄ @fail A ≈ bind (@fail B) k ⦃ post ⦄.
-Proof.
-eapply from_sem_jdg. intros [s₀ s₁]. hnf. intro P. hnf.
-intros [hpre hpost]. simpl.
-exists dnull. split.
-- unfold coupling. split.
-  + unfold lmg. apply distr_ext.
-    intro. unfold dfst. rewrite dlet_null.
-    unfold SDistr_bind. rewrite dlet_null.
-    reflexivity.
-  + unfold rmg. apply distr_ext.
-    intro. unfold dsnd. rewrite dlet_null.
-    unfold SDistr_bind. rewrite dlet_null.
-    reflexivity.
-- intros [? ?] [? ?]. rewrite dnullE.
-  rewrite Order.POrderTheory.ltxx. discriminate.
-Qed.
-
-(** [qnth] through a cons (definitional; companion to TCRHop's
-    [qnth_cat_l/r]). *)
-Lemma qnth_cons {X : Type} (e : X) (s : seq X) (k : nat) :
-  qnth (e :: s) k.+1 = qnth s k.
-Proof. by []. Qed.
 
 Section wots_pre_hop.
 
@@ -152,189 +118,21 @@ Local Notation gm_sig' := (gm_sig_loc N).
 Local Notation SMPB b := (SMPRE_game TT CC l b).
 
 (* ------------------------------------------------------------------ *)
-(** *** Pure layer: committed PRE targets, indices *)
+(** *** Pure layer
 
-(** The committed (tweak, hidden input) pairs (SM-PRE's target entry
-    carrier). *)
+    The committed (tweak, hidden input) pairs (SM-PRE's target entry
+    carrier).  Their bookkeeping -- [pre_query], [pre_queries],
+    [preimage_query_count], [pre_index], [qnth_pre_queries],
+    [pre_decision] with its specification, and the classifier
+    completeness lemma [classify_some] -- is [Sec.lib.chain.core],
+    shared with the native WOTS+C proof. *)
 Local Notation qentry := ((nat * nat) * N)%type.
 
-(** Queries of one chain: one PQUERY at [(i, d-1)] for positive
-    digits, none for digit 0.  The stored entry is the HIDDEN input
-    [u] (the game samples it; the reduction never sees it — [u] only
-    appears in specs/invariants). *)
-Definition pre_query (i d : nat) (u : N) : seq qentry :=
-  if d is d'.+1 then [:: ((i, d'), u)] else [::].
-
-(** Full committed list, chains [st, st+1, ...] with digits [ds] and
-    hidden inputs [us]. *)
-Definition pre_queries (st : nat) (ds : seq nat) (us : seq N) :
-    seq qentry :=
-  flatten [seq pre_query q.1 q.2.1 q.2.2
-          | q <- zip (iota st (size ds)) (zip ds us)].
-
-Lemma pre_queries_cons st d ds u us :
-  pre_queries st (d :: ds) (u :: us)
-  = pre_query st d u ++ pre_queries st.+1 ds us.
-Proof. by []. Qed.
-
-(** Number of PQUERYs of a digit list / budget cap. *)
-Definition npq (ds : seq nat) : nat := count (λ d, 0 < d) ds.
-
-Lemma npq_le (ds : seq nat) : size ds = l -> npq ds <= l.
-Proof. by move=> h; rewrite -h; exact: count_size. Qed.
-
-(** CHECK index of chain [i]'s PQUERY: the number of positive digits
-    before it (the j-th PQUERY lands at fmap key j). *)
-Definition pre_index (ds : seq nat) (i : nat) : nat :=
-  npq (take i ds).
-
-(** THE bookkeeping lemma: at index [pre_index ds i] the game stored
-    exactly tweak [(st+i, d_i - 1)] with the hidden input [u_i]. *)
-Lemma qnth_pre_queries st ds us i ui :
-  size us = size ds -> i < size ds -> qnth us i = Some ui ->
-  0 < nth 0 ds i ->
-  qnth (pre_queries st ds us) (pre_index ds i)
-  = Some (((st + i)%N, (nth 0 ds i).-1), ui).
-Proof.
-elim: ds st us i => [|d ds IH] st us i //; case: us => [|u us] //= [hsz].
-case: i => [|i] hi hu hd.
-- case: hu => <-; rewrite addn0 /pre_index /npq take0 /=.
-  by case: d hd => [|d'].
-- have -> : pre_index (d :: ds) i.+1 = ((0 < d) + pre_index ds i)%N.
-    by rewrite /pre_index /npq.
-  rewrite pre_queries_cons -addSnnS.
-  case: d hd => [|d'] hd /=.
-  + by rewrite add0n; apply: IH.
-  + by rewrite add1n qnth_cons; apply: IH.
-Qed.
-
-(* ------------------------------------------------------------------ *)
-(** *** The PRE classifier (computable counterpart of the ChainMeet
-    case; complement of TCRHop's [tcr_decision]) *)
-
-(** Decide what the reduction submits to PCHECK for a forgery
-    [(mstar, sgstar)] against signed message [m] with stored
-    signature [sgs] under [pp]: [Some (j, x)] means "call
-    PCHECK (j, x)" (the ChainMeet case at the first attacked chain),
-    [None] means the ChainColl case (handled by [tcr_decision]) or a
-    branch that cannot occur on a verifying forgery.  All scrutinees
-    are SYNTACTICALLY the same terms as in [tcr_decision], so one
-    case analysis drives both. *)
-Definition pre_decision (pp : PP) (m mstar : seq nat)
-    (sgs sgstar : seq N) : option (nat * N) :=
-  match ohead [seq i <- iota 0 l | nth 0 mstar i < nth 0 m i] with
-  | Some i =>
-      match qnth sgs i, qnth sgstar i with
-      | Some si, Some si' =>
-          match chain_extract (cf pp i) si' (nth 0 mstar i) si
-                  (nth 0 m i) w.-1 with
-          | ChainColl _ _ _ => None
-          | ChainMeet =>
-              Some (pre_index m i,
-                    chain (cf pp i) si' (nth 0 mstar i)
-                          ((nth 0 m i).-1 - nth 0 mstar i))
-          end
-      | _, _ => None
-      end
-  | None => None
-  end.
-
-(** Specification of the [Some] case: the submitted message is an
-    [F]-preimage of the stored target's image — PCHECK's win
-    condition [F pp t x == F pp t u] at the committed index [j]. *)
-Lemma pre_decisionP (pp : PP) (m mstar : seq nat) (us sgstar : seq N) :
-  valid_msg l w tsum m -> size us = l ->
-  verify_sig PP N F l w tsum pp
-    (ends_from_sig PP N F l w pp m (sigs_of PP N F pp 0 m us))
-    mstar sgstar ->
-  mstar \notin [:: m] ->
-  match pre_decision pp m mstar (sigs_of PP N F pp 0 m us) sgstar with
-  | Some (j, x) =>
-      exists t u,
-        [/\ qnth (pre_queries 0 m us) j = Some (t, u)
-          & F pp t x = F pp t u]
-  | None => True
-  end.
-Proof.
-move=> hvm hus hver hnin.
-have hm : size m = l by case/and3P: hvm => /eqP.
-have hussz : size us = size m by rewrite hus hm.
-have hsgs : size (sigs_of PP N F pp 0 m us) = l.
-  by rewrite size_sigs_of // hm.
-rewrite /pre_decision.
-case E1: (ohead _) => [i|]; last by [].
-have hifacts : i \in [seq i0 <- iota 0 l | nth 0 mstar i0 < nth 0 m i0].
-  by case: (filter _ _) E1 => //= a s [<-]; rewrite in_cons eqxx.
-move: hifacts; rewrite mem_filter mem_iota /= add0n => /andP[hlt hil].
-case E2: (qnth (sigs_of PP N F pp 0 m us) i) => [si|]; last by [].
-case E3: (qnth sgstar i) => [si'|]; last by [].
-case E4: (chain_extract _ _ _ _ _ _) => [k u v|]; first by [].
-(* ChainMeet *)
-have hdw : nth 0 m i < w := valid_msg_digit _ _ _ _ _ hvm hil.
-have hends := size_ends_from_sig PP N F l w pp m _ hm hsgs.
-have h1 := verify_sig_nth PP N F l w tsum pp _ mstar sgstar si' i
-             hver hends hil.
-rewrite (ends_from_sig_nth PP N F l w pp m _ si' i hm hsgs hil) in h1.
-rewrite (qnth_nth si' _ _ _ E3) (qnth_nth si' _ _ _ E2) in h1.
-have := forgery_cases PP N F w pp i (nth 0 m i) si (nth 0 mstar i) si'
-          hlt hdw h1.
-rewrite E4 => hmeet.
-have hpim := forgery_pre_preimage PP N F pp i (nth 0 m i) si si'
-               (nth 0 mstar i) hlt hmeet.
-have hilm : i < size m by rewrite hm.
-have [ui hui] : exists ui, qnth us i = Some ui.
-  by apply: qnth_some; rewrite hus.
-have hsig0 := qnth_sigs_of PP N F pp 0 m us i ui hussz hilm hui.
-rewrite add0n E2 in hsig0.
-case: hsig0 => hsig.
-have hd0 : 0 < nth 0 m i := leq_ltn_trans (leq0n _) hlt.
-have hsr : sig_of_root PP N F pp i (nth 0 m i) ui
-           = F pp (i, (nth 0 m i).-1) ui.
-  by case: (nth 0 m i) hd0.
-exists ((i, (nth 0 m i).-1)), ui; split.
-- by rewrite (qnth_pre_queries 0 m us i ui hussz hilm hui hd0).
-- by rewrite hpim hsig hsr.
-Qed.
-
-(** Classifier completeness: on a verifying fresh forgery the
-    degenerate branches cannot occur — if [tcr_decision] declined,
-    [pre_decision] fires.  (Used for the DEAD (None, None) branch of
-    KFORGE.) *)
-Lemma classify_some (pp : PP) (m mstar : seq nat) (us sgstar : seq N) :
-  valid_msg l w tsum m -> size us = l ->
-  verify_sig PP N F l w tsum pp
-    (ends_from_sig PP N F l w pp m (sigs_of PP N F pp 0 m us))
-    mstar sgstar ->
-  mstar \notin [:: m] ->
-  tcr_decision PP N F l w pp m mstar (sigs_of PP N F pp 0 m us) sgstar
-    = None ->
-  pre_decision pp m mstar (sigs_of PP N F pp 0 m us) sgstar != None.
-Proof.
-move=> hvm hus hver hnin.
-have hm : size m = l by case/and3P: hvm => /eqP.
-have hsgs : size (sigs_of PP N F pp 0 m us) = l.
-  by rewrite size_sigs_of // hus hm.
-have hvm' : valid_msg l w tsum mstar by case/and3P: hver.
-have hne : mstar != m by move: hnin; rewrite in_cons negb_or => /andP[].
-have [i0 hi0 hlt0] := forged_digit_lt l w tsum m mstar hvm hvm' hne.
-have hhas : has (fun i => nth 0 mstar i < nth 0 m i) (iota 0 l).
-  by apply/hasP; exists i0; rewrite ?mem_iota //=.
-rewrite /tcr_decision /pre_decision.
-case E1: (ohead _) => [i|]; last first.
-  move: E1; case Ef: (filter _ _) => [|a s] //= _.
-  by move: hhas; rewrite has_filter Ef eqxx.
-have hifacts : i \in [seq i1 <- iota 0 l | nth 0 mstar i1 < nth 0 m i1].
-  by case: (filter _ _) E1 => //= a s [<-]; rewrite in_cons eqxx.
-move: hifacts; rewrite mem_filter mem_iota /= add0n => /andP[hlt hil].
-have [si E2] : exists si, qnth (sigs_of PP N F pp 0 m us) i = Some si.
-  by apply: qnth_some; rewrite hsgs.
-have hsgst : size sgstar = l.
-  by case/and3P: hver => _ /eqP.
-have [si' E3] : exists si', qnth sgstar i = Some si'.
-  by apply: qnth_some; rewrite hsgst.
-rewrite E2 E3.
-by case: (chain_extract _ _ _ _ _ _).
-Qed.
+(** The shared PRE bookkeeping of [Sec.lib.chain.core] at this
+    instance's parameters. *)
+Local Notation pre_query := (Sec.lib.chain.core.pre_query N).
+Local Notation pre_queries := (Sec.lib.chain.core.pre_queries N).
+Local Notation pre_decision := (Sec.lib.chain.core.pre_decision PP N F l w).
 
 (* ------------------------------------------------------------------ *)
 (** *** The reduction package *)
@@ -673,7 +471,7 @@ Lemma rp_chains_spec {B : choiceType} (Φ : precond) (pp : PP)
     (post : postcond B B) :
   forall ds st (Q : seq qentry) (K0 K1 : chList N -> raw_code B),
   pphi_stable Φ ->
-  (size Q + npq ds <= l)%N ->
+  (size Q + preimage_query_count ds <= l)%N ->
   all (λ t : nat * nat, t.1 < st) (unzip1 Q) ->
   (forall us, size us = size ds ->
      ⊢ ⦃ λ '(s0, s1), pblk_pre Φ (Some pp)
@@ -705,14 +503,14 @@ elim=> [|d ds IH] st Q K0 K1 hΦ hbud hfresh h.
     simpl.
     rewrite !bind_assoc.
     eapply r_pquery => //.
-    * by apply: leq_trans hbud; rewrite /npq /= addnS ltnS leq_addr.
+    * by apply: leq_trans hbud; rewrite /preimage_query_count /= addnS ltnS leq_addr.
     * exact: lt_notin hfresh.
     * move=> x; cbv beta.
       rewrite !bind_assoc.
       simpl.
       rewrite (code_link_bind (rp_chains st.+1 ds)) !bind_assoc.
       eapply IH => //.
-      -- by move: hbud; rewrite size_rcons /npq /= addnS addSn.
+      -- by move: hbud; rewrite size_rcons /preimage_query_count /= addnS addSn.
       -- rewrite /unzip1 map_rcons all_rcons; apply/andP; split.
          ++ by rewrite /= ltnSn.
          ++ by apply: sub_all hfresh => t ht; exact: leq_trans ht (leqnSn st).
@@ -1012,7 +810,7 @@ simplify_eq_rel arg.
                 (ends_from_sig PP N F l w pk.1 m
                    (sigs_of PP N F pk.1 0 m uss)) mst sgst.
               by rewrite -hE.
-            have := classify_some pk.1 m mst uss sgst hvm hC hver' hfresh.
+            have := classify_some PP N F l w tsum pk.1 m mst uss sgst hvm hC hver' hfresh.
             rewrite -hsgl E1 E2 => /(_ erefl).
             by rewrite eqxx.
          ++ (* PCHECK wins *)
@@ -1049,7 +847,7 @@ simplify_eq_rel arg.
                 (ends_from_sig PP N F l w pk.1 m
                    (sigs_of PP N F pk.1 0 m us)) mst sgst.
               by rewrite -hsgs -hpk2.
-            have hwin := pre_decisionP pk.1 m mst us sgst hvm husz
+            have hwin := pre_decisionP PP N F l w tsum pk.1 m mst us sgst hvm husz
                            hver' hfresh.
             rewrite -hsgs E2 in hwin.
             case: hwin => t0 [u0 [hget hfeq]].
@@ -1283,7 +1081,7 @@ simplify_eq_rel arg.
                 (ends_from_sig PP N F l w pk.1 mm
                    (sigs_of PP N F pk.1 0 mm uss)) mst sgst.
               by rewrite -hE.
-            have := classify_some pk.1 mm mst uss sgst hB hC hver' hfresh.
+            have := classify_some PP N F l w tsum pk.1 mm mst uss sgst hB hC hver' hfresh.
             rewrite -hsgs E1 E2 => /(_ erefl).
             by rewrite eqxx.
          ++ (* PRE case: ideal PCHECK answers false, as does G1v *)

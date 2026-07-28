@@ -3,10 +3,10 @@
  * libshrincs - formally verified SHRINCS implementations.
  *)
 
-(** * HBS.games.tcrx
+(** * Sec.lib.games.tcrx
 
     Single-function Multi-target Target-Collision Resistance with
-    EXCLUSIVE tweaks, as a real/ideal game pair (see HBS.games.THF
+    EXCLUSIVE tweaks, as a real/ideal game pair (see Sec.lib.games.thf
     for the convention).
 
     Counterpart: stcr-exclusive.tex, Definition "Single-Function,
@@ -89,7 +89,7 @@
     [AdvOf (TCRX_game T C paired omega p) A]. *)
 
 Set Warnings "-notation-overridden,-ambiguous-paths".
-From HBS Require Import prelude games.thf.
+From Sec.lib Require Import prelude games.thf.
 Set Warnings "notation-overridden,ambiguous-paths".
 
 Import PackageNotation.

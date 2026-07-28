@@ -23,8 +23,7 @@
     resolves the irrelevant [ValidPackage] proof fields. *)
 
 Set Warnings "-notation-overridden,-ambiguous-paths".
-From HBS Require Import prelude math.bin_tree math.merkle sig.scheme
-  games.thf toolkit.sample_seq.
+From Sec.lib Require Import prelude math.bin_tree math.merkle sig.scheme games.thf toolkit.sample_seq.
 From SHRINCS Require Import addressing wotsc.scheme wotsc.games
   fxmss.scheme fxmss.games fxmss.prf_hop fxmss.repro_hop.
 Set Warnings "notation-overridden,ambiguous-paths".

@@ -17,10 +17,10 @@
     equivalences, and telescopes them into [sub_ud_up] and [sub_ud_down]. *)
 
 Set Warnings "-notation-overridden,-ambiguous-paths,-notation-incompatible-prefix,-deprecated-coq-env-var".
-From HBS Require Import prelude math.bin_tree math.merkle math.chain math.encoding
-  sig.scheme games.thf games.smtcr games.smud toolkit.sample_seq.
-From HBS Require Import wots.games wots.tcr_hop
-  wots.ud_hop.
+From Sec.lib Require Import prelude math.bin_tree math.merkle math.chain.
+From Model Require Import math.encoding.
+From Sec.lib Require Import sig.scheme games.thf games.smtcr games.smud toolkit.sample_seq.
+From Sec.lib Require Import toolkit.relational_rules chain.core chain.ud wots.games wots.tcr_hop wots.ud_hop.
 From SHRINCS Require Import addressing wotsc.scheme wotsc.games
   fxmss.scheme fxmss.games fxmss.late_games fxmss.tree_hop
   fxmss.leaf_reduction fxmss.leaf_km fxmss.leaf2_common fxmss.leaf2_games.
@@ -507,7 +507,7 @@ Lemma r_ud_walk_spec (b : bool) {A B : choiceType} (pp : PP) (zi : nat * nat)
     (post : postcond A B) :
   forall n i k (x : N) (c0 : raw_code A) (k1 : N -> raw_code B),
   ⊢ ⦃ λ '(s0, s1), pre (s0, s1) ⦄
-     c0 ≈ k1 (chain (HBS.wots.scheme.chainf PP N
+     c0 ≈ k1 (chain (Sec.lib.chain.core.chainf PP N
                        (Fw PP N F zi.1 zi.2) pp i) x k n) ⦃ post ⦄ ->
   ⊢ ⦃ λ '(s0, s1), pre (s0, s1) ⦄
      c0 ≈ bind (code_link (lud_walk zi i k n x) (SMU b)) k1 ⦃ post ⦄.
@@ -1988,7 +1988,7 @@ elim: ds st utw K0 K1 hlen hwf => [|d ds IH] st utw K0 K1
         (rcons utw (encode_adrs (shrincs_fxmss_wots_chain_adrs zi st s)))) post).
     rewrite code_link_bind bind_assoc.
     apply: (IH st.+1 (rcons utw (encode_adrs (shrincs_fxmss_wots_chain_adrs zi st s)))
-      (fun rm => K0 (chain (wots.scheme.chainf PP N
+      (fun rm => K0 (chain (Sec.lib.chain.core.chainf PP N
                        (Fw PP N F zi.1 zi.2) pp st) x
                        (minn s d.-1) (d - minn s d.-1) :: rm))).
     { exact: hlen'. }
@@ -2006,9 +2006,9 @@ elim: ds st utw K0 K1 hlen hwf => [|d ds IH] st utw K0 K1
     have hmin : minn s d.-1 = s by apply/minn_idPl; apply: ltnW hsd1.
     have hsd : (s < d)%N by apply: ltnW.
     have hds : (d - s = (d - s.+1).+1)%N by rewrite subnS prednK // subn_gt0.
-    have esv : chain (wots.scheme.chainf PP N (Fw PP N F zi.1 zi.2) pp st)
+    have esv : chain (Sec.lib.chain.core.chainf PP N (Fw PP N F zi.1 zi.2) pp st)
                  x (minn s d.-1) (d - minn s d.-1)
-               = chain (wots.scheme.chainf PP N (Fw PP N F zi.1 zi.2) pp st)
+               = chain (Sec.lib.chain.core.chainf PP N (Fw PP N F zi.1 zi.2) pp st)
                    (F pp (decode_tweak (encode_adrs (shrincs_fxmss_wots_chain_adrs zi st s))) x)
                    s.+1 (d - s.+1)
       by rewrite hmin hds decode_tweakK chainS.
@@ -2031,7 +2031,7 @@ elim: ds st utw K0 K1 hlen hwf => [|d ds IH] st utw K0 K1
       (@udpin_Upp (Some pp) false lsl ltw ltg rtg utw) post).
     rewrite code_link_bind bind_assoc.
     apply: (IH st.+1 utw
-      (fun rm => K0 (chain (wots.scheme.chainf PP N
+      (fun rm => K0 (chain (Sec.lib.chain.core.chainf PP N
                        (Fw PP N F zi.1 zi.2) pp st) x
                        (minn s d.-1) (d - minn s d.-1) :: rm))).
     { exact: hlen'. }
@@ -2124,7 +2124,7 @@ elim: ds st utw K0 K1 hlen hwf => [|d ds IH] st utw K0 K1
         (rcons utw (encode_adrs (shrincs_fxmss_wots_chain_adrs zi st s)))) post).
     rewrite code_link_bind bind_assoc.
     apply: (IH st.+1 (rcons utw (encode_adrs (shrincs_fxmss_wots_chain_adrs zi st s)))
-      (fun rm => K0 (chain (wots.scheme.chainf PP N
+      (fun rm => K0 (chain (Sec.lib.chain.core.chainf PP N
                        (Fw PP N F zi.1 zi.2) pp st) x
                        (minn s.+1 d.-1) (d - minn s.+1 d.-1) :: rm))).
     { exact: hlen'. }
@@ -2140,9 +2140,9 @@ elim: ds st utw K0 K1 hlen hwf => [|d ds IH] st utw K0 K1
     have hs1 : (s.+1 <= d.-1)%N
       by rewrite -ltnS (ltn_predK (leq_trans (ltn0Sn s.+1) hd)).
     have hmin : minn s.+1 d.-1 = s.+1 by apply/minn_idPl.
-    have esv : chain (wots.scheme.chainf PP N (Fw PP N F zi.1 zi.2) pp st)
+    have esv : chain (Sec.lib.chain.core.chainf PP N (Fw PP N F zi.1 zi.2) pp st)
                  x (minn s.+1 d.-1) (d - minn s.+1 d.-1)
-               = chain (wots.scheme.chainf PP N (Fw PP N F zi.1 zi.2) pp st)
+               = chain (Sec.lib.chain.core.chainf PP N (Fw PP N F zi.1 zi.2) pp st)
                    x s.+1 (d - s.+1)
       by rewrite hmin.
     have hpre_eq : rcons utw (encode_adrs (shrincs_fxmss_wots_chain_adrs zi st s))
@@ -2170,7 +2170,7 @@ elim: ds st utw K0 K1 hlen hwf => [|d ds IH] st utw K0 K1
       (@udpin_Upp (Some pp) false lsl ltw ltg rtg utw) post).
     rewrite code_link_bind bind_assoc.
     apply: (IH st.+1 utw
-      (fun rm => K0 (chain (wots.scheme.chainf PP N
+      (fun rm => K0 (chain (Sec.lib.chain.core.chainf PP N
                        (Fw PP N F zi.1 zi.2) pp st) x
                        (minn s.+1 d.-1) (d - minn s.+1 d.-1) :: rm))).
     { exact: hlen'. }

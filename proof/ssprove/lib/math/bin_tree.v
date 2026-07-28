@@ -3,7 +3,7 @@
  * libshrincs - formally verified SHRINCS implementations.
  *)
 
-(** * HBS.math.bin_tree
+(** * Sec.lib.math.bin_tree
 
     Binary trees of arbitrary shape, with positions given as
     root-to-node paths of booleans ([false] = left child).
@@ -15,7 +15,7 @@
     declared height and addresses nodes by (height, index) positions in
     that embedding.  We therefore also provide the conversions between
     (length, index) pairs and paths, proved once here and reused by
-    HBS.math.MerkleBalanced / HBS.math.MerkleSkewed.
+    Sec.lib.math.merkle / Sec.lib.math.merkle.
 
     Pure MathComp; no SSProve imports (see docs/STYLE.md rule 5). *)
 

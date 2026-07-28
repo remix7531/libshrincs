@@ -14,7 +14,7 @@
       - null        : tcr_decision (the chain-TCR F-collision) instead of the
         compress collision;
       - target set  : the per-leaf chains, concatenated over all leaves
-        (qmap_from re-indexing); budget qF = n_max * p_tcr l w.
+        (qmap_from re-indexing); budget qF = n_max * tcr_budget l w.
 
     The reduction [R_ctcr_leaf] uses the static gate [lct_v], the
     slot-keyed digit [l_rrdigS], and a budget-guarded LSIGN. Its
@@ -27,10 +27,10 @@
     the multi-target invariant tracks only signed-population blocks. *)
 
 Set Warnings "-notation-overridden,-ambiguous-paths,-notation-incompatible-prefix,-deprecated-coq-env-var".
-From HBS Require Import prelude math.bin_tree math.merkle math.chain math.encoding
-  sig.scheme games.thf games.smtcr toolkit.sample_seq.
-From HBS Require Import wots.scheme wots.games
-  wots.analysis wots.tcr_hop.
+From Sec.lib Require Import prelude math.bin_tree math.merkle math.chain.
+From Model Require Import math.encoding.
+From Sec.lib Require Import sig.scheme games.thf games.smtcr toolkit.sample_seq.
+From Sec.lib Require Import toolkit.relational_rules chain.core wots.games wots.analysis wots.tcr_hop.
 From SHRINCS Require Import addressing wotsc.scheme wotsc.games wotsc.analysis
   fxmss.scheme fxmss.games fxmss.late_games fxmss.tree_hop
   fxmss.leaf_reduction fxmss.leaf_km fxmss.leaf2_common fxmss.leaf2_games.
@@ -89,8 +89,8 @@ Definition CFl_leaf : thf_coll TFl :=
 
 Local Notation IMP := (I_SMTCR TFl CFl_leaf).
 
-(** qF = n_max committed leaves, each with up to [p_tcr l w] chain targets. *)
-Local Notation qF := (n_max * p_tcr l w)%N.
+(** qF = n_max committed leaves, each with up to [tcr_budget l w] chain targets. *)
+Local Notation qF := (n_max * tcr_budget l w)%N.
 
 (** Coordinate-level tweaks. *)
 Local Notation gtw_of t :=
@@ -283,7 +283,7 @@ notypeclasses refine [package RCTLocs ;
       #put rct_tgts_loc := setm tgts (size tws)
                              (t, ((sg, md), (omap fst (lct_pick hs), cnt))) ;;
       #put rct_tws_loc := rcons tws t ;;
-      #put rct_cnt_loc := (cnt + nqs w (lct_digitS (size tws) hs))%N ;;
+      #put rct_cnt_loc := (cnt + total_query_count w (lct_digitS (size tws) hs))%N ;;
       ret root
     } ;
     [ LGETPP ] : { 'unit ~> PP } (_) {
@@ -423,7 +423,7 @@ Local Notation Stw := (tcr_tws_loc TFl).
 Local Notation Srv := tcr_rev_loc.
 
 Local Notation FWl zi := (Fw PP N F zi.1 zi.2).
-Local Notation cfWl zi := (HBS.wots.scheme.chainf PP N (FWl zi)).
+Local Notation cfWl zi := (Sec.lib.chain.core.chainf PP N (FWl zi)).
 Local Notation wsigs zi := (sigs_of PP N (FWl zi)).
 Local Notation wends zi := (ends_of PP N (FWl zi) w).
 Local Notation lfind zi pp md :=
@@ -708,11 +708,11 @@ Qed.
 (* ================================================================== *)
 (** ** Pure layer: the per-leaf chain re-tagging.
 
-    Each leaf commits [nqs w ds] CHAIN targets (F is the SM-TCR target);
+    Each leaf commits [total_query_count w ds] CHAIN targets (F is the SM-TCR target);
     the abstract [commit_queries] entries (over (chain,position) pairs) are
     re-tagged into ENCODED chain tweaks [chtw_of] at the leaf coordinate. *)
 
-Local Notation ptcr := (p_tcr l w).
+Local Notation ptcr := (tcr_budget l w).
 
 Definition lwq (zi : nat * nat) (q : (nat * nat) * N) : (adrs_sf_ch × N) :=
   (chtw_of zi q.1.1 q.1.2, q.2).
@@ -828,7 +828,7 @@ Qed.
 (** Size of the chain commit list of one leaf. *)
 Lemma size_lcq (zi : nat * nat) pp (st : nat) (ds : seq nat) (us : seq N) :
   size us = size ds ->
-  size (commit_queries PP N (FWl zi) w pp st ds us) = nqs w ds.
+  size (commit_queries PP N (FWl zi) w pp st ds us) = total_query_count w ds.
 Proof.
 elim: ds st us => [|d ds IH] st [|u us] //= [hsz].
 by rewrite commit_queries_cons size_cat size_chain_queries IH.
@@ -860,7 +860,7 @@ Qed.
 (** ** The multi-target per-leaf relation (base-offset chain blocks). *)
 
 (** For each committed leaf [j], the SM-TCR(F) table holds that leaf's
-    [nqs w ds] chain targets at absolute indices [base_j + jc] (jc the
+    [total_query_count w ds] chain targets at absolute indices [base_j + jc] (jc the
     per-leaf chain index); [base_j] is the accumulated chain count of
     prior leaves (the stored counter [cnt]).  [us] is the leaf's sampled
     roots ([sg = wsigs] their signature digits). *)
@@ -876,8 +876,8 @@ Definition RCTrel (pp : PP)
               sg = wsigs (lcoord t0) pp 0 (l_rrdigS (lcoord t0) pp md0 j) us,
               getm rtg j = Some (t0, ((sg, md0),
                  (lfind (lcoord t0) pp md0, base))),
-              (base + nqs w (l_rrdigS (lcoord t0) pp md0 j) <= size Q)%N
-            & forall jc, (jc < nqs w (l_rrdigS (lcoord t0) pp md0 j))%N ->
+              (base + total_query_count w (l_rrdigS (lcoord t0) pp md0 j) <= size Q)%N
+            & forall jc, (jc < total_query_count w (l_rrdigS (lcoord t0) pp md0 j))%N ->
                 qnth Q (base + jc)
                 = qnth [seq lwq (lcoord t0) q
                        | q <- lcq (lcoord t0) pp (l_rrdigS (lcoord t0) pp md0 j) us]
@@ -1210,7 +1210,7 @@ Lemma r_lctwalk_spec (b : bool) {B : choiceType} (pp : PP) (zi : nat * nat)
   absQ_bounded absQ ->
   (size (Qpre ++ [seq lwq zi q | q <- absQ]) + n <= qF)%N ->
   all (fun tw => lcoord tw != zi) (unzip1 Qpre) ->
-  all (tlt i k) (unzip1 absQ) ->
+  all (tweak_lt i k) (unzip1 absQ) ->
   ⊢ ⦃ λ '(s0, s1), lctblk (Some pp) lsl ltw ltg rtg cnt0
          (Qpre ++ [seq lwq zi q | q <- absQ ++ walkq PP N (FWl zi) pp i k n x])
          (s0, s1) ⦄
@@ -1234,7 +1234,7 @@ elim=> [|n IH] i k x Qpre absQ c0 k1 hzi hi hkn hb hbud hpre hfresh h.
       by apply: leq_trans hkn; rewrite addnS ltnS leq_addr.
     * by move: hbud; rewrite map_rcons -rcons_cat size_rcons addSn -addnS.
     * rewrite /unzip1 map_rcons all_rcons; apply/andP; split.
-      -- by rewrite /tlt /= ltnn eqxx ltnSn.
+      -- by rewrite /tweak_lt /= ltnn eqxx ltnSn.
       -- exact: all_tlt_widen hfresh.
     * by move: h; rewrite (walkq_cons PP N (FWl zi)) cat_rcons.
 Qed.
@@ -1248,7 +1248,7 @@ Lemma r_lctchains_spec (b : bool) {B : choiceType} (pp : PP) (zi : nat * nat)
   (st + size ds <= l)%N ->
   all (λ d : nat, (d < w)%N) ds ->
   absQ_bounded absQ ->
-  (size (Qpre ++ [seq lwq zi q | q <- absQ]) + nqs w ds <= qF)%N ->
+  (size (Qpre ++ [seq lwq zi q | q <- absQ]) + total_query_count w ds <= qF)%N ->
   all (fun tw => lcoord tw != zi) (unzip1 Qpre) ->
   all (λ t : nat * nat, (t.1 < st)%N) (unzip1 absQ) ->
   (forall us, size us = size ds ->
@@ -1280,14 +1280,14 @@ elim=> [|d ds IH] st Qpre absQ K0 K1 hzi hst hds hQr hbud hpre hfresh h.
     eapply (r_lctwalk_spec b pp zi lsl ltw ltg rtg cnt0 post
               (w.-1 - 0) st 0 u Qpre absQ) => //.
     * apply: leq_trans hbud.
-      by rewrite leq_add2l /nqs /= /nq /= leq_addr.
+      by rewrite leq_add2l /total_query_count /= /chain_query_count /= leq_addr.
     * exact: all_lt_tlt.
     * rewrite (code_link_bind (lct_chains zi st.+1 ds)) bind_assoc.
       eapply IH => //.
       -- apply: absQ_bounded_cat; first exact: hQr.
          exact: (absQ_bounded_walk pp zi st 0 (w.-1 - 0) u hstl hkn0).
       -- by move: hbud; rewrite !size_lwqQ size_cat size_walkq
-           /nqs /= /nq /= -!addnA.
+           /total_query_count /= /chain_query_count /= -!addnA.
       -- rewrite /unzip1 map_cat all_cat; apply/andP; split.
          ++ by apply: sub_all hfresh => t /= /ltnW; rewrite ltnS.
          ++ apply: sub_all (walkq_tweak1 PP N (FWl zi) pp st 0 _ u)
@@ -1302,7 +1302,7 @@ elim=> [|d ds IH] st Qpre absQ K0 K1 hzi hst hds hQr hbud hpre hfresh h.
     have hkn1 : (d'.+1 + (w.-1 - d'.+1) <= w.-1)%N by rewrite subnKC.
     eapply (r_lctquery_known b pp zi lsl ltw ltg rtg cnt0 st d' u Qpre absQ) => //.
     * apply: leq_trans hbud.
-      by rewrite -addn1 leq_add2l /nqs /= /nq /=.
+      by rewrite -addn1 leq_add2l /total_query_count /= /chain_query_count /=.
     * exact: component_bounded_lt.
     * exact: component_bounded_lt.
     * exact: lt_notin.
@@ -1313,10 +1313,10 @@ elim=> [|d ds IH] st Qpre absQ K0 K1 hzi hst hds hQr hbud hpre hfresh h.
                 (rcons absQ ((st, d'), u))) => //.
       -- apply: absQ_bounded_rcons => //.
       -- apply: leq_trans _ hbud.
-         rewrite !size_lwqQ size_rcons /nqs /= /nq /= add1n -!addnA.
+         rewrite !size_lwqQ size_rcons /total_query_count /= /chain_query_count /= add1n -!addnA.
          by rewrite leq_add2l addSn ltn_add2l leq_addr.
       -- rewrite /unzip1 map_rcons all_rcons; apply/andP; split.
-         ++ by rewrite /tlt /= ltnn eqxx ltnSn.
+         ++ by rewrite /tweak_lt /= ltnn eqxx ltnSn.
          ++ exact: all_lt_tlt.
       -- rewrite (code_link_bind (lct_chains zi st.+1 ds)) bind_assoc.
          eapply IH => //.
@@ -1325,7 +1325,7 @@ elim=> [|d ds IH] st Qpre absQ K0 K1 hzi hst hds hQr hbud hpre hfresh h.
             ** exact: (absQ_bounded_walk pp zi st d'.+1
                   (w.-1 - d'.+1) (FWl zi pp (st, d') u) hstl hkn1).
          ++ by move: hbud; rewrite !size_lwqQ size_cat size_rcons size_walkq
-              /nqs /= /nq /= add1n addSn -!addnA addnS.
+              /total_query_count /= /chain_query_count /= add1n addSn -!addnA addnS.
          ++ rewrite /unzip1 map_cat all_cat; apply/andP; split.
             ** rewrite map_rcons all_rcons; apply/andP; split.
                --- by rewrite /= ltnSn.
@@ -1613,7 +1613,7 @@ Lemma r_lct_tail (hw : (0 < w)%N) (pp : PP) (t : adrs_sf_ch) (md : D)
                    md), (lfind (lcoord t) pp md, size Q))) ;;
       #put rct_tws_loc := rcons ltws t ;;
       #put rct_cnt_loc :=
-        (size Q + nqs w (l_rrdigS (lcoord t) pp md (size ltws)))%N ;;
+        (size Q + total_query_count w (l_rrdigS (lcoord t) pp md (size ltws)))%N ;;
       ret (l_rrpkS (lcoord t) pp md (size ltws)
              (wsigs (lcoord t) pp 0 (l_rrdigS (lcoord t) pp md (size ltws)) us)))
    ⦃ λ '(b0, s0) '(b1, s1), b0 = b1 /\ ct_inv (s0, s1) ⦄.
@@ -1692,7 +1692,7 @@ Lemma l2_tcr_win (zi : nat * nat) (pp : PP) (md0 : D) (c : nat) (us : seq N)
 Proof.
 move=> hfc hus hvd hsz hends hne hdec.
 have hAC : forall (n st : nat) (ds : seq nat) (ys : seq N),
-  all (fun q => HBS.wots.scheme.chain_check PP N (FWl zi) w pp
+  all (fun q => Sec.lib.chain.core.chain_check PP N (FWl zi) w pp
                   q.1 q.2.1 q.2.2.1 q.2.2.2)
       (zip (iota st n)
            (zip ds (zip ys
@@ -1701,13 +1701,13 @@ have hAC : forall (n st : nat) (ds : seq nat) (ys : seq N),
   elim=> [|n IH] st ds ys; first by case: ds => [|d ds]; case: ys => [|y ys].
   case: ds => [|d ds]; case: ys => [|y ys] => //=.
   apply/andP; split; last exact: IH.
-  by rewrite /HBS.wots.scheme.chain_check eqxx.
+  by rewrite /Sec.lib.chain.core.chain_check eqxx.
 have hvmr : valid_msg l w S_wn (digest_of PP D Hgrind zi.1 zi.2 pp md0 c).
   apply: (vdigest_valid_msg PP D Hgrind S_wn zi.1 zi.2 pp md0 c).
   exact: (find_ctr_good PP D Hgrind S_wn c_max zi.1 zi.2 pp md0 c hfc).
 have hvmf : valid_msg l w S_wn (digest_of PP D Hgrind zi.1 zi.2 pp mdf cf).
   exact: (vdigest_valid_msg PP D Hgrind S_wn zi.1 zi.2 pp mdf cf hvd).
-have hverify : HBS.wots.scheme.verify_sig PP N (FWl zi) l w S_wn pp
+have hverify : Sec.lib.chain.core.verify_sig PP N (FWl zi) l w S_wn pp
     (ends_of PP N (FWl zi) w pp 0
        (digest_of PP D Hgrind zi.1 zi.2 pp md0 c)
        (wsigs zi pp 0 (digest_of PP D Hgrind zi.1 zi.2 pp md0 c) us))
@@ -1716,8 +1716,8 @@ have hverify : HBS.wots.scheme.verify_sig PP N (FWl zi) l w S_wn pp
              (size_digest_of PP D Hgrind zi.1 zi.2 pp md0 c)).
   rewrite -(wcendsE PP N F zi.1 zi.2).
   rewrite -hends (wcendsE PP N F zi.1 zi.2).
-  rewrite /HBS.wots.scheme.verify_sig hvmf hsz /=
-          /HBS.wots.games.ends_from_sig.
+  rewrite /Sec.lib.chain.core.verify_sig hvmf hsz /=
+          /Sec.lib.chain.core.ends_from_sig.
   exact: (hAC l 0 _ sgstar).
 have hnin : digest_of PP D Hgrind zi.1 zi.2 pp mdf cf \notin
               [:: digest_of PP D Hgrind zi.1 zi.2 pp md0 c].
@@ -1960,11 +1960,11 @@ simplify_eq_rel arg.
                  hfc hus hvd hsz hends' hne Edec2.
              have hszlcq : size (lcq (lcoord t0) pp
                  (digest_of PP D Hgrind (lcoord t0).1 (lcoord t0).2 pp md0 c) us)
-               = nqs w (digest_of PP D Hgrind (lcoord t0).1 (lcoord t0).2 pp md0 c).
+               = total_query_count w (digest_of PP D Hgrind (lcoord t0).1 (lcoord t0).2 pp md0 c).
                apply: size_lcq.
                by rewrite hus (size_digest_of PP D Hgrind
                     (lcoord t0).1 (lcoord t0).2 pp md0 c).
-             have hjcbound : (jc < nqs w
+             have hjcbound : (jc < total_query_count w
                  (digest_of PP D Hgrind (lcoord t0).1 (lcoord t0).2 pp md0 c))%N.
                rewrite -hszlcq; exact: (qnth_size _ _ _ hqn).
              exists tw, v; split=> //.

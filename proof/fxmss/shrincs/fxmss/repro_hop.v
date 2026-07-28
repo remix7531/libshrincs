@@ -6,8 +6,8 @@
 (** * SHRINCS.fxmss.repro_hop
 
     Hop 3 of the FXMSS EU-CMA chain: the digest-reprogramming hop,
-    consuming HBS.toolkit.ROPlus's
-    [RO_repro] game pair through HBS.toolkit.Reprogram's
+    consuming Sec.lib.toolkit.ro_plus's
+    [RO_repro] game pair through Sec.lib.toolkit.reprogram's
     [Repro_bound].
 
     ** The FORGE-oracle bound
@@ -92,10 +92,8 @@
 
 Set Warnings "-notation-overridden,-ambiguous-paths".
 From mathcomp Require Import reals.
-From HBS Require Import prelude math.bin_tree math.merkle sig.scheme
-  games.thf toolkit.sample_seq toolkit.ro_plus toolkit.reprogram.
-From HBS Require Import wots.games wots.ud_hop
-  wots.tcr_hop wots.pre_hop.
+From Sec.lib Require Import prelude math.bin_tree math.merkle sig.scheme games.thf toolkit.sample_seq toolkit.ro_plus toolkit.reprogram.
+From Sec.lib Require Import toolkit.relational_rules chain.core wots.games wots.ud_hop wots.tcr_hop wots.pre_hop.
 From SHRINCS Require Import addressing wotsc.scheme wotsc.games
   fxmss.scheme fxmss.games fxmss.prf_hop.
 Set Warnings "notation-overridden,ambiguous-paths".
@@ -964,7 +962,7 @@ move=> hv [[hig p1 p2 p3 p4] [p5 p6 p7 p8 p9] [p10 p11 p12 p13 p14]
            [p15 p16] [p17 p18]].
 split.
 - split=> //.
-  + by apply: heap_ignore_set_rhs hig; apply: fhas_in; fmap_solve.
+  + by apply: heap_ignore_set_r hig; apply: fhas_in; fmap_solve.
   + by rewrite get_set_heap_neq.
   + by rewrite get_set_heap_neq.
 - by split=> //; rewrite get_set_heap_neq.
@@ -983,7 +981,7 @@ move=> hv [[hig p1 p2 p3 p4] [p5 p6 p7 p8 p9] [p10 p11 p12 p13 p14]
            [p15 p16] [p17 p18]].
 split.
 - split=> //.
-  + by apply: heap_ignore_set_rhs hig; apply: fhas_in; fmap_solve.
+  + by apply: heap_ignore_set_r hig; apply: fhas_in; fmap_solve.
   + by rewrite get_set_heap_neq.
   + by rewrite get_set_heap_neq.
 - by split=> //; rewrite get_set_heap_neq.
@@ -1002,7 +1000,7 @@ move=> [[hig p1 p2 p3 p4] [p5 p6 p7 p8 p9] [p10 p11 p12 p13 p14]
         [p15 p16] [p17 p18]].
 split.
 - split=> //.
-  + by apply: heap_ignore_set_rhs hig; apply: fhas_in; fmap_solve.
+  + by apply: heap_ignore_set_r hig; apply: fhas_in; fmap_solve.
   + by rewrite get_set_heap_neq.
   + by rewrite get_set_heap_neq.
 - by split=> //; rewrite get_set_heap_neq.
@@ -1023,7 +1021,7 @@ move=> [[hig p1 p2 p3 p4] [p5 p6 p7 p8 p9] [p10 p11 p12 p13 p14]
         [p15 p16] [p17 p18]].
 split.
 - split=> //.
-  + by apply: heap_ignore_set_rhs hig; apply: fhas_in; fmap_solve.
+  + by apply: heap_ignore_set_r hig; apply: fhas_in; fmap_solve.
   + by rewrite get_set_heap_neq.
   + by rewrite get_set_heap_neq.
 - by split=> //; rewrite get_set_heap_neq.
@@ -1044,7 +1042,7 @@ move=> [[hig p1 p2 p3 p4] [p5 p6 p7 p8 p9] [p10 p11 p12 p13 p14]
         [p15 p16] [p17 p18]].
 split.
 - split=> //.
-  + by apply: heap_ignore_set_lhs hig; apply: fhas_in; fmap_solve.
+  + by apply: heap_ignore_set_l hig; apply: fhas_in; fmap_solve.
   + by rewrite get_set_heap_neq.
   + by rewrite get_set_heap_neq.
 - by split=> //; rewrite get_set_heap_neq.
@@ -1065,7 +1063,7 @@ move=> [[hig p1 p2 p3 p4] [p5 p6 p7 p8 p9] [p10 p11 p12 p13 p14]
         [p15 p16] [p17 p18]].
 split.
 - split=> //.
-  + by apply: heap_ignore_set_lhs hig; apply: fhas_in; fmap_solve.
+  + by apply: heap_ignore_set_l hig; apply: fhas_in; fmap_solve.
   + by rewrite get_set_heap_neq.
   + by rewrite get_set_heap_neq.
 - by split=> //; rewrite get_set_heap_neq.
@@ -1089,7 +1087,7 @@ move=> [[hig p1 p2 p3 p4] [p5 p6 p7 p8 p9] [p10 p11 p12 p13 p14]
         [p15 p16] [p17 p18]].
 split.
 - split=> //.
-  + by apply: heap_ignore_set_lhs hig; apply: fhas_in; fmap_solve.
+  + by apply: heap_ignore_set_l hig; apply: fhas_in; fmap_solve.
   + by rewrite get_set_heap_neq.
   + by rewrite get_set_heap_eq.
 - by split=> //; rewrite get_set_heap_neq.
@@ -1107,7 +1105,7 @@ move=> [[hig p1 p2 p3 p4] [p5 p6 p7 p8 p9] [p10 p11 p12 p13 p14]
         [p15 p16] [p17 p18]].
 split.
 - split=> //.
-  + by apply: heap_ignore_set_rhs hig; apply: fhas_in; fmap_solve.
+  + by apply: heap_ignore_set_r hig; apply: fhas_in; fmap_solve.
   + by rewrite get_set_heap_neq.
   + by rewrite get_set_heap_eq.
 - by split=> //; rewrite get_set_heap_neq.
@@ -1124,7 +1122,7 @@ Proof.
 move=> hv [[hig p1 p2 p3 p4] [p5 p6 p7 p8] [p9 p10] [p11 p12] [p13 p14]].
 split.
 - split=> //.
-  + by apply: heap_ignore_set_rhs hig; apply: fhas_in; fmap_solve.
+  + by apply: heap_ignore_set_r hig; apply: fhas_in; fmap_solve.
   + by rewrite get_set_heap_neq.
   + by rewrite get_set_heap_neq.
   + by rewrite get_set_heap_neq.
@@ -1143,7 +1141,7 @@ Proof.
 move=> [[hig p1 p2 p3 p4] [p5 p6 p7 p8] [p9 p10] [p11 p12] [p13 p14]].
 split.
 - split=> //.
-  + by apply: heap_ignore_set_rhs hig; apply: fhas_in; fmap_solve.
+  + by apply: heap_ignore_set_r hig; apply: fhas_in; fmap_solve.
   + by rewrite get_set_heap_neq.
   + by rewrite get_set_heap_neq.
   + by rewrite get_set_heap_neq.
@@ -1165,7 +1163,7 @@ move=> hv [[hig p1 p2 p3 p4] [p5 p6 p7 p8] [p9 p10 p11 p12] [p13 p14]
            [p15 p16]].
 split.
 - split=> //.
-  + by apply: heap_ignore_set_rhs hig; apply: fhas_in; fmap_solve.
+  + by apply: heap_ignore_set_r hig; apply: fhas_in; fmap_solve.
   + by rewrite get_set_heap_neq.
   + by rewrite get_set_heap_neq.
 - by split=> //; rewrite get_set_heap_neq.
@@ -1183,7 +1181,7 @@ move=> [[hig p1 p2 p3 p4] [p5 p6 p7 p8] [p9 p10 p11 p12] [p13 p14]
         [p15 p16]].
 split.
 - split=> //.
-  + by apply: heap_ignore_set_rhs hig; apply: fhas_in; fmap_solve.
+  + by apply: heap_ignore_set_r hig; apply: fhas_in; fmap_solve.
   + by rewrite get_set_heap_neq.
   + by rewrite get_set_heap_neq.
 - split=> //.
@@ -1242,8 +1240,8 @@ case Esig: (fxsignx stv.1.1 stv.2.1 stv.2.2 idx rv md) => [sg|].
   case: hblk => -[hig p1 p2 p3 p4] [p5 p6 p7 p8 p9] [p10 p11 p12 p13 p14]
                 [p15 p16] [p17 p18].
   apply: inv3I.
-  + do 2 (apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve).
-    do 2 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
+  + do 2 (apply: heap_ignore_set_r; first by apply: fhas_in; fmap_solve).
+    do 2 (apply: heap_ignore_set_l; first by apply: fhas_in; fmap_solve).
     exact: hig.
   + get_heap_simpl.
     rewrite ?p1 ?p2 ?p3 ?p4 ?p9 ?p10 ?p11 ?p12 ?p13 ?p14.
@@ -1266,8 +1264,8 @@ case Esig: (fxsignx stv.1.1 stv.2.1 stv.2.2 idx rv md) => [sg|].
   case: hblk => -[hig p1 p2 p3 p4] [p5 p6 p7 p8 p9] [p10 p11 p12 p13 p14]
                 [p15 p16] [p17 p18].
   apply: inv3I.
-  + apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve.
-    apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve.
+  + apply: heap_ignore_set_r; first by apply: fhas_in; fmap_solve.
+    apply: heap_ignore_set_l; first by apply: fhas_in; fmap_solve.
     exact: hig.
   + get_heap_simpl.
     rewrite ?p1 ?p2 ?p3 ?p4 ?p7 ?p8 ?p9 ?p10 ?p11 ?p12 ?p13 ?p14.
@@ -1338,8 +1336,8 @@ simplify_eq_rel arg.
   split; first by [].
   case: hblk => -[hig m1 m2 m3 m4] [m5 m6 m7] [m8 m9] [m10 m11 m12].
   apply: inv3I.
-  + apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve.
-    apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve.
+  + apply: heap_ignore_set_r; first by apply: fhas_in; fmap_solve.
+    apply: heap_ignore_set_l; first by apply: fhas_in; fmap_solve.
     exact: hig.
   + get_heap_simpl.
     split.
@@ -1423,8 +1421,8 @@ simplify_eq_rel arg.
     case: hblk => -[hig p1 p2 p3 p4] [p5 p6 p7 p8 p9] [p10 p11 p12 p13 p14]
                   [p15 p16] [p17 p18].
     apply: inv3I.
-    * apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve.
-      apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve.
+    * apply: heap_ignore_set_r; first by apply: fhas_in; fmap_solve.
+      apply: heap_ignore_set_l; first by apply: fhas_in; fmap_solve.
       exact: hig.
     * get_heap_simpl.
       rewrite ?p1 ?p2 ?p3 ?p4 ?p7 ?p8 ?p9 ?p10 ?p11 ?p12 ?p13 ?p14.
@@ -1698,8 +1696,8 @@ simplify_eq_rel arg.
     case: hblk => -[hig p1 p2 p3 p4] [p5 p6 p7 p8] [p9 p10] [p11 p12]
                   [p13 p14].
     apply: inv3I.
-    * apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve.
-      do 2 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
+    * apply: heap_ignore_set_r; first by apply: fhas_in; fmap_solve.
+      do 2 (apply: heap_ignore_set_l; first by apply: fhas_in; fmap_solve).
       exact: hig.
     * get_heap_simpl.
       rewrite ?p1 ?p2 ?p3 ?p4 ?p8 ?p9 ?p10.
@@ -1730,8 +1728,8 @@ simplify_eq_rel arg.
     case: hblk => -[hig p1 p2 p3 p4] [p5 p6 p7 p8] [p9 p10] [p11 p12]
                   [p13 p14].
     apply: inv3I.
-    * apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve.
-      do 2 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
+    * apply: heap_ignore_set_r; first by apply: fhas_in; fmap_solve.
+      do 2 (apply: heap_ignore_set_l; first by apply: fhas_in; fmap_solve).
       exact: hig.
     * get_heap_simpl.
       rewrite ?p1 ?p2 ?p3 ?p4 ?p8 ?p9 ?p10.
@@ -1832,8 +1830,8 @@ simplify_eq_rel arg.
     case: hblk => -[hig p1 p2 p3 p4] [p5 p6 p7 p8] [p9 p10 p11 p12]
                   [p13 p14] [p15 p16].
     apply: inv3I.
-    -- apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve.
-       do 2 (apply: heap_ignore_set_lhs;
+    -- apply: heap_ignore_set_r; first by apply: fhas_in; fmap_solve.
+       do 2 (apply: heap_ignore_set_l;
              first by apply: fhas_in; fmap_solve).
        exact: hig.
     -- get_heap_simpl.
@@ -1867,8 +1865,8 @@ simplify_eq_rel arg.
     case: hblk => -[hig p1 p2 p3 p4] [p5 p6 p7 p8] [p9 p10 p11 p12]
                   [p13 p14] [p15 p16].
     apply: inv3I.
-    -- apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve.
-       do 2 (apply: heap_ignore_set_lhs;
+    -- apply: heap_ignore_set_r; first by apply: fhas_in; fmap_solve.
+       do 2 (apply: heap_ignore_set_l;
              first by apply: fhas_in; fmap_solve).
        exact: hig.
     -- get_heap_simpl.
@@ -1939,8 +1937,8 @@ simplify_eq_rel arg.
   split; first by [].
   case: hblk => -[hig m1 m2 m3 m4] [m5 m6 m7] [m8 m9] [m10 m11 m12].
   apply: inv3I.
-  + apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve.
-    apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve.
+  + apply: heap_ignore_set_r; first by apply: fhas_in; fmap_solve.
+    apply: heap_ignore_set_l; first by apply: fhas_in; fmap_solve.
     exact: hig.
   + get_heap_simpl.
     split.
@@ -2024,8 +2022,8 @@ simplify_eq_rel arg.
     case: hblk => -[hig p1 p2 p3 p4] [p5 p6 p7 p8 p9] [p10 p11 p12 p13 p14]
                   [p15 p16] [p17 p18].
     apply: inv3I.
-    * apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve.
-      apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve.
+    * apply: heap_ignore_set_r; first by apply: fhas_in; fmap_solve.
+      apply: heap_ignore_set_l; first by apply: fhas_in; fmap_solve.
       exact: hig.
     * get_heap_simpl.
       rewrite ?p1 ?p2 ?p3 ?p4 ?p7 ?p8 ?p9 ?p10 ?p11 ?p12 ?p13 ?p14.
@@ -2296,8 +2294,8 @@ simplify_eq_rel arg.
     case: hblk => -[hig p1 p2 p3 p4] [p5 p6 p7 p8] [p9 p10] [p11 p12]
                   [p13 p14].
     apply: inv3I.
-    * apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve.
-      do 2 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
+    * apply: heap_ignore_set_r; first by apply: fhas_in; fmap_solve.
+      do 2 (apply: heap_ignore_set_l; first by apply: fhas_in; fmap_solve).
       exact: hig.
     * get_heap_simpl.
       rewrite ?p1 ?p2 ?p3 ?p4 ?p8 ?p9 ?p10.
@@ -2328,8 +2326,8 @@ simplify_eq_rel arg.
     case: hblk => -[hig p1 p2 p3 p4] [p5 p6 p7 p8] [p9 p10] [p11 p12]
                   [p13 p14].
     apply: inv3I.
-    * apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve.
-      do 2 (apply: heap_ignore_set_lhs; first by apply: fhas_in; fmap_solve).
+    * apply: heap_ignore_set_r; first by apply: fhas_in; fmap_solve.
+      do 2 (apply: heap_ignore_set_l; first by apply: fhas_in; fmap_solve).
       exact: hig.
     * get_heap_simpl.
       rewrite ?p1 ?p2 ?p3 ?p4 ?p8 ?p9 ?p10.
@@ -2430,8 +2428,8 @@ simplify_eq_rel arg.
     case: hblk => -[hig p1 p2 p3 p4] [p5 p6 p7 p8] [p9 p10 p11 p12]
                   [p13 p14] [p15 p16].
     apply: inv3I.
-    -- apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve.
-       do 2 (apply: heap_ignore_set_lhs;
+    -- apply: heap_ignore_set_r; first by apply: fhas_in; fmap_solve.
+       do 2 (apply: heap_ignore_set_l;
              first by apply: fhas_in; fmap_solve).
        exact: hig.
     -- get_heap_simpl.
@@ -2465,8 +2463,8 @@ simplify_eq_rel arg.
     case: hblk => -[hig p1 p2 p3 p4] [p5 p6 p7 p8] [p9 p10 p11 p12]
                   [p13 p14] [p15 p16].
     apply: inv3I.
-    -- apply: heap_ignore_set_rhs; first by apply: fhas_in; fmap_solve.
-       do 2 (apply: heap_ignore_set_lhs;
+    -- apply: heap_ignore_set_r; first by apply: fhas_in; fmap_solve.
+       do 2 (apply: heap_ignore_set_l;
              first by apply: fhas_in; fmap_solve).
        exact: hig.
     -- get_heap_simpl.

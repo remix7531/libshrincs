@@ -3,7 +3,7 @@
  * libshrincs - formally verified SHRINCS implementations.
  *)
 
-(** * HBS.wots.games
+(** * Sec.lib.wots.games
 
     Game-instance scaffolding for the fixed-sum WOTS security proof:
     the [thf]/[thf_coll] instances shared by the
@@ -30,9 +30,10 @@
     hops start from [G0flat] by [perfect_trans]. *)
 
 Set Warnings "-notation-overridden,-ambiguous-paths".
-From HBS Require Import prelude math.chain math.encoding sig.scheme sig.kots
-  games.thf toolkit.sample_seq.
-From HBS Require Import wots.scheme.
+From Sec.lib Require Import prelude math.chain.
+From Model Require Import math.encoding.
+From Sec.lib Require Import sig.scheme sig.kots games.thf toolkit.sample_seq.
+From Sec.lib Require Import chain.core toolkit.relational_rules.
 Set Warnings "notation-overridden,ambiguous-paths".
 
 Import PackageNotation.
@@ -97,26 +98,6 @@ Definition G0flat (b : bool) : game (I_KOTS FS) :=
 
 (* ------------------------------------------------------------------ *)
 (** ** KOTS_game FS ≈ G0flat *)
-
-(** Both sides of a bind whose head is the same stateless,
-    import-free code (a [dist] sampler, [sample_seq], ...) can be
-    related by relating the continuations pointwise, under ANY
-    precondition.  Specialization of [rsame_head_alt] to
-    [L := emptym]; stated over [choiceType] (not [choice_type]) so
-    that it unifies with goals whose carrier products have been
-    reduced by [simpl]. *)
-Lemma r_scheme_bind {A B : choiceType}
-  (c : raw_code A) (f₀ f₁ : A -> raw_code B) pre (post : postcond B B) :
-  ValidCode emptym [interface] c ->
-  (forall a, ⊢ ⦃ pre ⦄ f₀ a ≈ f₁ a ⦃ post ⦄) ->
-  ⊢ ⦃ pre ⦄ x ← c ;; f₀ x ≈ x ← c ;; f₁ x ⦃ post ⦄.
-Proof.
-move=> hc hf.
-eapply rsame_head_alt; first exact hc.
-- by move=> [n T] hn.
-- by move=> [n T] v hn.
-- exact: hf.
-Qed.
 
 (** The invariant: heaps agree outside the four private locations;
     the KOTS locations on the left mirror the G0flat locations on the
@@ -206,34 +187,6 @@ Qed.
     G1 reuses G0flat's locations: the two games are never composed,
     and sharing locations makes the UD hybrid invariants smaller. *)
 
-Fixpoint sample_sig_roots (pp : PP) (i : nat) (m : seq nat) :
-    raw_code (chList N) :=
-  match m with
-  | [::] => ret [::]
-  | d :: m' =>
-      u ← dN ;;
-      sg ← sample_sig_roots pp i.+1 m' ;;
-      ret ((if d is d'.+1 then F pp (i, d') u else u) :: sg)
-  end.
-
-#[export] Instance sample_sig_roots_valid
-  (L : Locations) (I : Interface) pp i m :
-  ValidCode L I (sample_sig_roots pp i m).
-Proof.
-elim: m i => [|d m IH] i /=.
-- apply valid_ret.
-- eapply valid_bind.
-  + eapply valid_scheme, prog_valid.
-  + move=> u; eapply valid_bind; [exact: IH | move=> sg; apply valid_ret].
-Qed.
-
-(** Public chain ends, re-rooted at the signature digits: the [i]-th
-    end completes the [i]-th chain from value [σ_i] at position
-    [m_i]. *)
-Definition ends_from_sig (pp : PP) (m : seq nat) (sg : seq N) : seq N :=
-  [seq chain (chainf PP N F pp q.1) q.2.2 q.2.1 (w.-1 - q.2.1)
-  | q <- zip (iota 0 l) (zip m sg)].
-
 Definition G1 (b : bool) : game (I_KOTS FS) :=
   [package [fmap g0_pk_loc ; g0_log_loc ] ;
     [ COMMIT ] : { SParam FS × Msg FS ~> Pk FS × 'option (Sig FS) } '(sp, m) {
@@ -242,10 +195,10 @@ Definition G1 (b : bool) : game (I_KOTS FS) :=
       pp ← dPP ;;
       if valid_msg l w tsum m
       then
-        sg ← sample_sig_roots pp 0 m ;;
-        #put g0_pk_loc := Some (pp, ends_from_sig pp m sg) ;;
+        sg ← sample_sig_roots PP N F dN pp 0 m ;;
+        #put g0_pk_loc := Some (pp, ends_from_sig PP N F l w pp m sg) ;;
         #put g0_log_loc := [:: m] ;;
-        ret ((pp, ends_from_sig pp m sg), Some sg)
+        ret ((pp, ends_from_sig PP N F l w pp m sg), Some sg)
       else
         xs ← sample_seq dN l ;;
         #put g0_pk_loc := Some (pp, chain_ends PP N F l w pp xs) ;;

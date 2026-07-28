@@ -3,16 +3,16 @@
  * libshrincs - formally verified SHRINCS implementations.
  *)
 
-(** * HBS.wots.tcr_hop
+(** * Sec.lib.wots.tcr_hop
 
     The SM-TCR reduction package for the TCR half of the fixed-sum
     WOTS G1 to SM-TCR/SM-PRE split, and
     its perfect equivalences on BOTH sides of the SM-TCR pair:
 
       [R_tcr_real  : perfect (I_KOTS FS) (G1v ... true)
-                             (R_tcr ∘ SMTCR_game Tots Cots p_tcr true)]
+                             (R_tcr ∘ SMTCR_game Tots Cots (tcr_budget l w) true)]
       [R_tcr_ideal : perfect (I_KOTS FS) Gmid
-                             (R_tcr ∘ SMTCR_game Tots Cots p_tcr false)]
+                             (R_tcr ∘ SMTCR_game Tots Cots (tcr_budget l w) false)]
 
     where [Gmid] is G1v-real with KFORGE answering false exactly on
     the classifier's TCR case — the intermediate game of the
@@ -36,13 +36,13 @@
       (all queries of earlier chains, plus the sigma query of chain [i]
       if any, plus the offset [k - d_i]); the bookkeeping lemma is
       [qnth_commit_queries].  The freshness of every TQUERY tweak is
-      maintained LOCALLY by the induction invariants ([all (tlt i k)]
+      maintained LOCALLY by the induction invariants ([all (tweak_lt i k)]
       within a chain, [all (.1 < st)] across chains) instead of a
       global uniqueness lemma, so [tcr_targets_tweaks_uniq] is not
       consumed here.
-    - Budget: [p_tcr := l + l * w].  Chain [i] makes
-      [(0 < d_i) + (w.-1 - d_i) <= 1 + w] queries ([nq]/[nqs]), so the
-      total is at most [l * (1 + w) = p_tcr] ([nqs_le]).
+    - Budget: [(tcr_budget l w) := l + l * w].  Chain [i] makes
+      [(0 < d_i) + (w.-1 - d_i) <= 1 + w] queries ([chain_query_count]/[total_query_count]), so the
+      total is at most [l * (1 + w) = (tcr_budget l w)] ([nqs_le]).
     - [pp] flows through GETPP at the END of COMMIT (after all
       TQUERYs): COMMIT must output the public key, which contains
       [pp].  This also flips SM-TCR's phase, so KFORGE needs no GETPPS
@@ -94,352 +94,16 @@
     induction; SSProve only ships scheme-command swaps). *)
 
 Set Warnings "-notation-overridden,-ambiguous-paths".
-From HBS Require Import prelude math.chain math.encoding sig.scheme sig.kots
-  games.thf games.smtcr toolkit.sample_seq.
-From HBS Require Import wots.scheme wots.games
-  wots.analysis.
+From Sec.lib Require Import prelude math.chain.
+From Model Require Import math.encoding.
+From Sec.lib Require Import sig.scheme sig.kots games.thf games.smtcr toolkit.sample_seq.
+From Sec.lib Require Import chain.core toolkit.relational_rules
+  wots.games wots.analysis.
 Set Warnings "notation-overridden,ambiguous-paths".
 
 Import PackageNotation.
 #[local] Open Scope package_scope.
 #[local] Open Scope sep_scope.
-
-(* ------------------------------------------------------------------ *)
-(** ** Generic seq access: total nth via [ohead (drop i s)]
-
-    The hash domain [N] is an abstract [choice_type] with no canonical
-    inhabitant, so [nth] (which needs a default) is unusable inside
-    code.  [qnth] is the option-valued variant; the lemmas connect it
-    back to [nth] once a witness is at hand. *)
-
-Section QNth.
-
-Context {X : Type}.
-
-Definition qnth (s : seq X) (i : nat) : option X := ohead (drop i s).
-
-Lemma qnth_size (s : seq X) i x : qnth s i = Some x -> i < size s.
-Proof.
-rewrite /qnth; case: (ltnP i (size s)) => // hle.
-by rewrite drop_oversize.
-Qed.
-
-Lemma qnth_nth (x0 : X) s i x : qnth s i = Some x -> nth x0 s i = x.
-Proof.
-by elim: s i => [|a s IH] [|i] //=; [case=> -> | exact: IH].
-Qed.
-
-Lemma qnth_some (s : seq X) i : i < size s -> exists x, qnth s i = Some x.
-Proof.
-move=> hi; rewrite /qnth; case E: (drop i s) => [|a r]; last by exists a.
-have := size_drop i s; rewrite E /= => /esym/eqP.
-by rewrite subn_eq0 leqNgt hi.
-Qed.
-
-Lemma qnth_cat_r (s t : seq X) j : qnth (s ++ t) (size s + j)%N = qnth t j.
-Proof. by rewrite /qnth drop_cat ltnNge leq_addr /= addKn. Qed.
-
-Lemma qnth_cat_l (s t : seq X) j : j < size s -> qnth (s ++ t) j = qnth s j.
-Proof.
-move=> hj; rewrite /qnth drop_cat hj.
-case E: (drop j s) => [|a r] //=.
-have := size_drop j s; rewrite E /= => /esym/eqP.
-by rewrite subn_eq0 leqNgt hj.
-Qed.
-
-End QNth.
-
-(* ------------------------------------------------------------------ *)
-(** ** Insertion-ordered fmaps from lists
-
-    SM-TCR's target map grows by [setm tgts (size tws) (t, m)], i.e.
-    the j-th committed target lands at key j.  [qmap_from j Q] is the
-    fmap holding list [Q] at keys [j, j+1, ...]; [qmap_from_rcons] is
-    exactly the oracle's update step, [qmap_from_get] the CHECK-time
-    lookup. *)
-
-Section QMap.
-
-Context {X : Type}.
-
-Fixpoint qmap_from (j : nat) (Q : seq X) : {fmap nat -> X} :=
-  if Q is e :: Q' then setm (qmap_from j.+1 Q') j e else emptym.
-
-Lemma qmap_from_rcons j Q e :
-  qmap_from j (rcons Q e) = setm (qmap_from j Q) (j + size Q)%N e.
-Proof.
-elim: Q j => [|a Q IH] j /=; first by rewrite addn0.
-rewrite IH setmC; last by apply/negbT/gtn_eqF; rewrite addSn ltnS leq_addr.
-by rewrite addSn addnS.
-Qed.
-
-Lemma qmap_from_get j Q i : getm (qmap_from j Q) (j + i)%N = qnth Q i.
-Proof.
-elim: Q j i => [|e Q IH] j i /=; first by rewrite emptymE /qnth; case: i.
-rewrite setmE; case: i => [|i] /=.
-- by rewrite addn0 eqxx.
-- case: eqP => [heq|_].
-  + have : j < (j + i.+1)%N by rewrite addnS ltnS leq_addr.
-    by rewrite heq ltnn.
-  + by rewrite -addSnnS IH.
-Qed.
-
-End QMap.
-
-(* ------------------------------------------------------------------ *)
-(** ** Generic one-sided / semantic judgment rules
-
-    The block inductions below manipulate EXPLICIT preconditions, so
-    they need rules that step ONE side of the judgment and transform
-    the precondition semantically (the rem_/set_-machinery of SSProve
-    keeps the precondition opaque, which does not survive an induction
-    over an unbounded query sequence). *)
-
-Section SemanticRules.
-
-(** Extract a pure consequence of the precondition. *)
-Lemma r_fact {A B : choiceType} (P : Prop) (pre : precond)
-    (c0 : raw_code A) (c1 : raw_code B) (post : postcond A B) :
-  (forall s0 s1, pre (s0, s1) -> P) ->
-  (P -> ⊢ ⦃ λ '(s0, s1), pre (s0, s1) ⦄ c0 ≈ c1 ⦃ post ⦄) ->
-  ⊢ ⦃ λ '(s0, s1), pre (s0, s1) ⦄ c0 ≈ c1 ⦃ post ⦄.
-Proof.
-move=> hP h.
-apply rpre_hypothesis_rule => s0 s1 hpre.
-eapply rpre_weaken_rule; first exact: (h (hP _ _ hpre)).
-by move=> s0' s1' [e1 e2]; move: e1 e2 => /= -> ->.
-Qed.
-
-(** rhs get of a location whose value the precondition determines. *)
-Lemma r_get_rhs_known {A B : choiceType} (ℓ : Location) (v : ℓ) (pre : precond)
-    (c0 : raw_code A) (k1 : ℓ -> raw_code B) (post : postcond A B) :
-  (forall s0 s1, pre (s0, s1) -> get_heap s1 ℓ = v) ->
-  ⊢ ⦃ λ '(s0, s1), pre (s0, s1) ⦄ c0 ≈ k1 v ⦃ post ⦄ ->
-  ⊢ ⦃ λ '(s0, s1), pre (s0, s1) ⦄ c0 ≈ x ← get ℓ ;; k1 x ⦃ post ⦄.
-Proof.
-move=> hv h.
-eapply r_get_remember_rhs => x.
-eapply (r_fact (v = x)).
-- move=> s0 s1 [hpre hrem].
-  by rewrite -(hv _ _ hpre) -hrem.
-- move=> e; subst x.
-  eapply rpre_weaken_rule; first exact: h.
-  by move=> ? ? [].
-Qed.
-
-(** Symmetric lhs version (not needed below, kept for symmetry). *)
-Lemma r_get_lhs_known {A B : choiceType} (ℓ : Location) (v : ℓ) (pre : precond)
-    (k0 : ℓ -> raw_code A) (c1 : raw_code B) (post : postcond A B) :
-  (forall s0 s1, pre (s0, s1) -> get_heap s0 ℓ = v) ->
-  ⊢ ⦃ λ '(s0, s1), pre (s0, s1) ⦄ k0 v ≈ c1 ⦃ post ⦄ ->
-  ⊢ ⦃ λ '(s0, s1), pre (s0, s1) ⦄ x ← get ℓ ;; k0 x ≈ c1 ⦃ post ⦄.
-Proof.
-move=> hv h.
-eapply r_get_remember_lhs => x.
-eapply (r_fact (v = x)).
-- move=> s0 s1 [hpre hrem].
-  by rewrite -(hv _ _ hpre) -hrem.
-- move=> e; subst x.
-  eapply rpre_weaken_rule; first exact: h.
-  by move=> ? ? [].
-Qed.
-
-(** rhs get under a bind (the [bind _ k] spine is preserved
-    SYNTACTICALLY by all these rules, so that applying them never
-    forces the unifier to unfold [bind] into its raw fixpoint). *)
-Lemma r_get_bind_rhs {A B C : choiceType} (ℓ : Location) (v : ℓ)
-    (pre : precond) (c0 : raw_code A)
-    (f : ℓ -> raw_code B) (k1 : B -> raw_code C) (post : postcond A C) :
-  (forall s0 s1, pre (s0, s1) -> get_heap s1 ℓ = v) ->
-  ⊢ ⦃ λ '(s0, s1), pre (s0, s1) ⦄ c0 ≈ bind (f v) k1 ⦃ post ⦄ ->
-  ⊢ ⦃ λ '(s0, s1), pre (s0, s1) ⦄ c0 ≈ bind (getr ℓ f) k1 ⦃ post ⦄.
-Proof.
-move=> hv h.
-exact: (r_get_rhs_known ℓ v pre c0 (λ x, bind (f x) k1) post hv h).
-Qed.
-
-(** rhs assert under a bind, with the bool proved from the
-    precondition. *)
-Lemma r_bind_assertD_rhs {A C : choiceType} {B : choice_type} (b : bool)
-    (pre : precond) (c0 : raw_code A)
-    (f : b = true -> raw_code B) (k1 : B -> raw_code C)
-    (post : postcond A C) :
-  (forall s0 s1, pre (s0, s1) -> b = true) ->
-  (forall e : b = true,
-     ⊢ ⦃ λ '(s0, s1), pre (s0, s1) ⦄ c0 ≈ bind (f e) k1 ⦃ post ⦄) ->
-  ⊢ ⦃ λ '(s0, s1), pre (s0, s1) ⦄ c0 ≈ bind (assertD b f) k1 ⦃ post ⦄.
-Proof.
-move: f; case: b => f hb h; first exact: h.
-by apply rpre_hypothesis_rule => s0 s1 /hb.
-Qed.
-
-(** rhs put with an explicit precondition transformer. *)
-Lemma r_put_rhs_weak {A B : choiceType} (ℓ : Location) (v : ℓ)
-    (pre pre' : precond) (c0 : raw_code A) (c1 : raw_code B)
-    (post : postcond A B) :
-  (forall s0 s1, pre (s0, s1) -> pre' (s0, set_heap s1 ℓ v)) ->
-  ⊢ ⦃ λ '(s0, s1), pre' (s0, s1) ⦄ c0 ≈ c1 ⦃ post ⦄ ->
-  ⊢ ⦃ λ '(s0, s1), pre (s0, s1) ⦄ c0 ≈ #put ℓ := v ;; c1 ⦃ post ⦄.
-Proof.
-move=> hp h.
-apply r_put_rhs.
-eapply rpre_weaken_rule; first exact: h.
-by move=> s0 s1 [s1' [hpre ->]]; exact: hp.
-Qed.
-
-(** lhs put with an explicit precondition transformer. *)
-Lemma r_put_lhs_weak {A B : choiceType} (ℓ : Location) (v : ℓ)
-    (pre pre' : precond) (c0 : raw_code A) (c1 : raw_code B)
-    (post : postcond A B) :
-  (forall s0 s1, pre (s0, s1) -> pre' (set_heap s0 ℓ v, s1)) ->
-  ⊢ ⦃ λ '(s0, s1), pre' (s0, s1) ⦄ c0 ≈ c1 ⦃ post ⦄ ->
-  ⊢ ⦃ λ '(s0, s1), pre (s0, s1) ⦄ #put ℓ := v ;; c0 ≈ c1 ⦃ post ⦄.
-Proof.
-move=> hp h.
-apply r_put_lhs.
-eapply rpre_weaken_rule; first exact: h.
-by move=> s0 s1 [s0' [hpre ->]]; exact: hp.
-Qed.
-
-(** Two successive rhs puts, one transformer. *)
-Lemma r_put2_rhs_weak {A B : choiceType} (ℓ1 : Location) (v1 : ℓ1)
-    (ℓ2 : Location) (v2 : ℓ2)
-    (pre pre' : precond) (c0 : raw_code A) (c1 : raw_code B)
-    (post : postcond A B) :
-  (forall s0 s1, pre (s0, s1) ->
-     pre' (s0, set_heap (set_heap s1 ℓ1 v1) ℓ2 v2)) ->
-  ⊢ ⦃ λ '(s0, s1), pre' (s0, s1) ⦄ c0 ≈ c1 ⦃ post ⦄ ->
-  ⊢ ⦃ λ '(s0, s1), pre (s0, s1) ⦄
-     c0 ≈ #put ℓ1 := v1 ;; #put ℓ2 := v2 ;; c1 ⦃ post ⦄.
-Proof.
-move=> hp h.
-apply r_put_rhs; apply r_put_rhs.
-eapply rpre_weaken_rule; first exact: h.
-by move=> s0 s1 [s1' [[s1'' [hpre ->]] ->]]; exact: hp.
-Qed.
-
-(** rhs put under a bind, with an explicit precondition
-    transformer. *)
-Lemma r_put_bind_rhs {A B C : choiceType} (ℓ : Location) (v : ℓ)
-    (pre pre' : precond) (c0 : raw_code A)
-    (c : raw_code B) (k1 : B -> raw_code C) (post : postcond A C) :
-  (forall s0 s1, pre (s0, s1) -> pre' (s0, set_heap s1 ℓ v)) ->
-  ⊢ ⦃ λ '(s0, s1), pre' (s0, s1) ⦄ c0 ≈ bind c k1 ⦃ post ⦄ ->
-  ⊢ ⦃ λ '(s0, s1), pre (s0, s1) ⦄ c0 ≈ bind (putr ℓ v c) k1 ⦃ post ⦄.
-Proof.
-move=> hp h.
-exact: (r_put_rhs_weak ℓ v pre pre' c0 (bind c k1) post hp h).
-Qed.
-
-(** Two successive rhs puts under a bind. *)
-Lemma r_put2_bind_rhs {A B C : choiceType} (ℓ1 : Location) (v1 : ℓ1)
-    (ℓ2 : Location) (v2 : ℓ2) (pre pre' : precond) (c0 : raw_code A)
-    (c : raw_code B) (k1 : B -> raw_code C) (post : postcond A C) :
-  (forall s0 s1, pre (s0, s1) ->
-     pre' (s0, set_heap (set_heap s1 ℓ1 v1) ℓ2 v2)) ->
-  ⊢ ⦃ λ '(s0, s1), pre' (s0, s1) ⦄ c0 ≈ bind c k1 ⦃ post ⦄ ->
-  ⊢ ⦃ λ '(s0, s1), pre (s0, s1) ⦄
-     c0 ≈ bind (putr ℓ1 v1 (putr ℓ2 v2 c)) k1 ⦃ post ⦄.
-Proof.
-move=> hp h.
-exact: (r_put2_rhs_weak ℓ1 v1 ℓ2 v2 pre pre' c0 (bind c k1) post hp h).
-Qed.
-
-
-(** Scheme-scheme commutation: two stateless, import-free pieces of
-    code commute.  SSProve ships scheme-command swaps
-    ([r_swap_cmd_scheme]); the scheme-scheme version follows by
-    induction on the first scheme. *)
-Lemma r_swap_scheme_scheme {A B C : choiceType}
-    (c0 : raw_code A) (c1 : raw_code B) (r : A -> B -> raw_code C) :
-  ValidCode emptym [interface] c0 ->
-  ValidCode emptym [interface] c1 ->
-  ⊢ ⦃ λ '(s0, s1), s0 = s1 ⦄
-    x ← c0 ;; y ← c1 ;; r x y ≈ y ← c1 ;; x ← c0 ;; r x y ⦃ eq ⦄.
-Proof.
-move=> h0 h1.
-elim: h0 r
-  => [a r|o x' k ho hk IH r|ℓ k hℓ hk IH r|ℓ v' k hℓ hk IH r|op k hk IH r].
-- exact: rreflexivity_rule.
-- by destruct o; discriminate.
-- by destruct ℓ; discriminate.
-- by destruct ℓ; discriminate.
-- eapply r_transR.
-  + eapply (rswap_cmd_bind_eq (cmd_sample op) c1
-              (λ v y, x ← k v ;; r x y)).
-    eapply r_swap_cmd_scheme. exact h1.
-  + simpl. eapply (rsame_head_cmd (cmd_sample op)) => a.
-    exact: IH.
-Qed.
-
-(** Eager-vs-lazy sampling alignment: the lhs samples [c0] first and
-    then runs a block whose head samples [c1]; the equivalent form
-    samples [c1] first.  Used ONCE to align G1v's eager [pp ← dPP]
-    with SM-TCR's lazy parameter sampling inside the first TQUERY. *)
-Lemma r_swap_eager_lazy {A B C D : choiceType}
-    (c0 : raw_code A) (c1 : raw_code B)
-    (g : A -> B -> raw_code C) (K : A -> C -> raw_code D)
-    (c1' : raw_code D) (pre : precond) (post : postcond D D) :
-  ValidCode emptym [interface] c0 ->
-  ValidCode emptym [interface] c1 ->
-  ⊢ ⦃ λ '(s0, s1), pre (s0, s1) ⦄
-     y ← c1 ;; x ← c0 ;; bind (g x y) (K x) ≈ c1' ⦃ post ⦄ ->
-  ⊢ ⦃ λ '(s0, s1), pre (s0, s1) ⦄
-     x ← c0 ;; bind (bind c1 (g x)) (K x) ≈ c1' ⦃ post ⦄.
-Proof.
-move=> h0 h1 h.
-eapply r_transL; last exact: h.
-eapply r_transR.
-- (* bind c0 (λ x, bind c1 (λ y, ...)) ≈ bind c0 (λ x, bind (bind c1 (g x)) (K x)) *)
-  eapply (rsame_head (f₀ := λ x, y ← c1 ;; bind (g x y) (K x))
-                     (f₁ := λ x, bind (bind c1 (g x)) (K x))) => x.
-  rewrite bind_assoc.
-  exact: rreflexivity_rule.
-- exact: (r_swap_scheme_scheme c1 c0 (λ y x, bind (g x y) (K x)) h1 h0).
-Qed.
-
-End SemanticRules.
-
-(* ------------------------------------------------------------------ *)
-(** ** Tweak-order bookkeeping for freshness
-
-    [tlt i k t]: tweak [t] was committed strictly before position
-    [(i, k)] in the reduction's per-chain order. *)
-
-Definition tlt (i k : nat) (t : nat * nat) : bool :=
-  (t.1 < i) || ((t.1 == i) && (t.2 < k)).
-
-Lemma tlt_notin i k (ts : seq (nat * nat)) :
-  all (tlt i k) ts -> (i, k) \notin ts.
-Proof.
-move=> /allP h; apply/negP => hin.
-by have := h _ hin; rewrite /tlt /= ltnn eqxx ltnn.
-Qed.
-
-Lemma all_tlt_widen i k (ts : seq (nat * nat)) :
-  all (tlt i k) ts -> all (tlt i k.+1) ts.
-Proof.
-apply: sub_all => t; rewrite /tlt => /orP[-> //|/andP[e hk]].
-by rewrite e ltnS (ltnW hk) orbT.
-Qed.
-
-Lemma all_lt_tlt i k (ts : seq (nat * nat)) :
-  all (λ t : nat * nat, t.1 < i) ts -> all (tlt i k) ts.
-Proof. by apply: sub_all => t; rewrite /tlt => ->. Qed.
-
-Lemma all_tlt_lt i k (ts : seq (nat * nat)) :
-  all (tlt i k) ts -> all (λ t : nat * nat, t.1 < i.+1) ts.
-Proof.
-apply: sub_all => t; rewrite /tlt => /orP[h|/andP[/eqP -> _]] //.
-exact: ltnW.
-Qed.
-
-Lemma lt_notin st d' (ts : seq (nat * nat)) :
-  all (λ t : nat * nat, t.1 < st) ts -> (st, d') \notin ts.
-Proof.
-move=> /allP h; apply/negP => hin.
-by have := h _ hin; rewrite /= ltnn.
-Qed.
 
 (* ------------------------------------------------------------------ *)
 (** ** The reduction and its analysis *)
@@ -459,7 +123,6 @@ Local Notation cf := (chainf PP N F).
 
 (** SM-TCR budget: [l] sigma queries plus at most [l * w] walk
     queries (crude but provable; see [nqs_le]). *)
-Definition p_tcr : nat := l + l * w.
 
 Local Notation pp_loc' := (tcr_pp_loc TT).
 Local Notation tgts_loc' := (tcr_tgts_loc TT).
@@ -469,247 +132,26 @@ Local Notation rev_loc' := tcr_rev_loc.
 Local Notation g0v_pk' := (g0v_pk_loc PP N F dPP dN l w tsum).
 Local Notation g0v_log' := (g0v_log_loc PP N F dPP dN l w tsum).
 
-(* ------------------------------------------------------------------ *)
-(** *** Pure layer: committed queries, signatures, ends, indices *)
-
 (** The committed (tweak, input) pairs live in the carrier of SM-TCR's
-    target entry type. *)
+    target entry type.  Their whole bookkeeping layer -- [sig_of_root],
+    [walkq], [chain_queries], [commit_queries], [sigs_of], [ends_of],
+    [q_index], the [qnth_*] lookup lemmas, [tcr_decision] and its
+    specification -- is [Sec.lib.chain.core], shared with the native
+    WOTS+C proof; only the SM-TCR budget alias is local. *)
 Local Notation qentry := ((nat * nat) * N)%type.
 
-(** Signature digit of chain [i] with digit [d] from root [u]
-    (the pure shape of [sample_sig_roots]'s entries). *)
-Definition sig_of_root (pp : PP) (i d : nat) (u : N) : N :=
-  if d is d'.+1 then F pp (i, d') u else u.
-
-(** Queries of the upward walk of chain [i]: positions [k .. k+n-1],
-    inputs the successive chain values from [x] at [k]. *)
-Definition walkq (pp : PP) (i k n : nat) (x : N) : seq qentry :=
-  [seq ((i, (j + k)%N), chain (cf pp i) x k j) | j <- iota 0 n].
-
-Lemma size_walkq pp i k n x : size (walkq pp i k n x) = n.
-Proof. by rewrite size_map size_iota. Qed.
-
-Lemma walkq_cons pp i k n x :
-  walkq pp i k n.+1 x
-  = ((i, k), x) :: walkq pp i k.+1 n (F pp (i, k) x).
-Proof.
-rewrite /walkq /=; congr (_ :: _).
-rewrite -[1]/(1 + 0)%N iotaDl -map_comp.
-apply: eq_map => j /=.
-by rewrite add1n addSnnS.
-Qed.
-
-Lemma walkq_tweak1 pp i k n x :
-  all (λ t : nat * nat, (t.1 == i)%B) (unzip1 (walkq pp i k n x)).
-Proof.
-rewrite /walkq /unzip1 -map_comp all_map.
-by apply/allP => j _ /=.
-Qed.
-
-(** Every walk tweak has position [< k + n]. *)
-Lemma walkq_tweak2 pp i k n x b :
-  (k + n <= b)%N ->
-  all (λ t : nat * nat, (t.2 < b)%N) (unzip1 (walkq pp i k n x)).
-Proof.
-move=> hb; rewrite /walkq /unzip1 -map_comp all_map.
-apply/allP => j; rewrite mem_iota add0n => /andP[_ hj] /=.
-by rewrite addnC; apply: leq_trans hb; rewrite ltn_add2l.
-Qed.
-
-(** All queries of one chain: the sigma query (for positive digits)
-    followed by the walk from the signature position. *)
-Definition chain_queries (pp : PP) (i d : nat) (u : N) : seq qentry :=
-  (if d is d'.+1 then [:: ((i, d'), u)] else [::])
-  ++ walkq pp i d (w.-1 - d) (sig_of_root pp i d u).
-
-(** Number of queries of one chain / of a digit list. *)
-Definition nq (d : nat) : nat := (0 < d) + (w.-1 - d).
-Definition nqs (ds : seq nat) : nat := sumn [seq nq d | d <- ds].
-
-Lemma size_chain_queries pp i d u : size (chain_queries pp i d u) = nq d.
-Proof. by rewrite size_cat size_walkq /nq; case: d. Qed.
-
-Lemma chain_queries_tweaks pp i d u :
-  all (λ t : nat * nat, (t.1 == i)%B) (unzip1 (chain_queries pp i d u)).
-Proof.
-rewrite /chain_queries unzip1_cat all_cat walkq_tweak1 andbT.
-by case: d => //= d; rewrite eqxx.
-Qed.
-
-(** Full committed list, chains [st, st+1, ...] with digits [ds] and
-    roots [us]. *)
-Definition commit_queries (pp : PP) (st : nat) (ds : seq nat) (us : seq N) :
-    seq qentry :=
-  flatten [seq chain_queries pp q.1 q.2.1 q.2.2
-          | q <- zip (iota st (size ds)) (zip ds us)].
-
-Lemma commit_queries_cons pp st d ds u us :
-  commit_queries pp st (d :: ds) (u :: us)
-  = chain_queries pp st d u ++ commit_queries pp st.+1 ds us.
-Proof. by []. Qed.
-
-(** Budget cap: [nqs] of any [l]-digit message fits in [p_tcr]. *)
-Lemma nqs_le (ds : seq nat) : size ds = l -> nqs ds <= p_tcr.
-Proof.
-move=> hsz.
-have hall : all (λ x, x <= w.+1) [seq nq d | d <- ds].
-  apply/allP => x /mapP[d _ ->]; rewrite /nq.
-  apply: (@leq_trans (1 + w.-1)%N).
-  - by apply: leq_add; [case: (0 < d) | exact: leq_subr].
-  - by rewrite add1n ltnS leq_pred.
-have := sumn_all_leq _ _ hall.
-by rewrite size_map hsz /p_tcr mulnSr addnC.
-Qed.
-
-(** Signature digits and public ends, generalized over the start
-    chain so the inductions go through ([sigs_of pp 0 m us] is the
-    value [sample_sig_roots] returns, [ends_of pp 0 m _] is
-    [ends_from_sig]). *)
-Definition sigs_of (pp : PP) (st : nat) (ds : seq nat) (us : seq N) : seq N :=
-  [seq sig_of_root pp q.1 q.2.1 q.2.2 | q <- zip (iota st (size ds)) (zip ds us)].
-
-Lemma size_sigs_of pp st ds us :
-  size us = size ds -> size (sigs_of pp st ds us) = size ds.
-Proof. by move=> h; rewrite size_map !size_zip size_iota h !minnn. Qed.
-
-Lemma qnth_sigs_of pp st ds us i ui :
-  size us = size ds -> i < size ds -> qnth us i = Some ui ->
-  qnth (sigs_of pp st ds us) i
-  = Some (sig_of_root pp (st + i)%N (nth 0 ds i) ui).
-Proof.
-elim: ds st us i => [|d ds IH] st us i //; case: us => [|u us] //= [hsz].
-case: i => [|i] hi hu.
-- by case: hu => <-; rewrite addn0.
-- by rewrite -addSnnS; apply: IH.
-Qed.
-
-Definition ends_of (pp : PP) (st : nat) (ds : seq nat) (sgs : seq N) : seq N :=
-  [seq chain (cf pp q.1) q.2.2 q.2.1 (w.-1 - q.2.1)
-  | q <- zip (iota st (size ds)) (zip ds sgs)].
-
-Lemma ends_of_from_sig pp (m : seq nat) (sgs : seq N) :
-  size m = l ->
-  ends_of pp 0 m sgs = ends_from_sig PP N F l w pp m sgs.
-Proof. by move=> hm; rewrite /ends_of /ends_from_sig hm. Qed.
-
-(** CHECK index of the walk target [(i, k)] in the committed order. *)
-Definition q_index (ds : seq nat) (i k : nat) : nat :=
-  nqs (take i ds) + ((0 < nth 0 ds i) + (k - nth 0 ds i)).
-
-(** Position of [(i,k)] inside one chain's queries. *)
-Lemma qnth_chain_queries pp i d u k :
-  d <= k < w.-1 ->
-  qnth (chain_queries pp i d u) ((0 < d) + (k - d))
-  = Some ((i, k), chain (cf pp i) (sig_of_root pp i d u) d (k - d)).
-Proof.
-move=> /andP[hdk hkw].
-have hdw : d < w.-1 := leq_ltn_trans hdk hkw.
-have hlt : k - d < w.-1 - d := ltn_sub2r hdw hkw.
-have hw : qnth (walkq pp i d (w.-1 - d) (sig_of_root pp i d u)) (k - d)
-          = Some ((i, k), chain (cf pp i) (sig_of_root pp i d u) d (k - d)).
-  rewrite /qnth /walkq -map_drop (drop_nth 0) ?size_iota //=.
-  by rewrite nth_iota // add0n subnK.
-by case: d hdk hdw hlt hw => [|d'] hdk hdw hlt hw; rewrite /chain_queries //=.
-Qed.
-
-(** THE bookkeeping lemma: at index [q_index ds i k] the reduction
-    committed exactly tweak [(st+i, k)] with input the honest chain
-    value at [k] (recomputed from the signature digit). *)
-Lemma qnth_commit_queries pp st ds us i k ui :
-  size us = size ds -> i < size ds -> qnth us i = Some ui ->
-  nth 0 ds i <= k < w.-1 ->
-  qnth (commit_queries pp st ds us) (q_index ds i k)
-  = Some (((st + i)%N, k),
-          chain (cf pp (st + i)%N) (sig_of_root pp (st + i)%N (nth 0 ds i) ui)
-                (nth 0 ds i) (k - nth 0 ds i)%N).
-Proof.
-elim: ds st us i => [|d ds IH] st us i //; case: us => [|u us] //= [hsz].
-case: i => [|i] hi hu hk.
-- case: hu => <-; rewrite addn0 /q_index /= add0n.
-  rewrite qnth_cat_l ?size_chain_queries; last first.
-    rewrite /nq ltn_add2l; apply: ltn_sub2r; last by case/andP: hk.
-    by apply: leq_ltn_trans (proj1 (andP hk)) (proj2 (andP hk)).
-  exact: qnth_chain_queries.
-- rewrite /q_index /= -addnA.
-  rewrite -(size_chain_queries pp st d u) qnth_cat_r.
-  by rewrite -addSnnS; apply: IH.
-Qed.
-
-(* ------------------------------------------------------------------ *)
-(** *** The forgery classifier (computable counterpart of
-    [Analysis.forgery_classify]) *)
-
-(** Decide what the reduction submits for a forgery [(mstar, sgstar)]
-    against signed message [m], stored signature [sgs] (and public
-    parameter [pp]): [Some (j, u)] means "call CHECK (j, u)" (the TCR
-    case), [None] means "the PRE case (or a branch that cannot occur
-    on a verifying forgery)" — the reduction then returns [true],
-    matching G1v's answer. *)
-Definition tcr_decision (pp : PP) (m mstar : seq nat) (sgs sgstar : seq N) :
-    option (nat * N) :=
-  match ohead [seq i <- iota 0 l | nth 0 mstar i < nth 0 m i] with
-  | Some i =>
-      match qnth sgs i, qnth sgstar i with
-      | Some si, Some si' =>
-          match chain_extract (cf pp i) si' (nth 0 mstar i) si (nth 0 m i) w.-1 with
-          | ChainColl k u _ => Some (q_index m i k, u)
-          | ChainMeet => None
-          end
-      | _, _ => None
-      end
-  | None => None
-  end.
-
-(** Specification: on a verifying fresh forgery against the G1v key,
-    a [Some (j, u)] decision points at a committed pair [(t, v)] with
-    [u != v] and [F pp t u = F pp t v] — exactly SM-TCR's CHECK win
-    condition at index [j]. *)
-Lemma tcr_decisionP (pp : PP) (m mstar : seq nat) (us sgstar : seq N) :
-  valid_msg l w tsum m -> size us = l ->
-  verify_sig PP N F l w tsum pp
-    (ends_of pp 0 m (sigs_of pp 0 m us)) mstar sgstar ->
-  mstar \notin [:: m] ->
-  match tcr_decision pp m mstar (sigs_of pp 0 m us) sgstar with
-  | Some (j, u) =>
-      exists t v,
-        [/\ qnth (commit_queries pp 0 m us) j = Some (t, v),
-            u != v & F pp t u = F pp t v]
-  | None => True
-  end.
-Proof.
-move=> hvm hus hver hnin.
-have hm : size m = l by case/and3P: hvm => /eqP.
-have hussz : size us = size m by rewrite hus hm.
-have hsgs : size (sigs_of pp 0 m us) = l by rewrite size_sigs_of // hm.
-rewrite (ends_of_from_sig pp m _ hm) in hver.
-rewrite /tcr_decision.
-case E1: (ohead _) => [i|]; last by [].
-have hifacts : i \in [seq i0 <- iota 0 l | nth 0 mstar i0 < nth 0 m i0].
-  by case: (filter _ _) E1 => //= a s [<-]; rewrite in_cons eqxx.
-move: hifacts; rewrite mem_filter mem_iota /= add0n => /andP[hlt hil].
-case E2: (qnth (sigs_of pp 0 m us) i) => [si|]; last by [].
-case E3: (qnth sgstar i) => [si'|]; last by [].
-have hdw : nth 0 m i < w := valid_msg_digit _ _ _ _ _ hvm hil.
-have hends := size_ends_from_sig PP N F l w pp m _ hm hsgs.
-have h1 := verify_sig_nth PP N F l w tsum pp _ mstar sgstar si' i hver hends hil.
-rewrite (ends_from_sig_nth PP N F l w pp m _ si' i hm hsgs hil) in h1.
-rewrite (qnth_nth si' _ _ _ E3) (qnth_nth si' _ _ _ E2) in h1.
-have := forgery_cases PP N F w pp i (nth 0 m i) si (nth 0 mstar i) si' hlt hdw h1.
-case E4: (chain_extract _ _ _ _ _ _) => [k u v|]; last by [].
-move=> [hk hv hne hcol].
-have hilm : i < size m by rewrite hm.
-have [ui hui] : exists ui, qnth us i = Some ui.
-  by apply: qnth_some; rewrite hus.
-have hsig : sig_of_root pp i (nth 0 m i) ui = si.
-  have h2 := qnth_sigs_of pp 0 m us i ui hussz hilm hui.
-  rewrite add0n E2 in h2.
-  by case: h2 => ->.
-exists (i, k), v; split.
-- have h2 := qnth_commit_queries pp 0 m us i k ui hussz hilm hui hk.
-  by rewrite add0n hsig -hv in h2.
-- exact: hne.
-- exact: hcol.
-Qed.
+(** The shared bookkeeping layer of [Sec.lib.chain.core] at this
+    instance's parameters. *)
+Local Notation sig_of_root := (Sec.lib.chain.core.sig_of_root PP N F).
+Local Notation walkq := (Sec.lib.chain.core.walkq PP N F).
+Local Notation chain_queries := (Sec.lib.chain.core.chain_queries PP N F w).
+Local Notation commit_queries := (Sec.lib.chain.core.commit_queries PP N F w).
+Local Notation chain_query_count := (Sec.lib.chain.core.chain_query_count w).
+Local Notation total_query_count := (Sec.lib.chain.core.total_query_count w).
+Local Notation sigs_of := (Sec.lib.chain.core.sigs_of PP N F).
+Local Notation ends_of := (Sec.lib.chain.core.ends_of PP N F w).
+Local Notation q_index := (Sec.lib.chain.core.q_index w).
+Local Notation tcr_decision := (Sec.lib.chain.core.tcr_decision PP N F l w).
 
 (* ------------------------------------------------------------------ *)
 (** *** The reduction package *)
@@ -806,7 +248,7 @@ Definition R_tcr : package (I_SMTCR TT CC) (I_KOTS FS) :=
     rewrites [resolve_set]/[coerce_kleisliE] normalize the package
     lookup). *)
 
-Local Notation SMB b := (SMTCR_game TT CC p_tcr b).
+Local Notation SMB b := (SMTCR_game TT CC (tcr_budget l w) b).
 Local Notation SMR := (SMB true).
 
 (* The TQUERY/GETPP bodies do not depend on the real/ideal flag, so
@@ -821,7 +263,7 @@ Lemma resolve_tq (t : nat * nat) (x : N) :
   (revealed ← get rev_loc' ;;
    #assert ~~ revealed ;;
    tws ← get tws_loc' ;;
-   #assert (size tws < p_tcr)%N ;;
+   #assert (size tws < (tcr_budget l w))%N ;;
    #assert (t \notin tws) ;;
    tgts ← get tgts_loc' ;;
    #put tgts_loc' := setm tgts (size tws) (t, x) ;;
@@ -948,7 +390,7 @@ Lemma r_tquery_known {B : choiceType} (Φ : precond) (pp : PP)
     (t : nat * nat) (x : N) (Q : seq qentry)
     (c0 : raw_code B) (k1 : N -> raw_code B) (post : postcond B B) :
   phi_stable Φ ->
-  size Q < p_tcr ->
+  size Q < (tcr_budget l w) ->
   t \notin unzip1 Q ->
   ⊢ ⦃ λ '(s0, s1), blk_pre Φ (Some pp) (rcons Q (t, x)) (s0, s1) ⦄
      c0 ≈ k1 (F pp t x) ⦃ post ⦄ ->
@@ -987,7 +429,7 @@ Lemma r_tquery_first {B : choiceType} (Φ : precond)
     (t : nat * nat) (x : N) (Q : seq qentry)
     (k0 : PP -> raw_code B) (k1 : N -> raw_code B) (post : postcond B B) :
   phi_stable Φ ->
-  size Q < p_tcr ->
+  size Q < (tcr_budget l w) ->
   t \notin unzip1 Q ->
   (forall pp,
      ⊢ ⦃ λ '(s0, s1), blk_pre Φ (Some pp) (rcons Q (t, x)) (s0, s1) ⦄
@@ -1044,8 +486,8 @@ Lemma r_walk_spec {B : choiceType} (Φ : precond) (pp : PP)
   forall n i k (x : N) (Q : seq qentry) (c0 : raw_code B)
          (k1 : N -> raw_code B),
   phi_stable Φ ->
-  (size Q + n <= p_tcr)%N ->
-  all (tlt i k) (unzip1 Q) ->
+  (size Q + n <= (tcr_budget l w))%N ->
+  all (tweak_lt i k) (unzip1 Q) ->
   ⊢ ⦃ λ '(s0, s1), blk_pre Φ (Some pp) (Q ++ walkq pp i k n x) (s0, s1) ⦄
      c0 ≈ k1 (chain (cf pp i) x k n) ⦃ post ⦄ ->
   ⊢ ⦃ λ '(s0, s1), blk_pre Φ (Some pp) Q (s0, s1) ⦄
@@ -1060,7 +502,7 @@ elim=> [|n IH] i k x Q c0 k1 hΦ hbud hfresh h.
   + apply: IH => //.
     * by rewrite size_rcons addSnnS.
     * rewrite /unzip1 map_rcons all_rcons; apply/andP; split.
-      -- by rewrite /tlt /= ltnn eqxx ltnSn.
+      -- by rewrite /tweak_lt /= ltnn eqxx ltnSn.
       -- exact: all_tlt_widen hfresh.
     * by move: h; rewrite walkq_cons cat_rcons.
 Qed.
@@ -1073,7 +515,7 @@ Lemma r_chains_spec {B : choiceType} (Φ : precond) (pp : PP)
   forall ds st (Q : seq qentry) (K0 : chList N -> raw_code B)
          (K1 : chList N * chList N -> raw_code B),
   phi_stable Φ ->
-  (size Q + nqs ds <= p_tcr)%N ->
+  (size Q + total_query_count ds <= (tcr_budget l w))%N ->
   all (λ t : nat * nat, t.1 < st) (unzip1 Q) ->
   (forall us, size us = size ds ->
      ⊢ ⦃ λ '(s0, s1), blk_pre Φ (Some pp)
@@ -1098,14 +540,14 @@ elim=> [|d ds IH] st Q K0 K1 hΦ hbud hfresh h.
     rewrite code_link_bind bind_assoc.
     eapply (r_walk_spec Φ pp post (w.-1 - 0) st 0 u Q) => //.
     * apply: leq_trans hbud.
-      by rewrite leq_add2l /nqs /= /nq /= leq_addr.
+      by rewrite leq_add2l /total_query_count /= /chain_query_count /= leq_addr.
     * exact: all_lt_tlt.
     * rewrite (code_link_bind (r_chains st.+1 ds)) bind_assoc.
       eapply IH => //.
       -- by rewrite size_cat size_walkq -addnA.
       -- rewrite unzip1_cat all_cat; apply/andP; split.
          ++ by apply: sub_all hfresh => t /= /ltnW; rewrite ltnS.
-         ++ apply: sub_all (walkq_tweak1 pp st 0 _ u) => t /= /eqP ->.
+         ++ apply: sub_all (walkq_tweak1 PP N F pp st 0 _ u) => t /= /eqP ->.
             exact: ltnSn.
       -- move=> us hus.
          move: (h (u :: us)); rewrite /= hus => /(_ erefl).
@@ -1122,18 +564,18 @@ elim=> [|d ds IH] st Q K0 K1 hΦ hbud hfresh h.
       eapply (r_walk_spec Φ pp post (w.-1 - d'.+1) st d'.+1
                 (F pp (st, d') u) (rcons Q ((st, d'), u))) => //.
       -- rewrite size_rcons addSnnS; apply: leq_trans hbud.
-         by rewrite leq_add2l /nqs /= /nq /= add1n addSn ltnS leq_addr.
+         by rewrite leq_add2l /total_query_count /= /chain_query_count /= add1n addSn ltnS leq_addr.
       -- rewrite /unzip1 map_rcons all_rcons; apply/andP; split.
-         ++ by rewrite /tlt /= ltnn eqxx ltnSn.
+         ++ by rewrite /tweak_lt /= ltnn eqxx ltnSn.
          ++ exact: all_lt_tlt.
       -- rewrite /= (code_link_bind (r_chains st.+1 ds)) bind_assoc.
          eapply IH => //.
          ++ rewrite size_cat size_rcons size_walkq.
             apply: leq_trans hbud.
-            by rewrite addSnnS -addnA leq_add2l /nqs /= /nq /= add1n.
+            by rewrite addSnnS -addnA leq_add2l /total_query_count /= /chain_query_count /= add1n.
          ++ rewrite unzip1_cat all_cat /unzip1 map_rcons all_rcons.
             apply/andP; split; last first.
-            ** apply: sub_all (walkq_tweak1 pp st d'.+1 _ _) => t /= /eqP ->.
+            ** apply: sub_all (walkq_tweak1 PP N F pp st d'.+1 _ _) => t /= /eqP ->.
                exact: ltnSn.
             ** apply/andP; split; first by rewrite /= ltnSn.
                by apply: sub_all hfresh => t /= /ltnW; rewrite ltnS.
@@ -1299,7 +741,7 @@ case: hpre2 => s1e [hpre3 ->].
 case: hpre3 => s0c [hpre4 ->].
 case: hpre4 => s0d [hfin ->].
 case: hfin => hign hpp hrev htws htgts.
-split; first by rewrite (ends_of_from_sig pp m _ hm).
+split; first by rewrite (ends_of_from_sig PP N F l w pp m _ hm).
 apply: tcr_invI.
 - apply: heap_ignore_set_l; first by rewrite mem_domm.
   apply: heap_ignore_set_l; first by rewrite mem_domm.
@@ -1309,10 +751,10 @@ apply: tcr_invI.
   exact: hign.
 - get_heap_simpl.
   rewrite hpp hrev htws htgts.
-  split; first by rewrite (ends_of_from_sig pp m _ hm).
+  split; first by rewrite (ends_of_from_sig PP N F l w pp m _ hm).
   + by [].
   + exists m, us; split=> //.
-    by split=> //=; rewrite (ends_of_from_sig pp m _ hm).
+    by split=> //=; rewrite (ends_of_from_sig PP N F l w pp m _ hm).
 Qed.
 
 (* ------------------------------------------------------------------ *)
@@ -1320,7 +762,7 @@ Qed.
 
 Lemma R_tcr_real (hl : 0 < l) (hw : 1 < w) :
   perfect (I_KOTS FS) (G1v PP N F dPP dN l w tsum true)
-          (R_tcr ∘ SMTCR_game TT CC p_tcr true).
+          (R_tcr ∘ SMTCR_game TT CC (tcr_budget l w) true).
 Proof.
 ssprove_share. eapply prove_perfect.
 eapply (eq_rel_perf_ind _ _ tcr_inv).
@@ -1377,23 +819,23 @@ simplify_eq_rel arg.
     rewrite bind_assoc.
     eapply (r_tquery_first true) => //.
     { exact: phi_stable_ign. }
-    { by rewrite /p_tcr addn_gt0 hl. }
+    { by rewrite /tcr_budget addn_gt0 hl. }
     move=> pp.
     rewrite bind_assoc.
     rewrite (code_link_bind (r_walk 0 1 w.-2 (F pp (0, 0) u))) bind_assoc.
     eapply (r_walk_spec true (heap_ignore IGN) pp _ w.-2 0 1
               (F pp (0, 0) u) (rcons [::] ((0, 0), u))) => //.
     { exact: phi_stable_ign. }
-    { apply: leq_trans (nqs_le _ hm).
-      by rewrite size_rcons add1n -hw1 /nqs /= /nq /= add0n leq_addr. }
+    { apply: leq_trans (nqs_le l w _ hm).
+      by rewrite size_rcons add1n -hw1 /total_query_count /= /chain_query_count /= add0n leq_addr. }
     rewrite /= (code_link_bind (r_chains 1 m')) bind_assoc.
     eapply (r_chains_spec true (heap_ignore IGN) pp _ m' 1) => //.
     { exact: phi_stable_ign. }
-    { apply: leq_trans (nqs_le _ hm).
-      rewrite /= size_walkq /nqs /= /nq /= hw1.
+    { apply: leq_trans (nqs_le l w _ hm).
+      rewrite /= size_walkq /total_query_count /= /chain_query_count /= hw1.
       exact: leqnn. }
     { rewrite /=.
-      by apply: sub_all (walkq_tweak1 pp 0 1 _ _) => t /= /eqP ->. }
+      by apply: sub_all (walkq_tweak1 PP N F pp 0 1 _ _) => t /= /eqP ->. }
     move=> us' hus'.
     have eQ : (((0, 0), u) :: walkq pp 0 1 w.-2 (F pp (0, 0) u))
                 ++ commit_queries pp 1 m' us'
@@ -1411,7 +853,7 @@ simplify_eq_rel arg.
     rewrite bind_assoc.
     eapply (r_tquery_first true) => //.
     { exact: phi_stable_ign. }
-    { by rewrite /p_tcr addn_gt0 hl. }
+    { by rewrite /tcr_budget addn_gt0 hl. }
     move=> pp.
     rewrite /= bind_assoc.
     rewrite (code_link_bind (r_walk 0 d''.+1 (w.-1 - d''.+1)
@@ -1419,17 +861,17 @@ simplify_eq_rel arg.
     eapply (r_walk_spec true (heap_ignore IGN) pp _ (w.-1 - d''.+1) 0 d''.+1
               (F pp (0, d'') u) (rcons [::] ((0, d''), u))) => //.
     { exact: phi_stable_ign. }
-    { apply: leq_trans (nqs_le _ hm).
-      by rewrite size_rcons add1n /nqs /= /nq /= add1n leq_addr. }
-    { by rewrite /tlt /= ltnSn. }
+    { apply: leq_trans (nqs_le l w _ hm).
+      by rewrite size_rcons add1n /total_query_count /= /chain_query_count /= add1n leq_addr. }
+    { by rewrite /tweak_lt /= ltnSn. }
     rewrite /= (code_link_bind (r_chains 1 m')) bind_assoc.
     eapply (r_chains_spec true (heap_ignore IGN) pp _ m' 1) => //.
     { exact: phi_stable_ign. }
-    { apply: leq_trans (nqs_le _ hm).
-      rewrite /= size_walkq /nqs /= /nq /=.
+    { apply: leq_trans (nqs_le l w _ hm).
+      rewrite /= size_walkq /total_query_count /= /chain_query_count /=.
       exact: leqnn. }
     { rewrite /=.
-      by apply: sub_all (walkq_tweak1 pp 0 d''.+1 _ _) => t /= /eqP ->. }
+      by apply: sub_all (walkq_tweak1 PP N F pp 0 d''.+1 _ _) => t /= /eqP ->. }
     move=> us' hus'.
     eapply (r_commit_final pp (d''.+1 :: m') (u :: us')) => //.
     by rewrite /= hus'; move: hm => /= ->.
@@ -1507,7 +949,7 @@ simplify_eq_rel arg.
           - by rewrite -h5.
           - by rewrite -h6. }
       move=> [us [husz hsgs htg]].
-      have hwin := tcr_decisionP pk.1 m mst us sgst hvm husz.
+      have hwin := tcr_decisionP PP N F l w tsum pk.1 m mst us sgst hvm husz.
       rewrite -hsgs in hwin.
       move: hwin; rewrite -hpk2 => /(_ hver hfresh).
       rewrite E1 => -[t0 [v0 [hget hne hcol]]].
@@ -1657,7 +1099,7 @@ case: hpre3 => s0c [hpre4 ->].
 case: hpre4 => s0d [hpre5 ->].
 case: hpre5 => s0e [hfin ->].
 case: hfin => hign hpp hrev htws htgts.
-split; first by rewrite (ends_of_from_sig pp m _ hm).
+split; first by rewrite (ends_of_from_sig PP N F l w pp m _ hm).
 apply: tcr_inv2I.
 - apply: heap_ignore_set_l; first by rewrite mem_domm.
   apply: heap_ignore_set_l; first by rewrite mem_domm.
@@ -1669,16 +1111,16 @@ apply: tcr_inv2I.
 - get_heap_simpl.
   rewrite hpp hrev htws htgts.
   split; last by [].
-  split; first by rewrite (ends_of_from_sig pp m _ hm).
+  split; first by rewrite (ends_of_from_sig PP N F l w pp m _ hm).
   + by [].
   + exists m, us; split=> //.
-    by split=> //=; rewrite (ends_of_from_sig pp m _ hm).
+    by split=> //=; rewrite (ends_of_from_sig PP N F l w pp m _ hm).
 Qed.
 
 (** THE ideal-side equivalence: Gmid against the reduction linked
     with the ideal SM-TCR game. *)
 Lemma R_tcr_ideal (hl : 0 < l) (hw : 1 < w) :
-  perfect (I_KOTS FS) Gmid (R_tcr ∘ SMTCR_game TT CC p_tcr false).
+  perfect (I_KOTS FS) Gmid (R_tcr ∘ SMTCR_game TT CC (tcr_budget l w) false).
 Proof.
 ssprove_share. eapply prove_perfect.
 eapply (eq_rel_perf_ind _ _ tcr_inv2).
@@ -1733,23 +1175,23 @@ simplify_eq_rel arg.
     rewrite bind_assoc.
     eapply (r_tquery_first false) => //.
     { exact: phi_stable_ign2. }
-    { by rewrite /p_tcr addn_gt0 hl. }
+    { by rewrite /tcr_budget addn_gt0 hl. }
     move=> pp.
     rewrite bind_assoc.
     rewrite (code_link_bind (r_walk 0 1 w.-2 (F pp (0, 0) u))) bind_assoc.
     eapply (r_walk_spec false (heap_ignore IGN2) pp _ w.-2 0 1
               (F pp (0, 0) u) (rcons [::] ((0, 0), u))) => //.
     { exact: phi_stable_ign2. }
-    { apply: leq_trans (nqs_le _ hm).
-      by rewrite size_rcons add1n -hw1 /nqs /= /nq /= add0n leq_addr. }
+    { apply: leq_trans (nqs_le l w _ hm).
+      by rewrite size_rcons add1n -hw1 /total_query_count /= /chain_query_count /= add0n leq_addr. }
     rewrite /= (code_link_bind (r_chains 1 m')) bind_assoc.
     eapply (r_chains_spec false (heap_ignore IGN2) pp _ m' 1) => //.
     { exact: phi_stable_ign2. }
-    { apply: leq_trans (nqs_le _ hm).
-      rewrite /= size_walkq /nqs /= /nq /= hw1.
+    { apply: leq_trans (nqs_le l w _ hm).
+      rewrite /= size_walkq /total_query_count /= /chain_query_count /= hw1.
       exact: leqnn. }
     { rewrite /=.
-      by apply: sub_all (walkq_tweak1 pp 0 1 _ _) => t /= /eqP ->. }
+      by apply: sub_all (walkq_tweak1 PP N F pp 0 1 _ _) => t /= /eqP ->. }
     move=> us' hus'.
     have eQ : (((0, 0), u) :: walkq pp 0 1 w.-2 (F pp (0, 0) u))
                 ++ commit_queries pp 1 m' us'
@@ -1767,7 +1209,7 @@ simplify_eq_rel arg.
     rewrite bind_assoc.
     eapply (r_tquery_first false) => //.
     { exact: phi_stable_ign2. }
-    { by rewrite /p_tcr addn_gt0 hl. }
+    { by rewrite /tcr_budget addn_gt0 hl. }
     move=> pp.
     rewrite /= bind_assoc.
     rewrite (code_link_bind (r_walk 0 d''.+1 (w.-1 - d''.+1)
@@ -1775,17 +1217,17 @@ simplify_eq_rel arg.
     eapply (r_walk_spec false (heap_ignore IGN2) pp _ (w.-1 - d''.+1) 0
               d''.+1 (F pp (0, d'') u) (rcons [::] ((0, d''), u))) => //.
     { exact: phi_stable_ign2. }
-    { apply: leq_trans (nqs_le _ hm).
-      by rewrite size_rcons add1n /nqs /= /nq /= add1n leq_addr. }
-    { by rewrite /tlt /= ltnSn. }
+    { apply: leq_trans (nqs_le l w _ hm).
+      by rewrite size_rcons add1n /total_query_count /= /chain_query_count /= add1n leq_addr. }
+    { by rewrite /tweak_lt /= ltnSn. }
     rewrite /= (code_link_bind (r_chains 1 m')) bind_assoc.
     eapply (r_chains_spec false (heap_ignore IGN2) pp _ m' 1) => //.
     { exact: phi_stable_ign2. }
-    { apply: leq_trans (nqs_le _ hm).
-      rewrite /= size_walkq /nqs /= /nq /=.
+    { apply: leq_trans (nqs_le l w _ hm).
+      rewrite /= size_walkq /total_query_count /= /chain_query_count /=.
       exact: leqnn. }
     { rewrite /=.
-      by apply: sub_all (walkq_tweak1 pp 0 d''.+1 _ _) => t /= /eqP ->. }
+      by apply: sub_all (walkq_tweak1 PP N F pp 0 d''.+1 _ _) => t /= /eqP ->. }
     move=> us' hus'.
     eapply (r_commit_final2 pp (d''.+1 :: m') (u :: us')) => //.
     by rewrite /= hus'; move: hm => /= ->.
