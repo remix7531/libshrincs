@@ -49,7 +49,6 @@ From HBS Require Import prelude math.bin_tree math.merkle math.chain math.encodi
 From HBS Require Import wots.scheme wots.games
   wots.analysis wots.tcr_hop wots.pre_hop.
 From SHRINCS Require Import addressing wotsc.scheme wotsc.games wotsc.analysis
-  wotsc.zero_games wotsc.zero_chain_hop
   fxmss.scheme fxmss.games fxmss.late_games fxmss.tree_hop
   fxmss.leaf_reduction fxmss.leaf_km fxmss.leaf2_common fxmss.leaf2_games.
 From Stdlib Require Import ZArith.

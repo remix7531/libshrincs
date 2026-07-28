@@ -46,6 +46,10 @@ All physical and logical path segments below the roots use snake_case.
 FXMSS-specific construction identifiers use the `shrincs_fxmss_` prefix;
 paper game and reduction names retain their notation.
 
+`wotsc/{grind_hop,compress_hop,chain_hop,zero_chain_hop,zero_games}.v` were
+deleted as dead code at commit `4c47aea`; they were the closest worked
+example of a single-anchor hop stack and can be recovered from git history.
+
 ## Building and trust audit
 
 From the repository root:
