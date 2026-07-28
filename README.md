@@ -9,6 +9,10 @@ Two independent, machine-checked proofs over one shared model (`proof/model/`):
 - **`proof/vst/`**: the C in `src/` is functionally correct (Rocq 9.0 + VST/CompCert).
 - **`proof/ssprove/`**: the scheme is one-time known-message unforgeable (the valid-commit experiment `KOTS_vc_game`), reduced to standard hash assumptions (Rocq + SSProve/MathComp), and provably computes the same thing as the model the C is verified against.
 
+An additional abstract proof in **`proof/fxmss/`** establishes EU-CMA security
+of the multi-leaf FXMSS construction.  It is compiled and audited here, but is
+not yet an end-to-end refinement of the C or `Model.wots`.
+
 ## Build & verify
 
 ```sh
@@ -19,7 +23,13 @@ make audit       # proofs + the honesty gate; ends with the TRUST SURFACE table
 make check       # everything: static analysis, sanitizers, CompCert, ctgrind, proofs
 ```
 
-`make audit` is the claim of this repository: no admitted goals, and every assumption both proofs rest on enumerated in one table, namely the SHA-256 function itself, its trusted C funspec, and 6 named hash-game axioms (declared in [`proof/ssprove/axioms.v`](proof/ssprove/axioms.v), allowlisted in [`proof/assumptions/allowed.txt`](proof/assumptions/allowed.txt)).
+`make audit` is the claim of this repository: no admitted goals, and every
+assumption the proof trees rest on enumerated in one table.  The WOTS+C trust
+surface consists of the SHA-256 function itself, its trusted C funspec, and 6
+named hash-game axioms (declared in
+[`proof/ssprove/axioms.v`](proof/ssprove/axioms.v), allowlisted in
+[`proof/assumptions/allowed.txt`](proof/assumptions/allowed.txt)); FXMSS adds no
+project-local assumption beyond the existing SSProve classical baseline.
 
 ## Layout
 
@@ -29,6 +39,7 @@ test/               C tests, KAT vectors, ctgrind harness
 proof/model/        the shared neutral model (both proofs' common ground)
 proof/vst/          functional correctness of the C
 proof/ssprove/      one-time security of the scheme
+proof/fxmss/        abstract multi-leaf FXMSS EU-CMA security
 proof/assumptions/  the honesty gate: per-tree probes + one allowlist
 proof/STYLE.md      the proof style guide
 ```

@@ -2,8 +2,8 @@
 # libshrincs proof build.
 #
 # This Makefile owns everything under proof/: clightgen extraction, the
-# generated Rocq Makefile.coq, and both proof trees (VST + SSProve) plus
-# the combined honesty gate. It is invoked from the repo root via
+# generated Rocq Makefile.coq, the VST, SSProve, and FXMSS proof trees,
+# plus the combined honesty gate. It is invoked from the repo root via
 # `make -C proof <target>`; the root Makefile's extract/vst-prove/
 # ssprove-prove/prove/audit targets simply route here, so `make audit`
 # etc. from the repo root behave exactly as before the proof build moved.
@@ -13,6 +13,7 @@ NPROC := $(shell nproc)
 
 VST_DIR     = vst
 SSPROVE_DIR = ssprove
+FXMSS_DIR   = fxmss
 AUDIT_DIR   = assumptions
 MODEL_DIR   = model
 
@@ -26,10 +27,11 @@ else
   SUCCESS = printf '✓ %s\n'
 endif
 
-# The two trees' .vo targets, derived from _RocqProject so they never drift
-# out of sync with the file listing.
+# The proof trees' .vo targets, derived from _RocqProject so they never drift
+# out of sync with the file listing.  FXMSS uses SSProve and is therefore
+# built by the public ssprove-prove target.
 VST_VOFILES     := $(shell grep -E '^$(VST_DIR)/.*\.v$$' _RocqProject | sed 's/\.v$$/.vo/')
-SSPROVE_VOFILES := $(shell grep -E '^$(SSPROVE_DIR)/.*\.v$$' _RocqProject | sed 's/\.v$$/.vo/')
+SSPROVE_VOFILES := $(shell grep -E '^($(SSPROVE_DIR)|$(FXMSS_DIR))/.*\.v$$' _RocqProject | sed 's/\.v$$/.vo/')
 
 .PHONY: extract vst-prove ssprove-prove prove audit clean
 
@@ -71,11 +73,11 @@ prove: Makefile.coq extract
 	@$(MAKE) -j $(NPROC) --no-print-directory -f Makefile.coq
 	@$(SUCCESS) "All Verifications Succeeded"
 
-# `make audit` is the combined honesty gate for all three proof trees
-# (model, ssprove, vst): it forces the vst + ssprove trees to actually
+# `make audit` is the combined honesty gate for all four proof trees
+# (model, ssprove, fxmss, vst): it forces vst, ssprove, and fxmss to actually
 # compile (not just grep their source text; the model tree is built as
 # their shared dependency), then runs the single, parameterized combined
-# gate (assumptions/check.sh) covering all three trees' build-freshness,
+# gate (assumptions/check.sh) covering all four trees' build-freshness,
 # proof-gap, axiom/parameter/hypothesis, and Print-Assumptions checks --
 # see check.sh's header comment for the full gate-by-gate rationale and
 # per-tree scoping.
