@@ -94,15 +94,19 @@ prove: Makefile.coq extract
 # see check.sh's header comment for the full gate-by-gate rationale and
 # per-tree scoping.
 #
-# The second recipe line builds model/correct/wots.vo explicitly:
-# assumptions/model.v (the MODEL tree's probe) probes
-# Model.correct.wots.wots_correct, but model/correct/wots.v (the shared pure-model
-# correctness theorem) is in neither compiled tree's .vo list and nothing
-# in either tree Requires it, so a from-scratch `make audit` would
-# otherwise fail check.sh's model-side coqc step (and its model gate 0)
-# unless a prior `make prove` (full build) had left the .vo behind.
+# The second recipe line builds two model .vo files explicitly, because
+# neither is in any compiled tree's .vo list and nothing in any tree
+# Requires them, so a from-scratch `make audit` would otherwise fail
+# check.sh's model gate 0 unless a prior `make prove` had left them
+# behind:
+#   model/correct/wots.vo  -- assumptions/model.v (the MODEL tree's probe)
+#     probes Model.correct.wots.wots_correct, so check.sh's model-side
+#     coqc step needs it too.
+#   model/shrincs.vo       -- the port of the normative Python spec
+#     (model/PORTING.md); additive until the VST and SSProve bridges
+#     re-anchor on it.
 audit: vst-prove ssprove-prove fxmss-prove
-	@$(MAKE) -j $(NPROC) --no-print-directory -f Makefile.coq model/correct/wots.vo
+	@$(MAKE) -j $(NPROC) --no-print-directory -f Makefile.coq model/correct/wots.vo model/shrincs.vo
 	@$(BANNER) "combined honesty gate (model + ssprove + fxmss + vst)"
 	@bash $(AUDIT_DIR)/check.sh
 	@$(SUCCESS) "Audit: all proofs green, trust surface unchanged"

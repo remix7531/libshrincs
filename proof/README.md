@@ -10,7 +10,9 @@ connected to the C/model refinement.
 model/         the shared model: Model.wots (the scheme), Model.address,
                machine integers, the pure math island (model/math/),
                supporting theory (model/theory/), and the end-to-end
-               correctness theorem (model/correct/wots.v)
+               correctness theorem (model/correct/wots.v); plus
+               Model.shrincs, the definition-for-definition port of the
+               normative Python spec (conventions in model/PORTING.md)
 vst/           semax_body proofs relating every shrincs_wots_* C function
                to Model.wots (see vst/README.md)
 ssprove/       the security games, hops, and headline theorems
@@ -97,7 +99,9 @@ them. Each is a *deliberate* state of the tree, not an oversight.
   headline, which is stated over the games; both are needed before the FXMSS
   tree can be anchored to the C the way the native tree is.
 - **Upstream spec bug (to be reported).** `shrincs.py:1245-1249`: at depth 0 the
-  UXMSS `leaf_select` returns `(1, 254)` instead of `None`. The formalization
-  follows the intended behaviour (`None`), not the code as written; the two
-  agree at every depth the spec's own parameter sets reach, so this is a latent
-  bug rather than a live one.
+  UXMSS `leaf_select` returns `(1, 254)` instead of `None`. The two
+  formalizations deliberately disagree here: `Model.fxmss.fxmss_leaf_select`
+  follows the *intended* behaviour (`None`), while `Model.shrincs`, being a
+  transcription of the spec, reproduces the bug (`Some (1, 254)`) with a
+  comment at the site. They agree at every depth the spec's own parameter sets
+  reach, so this is a latent bug rather than a live one.

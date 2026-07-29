@@ -29,6 +29,10 @@ model/theory/address.v
 model/theory/wots.v
 model/theory/fxmss.v
 model/correct/wots.v
+# The port of the normative Python spec (see model/PORTING.md).  Additive
+# for now: nothing Requires it yet.  It replaces Model.wots / Model.fxmss
+# once the VST and SSProve bridges re-anchor on it.
+model/shrincs.v
 
 vst/clight/sha256.v
 vst/clight/wots.v
