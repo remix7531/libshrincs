@@ -63,7 +63,7 @@ example of a single-anchor hop stack and can be recovered from git history.
 From the repository root:
 
 ```sh
-make fxmss-prove   # builds just this tree, no clightgen / no VST tree
+make fxmss-prove   # builds just this tree (a cold run also generates Makefile.coq, which needs clightgen once)
 make prove         # all four trees (model + ssprove + fxmss + vst)
 make audit
 ```
