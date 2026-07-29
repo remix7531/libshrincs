@@ -7,6 +7,14 @@ list of places where that is not literally possible, one row per Python
 construct, so a reviewer holding the two files side by side never has to
 guess whether a difference is deliberate.
 
+The port is **complete**: all 50 of the spec's functions, in the spec's
+order, under the spec's own section headings. The spec uses no classes, no
+dataclasses, no dicts, no sets, no comprehensions with `if`, no string
+formatting, no exceptions other than bare `assert`/`raise`, and no library
+beyond `math.ceil`/`math.floor`, `hashlib.sha256` and `typing.Optional` —
+so the construct table below is exhaustive for this spec, not merely for
+the part that happened to be ported first.
+
 Two rules govern everything below:
 
 1. **Definitions only.** No lemmas, no dependent types, no invariants
@@ -26,8 +34,9 @@ Two rules govern everything below:
 |---|---|---|
 | `bytes`, `bytearray` | `Notation bytes := (list byte)`, with `byte = Model.byte.byte` | one representation for both. `Model.byte.byte` is the repo's existing 8-bit modular integer (`machine.Byte.int`), which is what `Model.sha256.SHA256` already consumes and produces — using anything else would need a conversion at every hash call. `byte_val : byte >-> Z` is a coercion, so `x[j]` reads as an integer without ceremony. |
 | `int` | `Z` | Python ints are unbounded and signed (`state_ctr` is explicitly allowed to be negative), which is exactly `Z`. `nat` would be wrong for `state_ctr` and unusable for literals like `2^61 - 1` (`lia` cannot see through `nat`'s abstract-large-number notation — see `model/bounded.v`'s header). |
-| `Optional[X]` | `option X` | direct. |
-| `tuple[A, B]` | `A * B` | direct; `(a, b)` on both sides. |
+| `Optional[X]` | `option X` | direct, in both directions: as a return type (`wots_c_map_digest`) and as a parameter (`slh_dsa_sign`'s `opt_rand`, matched with `match ... with None => ... end`). |
+| `tuple[A, B]`, `tuple[A, B, C]` | `A * B`, `A * B * C` | direct; `(a, b, c)` on both sides. Destructuring assignment (`a, b, c = f(...)`) is `let '(a, b, c) := f ... in`. |
+| `b""` | `[]` | the empty byte string; `sig += x` on an accumulator is `sig ++ x`. |
 | `list[int]` | `list Z` | direct. |
 | `list[bytes]` | `list bytes` | direct. |
 | `bool` | `bool` | `bool`, not `Prop`: the spec's conditions are decidable tests and are used as such. `Bool` is imported so `&&` / `\|\|` / `negb` resolve under an open `Z_scope`. |
@@ -41,6 +50,8 @@ functions. They are the "Python-to-Gallina plumbing" section at the top of
 | Python | Gallina | notes |
 |---|---|---|
 | `x[i]` | `index x i : Z` | Python raises `IndexError` out of range; `index` reads `0`. |
+| `l[i]` at a `list[int]` | `index_int l i : Z` | the `base_2b` index vectors. Same out-of-range convention. |
+| `x == y` at byte strings | `bytes_eqb x y : bool` | `list_eq_dec byte_eq_dec`. |
 | `x[i:j]` | `slice x i j` | out-of-range endpoints clip, as Python's own slicing does. `x[:k]` is `slice x 0 k`. |
 | `x[i:j] = v` | `set_slice x i j v` | a functional update that keeps the Python slice indices verbatim: `firstn i x ++ v ++ skipn j x`. Every slice assignment in the spec has `len v = j - i` (Python would otherwise resize the bytearray); at other lengths `set_slice` splices, Python resizes. |
 | `x[i] = v` | `set_index x i v` | `set_slice x i (i+1) [byte_mod256 v]`. Python raises `ValueError` outside `[0,256)`; `byte_mod256` truncates. |
@@ -67,6 +78,9 @@ truncating pair, are the wrong ones).
 | `floor(a / b)` (nonneg ints) | `a / b` |
 | `ceil(a / b)` (nonneg ints) | `(a + b - 1) / b` |
 | `a == b`, `a < b`, `a <= b`, `a > b`, `a >= b` | `a =? b`, `a <? b`, `a <=? b`, `a >? b`, `a >=? b` |
+| `a <= b <= c` (chained) | `(a <=? b) && (b <=? c)` |
+| `min(a, b)` | `Z.min a b` |
+| `0x36`, `0xFF` | `0x36`, `0xFF` — Rocq accepts hex `Z` literals, so the spec's spelling survives |
 
 `floor` / `ceil` appear only in the derived-constants block, applied to
 float division of nonnegative integer literals, so the rewrite above is
@@ -89,7 +103,9 @@ are the only two shapes.
 | `for ...: ... return e` (early exit) | `Fixpoint <name>_loop (<quantity> : nat) ...` | **shape 2**, used only when the spec returns out of the middle of the loop and the *first* hit is the point of the function. The recursion is structural on the quantity the loop decrements, and the parameter is **named after that quantity** — never `fuel`. `wots_c_grind_to_constant_sum_loop`'s is `remaining`: the number of counters left in the spec's own `range(2**16)` span. |
 | `while c: ...` | shape 2, on the quantity `c` measures | the only one is `base_2b`'s inner `while bits_filled < b`. Each iteration adds exactly 8 bits, so `ceil((b - bits_filled) / 8)` is the loop's *exact remaining trip count*, not an upper bound; the parameter is `bytes_to_read` and the caller recomputes it from its own `bits_filled` on entry. |
 | a recursive function on a height | shape 2, on the height itself | `fxmss_node_loop (node_height : nat)`, structural on `node_height` because that is what the spec decrements (`child_height = node_height - 1`). It is the *same* `node_height` the spec passes, at `nat` rather than `Z`; `fxmss_node` converts once on the way in, so there is no second copy to keep in sync. Reaching `O` in a non-leaf branch is exactly where the spec's recursion runs away. |
-| early `return` | a nested `if ... then ... else ...` chain, in the spec's order | e.g. `shrincs_sf_leaf_select`: each `return` becomes a `then` branch and the fall-through becomes the trailing `else`. |
+| nested `for` loops | nested folds over the two `range`s | `fors_sign` and `fors_pubkey_from_sig`; the shared accumulator (`sig`, or `offset`) passes through the inner fold's initial value and out of its result, so the two loops consume/produce in exactly the spec's order. |
+| a loop that reassigns the function's own parameters | those parameters ride the accumulator | `hypertree_sign`/`hypertree_verify` reassign `message`, `leaf_index` and `tree_index`; note `leaf_index` is recomputed from the OLD `tree_index`, before the shift, and the fold preserves that. |
+| early `return` | a nested `if ... then ... else ...` chain, in the spec's order | e.g. `shrincs_sf_leaf_select` and `shrincs_verify`: each `return` becomes a `then` branch and the fall-through becomes the trailing `else`. |
 | `if / elif / else` | `if / else if / else` | direct. |
 | `raise` | `None`, or a documented default | see the next section. |
 | `assert` | see the next section. |
@@ -120,15 +136,28 @@ The policy, in order of preference:
    (a 16-byte hash, the function's own return shape). Each such site is
    named in the function's doc comment.
 
-Every `assert` in the sample, with its verdict:
+Every `assert` and `raise` in the spec — all 12 — with its verdict:
 
 | site | Python | verdict |
 |---|---|---|
 | `xor` | `len(s1) == len(s2)` | (3) caller obligation; `combine` stops at the shorter, as `zip` does. |
 | `base_2b` | `len(x) >= ceil(outlen * b / 8)` | (3) caller obligation; a short `x` reads as zero bytes. |
+| `hmac_sha256` | `len(key) <= 64` | (3) caller obligation; `zeros (64 - len key)` is empty and `xor` stops at 64. |
 | `H_grind` | `counter <= 0xFFFF` | (3) caller obligation, and unreachable from the spec's own callers (`counter` is a loop index below `2**16` or two bytes off a signature). |
-| `wots_c_grind_to_constant_sum` | `raise RuntimeError` | (2) `option (Z * list Z)`. |
+| `wots_c_grind_to_constant_sum` | `raise RuntimeError("Unreachable")` | (2) `option (Z * list Z)`. The only signature change in the port. |
+| `wots_c_sign` | (inherits the above through destructuring) | (4) `None` arm returns `zeros (2 + WOTS_C_CHAINS_SIZE)`, keeping the spec's signature. |
 | `fxmss_node` | `node_index == 0` (UXMSS), `node_depth < tree_depth` (BXMSS) | (4) explicit branch, `zeros 16`. |
+| `fxmss_sign` | `leaf_index == 1 or leaf_depth == tree_depth` (UXMSS), `leaf_depth == tree_depth` (BXMSS) | (4) explicit branch, `zeros (2 + WOTS_C_CHAINS_SIZE + 16 * leaf_depth)` — the length the docstring states. |
+| `fxmss_pubkey_from_sig` | `leaf_index < 2 ** min(64, leaf_depth)` | (1) the function is already `Optional`, so it is `None`. |
+| `slh_dsa_sign` | `len(ctx) < 256` | (3) caller obligation; `to_bytes (len ctx) 1` truncates. |
+| `slh_dsa_verify` | `len(ctx) < 256` | (3) caller obligation, as above. |
+| `shrincs_keygen` | `len(seed) == 48`, `len(sf_structure) == 2` | (3) caller obligations; a short `seed` slices short and a short `sf_structure` reads as zeros. |
+
+Only two of the twelve change observable behaviour on input the spec's own
+callers can produce, and both are (4) branches whose condition the spec
+itself computes: `fxmss_node`'s and `fxmss_sign`'s tree-shape checks. The
+rest are either already `Optional`, or guards on well-formedness that only
+a caller outside the spec can violate.
 
 ## Mutation: the `ADRS` bytearray
 
@@ -153,9 +182,9 @@ consumer writes each field it hashes before hashing it. Concretely:
   (`wots_c_pubkey_gen`'s `wots_chain_iter` call; `fxmss_node_loop`'s two
   recursive calls).
 
-**P12b obligation:** re-check point 3 at every one of the ~50 functions.
-It holds at every call site in the sample, but it is a per-site fact, not a
-theorem.
+**The check has been carried out at all 50 functions** — see the appendix
+at the end of this file. It holds everywhere. Two sites are genuinely
+load-bearing rather than vacuous, and both carry a comment in the source.
 
 ## SHA-256
 
@@ -225,9 +254,14 @@ context`.
 
 ## Validation
 
-`proof/model/shrincs.v` compiles clean (`coqc`, no axioms beyond `SHA256`,
-no `Admitted`) and every hash-free value in it was checked against the
-Python by running both:
+`proof/model/shrincs.v` compiles clean (`coqc`, no `Admitted`).
+`Print Assumptions` on each of the 50 ported functions reports `SHA256`
+and nothing else; 8 of them (`repeat`, `zeros`, `concat`, `xor`,
+`base_2b`, `wots_tw_message_to_indexes`,
+`wots_tw_message_to_indexes_alt`, `shrincs_sf_leaf_select`) are `Closed
+under the global context`.
+
+Everything executable was checked against the Python by running both:
 
 - `base_2b` at `b = 1, 2, 3, 4, 5, 6, 7, 8, 12, 13, 16, 24` over a 10-byte
   input, plus `outlen = 0` and an `outlen` that consumes the whole input —
@@ -244,11 +278,41 @@ Python by running both:
   counter and an unknown shape — including the depth-0 UXMSS bug, which
   reproduces as `Some (1, 254)`.
 
-The hash-dependent functions (`wots_chain_iter`,
-`wots_c_grind_to_constant_sum`, `wots_c_pubkey_gen`, `fxmss_node`) cannot
-be differentially tested while `SHA256` is a `Parameter`; they were checked
-by reading. A concrete-SHA-256 test vector is the natural follow-up once
-one exists.
+- **`wots_tw_message_to_indexes`** and **`wots_tw_message_to_indexes_alt`**
+  on three 16-byte messages (mixed, all-zero, all-`0xFF`). This is the
+  strongest end-to-end check available without a concrete SHA-256: it
+  exercises `base_2b` at two widths, the checksum, and the back-to-front
+  array fill. The two formulations agree with each other *and* with
+  Python on all three.
+- **`from_bytes`** (including the empty string), **`bytes_eqb`**,
+  **`index_int`**, and `to_bytes` at 4 and 8 bytes.
+- **All 38 constants**, in all four blocks.
+- The **index and offset arithmetic** of every hash-dependent function,
+  extracted as standalone expressions and diffed against the same
+  expressions taken from the spec: the WOTS `steps` and per-chain slice
+  bounds (both the TW `i*16` and the `+C` `2 + i*16` forms); `xmss_sign`'s
+  auth-path sibling indices and `xmss_pubkey_from_sig`'s
+  `(k+1, keypair_index >> (k+1), (keypair_index >> k) & 1)` walk, at five
+  keypair indices; `hypertree_sign`/`_verify`'s five-layer
+  `(leaf_index, tree_index)` walk and per-layer signature slices, at three
+  starting indices; `fors_sign`'s `i * 2**a + index_set[i]` leaf and
+  `i * 2**(a-j) + ((index_set[i] >> j) ^ 1)` sibling indices over the full
+  10x13 forest; `fors_pubkey_from_sig`'s running `offset` over all 140
+  signature blocks together with its per-node tree index and branch bit;
+  `slh_dsa_digest_message`'s three digest offsets and two moduli;
+  `fxmss_pubkey_from_sig`'s and `shrincs_verify`'s signature-length
+  arithmetic at four lengths including a non-conforming one; and
+  `fxmss_pubkey_from_sig`'s `ADRS[0] += 1` walk.
+
+All of the above is one script on each side, canonicalized and `diff`ed:
+**58 blocks, zero differences.**
+
+What is still checked only by reading: the *hash argument layouts* — the
+exact byte string each `sha256` call is handed, and the order of the
+`ADRS` writes that precede it. Those cannot be executed while `SHA256` is
+a `Parameter`. A concrete-SHA-256 instantiation (or extraction against the
+C implementation's KATs) would close this last gap and is the natural
+follow-up.
 
 ## DECISIONS
 
@@ -293,9 +357,12 @@ reverse *now* and expensive after the full port.
    port mechanically sound with no per-site argument — at the price of
    changing all ~20 signatures that take an `ADRS`, which is exactly the
    thing the "as close as possible" directive is protecting. Chosen with
-   a stated global invariant, per-site comments, and a P12b obligation to
-   re-check it at all 50 functions. **This is the highest-risk decision in
-   the port**; if it is overturned, overturn it before P12b, not after.
+   a stated global invariant and per-site comments. The obligation to
+   re-check it at all 50 functions **has been discharged** — see the
+   appendix; it is sound everywhere, load-bearing at exactly two sites.
+   It remains the decision with the most reliance on human checking, so
+   the appendix, not the code, is what a future spec revision must be
+   diffed against.
 
 5. **A crashing `assert` in a non-`Optional` function returns
    `zeros 16`.** *Alternative:* make those functions `option bytes` too
@@ -306,31 +373,87 @@ reverse *now* and expensive after the full port.
    affected in the sample; `xmss_node` and `fors_node` have no such
    asserts, so the blast radius of the whole port is one function.
 
-## Line-count projection for the full port
+## Size
 
-The sample is **613 lines** and ports **17 of the spec's 50 functions**
-(the 6 validation targets plus everything they transitively call), with
-the whole header, plumbing and constants block already in place.
-Measured, by section:
+**1,833 lines, 50 of 50 functions.** Measured, by section:
 
-| section | sample | remaining | projected total |
-|---|---:|---:|---:|
-| file header | 53 | 0 | 53 |
-| plumbing (no Python counterpart) | 61 | 0 | 61 |
-| helper functions (5 of 5) | 59 | 0 | 59 |
-| constants, all four blocks (38 of 38) | 55 | 0 | 55 |
-| primitives (1 of 2) | 21 | ~20 | ~41 |
-| tweaked hashes (5 of 11) | 88 | ~120 | ~208 |
-| Winternitz (4 of 11) | 146 | ~230 | ~376 |
-| XMSS + hypertree (0 of 5) | 0 | ~215 | ~215 |
-| FXMSS (1 of 3) | 82 | ~100 | ~182 |
-| FORS (0 of 4) | 0 | ~165 | ~165 |
-| SLH-DSA (0 of 5) | 0 | ~225 | ~225 |
-| SHRINCS (1 of 4) | 48 | ~165 | ~213 |
-| **total** | **613** | **~1240** | **~1853** |
+| section | lines | functions |
+|---|---:|---:|
+| file header | 52 | — |
+| plumbing (no Python counterpart) | 73 | — |
+| helper functions | 59 | 5 |
+| constants, all four blocks | 55 | 38 constants |
+| primitives | 37 | 2 |
+| tweaked hashes | 196 | 11 |
+| Winternitz | 372 | 11 |
+| XMSS | 134 | 3 |
+| hypertree | 84 | 2 |
+| FXMSS | 201 | 3 |
+| FORS | 179 | 4 |
+| SLH-DSA | 184 | 5 |
+| SHRINCS | 207 | 4 |
+| **total** | **1833** | **50** |
 
-i.e. roughly **1.35x** the Python's 1,373 lines. The ratio holds because
-the docstrings carry over nearly 1:1 (they are ~55% of the volume on both
-sides) and the fold rendering of a loop is close to line-for-line with the
-Python — only the two `*_loop` helpers add a few lines each. No part of the
-remainder needs a proof, so the cost is transcription time, not grind time.
+1.33x the Python's 1,373 lines, against a P12a projection of ~1,853 (1.1%
+under). The docstrings carry over nearly 1:1 and are ~55% of the volume on
+both sides; the fold rendering of a loop is close to line-for-line with the
+Python. The only structural additions are 12 plumbing definitions and 6
+recursion helpers:
+
+| helper | recurses on |
+|---|---|
+| `to_bytes_loop` | `n`, the spec's own byte count |
+| `base_2b_fill` | `bytes_to_read`, the `while`'s exact remaining trip count |
+| `wots_c_grind_to_constant_sum_loop` | `remaining`, the counter span |
+| `xmss_node_loop`, `fors_node_loop`, `fxmss_node_loop` | `node_height`, the spec's own recursion variable |
+
+Every other loop in the spec — 21 of them — is a `fold_left` over its own
+`range`, with no helper at all.
+
+## Appendix: the `ADRS` drop-at-boundary verdict, per function
+
+The obligation stated under "Mutation" above, discharged at every function
+that passes an `ADRS` to a callee. The question at each site is: *after the
+call, does the caller read an `ADRS` byte the callee wrote, before
+rewriting it?* "Read" means fed to a hash (the tweaked hashes take the
+whole `ADRS`, except `H_grind`/`H_msg_sf`/`PRF_msg_sf`, which take a
+prefix) or read with `index`.
+
+Byte ranges are the spec's: `[0]` anchor tag, `[1:9]` anchor index, `[9]`
+type, `[10:14]` / `[14:18]` / `[18:22]` the three payload words.
+
+| function | callees that write `ADRS` | verdict |
+|---|---|---|
+| `wots_chain_iter` | — (only `F`, read-only) | vacuous |
+| `wots_tw_message_to_indexes`, `_alt` | — (no `ADRS`) | n/a |
+| `wots_tw_pubkey_gen` | `wots_chain_iter` → `[18:22]` | SOUND — next iteration rewrites `[18:22]`; post-loop `[14:22] = zeros(8)` covers it before `T_sl` |
+| `wots_tw_sign` | `wots_chain_iter` → `[18:22]` | SOUND — rewritten each iteration; nothing after the loop reads `ADRS` |
+| `wots_tw_pubkey_from_sig` | `wots_chain_iter` → `[18:22]` | **SOUND, load-bearing** — this loop never rewrites `[18:22]` itself. No hash in the body reads `ADRS` outside `wots_chain_iter`, which sets `[18:22]` before each of its own hashes; post-loop `[14:22] = zeros(8)` covers it before `T_sl`. Commented at the site. |
+| `wots_c_grind_to_constant_sum`, `wots_c_map_digest` | — (`H_grind` is read-only, and reads `[0:10]`, which includes the `[9]` just written) | vacuous |
+| `wots_c_pubkey_gen` | `wots_chain_iter` → `[18:22]` | SOUND — as `wots_tw_pubkey_gen` |
+| `wots_c_sign` | `wots_c_grind_to_constant_sum` → `[9]`; `wots_chain_iter` → `[18:22]` | SOUND — the loop rewrites `[9]` and `[18:22]` every iteration; nothing after reads `ADRS` |
+| `wots_c_pubkey_from_sig` | `wots_c_map_digest` → `[9]`; `wots_chain_iter` → `[18:22]` | SOUND — `[9]` is rewritten immediately after; `[18:22]` as in `wots_tw_pubkey_from_sig` |
+| `xmss_node` | itself, `wots_tw_pubkey_gen` → `[9:22]` | SOUND — the four statements after the recursion rewrite all of `[9:22]`; nothing in this subtree touches `[0:9]` |
+| `xmss_sign` | `wots_tw_sign` → `[9]`,`[14:22]`; `xmss_node` → `[9:22]` | SOUND — every `xmss_node` call rewrites all of `[9:22]` before it hashes; `[10:14]` set here is exactly what `xmss_node` overwrites at height 0 |
+| `xmss_pubkey_from_sig` | `wots_tw_pubkey_from_sig` → `[9]`,`[14:22]` | SOUND — `[9]` and `[10:14]` are set immediately after, `[14:18]`/`[18:22]` at the top of each loop iteration, all before the first `H` |
+| `hypertree_sign`, `hypertree_verify` | `xmss_sign`, `xmss_pubkey_from_sig` → `[9:22]` | SOUND — each iteration re-sets `[0]`,`[1:9]`, and each callee re-derives all of `[9:22]` |
+| `fxmss_node` | itself, `wots_c_pubkey_gen` → `[9:22]` | SOUND — leaf branch sets `[0]`,`[1:9]` and the callee sets `[9:22]`; internal branch rewrites all 22 bytes after the recursion |
+| `fxmss_sign` | `wots_c_sign` → `[9]`,`[10:14]`,`[14:22]`; `fxmss_node` → all 22 | SOUND — `fxmss_node` re-derives every byte it hashes |
+| `fxmss_pubkey_from_sig` | `wots_c_pubkey_from_sig` → `[9]`,`[10:14]`,`[14:22]` | **SOUND, load-bearing** — the loop's `ADRS[0] += 1` genuinely *reads* `[0]`. `wots_c_pubkey_from_sig` provably never writes `[0]` (or `[1:9]`), so the read sees the `leaf_height` set before the call, exactly as in Python. This is the only cross-call `ADRS` read in the spec. |
+| `fors_sk_gen`, `fors_node` | `fors_sk_gen` → `[9]`,`[14:22]` | SOUND — the three statements after rewrite `[9]`,`[14:18]`,`[18:22]`; `[0:9]` and `[10:14]` are never touched |
+| `fors_sign` | `fors_sk_gen`, `fors_node` → `[9]`,`[14:22]` | SOUND — this function never hashes `ADRS` itself; each callee re-derives what it hashes |
+| `fors_pubkey_from_sig` | — (writes `ADRS` only itself) | vacuous |
+| `slh_dsa_sign_internal` | `fors_sign` → `[9]`,`[14:22]` | SOUND — `fors_pubkey_from_sig`, called next with the same `ADRS`, sets `[9]`,`[14:18]`,`[18:22]` before its first `F`; `hypertree_sign` builds its own `ADRS` |
+| `slh_dsa_verify_internal` | `fors_pubkey_from_sig` → `[9]`,`[14:22]` | SOUND — nothing after reads `ADRS` |
+| `slh_dsa_sign`, `slh_dsa_verify` | — (no `ADRS`) | n/a |
+| `shrincs_keygen` | `xmss_node` → `[9:22]` | SOUND — `fxmss_node` is handed a fresh `bytearray(22)`, not this one |
+| `shrincs_sf_leaf_select` | — (no `ADRS`) | n/a |
+| `shrincs_sign`, `shrincs_verify` | — (`PRF_msg_sf`/`H_msg_sf` are read-only; `fxmss_sign`/`fxmss_pubkey_from_sig` build their own) | vacuous |
+
+**Result: sound at every one of the 50 functions.** Two sites are
+load-bearing rather than vacuous — `wots_tw_pubkey_from_sig` /
+`wots_c_pubkey_from_sig`'s un-rewritten `[18:22]`, and
+`fxmss_pubkey_from_sig`'s `ADRS[0] += 1` — and both carry a comment in the
+source pointing at this table. If a future spec revision adds a read of
+`ADRS` across a call boundary, this is the table that has to change, and
+DECISION 4 is the one to revisit.
