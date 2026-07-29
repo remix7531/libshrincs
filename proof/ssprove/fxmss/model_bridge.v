@@ -49,11 +49,16 @@
     height (shrincs.py :60).  This is the same [wc_sha256] hash family
     the native WOTS+C tree's headline theorem is instantiated against,
     so the FXMSS leaves ARE the WOTS+C instances [Sec.wots.model_bridge]
-    already bridged.  Those are now stated over [Model.shrincs] (the
-    spec port); the FXMSS TREE layer here is still [Model.fxmss], so
-    [leaf_pkE] crosses back through [Model.theory.shrincs]'s
-    [pubkey_gen_shrincs].  Re-anchoring the tree layer waits on a port
-    of [Model.fxmss] itself.
+    already bridged.
+
+    Both sides now speak [Model.shrincs], the port of the normative
+    Python spec: [Sec.wots.model_bridge]'s correspondences are stated
+    over it, and [Model.fxmss]'s WOTS+C leaf ([wots_pubkey_gen] and
+    friends) is a view of it, so [leaf_pkE] no longer crosses between
+    two models.  What remains pre-port is the FXMSS TREE RECURSION
+    itself ([fx_node] / [fxmss_walk] -- dependent [fin] addresses and
+    bound proofs); restating THAT over the port's own [fxmss_node] is
+    P12e.
 
     ** Out of scope, and why
 
@@ -65,7 +70,7 @@
       bridged here: [SHRINCS.wotsc.scheme] instantiates the generic
       WOTS+C construction at [dig_msb := false] (LSB-first grinding
       digits) while [Sec.wots.scheme], shrincs.py's base-w parse and
-      [Model.wots.base_2b] are all MSB-first.  Public keys are digit
+      [Model.shrincs.base_2b] are all MSB-first.  Public keys are digit
       order independent (every chain runs to [w-1]), so [leaf_pkE] and
       [root_uxmssE] are unaffected; a signature-level bridge would
       first have to reconcile that ordering.  Recorded as a finding.
@@ -84,12 +89,8 @@ From Sec Require addressing.
 Require Import Sec.wots.instantiation.
 Require Import Sec.axioms.
 Require Import Sec.wots.model_bridge.
-From Model Require fxmss address fin sha256 wots shrincs.
+From Model Require fxmss address fin sha256 shrincs.
 Require Model.theory.fxmss.
-(* [Sec.wots.model_bridge]'s WOTS+C correspondences are stated over
-   [Model.shrincs] (the port of the normative Python spec); this file's
-   FXMSS layer is still [Model.fxmss], so the anchor step below crosses
-   back with the reconciliation lemma [pubkey_gen_shrincs]. *)
 Require Model.theory.shrincs.
 (* See header IMPORT DISCIPLINE. *)
 From Stdlib Require Import BinInt Lia.
@@ -99,9 +100,9 @@ Import PackageNotation.
 #[local] Open Scope package_scope.
 
 (** The address type of the FXMSS games layer at the shrincs numbers.
-    It is CONVERTIBLE to [Model.wots]'s [adrs = address.adrs 32 15]
-    ([chain_count_shrincs = wots.len], [w_shrincs.-1 = wots.w_pred]), so
-    a model address passes wherever this one is expected and back. *)
+    It is CONVERTIBLE to [Model.fxmss]'s [adrs = address.adrs 32 15]
+    ([chain_count_shrincs = fxmss.len], [w_shrincs.-1 = fxmss.w_pred]),
+    so a model address passes wherever this one is expected and back. *)
 Local Notation adrs_s :=
   (address.adrs chain_count_shrincs w_shrincs.-1).
 
@@ -114,12 +115,14 @@ Local Notation h_sf := Model.fxmss.FXMSS_HEIGHT.
 
     [F_sha256] / [T_sf_sha256] / [PRF_sha256] are [Sec.axioms]'; only
     the tree-node hash is new here.  H : B^n x B^288 x B^2n -> B^n is
-    the same [Model.wots.thash] as every other SHRINCS tweakable hash,
-    fed the two children's concatenation (shrincs.py :807). *)
+    the spec's own tree-node hash [Model.shrincs.H] -- the same
+    construction as every other SHRINCS tweakable hash -- fed the two
+    children's concatenation (shrincs.py :807).  The address is
+    serialized to its 22 wire bytes, which is what the port hashes. *)
 
 Definition Htree_sha256 (pp : PP_shrincs) (a : adrs_s)
     (xy : N_shrincs * N_shrincs) : N_shrincs :=
-  encode16 (wots.thash (decode16 pp) a
+  encode16 (shrincs.H (decode16 pp) (address.adrs_bytes a)
               (List.app (decode16 xy.1) (decode16 xy.2))).
 
 (** PRF_f(PKseed, SKseed, ADRS_sf) in the games layer's argument order
@@ -270,8 +273,7 @@ have -> : shrincs_fxmss_wots_public_key PP_shrincs N_shrincs F_sha256 T_sf_sha25
         = Sec.wots.scheme.shrincs_wots_pubkey (wc_sha256 (h_sf - nd)%nat i) pp
             (Sec.wots.hop.prf.derive_sk (wc_sha256 (h_sf - nd)%nat i) K_shrincs
                PRF_sha256 pp ks) by [].
-rewrite pubkey_gen_modelE /Model.fxmss.fxmss_anchor.
-rewrite -Model.theory.shrincs.pubkey_gen_shrincs.
+rewrite pubkey_gen_modelE /Model.fxmss.fxmss_anchor /Model.fxmss.wots_pubkey_gen.
 by rewrite (A0_anchorE nd i Hi).
 Qed.
 

@@ -15,10 +15,23 @@ Open Scope Z_scope.
 Local Notation adrs := (address.adrs len w_pred).
 
 (* Keep the fuel-heavy definitions symbolic in the body proof: [find_counter]
-   / [find_from] carry the fuel [Z.to_nat c_max = Z.to_nat (2^16)], and
-   [good_counter] / [digest_of] carry [H_grind]; reducing any of them would
-   force the huge nat and blow the kernel stack at [Qed]. *)
+   / [find_from] carry the fuel [Z.to_nat (2 ^ 16)], and [good_counter] /
+   [digest_of] carry [H_grind]; reducing any of them would force the huge
+   nat and blow the kernel stack at [Qed]. *)
 Local Opaque find_counter find_from good_counter digest_of.
+
+(** The grind address is rebuilt from its carrier's anchor, so it reads
+    that anchor back unchanged.  The section-5 views the funspecs are
+    keyed on ([digest_of], [good_counter], [find_counter]) take the
+    anchor, not the address, so this is what turns the loop invariant's
+    grind-address equality into a model-level rekeying. *)
+Local Lemma grind_anchor_nh : forall A : adrs,
+  anchor_nh (shrincs_wots_grind_adrs A) = anchor_nh A.
+Proof. intros A. apply adrs_nh_tag_z. Qed.
+
+Local Lemma grind_anchor_ni : forall A : adrs,
+  anchor_ni (shrincs_wots_grind_adrs A) = anchor_ni A.
+Proof. intros A. apply adrs_ni_idx_z. Qed.
 
 (** Derive the [Z] counter bound from the [Int64] loop-guard hypothesis
     [HRE]: normalize both [Int64.unsigned (Int64.repr _)] sides ([i] by
@@ -45,7 +58,7 @@ Proof.
      the bridge equation.
 
      CRITICAL: never [destruct]/[compute]/[unfold] [find_counter] -- the kernel
-     would force its fuel [Z.to_nat c_max] and blow the stack.  Use ONLY the
+     would force its fuel [Z.to_nat (2 ^ 16)] and blow the stack.  Use ONLY the
      abstract lemmas [find_counter_Some_least] / [find_counter_None]. *)
   start_function.
   (* Unpack the clean-anchor precondition into the three per-field payload
@@ -61,7 +74,8 @@ Proof.
      PROP (0 <= i <= c_max;
            shrincs_wots_grind_adrs A = shrincs_wots_grind_adrs a;
            i = 0 \/ A = shrincs_wots_grind_adrs a;
-           forall c : Z, 0 <= c < i -> good_counter pk_seed a msg c = false;
+           forall c : Z, 0 <= c < i ->
+             good_counter pk_seed (anchor_nh a) (anchor_ni a) msg c = false;
            (* clean anchor threaded to [shrincs_wots_map_digest]: at entry
               [A = a] (clean by PRE), on re-entry [A = shrincs_wots_grind_adrs a]
               (clean by construction). *)
@@ -99,17 +113,24 @@ Proof.
       reflexivity. }
     { (* shrincs_wots_map_digest's counter bound *)
       unfold c_max in Hi; lia. }
-    (* the mutated buffer digits/sum are over [A]; rekey onto the original [a] *)
-    rewrite (digest_of_grind_eq pk_seed A a msg i H5).
+    (* the mutated buffer digits/sum are keyed on [A]'s anchor; the invariant's
+       grind-address equality IS an anchor equality, so rekey onto [a] *)
+    assert (Hnh : anchor_nh A = anchor_nh a)
+      by (rewrite <- (grind_anchor_nh A), <- (grind_anchor_nh a), H5; reflexivity).
+    assert (Hni : anchor_ni A = anchor_ni a)
+      by (rewrite <- (grind_anchor_ni A), <- (grind_anchor_ni a), H5; reflexivity).
+    rewrite Hnh, Hni.
     (* if (sum == SHRINCS_WOTS_CONSTANT_SUM = 240) *)
     forward_if.
     + (* THEN: good counter found at i; store *counter_out = i and return 0 *)
-      assert (Hsum : Z.of_nat (list_sum (digest_of pk_seed a msg i)) = 240)
+      assert (Hsum : shrincs.sum_list
+                       (digest_of pk_seed (anchor_nh a) (anchor_ni a) msg i) = 240)
         by (apply digest_sum_repr_240; exact H11).
-      assert (Hgood : good_counter pk_seed a msg i = true)
+      assert (Hgood : good_counter pk_seed (anchor_nh a) (anchor_ni a) msg i = true)
         by (apply good_counter_Z_iff; exact Hsum).
-      assert (Hfc : find_counter pk_seed a msg = Some i)
-        by (apply find_counter_Some_least; [ lia | exact Hgood | exact H7 ]).
+      assert (Hfc : find_counter pk_seed (anchor_nh a) (anchor_ni a) msg = Some i)
+        by (apply find_counter_Some_least;
+            [ unfold c_max in Hi; lia | exact Hgood | exact H7 ]).
       (* *counter_out = (uint32_t)counter *)
       forward.
       (* return 0 *)
@@ -124,14 +145,22 @@ Proof.
               by (unfold c_max in *; rep_lia); reflexivity).
       entailer!!.
     + (* ELSE: sum <> 240, so this counter is bad; continue with counter + 1 *)
-      assert (Hgood : good_counter pk_seed a msg i = false)
-        by (apply not_true_is_false; intros E%good_counter_Z_iff; congruence).
+      (* [good_counter_Z_iff] names the port constant, the C guard carries
+         the literal 240; rewriting the sum away leaves the two spellings
+         face to face, where conversion closes them. *)
+      assert (Hgood : good_counter pk_seed (anchor_nh a) (anchor_ni a) msg i = false).
+      { apply not_true_is_false.
+        intros E%good_counter_Z_iff.
+        rewrite E in H11.
+        apply H11.
+        reflexivity. }
       (* counter++ *)
       forward.
       (* the freshly written digits are dead across iterations: weaken to
          data_at_ up front so cancel matches syntactically *)
       sep_apply (data_at_data_at_ sh_d (tarray tuchar (Z.of_nat len))
-                   (digits_to_vals (digest_of pk_seed a msg i)) d_ptr).
+                   (digits_to_vals
+                      (digest_of pk_seed (anchor_nh a) (anchor_ni a) msg i)) d_ptr).
       (* the ADRS is now [shrincs_wots_grind_adrs A]; by idempotency it is
          [shrincs_wots_grind_adrs a], so re-enter with [A := shrincs_wots_grind_adrs a] *)
       Exists (i + 1, shrincs_wots_grind_adrs a).
@@ -149,9 +178,9 @@ Proof.
     assert (HA : A = shrincs_wots_grind_adrs a).
     { destruct H6 as [Hi0 | HAeq]; [ subst i; unfold c_max in Hic; lia | exact HAeq ]. }
     subst A.
-    (* no good counter below c_max => find_counter = None (no find_counter reduction) *)
-    assert (Hfc : find_counter pk_seed a msg = None)
-      by (apply find_counter_None; rewrite <- Hic; exact H7).
+    (* no good counter below 2^16 => find_counter = None (no find_counter reduction) *)
+    assert (Hfc : find_counter pk_seed (anchor_nh a) (anchor_ni a) msg = None)
+      by (apply find_counter_None; unfold c_max in Hic; rewrite <- Hic; exact H7).
     (* return 1 *)
     forward.
     rewrite Hfc.

@@ -51,5 +51,11 @@ Definition sha256_spec : ident * funspec :=
          data_at  sh_i (tarray tuchar inlen) (block_to_vals input) in_ptr)
   POST [ tvoid ]
     PROP () RETURN ()
-    SEP (data_at sh_o (tarray tuchar 32) (block_to_vals (sha256' input)) out_ptr;
+    (* [Model.shrincs.sha256] is [Parameter SHA256] behind [BList.clip]
+       -- the trust anchor itself, with the port's own signature.  The
+       axiom [body_sha256] names [sha256_spec], never its body, so the
+       audit's gate-4 digest does not see this line; reviewing it is the
+       manual step. *)
+    SEP (data_at sh_o (tarray tuchar 32)
+           (block_to_vals (shrincs.sha256 input)) out_ptr;
          data_at sh_i (tarray tuchar inlen) (block_to_vals input) in_ptr).

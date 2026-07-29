@@ -32,9 +32,10 @@
        address type, serialized);
     5. WOTS+C decomposed: per-chain views of the port's [wots_c_*]
        loops ([chain_tips] / [sign_chains] / [complete_ends], the
-       grinding search), each with its REASSEMBLY lemma;
-    6. TRANSITIONAL: the [Model.wots] hash reconciliation;
-    7. TRANSITIONAL: the [Model.wots] algorithm reconciliation.
+       grinding search), each with its REASSEMBLY lemma, plus the
+       facts the two refinement proofs consume (the digit vector's
+       shape and range, the linear search's four directions, and the
+       widths of everything).
 
     Stdlib-only, like the rest of [Model]: no SSProve, no VST. *)
 
@@ -46,12 +47,6 @@ From Model Require Import byte shrincs.
     name here.  [bounded] is needed for one fact only -- [Vec]'s
     output width, which pins every tweaked hash at 16 bytes. *)
 From Model Require address bounded.
-(** TRANSITIONAL (sections 6 and 7 only): [Model.wots] is the model
-    [Model.shrincs] replaces.  These lemmas are what licenses
-    re-pointing [Sec.axioms]'s concrete hash bodies and the SSProve
-    bridges' statements at the port; they are deleted together with
-    [Model.wots] in P12d. *)
-From Model Require wots.
 
 Import ListNotations.
 #[local] Open Scope Z_scope.
@@ -113,6 +108,16 @@ Qed.
 
 Lemma range_nil (a : Z) : range a a = [].
 Proof. unfold range. rewrite Z.sub_diag. reflexivity. Qed.
+
+(** [range] from 0 IS the [nat] [seq] the VST loop invariants iterate
+    over, transported.  This is the one bridge between the port's [Z]
+    index world and a [seq 0 k] the C-refinement counts with. *)
+Lemma range0_map_of_nat (k : nat) : range 0 (Z.of_nat k) = map Z.of_nat (seq 0 k).
+Proof.
+  unfold range.
+  rewrite Z.sub_0_r, Nat2Z.id.
+  apply map_ext. intros a. lia.
+Qed.
 
 Lemma flat_map_ext_in {A B : Type} (f g : A -> list B) (l : list A) :
   (forall a, In a l -> f a = g a) -> flat_map f l = flat_map g l.
@@ -398,6 +403,50 @@ Definition wc_hash_adrs (nh ni i pos : Z) : bytes :=
 Definition wc_pk_adrs (nh ni : Z) : bytes :=
   mk_adrs nh ni SF_WOTS_C_PK 0 0 0.
 
+(** *** 5.1b The dependent address's smart constructors, serialized.
+
+    [Model.address]'s four WOTS+C constructors rebuild a typed sibling
+    from an anchor carrier; serialized, each IS the corresponding
+    address above, at the carrier's own anchor.  This is the dictionary
+    between the SSProve/VST world (which indexes tweaks by a FINITE
+    address type, so the dependent union stays) and this file's
+    byte-level one.  Parametric in the address row, so the WOTS+C
+    instantiation is the caller's business. *)
+
+Lemma adrs_bytes_grind {cc pb : nat} (a : address.adrs cc pb) :
+  address.adrs_bytes (address.shrincs_wots_grind_adrs a)
+  = wc_grind_adrs (address.adrs_anchor_tag_z a) (address.adrs_anchor_idx_z a).
+Proof. rewrite adrs_bytes_mk_adrs. destruct a; reflexivity. Qed.
+
+Lemma adrs_bytes_prf {cc pb : nat} (a : address.adrs cc pb)
+      (ci : fin.fin (Z.of_nat cc)) :
+  address.adrs_bytes (address.shrincs_wots_prf_adrs a ci)
+  = wc_prf_adrs (address.adrs_anchor_tag_z a) (address.adrs_anchor_idx_z a)
+      (fin.fin_val ci).
+Proof. rewrite adrs_bytes_mk_adrs. destruct a; reflexivity. Qed.
+
+Lemma adrs_bytes_pk {cc pb : nat} (a : address.adrs cc pb) :
+  address.adrs_bytes (address.shrincs_wots_pk_adrs a)
+  = wc_pk_adrs (address.adrs_anchor_tag_z a) (address.adrs_anchor_idx_z a).
+Proof. rewrite adrs_bytes_mk_adrs. destruct a; reflexivity. Qed.
+
+Lemma adrs_bytes_hash_pos {cc pb : nat} (a : address.adrs cc pb)
+      (hp : (0 < pb)%nat)
+      (ci : fin.fin (Z.of_nat cc)) (cp : fin.fin (Z.of_nat pb)) :
+  address.adrs_bytes
+    (address.set_hash_pos (address.shrincs_wots_hash_adrs hp a ci) cp)
+  = wc_hash_adrs (address.adrs_anchor_tag_z a) (address.adrs_anchor_idx_z a)
+      (fin.fin_val ci) (fin.fin_val cp).
+Proof. rewrite adrs_bytes_mk_adrs. destruct a; reflexivity. Qed.
+
+(** The hash address before the chain writes any position: position 0. *)
+Lemma adrs_bytes_hash {cc pb : nat} (a : address.adrs cc pb)
+      (hp : (0 < pb)%nat) (ci : fin.fin (Z.of_nat cc)) :
+  address.adrs_bytes (address.shrincs_wots_hash_adrs hp a ci)
+  = wc_hash_adrs (address.adrs_anchor_tag_z a) (address.adrs_anchor_idx_z a)
+      (fin.fin_val ci) 0.
+Proof. rewrite adrs_bytes_mk_adrs. destruct a; reflexivity. Qed.
+
 (** [H_grind] hashes only [ADRS[0:10]] -- the anchor and the type -- so
     the port's in-place [ADRS[9] = SF_WOTS_C_GRIND] (which leaves the
     caller's payload words alone) hashes as [wc_grind_adrs]. *)
@@ -475,7 +524,7 @@ Proof. apply wots_chain_iter_mk. Qed.
     The port's [wots_c_grind_to_constant_sum_loop] recomputes its digit
     vector at every counter; [digest_of] names that vector,
     [good_counter] its constant-sum test, and [find_from] /
-    [find_counter] the search itself, in [Model.wots]'s shape. *)
+    [find_counter] the search itself. *)
 
 Definition digest_of (pk_seed : bytes) (nh ni : Z) (M : bytes) (counter : Z)
   : list Z :=
@@ -1033,408 +1082,287 @@ Proof.
 Qed.
 
 (* ================================================================= *)
-(** ** 6. TRANSITIONAL: [Model.wots] hash reconciliation
+(** *** 5.8 The WOTS+C verifier.
 
-    [Model.wots] computes the same four tweakable hashes as the port,
-    on the same bytes: it hashes [adrs_bytes ADRS] where the port
-    hashes the ADRS byte string directly.  These lemmas say exactly
-    that, and they are what licenses [Sec.axioms]'s concrete hash
-    bodies to be re-pointed at [Model.shrincs] without changing what
-    the 6 hash-game axioms assume -- each edited body cites its lemma
-    by name.
+    The spec has no [wots_c_verify]: shrincs.py inlines the comparison
+    into [fxmss_pubkey_from_sig].  Naming it here gives the C-refinement
+    proof of [shrincs_wots_verify] something at the port to anchor on,
+    and it is the only thing in this section that is a DEFINITION rather
+    than a fact -- a view of [wots_c_pubkey_from_sig], not a new
+    algorithm. *)
 
-    Deleted together with [Model.wots] in P12d. *)
+Definition wc_verify (pk signature M pk_seed ADRS : bytes) : bool :=
+  match wots_c_pubkey_from_sig signature M pk_seed ADRS with
+  | Some pk' => bytes_eqb pk' pk
+  | None     => false
+  end.
 
-(** Both models call the same [Model.sha256.SHA256] through the same
-    [BList.clip]; only the (irrelevant) bound proof differs. *)
-Lemma sha256'_shrincs (input : bytes) : wots.sha256' input = sha256 input.
+(** REASSEMBLY, at the flat signature layout: verification accepts
+    exactly when the counter's digest is constant-sum AND the completed
+    chains compress to [pk]. *)
+Lemma wc_verify_ends (pk M : bytes) (sig : list bytes) (counter : Z)
+      (pk_seed : bytes) (nh ni ty pa pb pc : Z) :
+  0 <= counter < 2 ^ 16 ->
+  length sig = Z.to_nat WOTS_C_CHAIN_COUNT ->
+  (forall b, In b sig -> length b = 16%nat) ->
+  wc_verify pk (to_bytes counter 2 ++ concat sig) M pk_seed
+    (mk_adrs nh ni ty pa pb pc)
+  = andb (good_counter pk_seed nh ni M counter)
+         (bytes_eqb (T_sf pk_seed (wc_pk_adrs nh ni)
+                       (concat (complete_ends M sig counter pk_seed nh ni))) pk).
 Proof.
-  reflexivity.
-Qed.
-
-Lemma zeros_shrincs (k : nat) : wots.zeros k = zeros (Z.of_nat k).
-Proof.
-  unfold wots.zeros, zeros, repeat.
-  rewrite Nat2Z.id.
-  f_equal.
-  symmetry; apply (byte_mod256_small 0 ltac:(lia)).
-Qed.
-
-Lemma trunc16_shrincs (b : bytes) : wots.trunc16 b = slice b 0 16.
-Proof. reflexivity. Qed.
-
-(** The one construction [F] / [T_sf] / [PRF] all share. *)
-Lemma thash_shrincs (pk : bytes) (A : address.adrs wots.len wots.w_pred) (M : bytes) :
-  wots.thash pk A M = F pk (address.adrs_bytes A) M.
-Proof.
-  unfold wots.thash, F.
-  rewrite trunc16_shrincs, sha256'_shrincs, (zeros_shrincs 48%nat).
-  reflexivity.
-Qed.
-
-Lemma F_shrincs (pk : bytes) (A : address.adrs wots.len wots.w_pred) (M : bytes) :
-  wots.F pk A M = F pk (address.adrs_bytes A) M.
-Proof. exact (thash_shrincs pk A M). Qed.
-
-Lemma T_sf_shrincs (pk : bytes) (A : address.adrs wots.len wots.w_pred) (M : bytes) :
-  wots.T_sf pk A M = T_sf pk (address.adrs_bytes A) M.
-Proof. exact (thash_shrincs pk A M). Qed.
-
-(** Note the port keeps the spec's [PRF pk_seed sk_seed ADRS] argument
-    order, where [Model.wots] used [pk_seed ADRS sk_seed]. *)
-Lemma PRF_shrincs (pk : bytes) (A : address.adrs wots.len wots.w_pred) (sk : bytes) :
-  wots.PRF pk A sk = PRF pk sk (address.adrs_bytes A).
-Proof. exact (thash_shrincs pk A sk). Qed.
-
-Lemma H_grind_shrincs (pk : bytes) (A : address.adrs wots.len wots.w_pred) (M : bytes) (c : Z) :
-  wots.H_grind pk A M c = H_grind pk (address.adrs_bytes A) M c.
-Proof.
-  unfold wots.H_grind, H_grind.
-  rewrite trunc16_shrincs, sha256'_shrincs.
-  rewrite (zeros_shrincs 48%nat), (zeros_shrincs 4%nat).
-  rewrite (to_byte_to_bytes c 2%nat).
-  reflexivity.
+  intros Hc Hlen Hk.
+  unfold wc_verify.
+  rewrite (wots_c_pubkey_from_sig_ends M sig counter pk_seed _ _ _ _ _ _ Hc Hlen Hk).
+  destruct (good_counter pk_seed nh ni M counter); reflexivity.
 Qed.
 
 (* ================================================================= *)
-(** ** 7. TRANSITIONAL: [Model.wots] algorithm reconciliation
+(** *** 5.9 Facts the C refinement consumes.
 
-    Section 6 reconciles the two models' HASHES; this one reconciles
-    what they BUILD out of them.  Each of [Model.wots]'s WOTS+C pieces
-    is shown equal to the corresponding piece of section 5 -- and hence,
-    through section 5's reassembly lemmas, to the port's own
-    [wots_c_pubkey_gen] / [wots_c_sign] / [wots_c_pubkey_from_sig].
-    That is what lets [Sec.wots.model_bridge] state its correspondences
-    over [Model.shrincs] while keeping the proofs it already had.
+    The digit vector's shape and range, and the linear search's four
+    correctness directions (sound / complete / in-range / refuting) --
+    what the VST body proofs and the SSProve bridges both consume.
+    Stated at the anchor [(nh, ni)] section 5 is parameterized by.  The search proofs are structural inductions
+    on [find_from]'s own fuel and do not mention the hash at all. *)
 
-    Deleted together with [Model.wots] in P12d. *)
-
-(** The WOTS+C address type [Model.wots] instantiates. *)
-Local Notation wadrs := (address.adrs wots.len wots.w_pred).
-
-(** The anchor, as the two [Z] wire fields section 5 is parameterized
-    by.  ([Model.address]'s [adrs_nh] / [adrs_ni] read back the same
-    values -- [Model.theory.address.adrs_nh_tag_z] -- so the smart
-    constructors' serializations below close by [destruct].) *)
-Local Notation anchor_nh a := (address.adrs_anchor_tag_z a).
-Local Notation anchor_ni a := (address.adrs_anchor_idx_z a).
-
-(* ----------------------------------------------------------------- *)
-(** *** 7.1 The four smart constructors, serialized. *)
-
-Lemma adrs_bytes_grind (a : wadrs) :
-  address.adrs_bytes (address.shrincs_wots_grind_adrs a)
-  = wc_grind_adrs (anchor_nh a) (anchor_ni a).
-Proof. rewrite adrs_bytes_mk_adrs. destruct a; reflexivity. Qed.
-
-Lemma adrs_bytes_prf (a : wadrs) (ci : fin.fin (Z.of_nat wots.len)) :
-  address.adrs_bytes (address.shrincs_wots_prf_adrs a ci)
-  = wc_prf_adrs (anchor_nh a) (anchor_ni a) (fin.fin_val ci).
-Proof. rewrite adrs_bytes_mk_adrs. destruct a; reflexivity. Qed.
-
-Lemma adrs_bytes_pk (a : wadrs) :
-  address.adrs_bytes (address.shrincs_wots_pk_adrs a)
-  = wc_pk_adrs (anchor_nh a) (anchor_ni a).
-Proof. rewrite adrs_bytes_mk_adrs. destruct a; reflexivity. Qed.
-
-Lemma adrs_bytes_hash_pos (a : wadrs) (hp : (0 < wots.w_pred)%nat)
-      (ci : fin.fin (Z.of_nat wots.len)) (cp : fin.fin (Z.of_nat wots.w_pred)) :
-  address.adrs_bytes
-    (address.set_hash_pos (address.shrincs_wots_hash_adrs hp a ci) cp)
-  = wc_hash_adrs (anchor_nh a) (anchor_ni a) (fin.fin_val ci) (fin.fin_val cp).
-Proof. rewrite adrs_bytes_mk_adrs. destruct a; reflexivity. Qed.
-
-(* ----------------------------------------------------------------- *)
-(** *** 7.2 The digit vector.
-
-    [Model.wots.base_2b] splits each byte into its two nibbles;
-    [Model.shrincs.base_2b] is the spec's generic bit-packing loop at
-    [b = 4].  Section 5.7 already reduced the latter to a nibble split,
-    so all that is left is to line the two up index by index. *)
-
-Lemma nib_val (v : Z) : 0 <= v < 256 ->
-  [Z.shiftr v 4; v mod 2 ^ 4]
-  = [Z.of_nat (Z.to_nat (v / 16)); Z.of_nat (Z.to_nat (v mod 16))].
+(** Every nibble is a digit: [0, 15]. *)
+Lemma nib_range (x : bytes) (j v : Z) : In v (nib x j) -> 0 <= v <= 15.
 Proof.
-  intros Hv.
-  pose proof (Z.div_pos v 16 ltac:(lia) ltac:(lia)) as Hd.
-  pose proof (Z.mod_pos_bound v 16 ltac:(lia)) as Hm.
-  rewrite Z.shiftr_div_pow2 by lia.
-  change (2 ^ 4) with 16.
-  rewrite !Z2Nat.id by lia.
-  reflexivity.
+  unfold nib, index.
+  pose proof (byte_val_range (nth (Z.to_nat j) x zero_byte)) as Hb.
+  set (b := byte_val (nth (Z.to_nat j) x zero_byte)) in *.
+  intros [<-|[<-|[]]].
+  - rewrite Z.shiftr_div_pow2 by lia.
+    change (2 ^ 4) with 16.
+    assert (0 <= b / 16 < 16)
+      by (split; [apply Z.div_pos; lia | apply Z.div_lt_upper_bound; lia]).
+    lia.
+  - change (2 ^ 4) with 16.
+    pose proof (Z.mod_pos_bound b 16 ltac:(lia)). lia.
 Qed.
 
-Lemma index_0 (c : byte) (x : bytes) : index (c :: x) 0 = byte_val c.
-Proof. reflexivity. Qed.
-
-Lemma nib_flat : forall (X : bytes) (n : nat), (n <= length X)%nat ->
-  flat_map (nib X) (range 0 (Z.of_nat n))
-  = map Z.of_nat
-      (firstn (2 * n)
-         (flat_map (fun b : byte => [Z.to_nat (b / 16); Z.to_nat (b mod 16)]) X)).
+Lemma length_digest_of (pk_seed : bytes) (nh ni : Z) (M : bytes) (counter : Z) :
+  length (digest_of pk_seed nh ni M counter) = 32%nat.
 Proof.
-  induction X as [|c X IH]; intros n Hn.
-  - cbn in Hn. replace n with 0%nat by lia. reflexivity.
-  - destruct n as [|n]; [reflexivity|].
-    cbn in Hn.
-    assert (Hext : forall a, In a (range 0 (Z.of_nat n)) ->
-                     nib (c :: X) (a + 1) = nib X a).
-    { intros a Ha. unfold nib.
-      rewrite (index_cons c X a (proj1 (in_range _ _ _ Ha))). reflexivity. }
-    rewrite range0_cons.
-    cbn [flat_map].
-    rewrite flat_map_map, (flat_map_ext_in _ (nib X) _ Hext), (IH n ltac:(lia)).
-    replace (2 * S n)%nat with (S (S (2 * n))) by lia.
-    cbn [flat_map firstn map app].
-    unfold nib at 1.
-    rewrite index_0, (nib_val (byte_val c) (byte_val_range c)).
-    reflexivity.
+  rewrite digest_of_nib. reflexivity.
 Qed.
 
-Lemma base_2b_shrincs (X : bytes) (n : nat) : (n <= length X)%nat ->
-  base_2b X 4 (Z.of_nat (2 * n)) = map Z.of_nat (wots.base_2b X (2 * n)).
-Proof. intros H. rewrite base_2b_4. exact (nib_flat X n H). Qed.
-
-Lemma digest_of_shrincs (pk_seed : bytes) (a : wadrs) (M : bytes) (counter : Z) :
-  digest_of pk_seed (anchor_nh a) (anchor_ni a) M counter
-  = map Z.of_nat (wots.digest_of pk_seed a M counter).
+(** Every digit of the vector is in [[0, 15]] -- unconditionally, since
+    the digits are read off a hash, not off [M]. *)
+Lemma digest_of_In_range (pk_seed : bytes) (nh ni : Z) (M : bytes)
+      (counter v : Z) :
+  In v (digest_of pk_seed nh ni M counter) -> 0 <= v <= 15.
 Proof.
-  unfold digest_of, wots.digest_of.
-  rewrite H_grind_shrincs, adrs_bytes_grind.
-  change wots.len with (2 * 16)%nat.
-  change WOTS_C_CHAIN_BITS with 4.
-  change WOTS_C_CHAIN_COUNT with (Z.of_nat (2 * 16)).
-  apply base_2b_shrincs.
-  rewrite length_H_grind. lia.
+  rewrite digest_of_nib.
+  intros Hin. apply in_flat_map in Hin.
+  destruct Hin as [j [_ Hj]].
+  exact (nib_range _ j v Hj).
 Qed.
 
-Lemma sum_list_map_of_nat (ds : list nat) :
-  sum_list (map Z.of_nat ds) = Z.of_nat (list_sum ds).
+(** The same, read through the spec's own indexing (which returns 0 out
+    of range, so no index hypothesis is needed). *)
+Lemma index_int_digest_of_range (pk_seed : bytes) (nh ni : Z) (M : bytes)
+      (counter i : Z) :
+  0 <= index_int (digest_of pk_seed nh ni M counter) i <= 15.
 Proof.
-  induction ds as [|d ds IH]; [reflexivity|].
-  change (sum_list (map Z.of_nat (d :: ds)))
-    with (Z.of_nat d + sum_list (map Z.of_nat ds)).
-  change (list_sum (d :: ds)) with (d + list_sum ds)%nat.
-  rewrite IH. lia.
+  unfold index_int.
+  destruct (Nat.lt_ge_cases (Z.to_nat i)
+              (length (digest_of pk_seed nh ni M counter))) as [Hi|Hi].
+  - exact (digest_of_In_range _ _ _ _ _ _ (nth_In _ 0 Hi)).
+  - rewrite nth_overflow by exact Hi. lia.
 Qed.
 
-Lemma valid_digest_shrincs (ds : list nat) :
-  valid_digest (map Z.of_nat ds) = wots.valid_digest ds.
+(** [good_counter] as a statement about the [Z]-valued digit sum -- the
+    form the C's [shrincs_wots_map_digest(...) == 240] test produces. *)
+Lemma good_counter_Z_iff (pk_seed : bytes) (nh ni : Z) (M : bytes) (counter : Z) :
+  good_counter pk_seed nh ni M counter = true
+  <-> sum_list (digest_of pk_seed nh ni M counter) = WOTS_C_CONSTANT_SUM.
 Proof.
-  unfold valid_digest, wots.valid_digest.
-  rewrite sum_list_map_of_nat.
-  change WOTS_C_CONSTANT_SUM with 240.
-  change wots.constant_sum with 240%nat.
-  destruct (Nat.eqb_spec (list_sum ds) 240) as [->|Hne]; [reflexivity|].
-  apply Z.eqb_neq. lia.
+  unfold good_counter, valid_digest.
+  split; [apply Z.eqb_eq | apply Z.eqb_eq].
 Qed.
 
-Lemma good_counter_shrincs (pk_seed : bytes) (a : wadrs) (M : bytes) (counter : Z) :
-  good_counter pk_seed (anchor_nh a) (anchor_ni a) M counter
-  = wots.good_counter pk_seed a M counter.
-Proof.
-  unfold good_counter, wots.good_counter.
-  rewrite digest_of_shrincs. apply valid_digest_shrincs.
-Qed.
+(** *** The linear search, in four directions. *)
 
-Lemma find_from_shrincs (pk_seed : bytes) (a : wadrs) (M : bytes) :
+Lemma find_from_None_intro (pk_seed : bytes) (nh ni : Z) (M : bytes) :
   forall (fuel : nat) (c : Z),
-  find_from pk_seed (anchor_nh a) (anchor_ni a) M fuel c
-  = wots.find_from pk_seed a M fuel c.
+  (forall d, c <= d < c + Z.of_nat fuel -> good_counter pk_seed nh ni M d = false) ->
+  find_from pk_seed nh ni M fuel c = None.
 Proof.
-  induction fuel as [|f IH]; intros c; [reflexivity|].
-  cbn [find_from wots.find_from].
-  rewrite good_counter_shrincs.
-  destruct (wots.good_counter pk_seed a M c); [reflexivity|apply IH].
+  induction fuel as [|f IH]; intros c Hbad; cbn [find_from]; [reflexivity|].
+  rewrite (Hbad c) by (rewrite Nat2Z.inj_succ; lia).
+  apply IH. intros d Hd. apply Hbad. rewrite Nat2Z.inj_succ. lia.
 Qed.
 
-Lemma find_counter_shrincs (pk_seed : bytes) (a : wadrs) (M : bytes) :
-  find_counter pk_seed (anchor_nh a) (anchor_ni a) M = wots.find_counter pk_seed a M.
+Lemma find_from_Some_good (pk_seed : bytes) (nh ni : Z) (M : bytes) :
+  forall (fuel : nat) (c c' : Z),
+  find_from pk_seed nh ni M fuel c = Some c' ->
+  good_counter pk_seed nh ni M c' = true.
 Proof.
-  unfold find_counter, wots.find_counter, wots.c_max.
-  apply find_from_shrincs.
+  induction fuel as [|f IH]; intros c c' H; cbn [find_from] in H; [discriminate|].
+  destruct (good_counter pk_seed nh ni M c) eqn:Hc.
+  - injection H as <-. exact Hc.
+  - exact (IH _ _ H).
 Qed.
 
-(* ----------------------------------------------------------------- *)
-(** *** 7.3 The chains. *)
-
-Lemma derive_sk_shrincs (sk_seed pk_seed : bytes) (a : wadrs)
-      (ci : fin.fin (Z.of_nat wots.len)) :
-  wots.shrincs_wots_derive_sk ci sk_seed pk_seed a
-  = derive_sk sk_seed pk_seed (anchor_nh a) (anchor_ni a) (fin.fin_val ci).
+Lemma find_from_Some_range (pk_seed : bytes) (nh ni : Z) (M : bytes) :
+  forall (fuel : nat) (c c' : Z),
+  find_from pk_seed nh ni M fuel c = Some c' -> c <= c' < c + Z.of_nat fuel.
 Proof.
-  unfold wots.shrincs_wots_derive_sk, derive_sk.
-  rewrite PRF_shrincs, adrs_bytes_prf. reflexivity.
+  induction fuel as [|f IH]; intros c c' H; cbn [find_from] in H; [discriminate|].
+  rewrite Nat2Z.inj_succ.
+  destruct (good_counter pk_seed nh ni M c) eqn:Hc.
+  - injection H as <-. lia.
+  - apply IH in H. lia.
 Qed.
 
-Lemma chain_iter_shrincs (X pk_seed : bytes) (a : wadrs)
-      (hp : (0 < wots.w_pred)%nat) (ci : fin.fin (Z.of_nat wots.len)) :
-  forall (i s : nat) (H : (i + s <= wots.w_pred)%nat),
-  wots.shrincs_wots_chain_iter X i s pk_seed
-    (address.shrincs_wots_hash_adrs hp a ci) H
-  = wc_chain pk_seed (anchor_nh a) (anchor_ni a) (fin.fin_val ci) X
-      (Z.of_nat i) (Z.of_nat s).
+Lemma find_from_complete (pk_seed : bytes) (nh ni : Z) (M : bytes) :
+  forall (fuel : nat) (c i : Z),
+  c <= i < c + Z.of_nat fuel ->
+  good_counter pk_seed nh ni M i = true ->
+  (forall d, c <= d < i -> good_counter pk_seed nh ni M d = false) ->
+  find_from pk_seed nh ni M fuel c = Some i.
 Proof.
-  intros i s; revert i; induction s as [|s IH]; intros i H.
-  - cbn [wots.shrincs_wots_chain_iter].
-    unfold wc_chain.
-    replace (Z.of_nat i + Z.of_nat 0) with (Z.of_nat i) by lia.
-    rewrite range_nil. reflexivity.
-  - cbn [wots.shrincs_wots_chain_iter].
-    rewrite (IH i (wots.chain_iter_rec_le i s H)).
-    rewrite F_shrincs, adrs_bytes_hash_pos, fin.fin_val_of_nat.
-    rewrite wc_chain_succ.
-    replace (Z.of_nat i + Z.of_nat s) with (Z.of_nat (i + s)) by lia.
-    reflexivity.
+  induction fuel as [|f IH]; intros c i Hrange Hgood Hbad; cbn [find_from].
+  - exfalso. cbn in Hrange. lia.
+  - destruct (good_counter pk_seed nh ni M c) eqn:Hc.
+    + destruct (Z.eq_dec c i) as [->|Hne]; [reflexivity|].
+      exfalso. rewrite (Hbad c) in Hc by lia. discriminate.
+    + apply IH.
+      * rewrite Nat2Z.inj_succ in Hrange.
+        assert (i <> c) by (intro; subst; congruence). lia.
+      * exact Hgood.
+      * intros d Hd. apply Hbad. lia.
 Qed.
 
-(** [Model.iteration]'s dependent comprehension IS a [map] over the
-    spec's own [range], whenever the body does not look at the index
-    bound proof it is handed. *)
-Lemma for_idx_dep_map_range {A : Type} `{iteration.Default A} (k : nat)
-      (f : forall i, (i < k)%nat -> A) (g : Z -> A) :
-  (forall i (Hi : (i < k)%nat), f i Hi = g (Z.of_nat i)) ->
-  iteration.for_idx_dep k f = map g (range 0 (Z.of_nat k)).
+(** [find_counter] is [find_from] at the spec's own [2^16] counter span,
+    so the four directions specialize.  [c_max] is kept spelled out
+    ([2 ^ 16]) rather than named: the port takes the span from the
+    spec's [range(2**16)] and never abbreviates it. *)
+
+Lemma find_counter_good (pk_seed : bytes) (nh ni : Z) (M : bytes) (c : Z) :
+  find_counter pk_seed nh ni M = Some c -> good_counter pk_seed nh ni M c = true.
+Proof. unfold find_counter. apply find_from_Some_good. Qed.
+
+Lemma find_counter_lt (pk_seed : bytes) (nh ni : Z) (M : bytes) (c : Z) :
+  find_counter pk_seed nh ni M = Some c -> 0 <= c < 2 ^ 16.
 Proof.
-  intros Hfg.
-  apply (nth_ext _ _ iteration.default iteration.default).
-  - rewrite iteration.length_for_idx_dep, length_map_range. lia.
-  - intros i Hi.
-    rewrite iteration.length_for_idx_dep in Hi.
-    rewrite (iteration.nth_for_idx_dep k f iteration.default i Hi).
-    rewrite (nth_map_range g 0 (Z.of_nat k) i iteration.default) by lia.
-    rewrite (Hfg i Hi). reflexivity.
+  unfold find_counter. intros H.
+  apply find_from_Some_range in H.
+  rewrite Z2Nat.id in H by lia. lia.
 Qed.
 
-Lemma index_int_map (ds : list nat) (i : nat) :
-  index_int (map Z.of_nat ds) (Z.of_nat i) = Z.of_nat (nth i ds 0%nat).
+Lemma find_counter_Some_least (pk_seed : bytes) (nh ni : Z) (M : bytes) (i : Z) :
+  0 <= i < 2 ^ 16 ->
+  good_counter pk_seed nh ni M i = true ->
+  (forall d, 0 <= d < i -> good_counter pk_seed nh ni M d = false) ->
+  find_counter pk_seed nh ni M = Some i.
 Proof.
-  unfold index_int. rewrite Nat2Z.id.
-  exact (map_nth Z.of_nat ds 0%nat i).
+  unfold find_counter. intros Hi Hgood Hbad.
+  apply find_from_complete; [| exact Hgood | exact Hbad].
+  rewrite Z2Nat.id by lia. lia.
 Qed.
 
-Lemma chain_tips_shrincs (sk_seed pk_seed : bytes) (a : wadrs) :
-  wots.chain_tips sk_seed pk_seed a
-  = chain_tips sk_seed pk_seed (anchor_nh a) (anchor_ni a).
+Lemma find_counter_None (pk_seed : bytes) (nh ni : Z) (M : bytes) :
+  (forall c, 0 <= c < 2 ^ 16 -> good_counter pk_seed nh ni M c = false) ->
+  find_counter pk_seed nh ni M = None.
 Proof.
-  unfold wots.chain_tips, chain_tips.
-  change WOTS_C_CHAIN_COUNT with (Z.of_nat wots.len).
-  apply for_idx_dep_map_range.
-  intros i Hi.
-  rewrite chain_iter_shrincs, derive_sk_shrincs, !fin.fin_val_of_nat.
-  reflexivity.
+  unfold find_counter. intros Hbad.
+  apply find_from_None_intro.
+  rewrite Z2Nat.id by lia.
+  intros d Hd. apply Hbad. lia.
 Qed.
 
-Lemma sign_chains_shrincs (M sk_seed pk_seed : bytes) (a : wadrs) (counter : Z) :
-  wots.sign_chains M sk_seed pk_seed a counter
-  = sign_chains M sk_seed pk_seed (anchor_nh a) (anchor_ni a) counter.
+(** *** Widths of the per-chain views. *)
+
+Lemma length_wc_chain (pk_seed : bytes) (nh ni i : Z) (node : bytes)
+      (start steps : Z) :
+  0 < steps -> length (wc_chain pk_seed nh ni i node start steps) = 16%nat.
 Proof.
-  unfold wots.sign_chains, sign_chains.
-  rewrite digest_of_shrincs.
-  change WOTS_C_CHAIN_COUNT with (Z.of_nat wots.len).
-  apply for_idx_dep_map_range.
-  intros i Hi.
-  rewrite chain_iter_shrincs, derive_sk_shrincs, !fin.fin_val_of_nat.
-  rewrite index_int_map.
-  reflexivity.
+  intros Hs. unfold wc_chain.
+  replace steps with (Z.of_nat (S (Z.to_nat (steps - 1)))) by lia.
+  rewrite range_succ, fold_left_app.
+  cbn [fold_left].
+  apply length_F.
 Qed.
 
-Lemma complete_ends_shrincs (M : bytes) (sig : list bytes) (counter : Z)
-      (pk_seed : bytes) (a : wadrs) :
-  (length sig = wots.len)%nat ->
-  wots.complete_ends M sig counter pk_seed a
-  = complete_ends M sig counter pk_seed (anchor_nh a) (anchor_ni a).
+(** A zero-step chain is its own input. *)
+Lemma wc_chain_0 (pk_seed : bytes) (nh ni i : Z) (node : bytes) (start : Z) :
+  wc_chain pk_seed nh ni i node start 0 = node.
+Proof. unfold wc_chain. rewrite Z.add_0_r, range_nil. reflexivity. Qed.
+
+Lemma length_derive_sk (sk_seed pk_seed : bytes) (nh ni i : Z) :
+  length (derive_sk sk_seed pk_seed nh ni i) = 16%nat.
+Proof. apply length_PRF. Qed.
+
+(** The three views are [WOTS_C_CHAIN_COUNT] blocks long. *)
+
+Lemma length_chain_tips (sk_seed pk_seed : bytes) (nh ni : Z) :
+  length (chain_tips sk_seed pk_seed nh ni) = 32%nat.
+Proof. unfold chain_tips. rewrite length_map_range. reflexivity. Qed.
+
+Lemma length_sign_chains (M sk_seed pk_seed : bytes) (nh ni counter : Z) :
+  length (sign_chains M sk_seed pk_seed nh ni counter) = 32%nat.
+Proof. unfold sign_chains. rewrite length_map_range. reflexivity. Qed.
+
+Lemma length_complete_ends (M : bytes) (sig : list bytes) (counter : Z)
+      (pk_seed : bytes) (nh ni : Z) :
+  length (complete_ends M sig counter pk_seed nh ni) = 32%nat.
+Proof. unfold complete_ends. rewrite length_map_range. reflexivity. Qed.
+
+(** Each block of [chain_tips] / [complete_ends] is a 16-byte hash: the
+    tips run [w - 1 = 15] steps from 0, and a completed end runs
+    [15 - ds[i]] steps -- zero only when the digit is already at the top
+    of its chain, where the block is the signature's own (16 bytes by
+    the caller's own hypothesis).  [sign_chains] has no such lemma: a
+    digit of 0 leaves the PRF output, which IS 16 bytes. *)
+
+Lemma Forall_length_chain_tips (sk_seed pk_seed : bytes) (nh ni : Z) :
+  Forall (fun b => length b = 16%nat) (chain_tips sk_seed pk_seed nh ni).
 Proof.
-  intros Hsig.
-  unfold wots.complete_ends, complete_ends.
-  rewrite digest_of_shrincs.
-  change WOTS_C_CHAIN_COUNT with (Z.of_nat wots.len).
-  apply for_idx_dep_map_range.
-  intros i Hi.
-  pose proof (wots.nth_digest_of_le_15 pk_seed a M counter i) as Hle.
-  rewrite chain_iter_shrincs, !fin.fin_val_of_nat, !index_int_map.
-  unfold index_block.
-  rewrite Nat2Z.id.
-  rewrite (nth_indep sig _ []) by (rewrite Hsig; exact Hi).
-  change (nth i (wots.digest_of pk_seed a M counter) iteration.default)
-    with (nth i (wots.digest_of pk_seed a M counter) 0%nat).
-  replace (Z.of_nat (wots.w_pred - nth i (wots.digest_of pk_seed a M counter) 0%nat))
-    with (2 ^ WOTS_C_CHAIN_BITS - 1
-          - Z.of_nat (nth i (wots.digest_of pk_seed a M counter) 0%nat))
-    by (unfold wots.w_pred in *; unfold WOTS_C_CHAIN_BITS; lia).
-  reflexivity.
+  unfold chain_tips.
+  apply Forall_forall. intros b Hb.
+  apply in_map_iff in Hb. destruct Hb as [i [<- _]].
+  apply length_wc_chain. cbn. lia.
 Qed.
 
-(* ----------------------------------------------------------------- *)
-(** *** 7.4 The three top-level algorithms, over the port. *)
-
-Lemma pubkey_gen_shrincs (sk_seed pk_seed : bytes) (a : wadrs) :
-  wots.shrincs_wots_pubkey_gen sk_seed pk_seed a
-  = wots_c_pubkey_gen sk_seed pk_seed (address.adrs_bytes a).
+Lemma Forall_length_sign_chains (M sk_seed pk_seed : bytes) (nh ni counter : Z) :
+  Forall (fun b => length b = 16%nat)
+         (sign_chains M sk_seed pk_seed nh ni counter).
 Proof.
-  rewrite adrs_bytes_mk_adrs, wots_c_pubkey_gen_tips.
-  unfold wots.shrincs_wots_pubkey_gen.
-  rewrite T_sf_shrincs, adrs_bytes_pk, chain_tips_shrincs.
-  reflexivity.
+  unfold sign_chains.
+  apply Forall_forall. intros b Hb.
+  apply in_map_iff in Hb. destruct Hb as [i [<- _]].
+  pose proof (index_int_digest_of_range pk_seed nh ni M counter i) as Hd.
+  destruct (Z.eq_dec (index_int (digest_of pk_seed nh ni M counter) i) 0) as [Hz|Hz].
+  - rewrite Hz, wc_chain_0. apply length_derive_sk.
+  - apply length_wc_chain. lia.
 Qed.
 
-Lemma sign_shrincs (M sk_seed pk_seed : bytes) (a : wadrs) :
-  wots_c_sign M sk_seed pk_seed (address.adrs_bytes a)
-  = match wots.shrincs_wots_sign M sk_seed pk_seed a with
-    | None => zeros (2 + WOTS_C_CHAINS_SIZE)
-    | Some (sg, counter) => to_bytes counter 2 ++ concat sg
-    end.
-Proof.
-  rewrite adrs_bytes_mk_adrs, wots_c_sign_chains.
-  unfold wots.shrincs_wots_sign.
-  rewrite <- find_counter_shrincs.
-  destruct (find_counter pk_seed (anchor_nh a) (anchor_ni a) M) as [c|];
-    [|reflexivity].
-  rewrite (sign_chains_shrincs M sk_seed pk_seed a c).
-  reflexivity.
-Qed.
-
-Lemma pubkey_from_sig_shrincs (M : bytes) (sig : list bytes) (counter : Z)
-      (pk_seed : bytes) (a : wadrs) :
-  0 <= counter < 2 ^ 16 ->
-  (length sig = wots.len)%nat ->
+(** A completed end is 16 bytes.  The [length sig] hypothesis is real:
+    at digit 15 the chain runs ZERO steps and the block IS the
+    signature's own, so the width has to come from the caller.  (Both
+    hypotheses are exactly [wots_c_pubkey_from_sig_ends]'.) *)
+Lemma Forall_length_complete_ends (M : bytes) (sig : list bytes) (counter : Z)
+      (pk_seed : bytes) (nh ni : Z) :
+  length sig = Z.to_nat WOTS_C_CHAIN_COUNT ->
   (forall b, In b sig -> length b = 16%nat) ->
-  wots_c_pubkey_from_sig (to_bytes counter 2 ++ concat sig) M pk_seed
-    (address.adrs_bytes a)
-  = if wots.good_counter pk_seed a M counter
-    then Some (wots.shrincs_wots_pubkey_from_sig M sig counter pk_seed a)
-    else None.
+  Forall (fun b => length b = 16%nat) (complete_ends M sig counter pk_seed nh ni).
 Proof.
-  intros Hc Hlen Hk.
-  rewrite adrs_bytes_mk_adrs.
-  rewrite (wots_c_pubkey_from_sig_ends M sig counter pk_seed _ _ _ _ _ _ Hc
-             ltac:(exact Hlen) Hk).
-  rewrite good_counter_shrincs.
-  destruct (wots.good_counter pk_seed a M counter); [|reflexivity].
-  unfold wots.shrincs_wots_pubkey_from_sig.
-  rewrite T_sf_shrincs, adrs_bytes_pk.
-  rewrite (complete_ends_shrincs M sig counter pk_seed a Hlen).
-  reflexivity.
-Qed.
-
-Lemma verify_shrincs (pk : bytes) (sig : list bytes) (M : bytes) (counter : Z)
-      (pk_seed : bytes) (a : wadrs) :
-  0 <= counter < 2 ^ 16 ->
-  (length sig = wots.len)%nat ->
-  (forall b, In b sig -> length b = 16%nat) ->
-  wots.shrincs_wots_verify pk sig M counter pk_seed a
-  = match wots_c_pubkey_from_sig (to_bytes counter 2 ++ concat sig) M pk_seed
-            (address.adrs_bytes a) with
-    | Some pk' => bytes_eqb pk' pk
-    | None     => false
-    end.
-Proof.
-  intros Hc Hlen Hk.
-  rewrite (pubkey_from_sig_shrincs M sig counter pk_seed a Hc Hlen Hk).
-  unfold wots.shrincs_wots_verify.
-  change (wots.valid_digest (wots.digest_of pk_seed a M counter))
-    with (wots.good_counter pk_seed a M counter).
-  destruct (wots.good_counter pk_seed a M counter); [|reflexivity].
-  reflexivity.
+  intros Hlen Hk.
+  unfold complete_ends.
+  apply Forall_forall. intros b Hb.
+  apply in_map_iff in Hb. destruct Hb as [i [<- Hi]].
+  pose proof (index_int_digest_of_range pk_seed nh ni M counter i) as Hd.
+  pose proof (in_range _ _ _ Hi) as Hir.
+  unfold WOTS_C_CHAIN_COUNT in Hir.
+  destruct (Z.eq_dec (2 ^ WOTS_C_CHAIN_BITS - 1
+                      - index_int (digest_of pk_seed nh ni M counter) i) 0)
+    as [Hz|Hz].
+  - rewrite Hz, wc_chain_0.
+    unfold index_block.
+    apply Hk, nth_In.
+    rewrite Hlen. unfold WOTS_C_CHAIN_COUNT. lia.
+  - apply length_wc_chain. unfold WOTS_C_CHAIN_BITS in *. lia.
 Qed.

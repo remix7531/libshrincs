@@ -8,7 +8,7 @@
     ([src/thash.c]).
 
     Each funspec relates a C step function to its pure counterpart in
-    [model.wots]: [shrincs_adrs_put32], [shrincs_thash].  Bodies are proved
+    the spec port: [shrincs_adrs_put32], [shrincs_thash].  Bodies are proved
     in [verif/*].  This is the shared tweakable-hash layer's spec home --
     the FXMSS expansion imports these specs (via [contract.helpers]) without
     pulling in the WOTS-specific specs of [contract.helpers_wots]. Bundled
@@ -48,10 +48,15 @@ Definition shrincs_adrs_put32_spec : ident * funspec :=
 (** ** [shrincs_thash(out, pk_seed, addr, msg, msglen)] -- the SHRINCS
     tweakable hash, generalized to any message length:
     [out := SHA256(pk_seed || zeros(48) || ADRS || msg[:msglen])[:16]
-          = thash pk_seed A msg].  Reads [addr] and [msg]; [out] must not
-    alias [msg].  The model's [F] / [PRF] / [T_sf] are all [thash]
-    (see [model.wots]), so every WOTS+C hash use specializes this one
-    spec. *)
+          = F pk_seed (adrs_bytes A) msg].  Reads [addr] and [msg]; [out]
+    must not alias [msg].
+
+    The port spells this construction FIVE times -- [F], [PRF], [T_sf],
+    [T_sl], [T_k], [H] -- because shrincs.py does (model/PORTING.md:
+    "five separate definitions, as in the spec, even though they are
+    convertible").  They are definitionally equal, so this one funspec
+    serves every WOTS+C hash use; [F] is named here because the chain
+    hash is the C's own primary caller. *)
 
 Definition shrincs_thash_spec : ident * funspec :=
   DECLARE _shrincs_thash
@@ -68,7 +73,8 @@ Definition shrincs_thash_spec : ident * funspec :=
          data_at sh_m  (tarray tuchar msglen)  (block_to_vals msg)      m_ptr)
   POST [ tvoid ]
     PROP () RETURN ()
-    SEP (data_at sh_o (tarray tuchar n_bytes) (block_to_vals (thash pk_seed A msg)) out_ptr;
+    SEP (data_at sh_o (tarray tuchar n_bytes)
+           (block_to_vals (shrincs.F pk_seed (adrs_bytes A) msg)) out_ptr;
          data_at sh_ps (tarray tuchar n_bytes) (block_to_vals pk_seed) ps_ptr;
          data_at sh_a  t_addr                  (adrs_to_vals A)         a_ptr;
          data_at sh_m  (tarray tuchar msglen)  (block_to_vals msg)      m_ptr).

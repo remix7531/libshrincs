@@ -19,7 +19,7 @@ Local Opaque to_byte.
 (** Preimage assembly for [shrincs_wots_derive_sk]: type the ADRS, splice
     reserved/chain/hash via three [shrincs_adrs_put32] calls on the
     wire view, then [shrincs_thash] the result -- a non-aliased
-    [PRF] call giving [shrincs_wots_derive_sk chain_i sk_seed pk_seed a]
+    [PRF] call giving [derive_sk sk_seed pk_seed (anchor_nh a) (anchor_ni a) chain_i]
     and leaving [addr] holding [shrincs_wots_prf_adrs a chain_i]. *)
 Lemma body_shrincs_wots_derive_sk : semax_body Vprog Gprog f_shrincs_wots_derive_sk shrincs_wots_derive_sk_spec.
 Proof.
@@ -55,7 +55,12 @@ Proof.
                 shrincs_wots_prf_adrs a (to_chain32 (Z.to_nat chain_i)),
                 pk_seed, sk_seed, sh_o, sh_ps, sh_a, sh_ss).
 
-  (* ===== Postcondition ===== *)
-  unfold shrincs_wots_derive_sk, PRF.
+  (* ===== Postcondition: the [shrincs_thash] result IS [derive_sk] at
+     [a]'s anchor -- the PRF address serialises to [wc_prf_adrs] (section
+     5.1b) at the stored chain index, and the port's [F] and [PRF] are the
+     same [sha256] slice with the last two arguments swapped. *)
+  rewrite adrs_bytes_prf.
+  rewrite to_chain32_val by lia.
+  unfold derive_sk, shrincs.F, shrincs.PRF.
   entailer!!.
 Qed.

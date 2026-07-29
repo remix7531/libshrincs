@@ -7,10 +7,11 @@
 
     FXMSS ("flexible XMSS") is the stateful tree layer of SHRINCS: a
     Merkle tree whose anchors are WOTS+C one-time instances
-    ([Model.wots]) and whose internal nodes are [thash] calls on
+    (the port's WOTS+C, adapted below) and whose internal nodes are
+    tweakable-hash calls on
     SF_FXMSS_TREE (type 18) addresses.  This file is the shared,
     Stdlib-only ground-truth model of that layer, exactly as
-    [Model.wots] is for the one-time signature underneath it: the same
+    [Model.shrincs] is for the one-time signature underneath it: the same
     role, one level up.  Definitions plus the handful of bound lemmas
     the dependent addresses consume; no security content.
 
@@ -98,15 +99,77 @@
     node recursion, [fxmss_*] for everything a caller uses. *)
 
 From Stdlib Require Import List ZArith Lia.
-From Model Require Export wots.
+From Model Require Export sha256 address iteration theory.shrincs.
+From Model Require shrincs.
 Import ListNotations.
 Open Scope Z_scope.
 
-(** FXMSS instantiates [Model.address]'s parametric ADRS at the same
-    WOTS+C row as [Model.wots] ([chain_count = len], [pos_bound =
-    w_pred]): the tree's anchors ARE WOTS+C instances, so one address
-    type serves both layers. *)
+(** FXMSS instantiates [Model.address]'s parametric ADRS at the WOTS+C
+    row ([chain_count = len], [pos_bound = w_pred]): the tree's anchors
+    ARE WOTS+C instances, so one address type serves both layers.
+
+    [Model.shrincs] is reached QUALIFIED ([shrincs.foo]): the port
+    defines [len] as Python's [len] builtin (a byte string's LENGTH, at
+    [Z]), which would otherwise shadow the chain count below. *)
+
+Definition n      : nat := 16.
+Definition len    : nat := 32.
+Definition w_pred : nat := 15.
+
 Local Notation adrs := (address.adrs len w_pred).
+
+(* ================================================================= *)
+(** ** The WOTS+C leaf, over the spec port.
+
+    An FXMSS anchor is a WOTS+C instance.  Until now the three
+    operations below came from [Model.wots]; that model is retired, so
+    they are views of [Model.shrincs] -- the port of the normative
+    Python spec -- through [Model.theory.shrincs] section 5's per-chain
+    decomposition.  The SIGNATURES are unchanged, which is what keeps
+    the rest of this file, and [Sec.fxmss.model_bridge] above it, as
+    they were.
+
+    TRANSITIONAL: this tree is itself scheduled to be restated directly
+    over the port's [fxmss_node] / [fxmss_sign] / [fxmss_pubkey_from_sig]
+    in P12e, at which point this block and the dependent-[fin] address
+    plumbing below it both go.  It is kept as a thin adapter rather than
+    inlined so that the P12e diff stays confined to this file. *)
+
+(** The WOTS+C public key of the instance anchored at [ADRS]. *)
+Definition wots_pubkey_gen (sk_seed pk_seed : block) (ADRS : adrs) : block :=
+  shrincs.wots_c_pubkey_gen sk_seed pk_seed (adrs_bytes ADRS).
+
+(** WOTS+C signing, kept PARTIAL.  The port's [wots_c_sign] is total --
+    it returns the spec's documented zero block on grinding failure
+    (model/PORTING.md's assert/raise table, verdict (4)) -- but FXMSS
+    signing propagates the failure as [None], so the search is consulted
+    directly ([Model.theory.shrincs] section 5.3). *)
+Definition wots_sign (md sk_seed pk_seed : block) (ADRS : adrs)
+  : option (list block * Z) :=
+  match find_counter pk_seed (adrs_anchor_tag_z ADRS) (adrs_anchor_idx_z ADRS) md with
+  | Some counter =>
+      Some (sign_chains md sk_seed pk_seed
+              (adrs_anchor_tag_z ADRS) (adrs_anchor_idx_z ADRS) counter,
+            counter)
+  | None => None
+  end.
+
+(** The candidate WOTS+C public key recovered from a signature: complete
+    each chain from its digit to the top, then compress.  Total, as its
+    caller ([fxmss_root_from_sig]) is -- the constant-sum gate is
+    [fxmss_verify]'s own conjunct, not this function's. *)
+Definition wots_pubkey_from_sig (md : block) (sig : list block) (counter : Z)
+    (pk_seed : block) (ADRS : adrs) : block :=
+  shrincs.T_sf pk_seed
+    (wc_pk_adrs (adrs_anchor_tag_z ADRS) (adrs_anchor_idx_z ADRS))
+    (shrincs.concat
+       (complete_ends md sig counter pk_seed
+          (adrs_anchor_tag_z ADRS) (adrs_anchor_idx_z ADRS))).
+
+(** The constant-sum gate at a signature's counter. *)
+Definition wots_good_counter (pk_seed : block) (ADRS : adrs) (md : block)
+    (counter : Z) : bool :=
+  good_counter pk_seed (adrs_anchor_tag_z ADRS) (adrs_anchor_idx_z ADRS) md counter.
 
 (* ================================================================= *)
 (** ** Parameters (shrincs.py :60, :77-78, :90). *)
@@ -152,7 +215,7 @@ Record fxmss_structure : Type := mk_fxmss_structure {
     anchor-tag slot and the index in its eight-byte slot (shrincs.py
     :786-787, :803-806).  Internal nodes are typed SF_FXMSS_TREE
     ([Fxmss]); an anchor's carrier is typed SF_SHRINCS_WOTS_PK
-    ([Wc_pk]) -- [Model.wots]'s smart constructors read back only the
+    ([Wc_pk]) -- [Model.address]'s smart constructors read back only the
     anchor through [adrs_nh]/[adrs_ni], so the carrier's own type byte
     never reaches a hash. *)
 
@@ -179,13 +242,13 @@ Definition fxmss_anchor_adrs (nd i : nat) (Hi : Z.of_nat i < 2 ^ 64) : adrs :=
     children. *)
 Definition fxmss_H (pk_seed : block) (nd i : nat) (Hi : Z.of_nat i < 2 ^ 64)
     (x y : block) : block :=
-  thash pk_seed (fxmss_tree_adrs nd i Hi) (x ++ y).
+  shrincs.H pk_seed (adrs_bytes (fxmss_tree_adrs nd i Hi)) (x ++ y).
 
 (** The anchor value: the compressed WOTS+C public key of the instance
     anchored at this position (shrincs.py :788). *)
 Definition fxmss_anchor (sk_seed pk_seed : block) (nd i : nat)
     (Hi : Z.of_nat i < 2 ^ 64) : block :=
-  shrincs_wots_pubkey_gen sk_seed pk_seed (fxmss_anchor_adrs nd i Hi).
+  wots_pubkey_gen sk_seed pk_seed (fxmss_anchor_adrs nd i Hi).
 
 (* ================================================================= *)
 (** ** The node-index invariant.
@@ -229,8 +292,7 @@ Defined.
 
 (** Bound obligations of the dependent [fx_node] below, factored out as
     named lemmas: an [ltac:(lia)] inside a Fixpoint term cannot see the
-    match-bound hypotheses (same reason as [Model.wots]'s
-    [chain_iter_pos_lt] / [chain_iter_rec_le]). *)
+    match-bound hypotheses. *)
 
 Lemma fx_depth_here (nd rem m : nat) (H : (nd + rem <= m)%nat) : (nd <= m)%nat.
 Proof. lia. Qed.
@@ -430,13 +492,13 @@ Definition fxmss_signature : Type := nat * (list block * Z) * list block.
 (** [fxmss_sign] at an explicit leaf position: refuse unless the index
     fits the address field, then sign the digest with the anchor's
     WOTS+C instance and attach the authentication path.  [None] also on
-    WOTS+C grinding failure ([Model.wots.shrincs_wots_sign]) or on an
-    unaddressable sibling. *)
+    WOTS+C grinding failure ([wots_sign]) or on an unaddressable
+    sibling. *)
 Definition fxmss_sign_at (st : fxmss_structure) (sk_seed pk_seed : block)
     (md : block) (leaf_index leaf_height : nat) : option fxmss_signature :=
   match Z_lt_dec (Z.of_nat leaf_index) (2 ^ 64) with
   | left Hi =>
-      match shrincs_wots_sign md sk_seed pk_seed
+      match wots_sign md sk_seed pk_seed
               (fxmss_anchor_adrs (FXMSS_HEIGHT - leaf_height) leaf_index Hi),
             fxmss_auth st sk_seed pk_seed leaf_index leaf_height
       with
@@ -488,7 +550,7 @@ Definition fxmss_root_from_sig (pk_seed : block) (md : block)
     (leaf_index : nat) (ws : list block * Z) (ap : list block)
     (Hi : Z.of_nat leaf_index < 2 ^ 64) : block :=
   fxmss_walk pk_seed leaf_index
-    (shrincs_wots_pubkey_from_sig md (fst ws) (snd ws) pk_seed
+    (wots_pubkey_from_sig md (fst ws) (snd ws) pk_seed
        (fxmss_anchor_adrs (length ap) leaf_index Hi))
     ap Hi.
 
@@ -519,18 +581,16 @@ Definition block_eqb (x y : block) : bool :=
     signature's counter is in the post-grinding space, and the walk
     recovers the root.  The spec's signature-size window
     ([FXMSS_SIGNATURE_SIZE_MAX], :70) is the [length ap <=
-    FXMSS_HEIGHT] conjunct; its WOTS+C half is
-    [Model.wots.valid_digest]. *)
+    FXMSS_HEIGHT] conjunct; its WOTS+C half is [wots_good_counter]. *)
 Definition fxmss_verify (pk_seed root md : block) (sg : fxmss_signature) : bool :=
   let '(leaf_index, ws, ap) := sg in
   match Z_lt_dec (Z.of_nat leaf_index) (fxmss_leaf_id_bound (length ap)) with
   | left Hi =>
       Nat.leb (length ap) FXMSS_HEIGHT
-      && valid_digest
-           (digest_of pk_seed
-              (fxmss_anchor_adrs (length ap) leaf_index
-                 (fxmss_leaf_id_lt leaf_index (length ap) Hi))
-              md (snd ws))
+      && wots_good_counter pk_seed
+           (fxmss_anchor_adrs (length ap) leaf_index
+              (fxmss_leaf_id_lt leaf_index (length ap) Hi))
+           md (snd ws)
       && block_eqb
            (fxmss_root_from_sig pk_seed md leaf_index ws ap
               (fxmss_leaf_id_lt leaf_index (length ap) Hi))

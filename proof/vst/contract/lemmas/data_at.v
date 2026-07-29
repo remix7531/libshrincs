@@ -46,14 +46,17 @@ Proof.
   reflexivity.
 Qed.
 
-(** A [repeat] of C zero-int values is the [block_to_vals] encoding of the
-    model [zeros k] block ([= repeat 0 k]).  Used to fold [memset] output
-    back into the model preimage in the tweakable-hash body proofs. *)
-Lemma zeros_to_vals : forall k,
-  repeat (Vint (Int.repr 0)) k = block_to_vals (zeros k).
+(** A [repeat] of C zero-int values is the [block_to_vals] encoding of
+    the port's [zeros k] block.  Used to fold [memset] output back into
+    the model preimage in the tweakable-hash body proofs.
+
+    The port indexes [zeros] at [Z] (Python's [bytes(n)] takes an int),
+    so the C-side [nat] repeat count is transported explicitly. *)
+Lemma zeros_to_vals : forall k : nat,
+  repeat (Vint (Int.repr 0)) k = block_to_vals (shrincs.zeros (Z.of_nat k)).
 Proof.
-  intros k. unfold zeros, block_to_vals.
-  rewrite map_repeat.
+  intros k. unfold shrincs.zeros, shrincs.repeat, block_to_vals.
+  rewrite Nat2Z.id, map_repeat.
   reflexivity.
 Qed.
 
@@ -319,19 +322,33 @@ Qed.
 (** The digit-value bridge: an in-range [digits_to_vals] cell whose digit
     fits a byte is the [Vint] of that digit.  Shared by the chain loops
     that load [digits[i]] as a chain length. *)
-Lemma Znth_digits_to_vals : forall (ds : list nat) (i : Z),
+Lemma Znth_digits_to_vals : forall (ds : list Z) (i : Z),
   0 <= i < Zlength ds ->
-  (nth (Z.to_nat i) ds 0%nat <= 255)%nat ->
-  Znth i (digits_to_vals ds) = Vint (Int.repr (Z.of_nat (nth (Z.to_nat i) ds 0%nat))).
+  0 <= Znth i ds <= 255 ->
+  Znth i (digits_to_vals ds) = Vint (Int.repr (Znth i ds)).
 Proof.
   intros ds i Hi Hb.
   unfold digits_to_vals.
   rewrite Znth_map by assumption.
-  rewrite <- (nth_Znth i ds) by assumption.
   unfold Vubyte.
   do 2 f_equal.
   apply Byte.unsigned_repr.
   rep_lia.
+Qed.
+
+(** The port indexes a digit vector with its own [index_int] (which
+    reads 0 out of range); VST indexes with [Znth].  In range they
+    agree -- both are [nth (Z.to_nat i)] at the same default. *)
+Lemma Znth_index_int : forall (ds : list Z) (i : Z),
+  0 <= i -> Znth i ds = shrincs.index_int ds i.
+Proof.
+  intros ds i Hi.
+  unfold shrincs.index_int.
+  destruct (Z_lt_dec i (Zlength ds)) as [Hlt|Hge].
+  - rewrite <- nth_Znth by lia. reflexivity.
+  - rewrite Znth_overflow by lia.
+    rewrite nth_overflow by (rewrite <- ZtoNat_Zlength; lia).
+    reflexivity.
 Qed.
 
 (** [blocks_to_vals] distributes over list concatenation. *)

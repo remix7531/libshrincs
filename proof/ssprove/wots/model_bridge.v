@@ -15,21 +15,14 @@
     claim the README used to make WITHOUT a machine proof: "the games
     scheme computes the same thing as the ground-truth model."
 
-    ** Which model, and the transitional lemmas
+    ** Which model
 
-    Every PUBLIC correspondence below is stated over [Model.shrincs]
-    and the per-chain views above it ([Model.theory.shrincs] section 5:
-    [digest_of] / [find_counter] / [chain_tips] / [sign_chains] /
-    [complete_ends], each with a REASSEMBLY lemma back to the spec's
-    own [wots_c_*]).  The PROOFS still route through [Model.wots], the
-    model this file was originally written against, via
-    [Model.theory.shrincs] section 7's algorithm reconciliation
-    ([pubkey_gen_shrincs], [sign_shrincs], [verify_shrincs], ...) --
-    which is a stronger artifact than a parallel re-proof would be: it
-    machine-checks that the two models compute the same WOTS+C, so
-    re-pointing these statements is provably not a change of claim.
-    The handful of [wots_*]-prefixed lemmas here are that route's
-    scaffolding and die with [Model.wots] in P12d.
+    Every correspondence below is stated over [Model.shrincs] and the
+    per-chain views above it ([Model.theory.shrincs] section 5:
+    [digest_of] / [find_counter] / [wc_chain] / [derive_sk] /
+    [chain_tips] / [sign_chains] / [complete_ends], each with a
+    REASSEMBLY lemma back to the spec's own [wots_c_*]) -- and PROVED
+    over them too.  There is no second model in the chain any more.
 
     ** Dictionary direction
 
@@ -39,8 +32,10 @@
     and [Z].  Every statement here QUANTIFIES the games-side value and
     DECODES it to the model ([decode16 pp], [decode32 m], [Z.of_nat c])
     -- never the reverse (no model->games encoding appears in a
-    statement's shape).  So the model's chain bounds ([fin (Z.of_nat
-    len)]) never have to be materialized; the correspondence rides on
+    statement's shape).  The port's per-chain views are parameterized
+    by the anchor's two [Z] WIRE fields ([adrs_anchor_tag_z] /
+    [adrs_anchor_idx_z] of [A0]), so no dependent address ever has to
+    be materialized on the model side; the correspondence rides on
     [Sec.bridge]'s already-proved [digest_of_bridge] /
     [good_counter_bridge] and [Model.math.encoding]'s [be_num]/[digits_w]
     machinery.
@@ -54,7 +49,7 @@
     - [find_from_seq] / [find_counter_modelE]: the games' ohead-filter
       search equals the port's fuel recursion (up to [Z.of_nat]).
 
-    The counter orientation is [wots.find_counter ... = omap Z.of_nat
+    The counter orientation is [shrincs.find_counter ... = omap Z.of_nat
     (scheme.find_counter ...)] -- the model side (partial, [option Z])
     reads as [Z.of_nat] applied to the games side (partial, [option
     nat]); chosen so the search skeleton ([iota]/[ohead]) stays on the
@@ -78,11 +73,13 @@
     load-bearing): [BinInt] stays a plain [Import] and [Znat] a plain
     [Require] (qualified [Znat.Nat2Z.foo] access) -- `Require Import
     ZArith`/`Require Import Znat` both silently shadow mathcomp's nat
-    "^" ([expn] -> [Nat.pow]).  Numeric comparisons take an explicit
-    [%nat] annotation.  (Consequences seen here: the Z-scope "^"
-    notation is absent, so [Zofnat_expn] spells [Z.pow]/[expn]
-    explicitly; [Zle_0_nat] is unqualified-unavailable, discharged by
-    [lia].) *)
+    "^" ([expn] -> [Nat.pow]).  [Model.shrincs] and
+    [Model.theory.shrincs] are reached QUALIFIED ([shrincs.foo]) for
+    the same reason: the port's [len] is Python's [len] builtin.
+    Numeric comparisons take an explicit [%nat] annotation.
+    (Consequences seen here: the Z-scope "^" notation is absent, so
+    [Zofnat_expn] spells [Z.pow]/[expn] explicitly; [Zle_0_nat] is
+    unqualified-unavailable, discharged by [lia].) *)
 
 From mathcomp Require Import all_boot all_order.
 From Sec.lib Require Import prelude games.thf games.smtcr games.smpre games.smud
@@ -99,8 +96,7 @@ From mathcomp Require Import reals.
 Require Import Sec.wots.instantiation.
 From Sec Require Import bridge.
 Require Import Sec.axioms.
-From Model Require wots byte address shrincs.
-Require Model.theory.wots.
+From Model Require byte address shrincs.
 Require Model.theory.shrincs.
 (* See header IMPORT DISCIPLINE. *)
 From Stdlib Require Import BinInt Lia.
@@ -145,6 +141,16 @@ Proof.
 elim: s => [|x s IH] //= [<-|h]; last exact: IH.
 by rewrite -size_lengthE /decode16 size_decode_block.
 Qed.
+
+(** The mathcomp -> Peano/[Z] bound transport the port's [fin] address
+    fields and [range] side conditions both need. *)
+Lemma Zofnat_ltn (a b : nat) : (a < b)%nat -> (Z.of_nat a < Z.of_nat b)%Z.
+Proof. by move/ltP => h; lia. Qed.
+
+(** Digit well-formedness is [rev]-invariant -- kept FOLDED so
+    [wf_digits_w] still fires on the MSB-first games digest. *)
+Lemma wf_digits_rev (w : nat) (ds : seq nat) : wf_digits w (rev ds) = wf_digits w ds.
+Proof. by rewrite /wf_digits all_rev. Qed.
 
 (* ------------------------------------------------------------------ *)
 (** ** ROUND-TRIPS: the encode/decode dictionary is lossless
@@ -248,32 +254,79 @@ rewrite -h. move/ltP: hc => hc'. lia.
 Qed.
 
 (* ------------------------------------------------------------------ *)
-(** ** LENGTHS: every model hash output is a 16-byte block
+(** ** LENGTHS and INDEXING: what the fold adapter consumes
 
-    ([decode16_encode16]'s size side condition is discharged by these
-    at every fold step.) *)
+    ([decode16_encode16]'s size side condition is discharged by
+    [wc_chain_decode16_length] at every fold step; [index_int_map_of_nat]
+    is how a games-side digit [nth] is read through the port's own
+    [Z]-valued indexing.) *)
 
-Lemma thash_length (pk : sha256.block) (A : address.adrs wots.len wots.w_pred)
-    (M : sha256.block) : length (wots.thash pk A M) = 16%nat.
-Proof. by rewrite /wots.thash /wots.trunc16 List.length_firstn wots.length_sha256'. Qed.
-
-(** The chain fold preserves 16-byte-ness: position count [n] steps of
-    [F] (each a [thash]) from a 16-byte start. *)
-Lemma chain_iter_length (X : sha256.block) (st n : nat) (pk : sha256.block)
-    (A : address.adrs wots.len wots.w_pred) (H : ((st + n)%coq_nat <= wots.w_pred)%coq_nat) :
-  length X = 16%nat ->
-  length (wots.shrincs_wots_chain_iter X st n pk A H) = 16%nat.
+(** The port's chain fold from a DECODED 16-byte block stays 16 bytes:
+    a positive number of steps ends in an [F] ([length_F], through
+    [length_wc_chain]), and zero steps leave the 16-byte start. *)
+Lemma wc_chain_decode16_length (pk : sha256.block) (nh ni i : Z) (x : N_shrincs)
+    (start steps : Z) :
+  (0 <= steps)%Z ->
+  length (shrincs.wc_chain pk nh ni i (decode16 x) start steps) = 16%nat.
 Proof.
-by elim: n H => [|k IH] H hX //=; rewrite thash_length.
+move=> hs.
+case: (Z.eq_dec steps 0) => [->|hne].
+- by rewrite shrincs.wc_chain_0 -size_lengthE /decode16 size_decode_block.
+- by apply: shrincs.length_wc_chain; lia.
 Qed.
 
-(** The chain fold from a DECODED 16-byte block stays 16 bytes: the
-    recurring [decode16_encode16] size side-condition at every fold step
-    (the start [decode16 x] is 16 bytes by [size_decode_block]). *)
-Lemma chain_iter_decode16_length (x : N_shrincs) (st n : nat) (pk : sha256.block)
-    (A : address.adrs wots.len wots.w_pred) (Hb : ((st + n)%coq_nat <= wots.w_pred)%coq_nat) :
-  length (wots.shrincs_wots_chain_iter (decode16 x) st n pk A Hb) = 16%nat.
-Proof. by apply: chain_iter_length; rewrite -size_lengthE /decode16 size_decode_block. Qed.
+(** The port's [Z]-valued list indexing, at a [Z.of_nat]-image digit
+    vector, IS the games-side [nth]. *)
+Lemma index_int_map_of_nat (ds : seq nat) (j : nat) :
+  shrincs.index_int (List.map Z.of_nat ds) (Z.of_nat j)
+  = Z.of_nat (List.nth j ds 0%nat).
+Proof.
+rewrite /shrincs.index_int Znat.Nat2Z.id.
+exact: (List.map_nth Z.of_nat ds 0%nat j).
+Qed.
+
+(** The port's constant-sum gate, at a [Z.of_nat]-image digit vector:
+    the two number worlds' [240]s agree.  ([Z.eqb] vs mathcomp's [eq_op]
+    is the only real content -- spelled [eqtype.eq_op] because a bare
+    [==] resolves to a [Setoid] equivalence under this file's SSProve
+    package imports; see the header NOTE.) *)
+Lemma valid_digestE (ds : seq nat) :
+  shrincs.valid_digest (List.map Z.of_nat ds) = eqtype.eq_op (sumn ds) 240%nat.
+Proof.
+rewrite /shrincs.valid_digest sum_list_map_of_nat.
+change shrincs.WOTS_C_CONSTANT_SUM with 240%Z.
+case: eqP => [->|hne] //.
+by apply/Z.eqb_neq => habs; apply: hne; lia.
+Qed.
+
+(** Positivity of the WOTS+C position bound -- the [0 < pos_bound] side
+    condition of [Model.address.shrincs_wots_hash_adrs]. *)
+Lemma w_pred_pos : (0 < w_shrincs.-1)%coq_nat.
+Proof. by apply/ltP. Qed.
+
+(** The two per-chain views whose bodies open with a [let]: restated
+    with the digest inlined, so a [nth]-into-[map] rewrite
+    ([Model.theory.shrincs.nth_map_range]) fires on them without a
+    manual zeta step.  Both hold by conversion. *)
+
+Lemma sign_chains_map (M sk pk : sha256.block) (nh ni counter : Z) :
+  shrincs.sign_chains M sk pk nh ni counter
+  = List.map
+      (fun i => shrincs.wc_chain pk nh ni i (shrincs.derive_sk sk pk nh ni i) 0
+                  (shrincs.index_int (shrincs.digest_of pk nh ni M counter) i))
+      (shrincs.range 0 shrincs.WOTS_C_CHAIN_COUNT).
+Proof. by []. Qed.
+
+Lemma complete_ends_map (M : sha256.block) (sig : list sha256.block) (counter : Z)
+    (pk : sha256.block) (nh ni : Z) :
+  shrincs.complete_ends M sig counter pk nh ni
+  = List.map
+      (fun i => shrincs.wc_chain pk nh ni i (shrincs.index_block sig i)
+                  (shrincs.index_int (shrincs.digest_of pk nh ni M counter) i)
+                  (2 ^ shrincs.WOTS_C_CHAIN_BITS - 1
+                   - shrincs.index_int (shrincs.digest_of pk nh ni M counter) i)%Z)
+      (shrincs.range 0 shrincs.WOTS_C_CHAIN_COUNT).
+Proof. by []. Qed.
 
 (* ================================================================== *)
 (** ** The anchored correspondence
@@ -296,11 +349,9 @@ Context (zstar istar : nat).
 Let P := wc_sha256 zstar istar.
 
 (** The model-side anchor address: the facade's [wc_pk_adrs] carrier at
-    [(zstar, istar)].  Its type [address.adrs chain_count_shrincs
-    w_shrincs.-1] is CONVERTIBLE to [Model.wots]'s [adrs = address.adrs
-    wots.len wots.w_pred] ([chain_count_shrincs = wots.len = 32],
-    [w_shrincs.-1 = wots.w_pred = 15]), so [A0] passes directly wherever
-    a [Model.wots] address is expected. *)
+    [(zstar, istar)].  Only its two ANCHOR WIRE FIELDS are ever read by
+    the port's WOTS+C views; the dependent type survives because the
+    SSProve tweak space indexes by [#|adrs|]. *)
 Definition A0 : address.adrs chain_count_shrincs w_shrincs.-1 :=
   addressing.wc_pk_adrs (wc_anchor P).
 
@@ -313,62 +364,42 @@ Local Notation A0_ni := (address.adrs_anchor_idx_z A0).
 Lemma grind_adrsE : grind_adrs P = address.shrincs_wots_grind_adrs A0.
 Proof. by rewrite /grind_adrs /A0. Qed.
 
-(** The crux: the games' nat-valued grinding hash reads the concrete
-    SHA-256 [H_grind] output (at [A0]) as a big-endian number. *)
-Lemma Hgrind_natE (pp : PP_shrincs) (m : M_shrincs) (c : nat) :
-  wcp_H_grind P pp (grind_adrs P) (m, c)
-  = be_num (nat_bytes (wots.H_grind (decode16 pp) (address.shrincs_wots_grind_adrs A0) (decode32 m) (Z.of_nat c))).
-Proof.
-rewrite grind_adrsE.
-have hE : wcp_H_grind P pp (address.shrincs_wots_grind_adrs A0) (m, c)
-        = nat_of_ord (H_grind0_sha256 pp (address.shrincs_wots_grind_adrs A0) (m, c)) by [].
-rewrite hE /H_grind0_sha256 val_encode16.
-rewrite block16_norm_id; last by rewrite size_lengthE shrincs.length_H_grind.
-by rewrite shrincs.H_grind_shrincs.
-Qed.
-
-(** TRANSITIONAL (this file only): the games digest equals
-    [Model.wots]'s.  The digit order already matches
-    ([scheme.digest_of] is MSB-first, [rev (digits_w ...)], as is
-    [Model.wots] via [digest_of_bridge]), so this is a plain equality.
-    [digest_of_modelE] below is the same fact over the port. *)
-Lemma wots_digest_of_modelE (pp : PP_shrincs) (m : M_shrincs) (c : nat) :
-  Sec.wots.scheme.digest_of P pp m c
-  = wots.digest_of (decode16 pp) A0 (decode32 m) (Z.of_nat c).
-Proof.
-by rewrite Sec.wots.scheme.digest_of_def digest_of_bridge Hgrind_natE.
-Qed.
-
 (** T1: the port's digit vector IS the games digest, read as [Z].  The
-    port's [base_2b] is the spec's generic bit-packing loop at [b = 4];
-    that it is the byte-wise nibble split the games' [digits_w] reading
-    assumes is [Model.theory.shrincs.base_2b_shrincs]. *)
+    crux is that the games' nat-valued grinding hash reads the concrete
+    SHA-256 [H_grind] output (at [A0]'s anchor) as a big-endian number;
+    that the port's generic [base_2b] at [b = 4] is the byte-wise
+    nibble split the games' [digits_w] reading assumes is
+    [Sec.bridge.digest_of_bridge]. *)
 Lemma digest_of_modelE (pp : PP_shrincs) (m : M_shrincs) (c : nat) :
   shrincs.digest_of (decode16 pp) A0_nh A0_ni (decode32 m) (Z.of_nat c)
   = List.map Z.of_nat (Sec.wots.scheme.digest_of P pp m c).
 Proof.
-by rewrite wots_digest_of_modelE shrincs.digest_of_shrincs.
+rewrite Sec.wots.scheme.digest_of_def.
+have hE : wcp_H_grind P pp (grind_adrs P) (m, c)
+        = be_num (nat_bytes (shrincs.H_grind (decode16 pp)
+             (shrincs.wc_grind_adrs A0_nh A0_ni) (decode32 m) (Z.of_nat c))).
+  rewrite grind_adrsE -(shrincs.adrs_bytes_grind A0).
+  have -> : wcp_H_grind P pp (address.shrincs_wots_grind_adrs A0) (m, c)
+          = nat_of_ord (H_grind0_sha256 pp (address.shrincs_wots_grind_adrs A0) (m, c))
+    by [].
+  rewrite /H_grind0_sha256 val_encode16.
+  rewrite block16_norm_id; last by rewrite size_lengthE shrincs.length_H_grind.
+  by [].
+by rewrite hE digest_of_bridge.
 Qed.
 
-(** TRANSITIONAL (this file only): the games grinding predicate equals
-    [Model.wots]'s.  ([wf_digits] and [sumn] are [rev]-invariant, which
-    absorbs the MSB/LSB [rev] difference between [scheme.digest_of] and
-    [good_counter_bridge]'s un-[rev]'d [digits_w].) *)
-Lemma wots_good_counter_modelE (pp : PP_shrincs) (m : M_shrincs) (c : nat) :
-  Sec.wots.scheme.good_counter P pp m c
-  = wots.good_counter (decode16 pp) A0 (decode32 m) (Z.of_nat c).
-Proof.
-rewrite good_counter_bridge Sec.wots.scheme.good_counter_def Sec.wots.scheme.valid_digest_def.
-by rewrite !wots_digest_of_modelE !digest_of_bridge /wf_digits all_rev sumn_rev.
-Qed.
-
-(** T2: the port's constant-sum gate IS the games' grinding
-    predicate. *)
+(** T2: the port's constant-sum gate IS the games' grinding predicate.
+    Both sides read the SAME digit vector (T1); the games additionally
+    carry a [wf_digits] conjunct, which is automatic for a digest read
+    off [digits_w]. *)
 Lemma good_counter_modelE (pp : PP_shrincs) (m : M_shrincs) (c : nat) :
   shrincs.good_counter (decode16 pp) A0_nh A0_ni (decode32 m) (Z.of_nat c)
   = Sec.wots.scheme.good_counter P pp m c.
 Proof.
-by rewrite shrincs.good_counter_shrincs wots_good_counter_modelE.
+have hwf : wf_digits (wcp_w P) (Sec.wots.scheme.digest_of P pp m c).
+  by rewrite Sec.wots.scheme.digest_of_def wf_digits_rev wf_digits_w.
+rewrite /shrincs.good_counter digest_of_modelE valid_digestE.
+by rewrite Sec.wots.scheme.good_counter_def Sec.wots.scheme.valid_digest_def hwf andTb.
 Qed.
 
 (** The counter search connects the model's fuel recursion
@@ -393,7 +424,7 @@ by case: (Sec.wots.scheme.good_counter P pp m start).
 Qed.
 
 (** The whole grinding search corresponds: the model's [find_counter]
-    (fuel [Z.to_nat c_max], start 0) is the games' [find_counter]
+    (fuel [Z.to_nat (2 ^ 16)], start 0) is the games' [find_counter]
     (bounded [ohead]-filter over [iota 0 c_max_shrincs]) transported by
     [omap Z.of_nat]. *)
 Lemma find_counter_modelE (pp : PP_shrincs) (m : M_shrincs) :
@@ -410,7 +441,10 @@ Qed.
     The games' P-applied instance addresses ARE the model's smart
     constructors on [A0].  The chain-carrying ones are stated for
     ARBITRARY [fin] fields pinned only by their values, so they rewrite
-    against whichever Z-side range proof the model fold supplies. *)
+    against whichever Z-side range proof the caller supplies; the
+    [adrs_bytes_*E] corollaries below are the SERIALIZED form -- the
+    port's own byte-level addresses -- which is what every hash-level
+    correspondence actually consumes. *)
 
 (** The games' pk address IS the model's pk-typing of [A0]. *)
 Lemma pk_adrsE : pk_adrs P = address.shrincs_wots_pk_adrs A0.
@@ -422,7 +456,7 @@ Proof. by []. Qed.
     carrier of the very same anchor), so only the chain field needs a
     bridge. *)
 Lemma prf_adrs_modelE (i : nat) (Hi : (i < chain_count_shrincs)%nat)
-    (ci : fin.fin (Z.of_nat wots.len)) (Hci : fin.fin_val ci = Z.of_nat i) :
+    (ci : fin.fin (Z.of_nat chain_count_shrincs)) (Hci : fin.fin_val ci = Z.of_nat i) :
   prf_adrs P i = address.shrincs_wots_prf_adrs A0 ci.
 Proof.
 rewrite /prf_adrs (addressing.wc_prf_adrs_finE chain_count_shrincs w_shrincs
@@ -431,14 +465,15 @@ by [].
 Qed.
 
 (** The games' (total) chain address at in-range [(i, pos)] IS the
-    model fold's per-step address [set_hash_pos (hash_adrs _ A0 ci) cp]
-    -- for ANY positivity proof [hp] and ANY [fin] fields valued
-    [Z.of_nat i] / [Z.of_nat pos] ([set_hash_pos] overwrites the
-    position slot, so [hp]'s initial-position proof term is inert). *)
+    model's [set_hash_pos (hash_adrs _ A0 ci) cp] -- for ANY positivity
+    proof [hp] and ANY [fin] fields valued [Z.of_nat i] / [Z.of_nat pos]
+    ([set_hash_pos] overwrites the position slot, so [hp]'s
+    initial-position proof term is inert). *)
 Lemma chain_adrs_modelE (i pos : nat)
     (Hi : (i < chain_count_shrincs)%nat) (Hpos : (pos < w_shrincs.-1)%nat)
-    (hp : (0 < wots.w_pred)%coq_nat)
-    (ci : fin.fin (Z.of_nat wots.len)) (cp : fin.fin (Z.of_nat wots.w_pred)) :
+    (hp : (0 < w_shrincs.-1)%coq_nat)
+    (ci : fin.fin (Z.of_nat chain_count_shrincs))
+    (cp : fin.fin (Z.of_nat w_shrincs.-1)) :
   fin.fin_val ci = Z.of_nat i -> fin.fin_val cp = Z.of_nat pos ->
   chain_adrs P i pos
   = address.set_hash_pos (address.shrincs_wots_hash_adrs hp A0 ci) cp.
@@ -450,117 +485,146 @@ rewrite /chain_adrs (addressing.wc_hash_adrs_finE chain_count_shrincs w_shrincs
 by [].
 Qed.
 
+(** SERIALIZED: the games' prf address of chain [i] is the port's
+    [wc_prf_adrs] at [A0]'s anchor. *)
+Lemma adrs_bytes_prf_adrsE (i : nat) (Hi : (i < chain_count_shrincs)%nat) :
+  address.adrs_bytes (prf_adrs P i)
+  = shrincs.wc_prf_adrs A0_nh A0_ni (Z.of_nat i).
+Proof.
+rewrite (prf_adrs_modelE i Hi (fin.fin_of_nat _ i (@Zofnat_ltn _ _ Hi))
+           (fin.fin_val_of_nat _ _ _)).
+by rewrite shrincs.adrs_bytes_prf fin.fin_val_of_nat.
+Qed.
+
+(** SERIALIZED: the games' chain address at in-range [(i, pos)] is the
+    port's [wc_hash_adrs] at [A0]'s anchor. *)
+Lemma adrs_bytes_chain_adrsE (i pos : nat)
+    (Hi : (i < chain_count_shrincs)%nat) (Hpos : (pos < w_shrincs.-1)%nat) :
+  address.adrs_bytes (chain_adrs P i pos)
+  = shrincs.wc_hash_adrs A0_nh A0_ni (Z.of_nat i) (Z.of_nat pos).
+Proof.
+rewrite (chain_adrs_modelE i pos Hi Hpos w_pred_pos
+           (fin.fin_of_nat _ i (@Zofnat_ltn _ _ Hi))
+           (fin.fin_of_nat _ pos (@Zofnat_ltn _ _ Hpos))
+           (fin.fin_val_of_nat _ _ _) (fin.fin_val_of_nat _ _ _)).
+by rewrite shrincs.adrs_bytes_hash_pos !fin.fin_val_of_nat.
+Qed.
+
 (* ---------------------------------------------------------------- *)
-(** ** T3: the fold adapter (the games' total fold IS the model's
-    dependent fold)
+(** ** T3: the fold adapter (the games' total fold IS the port's chain)
 
     Both folds apply positions [st, ..., st + n - 1] in ascending
     order; the induction end-peels BOTH sides ([chain_rcons] against
-    the model Fixpoint's native peel), with the model's bound proof
-    universally quantified so the IH instantiates it with the
-    recursive occurrence's own proof -- no proof irrelevance needed. *)
+    the port's [wc_chain_succ]).  The port's chain is a plain
+    [fold_left] over its own positions, so the only side condition left
+    is the RANGE one the (exact-or-zero) games address needs. *)
 
 Lemma chain_chain_iterE (pp : PP_shrincs) (x : N_shrincs) (i st n : nat)
-    (Hi : (i < chain_count_shrincs)%nat)
-    (hp : (0 < wots.w_pred)%coq_nat)
-    (ci : fin.fin (Z.of_nat wots.len)) (Hci : fin.fin_val ci = Z.of_nat i)
-    (Hb : ((st + n)%coq_nat <= wots.w_pred)%coq_nat) :
+    (Hi : (i < chain_count_shrincs)%nat) (Hb : (st + n <= w_shrincs.-1)%nat) :
   chain (Sec.wots.scheme.chainf P pp i) x st n
-  = encode16 (wots.shrincs_wots_chain_iter (decode16 x) st n (decode16 pp)
-                (address.shrincs_wots_hash_adrs hp A0 ci) Hb).
+  = encode16 (shrincs.wc_chain (decode16 pp) A0_nh A0_ni (Z.of_nat i)
+                (decode16 x) (Z.of_nat st) (Z.of_nat n)).
 Proof.
 elim: n Hb => [|n IH] Hb.
 - (* 0 steps: both folds are the identity; close the dictionary. *)
-  by rewrite chain0 /= encode16_decode16.
-- (* end-peel both sides; the model's outermost step is at [st + n]. *)
-  rewrite (chain_rcons (Sec.wots.scheme.chainf P pp i) x st n) /=.
-  (* the peeled position is in range: [st + n < w_pred < w] *)
-  have Hb' : ((st + n).+1 <= wots.w_pred)%nat by rewrite -addnS; apply/leP.
-  have Hlt : ((st + n)%nat < w_shrincs)%nat
-    := ltn_trans Hb' (isT : (wots.w_pred < w_shrincs)%nat).
-  rewrite (IH (wots.chain_iter_rec_le st n Hb)) /Sec.wots.scheme.chainf.
-  have hlen : length (wots.shrincs_wots_chain_iter (decode16 x) st n (decode16 pp)
-                        (address.shrincs_wots_hash_adrs hp A0 ci)
-                        (wots.chain_iter_rec_le st n Hb)) = 16%nat
-    by apply: chain_iter_decode16_length.
-  rewrite /F_sha256 decode16_encode16; last by rewrite size_lengthE.
-  have Hposn : ((st + n)%nat < w_shrincs.-1)%nat := Hb'.
-  rewrite (chain_adrs_modelE i (st + n)%nat Hi Hposn hp ci
-             (fin.fin_of_nat (Z.of_nat wots.w_pred) ((st + n)%coq_nat)
-                (wots.chain_iter_pos_lt st n Hb)) Hci
-             (fin.fin_val_of_nat _ _ _)).
-  (* the two models' chain hashes agree on the serialized address *)
-  by rewrite shrincs.F_shrincs.
+  by rewrite chain0 shrincs.wc_chain_0 encode16_decode16.
+- (* end-peel both sides; the outermost step is at position [st + n]. *)
+  have Hposn : (st + n < w_shrincs.-1)%nat by rewrite -addnS.
+  rewrite (chain_rcons (Sec.wots.scheme.chainf P pp i) x st n).
+  rewrite (IH (ltnW Hposn)) /Sec.wots.scheme.chainf /wotsc_chainf.
+  have hlen : length (shrincs.wc_chain (decode16 pp) A0_nh A0_ni (Z.of_nat i)
+                        (decode16 x) (Z.of_nat st) (Z.of_nat n)) = 16%nat
+    by apply: wc_chain_decode16_length; lia.
+  have hF : wcp_F P = F_sha256 by [].
+  rewrite hF /F_sha256 decode16_encode16; last by rewrite size_lengthE.
+  rewrite shrincs.wc_chain_succ.
+  have -> : (Z.of_nat st + Z.of_nat n)%Z = Z.of_nat (st + n)%nat
+    by rewrite -plusE Znat.Nat2Z.inj_add.
+  by rewrite (adrs_bytes_chain_adrsE i (st + n)%nat Hi Hposn).
 Qed.
+
+(** Every games digit is a genuine base-[w] digit: the digest is read
+    off [digits_w], so [wf_digits] is automatic, and out of range [nth]
+    returns 0.  This is the step-count bound the two signature-side
+    fold applications need. *)
+Lemma digest_digit_lt (pp : PP_shrincs) (m : M_shrincs) (c j : nat) :
+  (nth 0%nat (Sec.wots.scheme.digest_of P pp m c) j < w_shrincs)%nat.
+Proof.
+have hwf : wf_digits (wcp_w P) (Sec.wots.scheme.digest_of P pp m c).
+  by rewrite Sec.wots.scheme.digest_of_def wf_digits_rev wf_digits_w.
+case: (ltnP j (size (Sec.wots.scheme.digest_of P pp m c))) => hj; last first.
+  by rewrite nth_default.
+by move/allP: hwf => /(_ _ (mem_nth 0%nat hj)).
+Qed.
+
+Lemma digest_digit_leq (pp : PP_shrincs) (m : M_shrincs) (c j : nat) :
+  (nth 0%nat (Sec.wots.scheme.digest_of P pp m c) j <= w_shrincs.-1)%nat.
+Proof. by have h := digest_digit_lt pp m c j; rewrite -ltnS. Qed.
 
 (* ---------------------------------------------------------------- *)
 (** ** T4: key derivation, chain tips, and THE pubkey correspondence *)
 
 (** The games' PRF-derived chain start of chain [i] decodes to the
-    model's [shrincs_wots_derive_sk] at the same chain. *)
+    port's [derive_sk] at the same chain. *)
 Lemma derive_sk_modelE (pp : PP_shrincs) (k : K_shrincs) (i : nat)
-    (Hi : (i < chain_count_shrincs)%nat)
-    (ci : fin.fin (Z.of_nat wots.len)) (Hci : fin.fin_val ci = Z.of_nat i) :
+    (Hi : (i < chain_count_shrincs)%nat) :
   decode16 (PRF_sha256 pp (prf_adrs P i) k)
-  = wots.shrincs_wots_derive_sk ci (decode16 k) (decode16 pp) A0.
+  = shrincs.derive_sk (decode16 k) (decode16 pp) A0_nh A0_ni (Z.of_nat i).
 Proof.
-rewrite /PRF_sha256 (prf_adrs_modelE i Hi ci Hci) decode16_encode16;
+rewrite /PRF_sha256 decode16_encode16;
   last by rewrite size_lengthE shrincs.length_PRF.
-by rewrite /wots.shrincs_wots_derive_sk shrincs.PRF_shrincs.
+by rewrite /shrincs.derive_sk (adrs_bytes_prf_adrsE i Hi).
 Qed.
 
 (** The games' chain ends over the PRF-derived key decode elementwise
-    to the model's [chain_tips]. *)
+    to the port's [chain_tips]. *)
 Lemma chain_ends_tipsE (pp : PP_shrincs) (k : K_shrincs) :
   map decode16 (chain_ends P pp (derive_sk P K_shrincs PRF_sha256 pp k))
   = shrincs.chain_tips (decode16 k) (decode16 pp) A0_nh A0_ni.
 Proof.
-rewrite -shrincs.chain_tips_shrincs.
 set xs := derive_sk P K_shrincs PRF_sha256 pp k.
 have hxs : size xs = chain_count_shrincs by rewrite /xs size_derive_sk.
 have hsz : size (chain_ends P pp xs) = chain_count_shrincs
   := size_chain_ends_l P pp xs hxs.
-have hszt : size (wots.chain_tips (decode16 k) (decode16 pp) A0) = chain_count_shrincs.
-  by rewrite size_lengthE /wots.chain_tips iteration.length_for_idx_dep.
+have hszt : size (shrincs.chain_tips (decode16 k) (decode16 pp) A0_nh A0_ni)
+          = chain_count_shrincs.
+  by rewrite size_lengthE shrincs.length_chain_tips.
 apply: (@eq_from_nth _ (decode16 n0_shrincs)).
   by rewrite size_map hsz hszt.
 move=> j; rewrite size_map hsz => Hj.
-have HjP : (j < wots.len)%coq_nat by apply/ltP.
+have HjP : (j < Z.to_nat (shrincs.WOTS_C_CHAIN_COUNT - 0))%coq_nat by apply/ltP.
+have Hfull : (0 + w_shrincs.-1 <= w_shrincs.-1)%nat by rewrite add0n.
 rewrite (nth_map n0_shrincs); last by rewrite hsz.
 rewrite /chain_ends (nth_map (0%nat, n0_shrincs)); last
   by rewrite size_zip size_iota hxs minnn.
 rewrite nth_zip ?size_iota ?hxs // nth_iota //= add0n.
 rewrite (nth_listE _ (decode16 n0_shrincs)
-           (wots.chain_tips (decode16 k) (decode16 pp) A0) j)
-        /wots.chain_tips (iteration.nth_for_idx_dep wots.len _ _ j HjP).
+           (shrincs.chain_tips (decode16 k) (decode16 pp) A0_nh A0_ni) j).
+rewrite /shrincs.chain_tips
+  (shrincs.nth_map_range _ 0 shrincs.WOTS_C_CHAIN_COUNT j (decode16 n0_shrincs) HjP).
+rewrite !Z.add_0_l.
 have hnth : nth n0_shrincs xs j = PRF_sha256 pp (prf_adrs P j) k.
   rewrite /xs /derive_sk (nth_map 0%nat) ?size_iota //.
   by rewrite nth_iota // add0n.
-rewrite hnth.
-rewrite (chain_chain_iterE pp (PRF_sha256 pp (prf_adrs P j) k) j 0 w_shrincs.-1
-           Hj wots.w_pred_pos
-           (fin.fin_of_nat (Z.of_nat wots.len) j (wots.chain_idx_lt j HjP)))
-  ?fin.fin_val_of_nat //.
+rewrite hnth (chain_chain_iterE pp (PRF_sha256 pp (prf_adrs P j) k) j 0 w_shrincs.-1
+                Hj Hfull).
 rewrite decode16_encode16; last first.
-  by rewrite size_lengthE; apply: chain_iter_decode16_length.
-by rewrite (derive_sk_modelE pp k j Hj
-              (fin.fin_of_nat (Z.of_nat wots.len) j (wots.chain_idx_lt j HjP))
-              (fin.fin_val_of_nat _ _ _)).
+  by rewrite size_lengthE; apply: wc_chain_decode16_length; lia.
+by rewrite (derive_sk_modelE pp k j Hj).
 Qed.
 
-(** T4 HEADLINE: the keyed games public key IS the model's
-    [shrincs_wots_pubkey_gen] (the spec's wots_c_pubkey_gen), through
-    the dictionary. *)
+(** T4 HEADLINE: the keyed games public key IS the port's
+    [wots_c_pubkey_gen], through the dictionary. *)
 Lemma pubkey_gen_modelE (pp : PP_shrincs) (k : K_shrincs) :
   shrincs_wots_pubkey P pp (derive_sk P K_shrincs PRF_sha256 pp k)
   = encode16 (shrincs.wots_c_pubkey_gen (decode16 k) (decode16 pp)
                 (address.adrs_bytes A0)).
 Proof.
-rewrite -shrincs.pubkey_gen_shrincs.
-rewrite Sec.wots.scheme.shrincs_wots_pubkey_def /wots.shrincs_wots_pubkey_gen.
+rewrite (shrincs.adrs_bytes_mk_adrs A0) shrincs.wots_c_pubkey_gen_tips.
+rewrite Sec.wots.scheme.shrincs_wots_pubkey_def.
 have -> : wcp_T_sf P = T_sf_sha256 by [].
-rewrite /T_sf_sha256 pk_adrsE concat_flatten chain_ends_tipsE.
-by rewrite -shrincs.chain_tips_shrincs shrincs.T_sf_shrincs.
+rewrite /T_sf_sha256 pk_adrsE shrincs.adrs_bytes_pk.
+by rewrite chain_ends_tipsE -concat_flatten.
 Qed.
 
 (* ---------------------------------------------------------------- *)
@@ -571,36 +635,31 @@ Qed.
     [complete_ends_modelE] are the fold adapter [chain_chain_iterE]
     applied elementwise (per chain [j]) at a message digit rather than
     at [w-1]: the step count / start position is now the digest digit
-    [ds[j]], whose in-range bound is exactly the model's own
-    [sign_chain_bound] / [complete_chain_bound] -- supplied as the
-    fold's [Hb] so both sides carry the SAME bound proof (no
-    proof-irrelevance step).  The digit vectors [ds] are aligned by T1
-    ([digest_of_modelE]) up front, so the games' [nth] step counts land
-    on the model's [ds[j]] on the nose. *)
+    [ds[j]], whose in-range bound is [digest_digit_leq].  The digit
+    vectors are aligned by T1 ([digest_of_modelE]) up front, so the
+    games' [nth] step counts land on the port's [ds[j]] on the nose. *)
 
 (** The games' signature chains over the PRF-derived key, at the digest
-    the games supply, decode elementwise to the model's [sign_chains]
+    the games supply, decode elementwise to the port's [sign_chains]
     (which recomputes the SAME digest internally -- aligned via T1). *)
 Lemma sign_chains_modelE (pp : PP_shrincs) (k : K_shrincs) (m : M_shrincs) (c : nat) :
   map decode16 (Sec.wots.scheme.sign_chains P pp (derive_sk P K_shrincs PRF_sha256 pp k)
                   (Sec.wots.scheme.digest_of P pp m c))
   = shrincs.sign_chains (decode32 m) (decode16 k) (decode16 pp) A0_nh A0_ni (Z.of_nat c).
 Proof.
-rewrite -shrincs.sign_chains_shrincs.
-rewrite wots_digest_of_modelE.
-set D := wots.digest_of (decode16 pp) A0 (decode32 m) (Z.of_nat c).
+set D := Sec.wots.scheme.digest_of P pp m c.
 set xs := derive_sk P K_shrincs PRF_sha256 pp k.
 have hxs : size xs = chain_count_shrincs by rewrite /xs size_derive_sk.
-have hdD : size D = chain_count_shrincs.
-  by rewrite /D -wots_digest_of_modelE size_digest_of.
+have hdD : size D = chain_count_shrincs by rewrite /D size_digest_of.
 have hsz : size (Sec.wots.scheme.sign_chains P pp xs D) = chain_count_shrincs
   := size_sign_chains_l P pp xs D hxs hdD.
-have hszm : size (wots.sign_chains (decode32 m) (decode16 k) (decode16 pp) A0 (Z.of_nat c)) = chain_count_shrincs.
-  by rewrite size_lengthE /wots.sign_chains iteration.length_for_idx_dep.
+have hszm : size (shrincs.sign_chains (decode32 m) (decode16 k) (decode16 pp)
+                    A0_nh A0_ni (Z.of_nat c)) = chain_count_shrincs.
+  by rewrite size_lengthE shrincs.length_sign_chains.
 apply: (@eq_from_nth _ (decode16 n0_shrincs)).
   by rewrite size_map hsz hszm.
 move=> j; rewrite size_map hsz => Hj.
-have HjP : (j < wots.len)%coq_nat by apply/ltP.
+have HjP : (j < Z.to_nat (shrincs.WOTS_C_CHAIN_COUNT - 0))%coq_nat by apply/ltP.
 rewrite (nth_map n0_shrincs); last by rewrite hsz.
 rewrite /Sec.wots.scheme.sign_chains (nth_map ((0%nat, n0_shrincs), 0%nat)); last first.
   by rewrite !size_zip size_iota hxs hdD !minnn.
@@ -608,28 +667,27 @@ rewrite nth_zip; last by rewrite size_zip size_iota hxs hdD minnn.
 rewrite nth_zip; last by rewrite size_iota hxs.
 rewrite nth_iota // add0n /=.
 rewrite (nth_listE _ (decode16 n0_shrincs)
-           (wots.sign_chains (decode32 m) (decode16 k) (decode16 pp) A0 (Z.of_nat c)) j).
-rewrite /wots.sign_chains.
-rewrite (iteration.nth_for_idx_dep wots.len _ (decode16 n0_shrincs) j HjP).
+           (shrincs.sign_chains (decode32 m) (decode16 k) (decode16 pp)
+              A0_nh A0_ni (Z.of_nat c)) j).
+rewrite sign_chains_map
+  (shrincs.nth_map_range _ 0 shrincs.WOTS_C_CHAIN_COUNT j (decode16 n0_shrincs) HjP).
+rewrite !Z.add_0_l digest_of_modelE -/D index_int_map_of_nat.
+rewrite -(nth_listE _ 0%nat D j).
 have hnth : nth n0_shrincs xs j = PRF_sha256 pp (prf_adrs P j) k.
   rewrite /xs /derive_sk (nth_map 0%nat) ?size_iota //.
   by rewrite nth_iota // add0n.
-rewrite hnth (nth_listE _ 0%N D j).
-rewrite (chain_chain_iterE pp (PRF_sha256 pp (prf_adrs P j) k) j 0 (List.nth j D 0%nat)
-           Hj wots.w_pred_pos
-           (fin.fin_of_nat (Z.of_nat wots.len) j (wots.chain_idx_lt j HjP))
-           (fin.fin_val_of_nat _ _ _)
-           (wots.sign_chain_bound (decode16 pp) A0 (decode32 m) (Z.of_nat c) j)).
+have Hdb : (0 + nth 0%nat D j <= w_shrincs.-1)%nat
+  by rewrite add0n /D digest_digit_leq.
+rewrite hnth (chain_chain_iterE pp (PRF_sha256 pp (prf_adrs P j) k) j 0
+                (nth 0%nat D j) Hj Hdb).
 rewrite decode16_encode16; last first.
-  by rewrite size_lengthE; apply: chain_iter_decode16_length.
-by rewrite (derive_sk_modelE pp k j Hj
-              (fin.fin_of_nat (Z.of_nat wots.len) j (wots.chain_idx_lt j HjP))
-              (fin.fin_val_of_nat _ _ _)).
+  by rewrite size_lengthE; apply: wc_chain_decode16_length; lia.
+by rewrite (derive_sk_modelE pp k j Hj).
 Qed.
 
 (** The games' verifier-side chain completion, over ARBITRARY start
     values [ys] (the received signature values), decodes elementwise to
-    the model's [complete_ends] on [map decode16 ys].  The size gate
+    the port's [complete_ends] on [map decode16 ys].  The size gate
     [size ys = chain_count] aligns the [zip]s; the digest is again
     supplied at the games' [digest_of] and aligned by T1. *)
 Lemma complete_ends_modelE (pp : PP_shrincs) (m : M_shrincs) (c : nat) (ys : seq N_shrincs) :
@@ -639,20 +697,18 @@ Lemma complete_ends_modelE (pp : PP_shrincs) (m : M_shrincs) (c : nat) (ys : seq
       (decode16 pp) A0_nh A0_ni.
 Proof.
 move=> hys.
-have hlen : length (map decode16 ys) = wots.len by rewrite -size_lengthE size_map hys.
-rewrite -(shrincs.complete_ends_shrincs (decode32 m) (map decode16 ys) (Z.of_nat c)
-            (decode16 pp) A0 hlen).
-rewrite wots_digest_of_modelE.
-set D := wots.digest_of (decode16 pp) A0 (decode32 m) (Z.of_nat c).
-have hdD : size D = chain_count_shrincs by rewrite /D -wots_digest_of_modelE size_digest_of.
+set D := Sec.wots.scheme.digest_of P pp m c.
+have hdD : size D = chain_count_shrincs by rewrite /D size_digest_of.
 have hsz : size (Sec.wots.scheme.complete_ends P pp D ys) = chain_count_shrincs.
   by rewrite size_complete_ends hdD hys !minnn.
-have hszm : size (wots.complete_ends (decode32 m) (map decode16 ys) (Z.of_nat c) (decode16 pp) A0) = chain_count_shrincs.
-  by rewrite size_lengthE /wots.complete_ends iteration.length_for_idx_dep.
+have hszm : size (shrincs.complete_ends (decode32 m) (map decode16 ys) (Z.of_nat c)
+                    (decode16 pp) A0_nh A0_ni) = chain_count_shrincs.
+  by rewrite size_lengthE shrincs.length_complete_ends.
 apply: (@eq_from_nth _ (decode16 n0_shrincs)).
   by rewrite size_map hsz hszm.
 move=> j; rewrite size_map hsz => Hj.
-have HjP : (j < wots.len)%coq_nat by apply/ltP.
+have HjP : (j < Z.to_nat (shrincs.WOTS_C_CHAIN_COUNT - 0))%coq_nat by apply/ltP.
+have Hd := digest_digit_leq pp m c j.
 rewrite (nth_map n0_shrincs); last by rewrite hsz.
 rewrite /Sec.wots.scheme.complete_ends (nth_map (0%nat, (0%nat, n0_shrincs))); last first.
   by rewrite size_zip size_iota size_zip hdD hys !minnn.
@@ -660,63 +716,23 @@ rewrite nth_zip; last by rewrite size_iota size_zip hdD hys minnn.
 rewrite nth_zip; last by rewrite hdD hys.
 rewrite nth_iota // add0n /=.
 rewrite (nth_listE _ (decode16 n0_shrincs)
-           (wots.complete_ends (decode32 m) [seq decode16 i | i <- ys] (Z.of_nat c) (decode16 pp) A0) j).
-rewrite /wots.complete_ends.
-rewrite (iteration.nth_for_idx_dep wots.len _ (decode16 n0_shrincs) j HjP).
-rewrite (nth_listE _ 0%N D j).
-rewrite (chain_chain_iterE pp (nth n0_shrincs ys j) j (List.nth j D 0%nat)
-           _ Hj wots.w_pred_pos
-           (fin.fin_of_nat (Z.of_nat wots.len) j (wots.chain_idx_lt j HjP))
-           (fin.fin_val_of_nat _ _ _)
-           (wots.complete_chain_bound (decode16 pp) A0 (decode32 m) (Z.of_nat c) j)).
+           (shrincs.complete_ends (decode32 m) [seq decode16 i | i <- ys] (Z.of_nat c)
+              (decode16 pp) A0_nh A0_ni) j).
+rewrite complete_ends_map
+  (shrincs.nth_map_range _ 0 shrincs.WOTS_C_CHAIN_COUNT j (decode16 n0_shrincs) HjP).
+rewrite !Z.add_0_l digest_of_modelE -/D !index_int_map_of_nat.
+rewrite -!(nth_listE _ 0%nat D j).
+rewrite /shrincs.index_block Znat.Nat2Z.id
+        -(nth_listE _ (@nil byte.byte) [seq decode16 i | i <- ys] j)
+        (nth_map n0_shrincs); last by rewrite hys.
+have Hb : (nth 0%nat D j + (w_shrincs.-1 - nth 0%nat D j) <= w_shrincs.-1)%nat
+  by rewrite subnKC.
+rewrite (chain_chain_iterE pp (nth n0_shrincs ys j) j (nth 0%nat D j)
+           (w_shrincs.-1 - nth 0%nat D j)%nat Hj Hb).
 rewrite decode16_encode16; last first.
-  by rewrite size_lengthE; apply: chain_iter_decode16_length.
-rewrite -(nth_listE _ iteration.default (map decode16 ys) j) (nth_map n0_shrincs); last by rewrite hys.
-by [].
-Qed.
-
-(** T5 HEADLINE: the games' boolean verifier IS the model's, through the
-    dictionary.  Under the size gate [size sig = chain_count] (which
-    makes the games' [size sg == chain_count] conjunct [true], absorbing
-    it), the two agree: the valid-digest conjunct is T2 (as
-    [good_counter_modelE]); the recompress-and-compare conjunct bridges
-    the games' [T_sf == root] (an [eq_op] on [N_shrincs]) to the model's
-    [list_eq_dec]-on-blocks via the [encode16]/[decode16] bijection --
-    [encode16 X == root] iff [X = decode16 root] for the 16-byte pubkey
-    [X] (a boolean EQUALITY, both directions cased). *)
-Lemma wots_verify_modelE (pp : PP_shrincs) (root : N_shrincs) (m : M_shrincs)
-    (sig : seq N_shrincs) (c : nat) :
-  size sig = chain_count_shrincs ->
-  Sec.wots.scheme.shrincs_wots_verify P pp root m (sig, c)
-  = wots.shrincs_wots_verify (decode16 root) (map decode16 sig) (decode32 m) (Z.of_nat c) (decode16 pp) A0.
-Proof.
-move=> hsig.
-have hlen : length (map decode16 sig) = wots.len by rewrite -size_lengthE size_map hsig.
-rewrite Sec.wots.scheme.shrincs_wots_verify_def.
-cbn [fst snd].
-rewrite /wots.shrincs_wots_verify.
-have hcc : wcp_chain_count P = chain_count_shrincs by [].
-rewrite hcc hsig eqxx andTb.
-congr andb.
-  exact: (wots_good_counter_modelE pp m c).
-have hTsf : wcp_T_sf P pp (pk_adrs P) (Sec.wots.scheme.complete_ends P pp (Sec.wots.scheme.digest_of P pp m c) sig)
-          = encode16 (wots.shrincs_wots_pubkey_from_sig (decode32 m) (map decode16 sig) (Z.of_nat c) (decode16 pp) A0).
-  have -> : wcp_T_sf P = T_sf_sha256 by [].
-  rewrite /T_sf_sha256 /wots.shrincs_wots_pubkey_from_sig pk_adrsE.
-  rewrite (complete_ends_modelE pp m c sig hsig) concat_flatten.
-  rewrite -(shrincs.complete_ends_shrincs (decode32 m) (map decode16 sig) (Z.of_nat c)
-              (decode16 pp) A0 hlen).
-  by rewrite shrincs.T_sf_shrincs.
-rewrite hTsf.
-set X := wots.shrincs_wots_pubkey_from_sig (decode32 m) (map decode16 sig) (Z.of_nat c) (decode16 pp) A0.
-have hX16 : size X = 16%nat.
-  by rewrite /X size_lengthE /wots.shrincs_wots_pubkey_from_sig /wots.T_sf thash_length.
-case: (List.list_eq_dec byte.byte_eq_dec X (decode16 root)) => [Heq | Hneq].
-- by rewrite Heq encode16_decode16 eqxx.
-- case: eqP => [Habs | //].
-  exfalso; apply: Hneq.
-  have hd := decode16_encode16 X hX16.
-  by rewrite Habs in hd; rewrite -hd.
+  by rewrite size_lengthE; apply: wc_chain_decode16_length; lia.
+congr (shrincs.wc_chain _ _ _ _ _ _ _).
+by rewrite -minusE Znat.Nat2Z.inj_sub; last by apply/leP.
 Qed.
 
 (** T5 HEADLINE: the games' boolean verifier IS the port's
@@ -725,6 +741,13 @@ Qed.
     signature (two counter bytes then the 32 chain values), recovers
     the public key.  The [None] branch is the port's constant-sum
     rejection.
+
+    Under the size gate [size sig = chain_count] the games'
+    [size sg == chain_count] conjunct is [true] and absorbs; the
+    valid-digest conjunct is T2 (as [good_counter_modelE]); the
+    recompress-and-compare conjunct bridges the games' [T_sf == root]
+    (an [eq_op] on [N_shrincs]) to the port's [bytes_eqb] via the
+    [encode16]/[decode16] bijection.
 
     The two side conditions are the spec's own signature
     well-formedness, which shrincs.py checks OUTSIDE this function --
@@ -746,32 +769,39 @@ Lemma verify_modelE (pp : PP_shrincs) (root : N_shrincs) (m : M_shrincs)
     end.
 Proof.
 move=> hsig hc.
-have hlen : length (map decode16 sig) = wots.len by rewrite -size_lengthE size_map hsig.
-rewrite -(shrincs.verify_shrincs (decode16 root) (map decode16 sig) (decode32 m)
-            (Z.of_nat c) (decode16 pp) A0 (c_max_Zrange c hc) hlen
-            (@in_map_decode16 sig)).
-exact: wots_verify_modelE.
-Qed.
-
-(** T5 HEADLINE: the games' partial signer IS the model's, through the
-    dictionary.  Orientation matches [find_counter_modelE] (model = the
-    games transported): the model signature (option [list block * Z]) is
-    the [omap] of the games one (option [seq N * nat]) under
-    "decode each chain value, [Z.of_nat] the counter".  The winning
-    counter is transported by T2's [find_counter_modelE]; the signature
-    payload by [sign_chains_modelE]. *)
-Lemma wots_sign_modelE (pp : PP_shrincs) (k : K_shrincs) (m : M_shrincs) :
-  wots.shrincs_wots_sign (decode32 m) (decode16 k) (decode16 pp) A0
-  = omap (fun sgc => (map decode16 sgc.1, Z.of_nat sgc.2))
-         (Sec.wots.scheme.shrincs_wots_sign P pp (derive_sk P K_shrincs PRF_sha256 pp k) m).
-Proof.
-rewrite /wots.shrincs_wots_sign Sec.wots.scheme.shrincs_wots_sign_def.
-rewrite -shrincs.find_counter_shrincs find_counter_modelE.
-case E: (Sec.wots.scheme.find_counter P pp m) => [c|]; last by [].
-cbn [Option.map].
-congr Some; congr pair.
-rewrite (sign_chains_modelE pp k m c).
-by rewrite -shrincs.sign_chains_shrincs.
+have hlen : length (map decode16 sig) = Z.to_nat shrincs.WOTS_C_CHAIN_COUNT.
+  by rewrite -size_lengthE size_map hsig.
+(* the RHS IS the port's own [wc_verify], spelled out *)
+have -> : match shrincs.wots_c_pubkey_from_sig
+                  (shrincs.to_bytes (Z.of_nat c) 2 ++ shrincs.concat (map decode16 sig))
+                  (decode32 m) (decode16 pp) (address.adrs_bytes A0) with
+          | Some pk => shrincs.bytes_eqb pk (decode16 root)
+          | None    => false
+          end
+        = shrincs.wc_verify (decode16 root)
+            (shrincs.to_bytes (Z.of_nat c) 2 ++ shrincs.concat (map decode16 sig))
+            (decode32 m) (decode16 pp) (address.adrs_bytes A0) by [].
+rewrite (shrincs.adrs_bytes_mk_adrs A0).
+rewrite (shrincs.wc_verify_ends (decode16 root) (decode32 m) (map decode16 sig)
+           (Z.of_nat c) (decode16 pp) _ _ _ _ _ _
+           (c_max_Zrange c hc) hlen (@in_map_decode16 sig)).
+rewrite good_counter_modelE Sec.wots.scheme.shrincs_wots_verify_def.
+cbn [fst snd].
+have hcc : wcp_chain_count P = chain_count_shrincs by [].
+rewrite hcc hsig eqxx andTb -Sec.wots.scheme.good_counter_def.
+congr andb.
+have -> : wcp_T_sf P = T_sf_sha256 by [].
+rewrite /T_sf_sha256 pk_adrsE shrincs.adrs_bytes_pk.
+rewrite (complete_ends_modelE pp m c sig hsig) -concat_flatten /shrincs.concat.
+set X := shrincs.T_sf (decode16 pp) (shrincs.wc_pk_adrs _ _) _.
+have hX16 : size X = 16%nat by rewrite /X size_lengthE shrincs.length_T_sf.
+rewrite /shrincs.bytes_eqb.
+case: (List.list_eq_dec byte.byte_eq_dec X (decode16 root)) => [Heq | Hneq].
+- by rewrite Heq encode16_decode16 eqxx.
+- case: eqP => [Habs | //].
+  exfalso; apply: Hneq.
+  have hd := decode16_encode16 X hX16.
+  by rewrite Habs in hd; rewrite -hd.
 Qed.
 
 (** T5 HEADLINE: the games' partial signer IS the port's total one.
@@ -779,7 +809,9 @@ Qed.
     signature layout: the winning counter in two big-endian bytes,
     then the 32 chain values.  (The port's [wots_c_sign] keeps the
     spec's signature -- it has no [None] -- so the correspondence
-    splits into this lemma and [sign_zero_modelE] below.) *)
+    splits into this lemma and [sign_zero_modelE] below.)  The winning
+    counter is transported by [find_counter_modelE], the signature
+    payload by [sign_chains_modelE]. *)
 Lemma sign_modelE (pp : PP_shrincs) (k : K_shrincs) (m : M_shrincs)
     (sg : seq N_shrincs) (c : nat) :
   Sec.wots.scheme.shrincs_wots_sign P pp (derive_sk P K_shrincs PRF_sha256 pp k) m
@@ -787,8 +819,12 @@ Lemma sign_modelE (pp : PP_shrincs) (k : K_shrincs) (m : M_shrincs)
   shrincs.wots_c_sign (decode32 m) (decode16 k) (decode16 pp) (address.adrs_bytes A0)
   = shrincs.to_bytes (Z.of_nat c) 2 ++ shrincs.concat (map decode16 sg).
 Proof.
-move=> hS.
-by rewrite shrincs.sign_shrincs wots_sign_modelE hS.
+rewrite (shrincs.adrs_bytes_mk_adrs A0) shrincs.wots_c_sign_chains.
+rewrite find_counter_modelE Sec.wots.scheme.shrincs_wots_sign_def.
+case E: (Sec.wots.scheme.find_counter P pp m) => [c'|]; last by cbn [Option.map].
+cbn [Option.map].
+move=> [<- <-].
+by rewrite (sign_chains_modelE pp k m c').
 Qed.
 
 (** Grinding failure, honestly: when the games' bounded search finds no
@@ -800,6 +836,10 @@ Lemma sign_zero_modelE (pp : PP_shrincs) (k : K_shrincs) (m : M_shrincs) :
   Sec.wots.scheme.shrincs_wots_sign P pp (derive_sk P K_shrincs PRF_sha256 pp k) m = None ->
   shrincs.wots_c_sign (decode32 m) (decode16 k) (decode16 pp) (address.adrs_bytes A0)
   = shrincs.zeros (2 + shrincs.WOTS_C_CHAINS_SIZE)%Z.
-Proof. by move=> hN; rewrite shrincs.sign_shrincs wots_sign_modelE hN. Qed.
+Proof.
+rewrite (shrincs.adrs_bytes_mk_adrs A0) shrincs.wots_c_sign_chains.
+rewrite find_counter_modelE Sec.wots.scheme.shrincs_wots_sign_def.
+by case E: (Sec.wots.scheme.find_counter P pp m) => [c'|]; cbn [Option.map].
+Qed.
 
 End model_bridge.

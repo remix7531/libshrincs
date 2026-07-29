@@ -20,12 +20,12 @@
       of [fx_node], stated with the caller's own bound proofs rather
       than the ones the [Fixpoint] built internally.
 
-    Companion of [Model.theory.wots] (facts about [Model.wots]) and
+    Companion of [Model.theory.shrincs] (facts about the spec port,
+    which the WOTS+C leaf below is now a view of) and
     [Model.theory.address]. *)
 
 From Stdlib Require Import List ZArith Lia.
 From Model Require Export fxmss.
-From Model Require Import theory.wots.
 Import ListNotations.
 Open Scope Z_scope.
 
@@ -93,24 +93,28 @@ Qed.
 (** ** Output widths.
 
     Every FXMSS value -- anchor, internal node, recovered root -- is a
-    [thash] output, hence exactly [n = 16] bytes.  The model bridge
-    needs this to close [decode16 o encode16 = id] at each fold step. *)
+    tweakable-hash output, hence exactly [n = 16] bytes.  The model
+    bridge needs this to close [decode16 o encode16 = id] at each fold
+    step.
 
-Lemma thash_length (pk_seed : block) (a : address.adrs len w_pred) (m : block) :
-  length (thash pk_seed a m) = 16%nat.
-Proof.
-  unfold thash, trunc16. rewrite length_firstn, length_sha256'. reflexivity.
-Qed.
+    The port spells the one construction six times ([F], [H], [T_sf],
+    [T_sl], [T_k], [PRF]) because shrincs.py does; they are
+    definitionally equal (model/PORTING.md), which is why the tree-node
+    hash [H] below closes by [length_F]. *)
 
 Lemma fxmss_H_length (pk_seed : block) (nd i : nat)
     (H : Z.of_nat i < 2 ^ 64) (x y : block) :
   length (fxmss_H pk_seed nd i H x y) = 16%nat.
-Proof. apply thash_length. Qed.
+Proof. apply length_F. Qed.
 
 Lemma fxmss_anchor_length (sk_seed pk_seed : block) (nd i : nat)
     (H : Z.of_nat i < 2 ^ 64) :
   length (fxmss_anchor sk_seed pk_seed nd i H) = 16%nat.
-Proof. apply thash_length. Qed.
+Proof.
+  unfold fxmss_anchor, wots_pubkey_gen.
+  rewrite adrs_bytes_mk_adrs, wots_c_pubkey_gen_tips.
+  apply length_T_sf.
+Qed.
 
 Lemma fx_node_length (sh : fxmss_shape) (sk_seed pk_seed : block) (rem nd i : nat)
     (Hd : (nd + rem <= fxmss_max_depth sh)%nat) (Hi : node_idx_ok sh nd i) :

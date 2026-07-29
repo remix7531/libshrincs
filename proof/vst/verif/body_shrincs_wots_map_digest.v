@@ -13,9 +13,32 @@ Import ListNotations.
 
 Open Scope Z_scope.
 
+(* Keep the digit vector symbolic: [digest_of] is the port's [base_2b],
+   a [fold_left] over [range 0 32] whose accumulator carries [firstn] /
+   [skipn] of the [H_grind] output.  The array-load side of [forward]
+   weak-head-normalizes the contents of the array it reads, which runs
+   that fold out into a term big enough to stall the proof for minutes.
+   Every fact the body needs about it is already a lemma. *)
+Local Opaque digest_of.
+
 (* The nibble-store reductions [digest_store_hi] / [digest_store_lo] are
    shared -- see [contract.lemmas.arith_nibble], beside [nibble_hi] /
    [nibble_lo]. *)
+
+(** The C sums the digit vector one cell at a time, so the running-sum
+    invariant needs the port's [Model.shrincs.sum_list] to absorb one
+    appended digit.  Section 5 only ever sums a WHOLE digit vector, so it
+    states no such lemma; this is the only consumer. *)
+Local Lemma sum_list_snoc : forall (l : list Z) (x : Z),
+  shrincs.sum_list (l ++ [x]) = shrincs.sum_list l + x.
+Proof.
+  unfold shrincs.sum_list.
+  intros l.
+  induction l as [|d l IH]; intros x; cbn [app fold_right].
+  - lia.
+  - rewrite IH.
+    lia.
+Qed.
 
 (* ================================================================= *)
 (** ** The grind-address fold (closed by the clean-anchor precondition).
@@ -38,10 +61,7 @@ Open Scope Z_scope.
     byte lists differ) is now closed at the spec boundary:
     [shrincs_wots_map_digest_spec] carries the clean-anchor precondition
     [payload_a_z a = 0 /\ payload_b_z a = 0 /\ payload_c_z a = 0], which
-    the caller [body_shrincs_wots_grind_to_constant_sum] discharges.
-    Under those three hyps both byte lists carry zero payload words, so
-    the fold [grind_addr_stores] (shared, in
-    [contract.lemmas.chain_blocks]) holds outright. *)
+    the caller [body_shrincs_wots_grind_to_constant_sum] discharges. *)
 
 (* ================================================================= *)
 (** ** [shrincs_wots_map_digest] body proof.
@@ -50,7 +70,9 @@ Open Scope Z_scope.
     the address ([addr[9] = SF_SHRINCS_WOTS_GRIND]) then runs [shrincs_wots_h_grind] into a
     local [hg[16]], expands each byte into its two base-16 nibbles across
     [digits[32]], and returns the digit sum.  [shrincs_wots_h_grind] reads the address
-    after the type store, so the digest is keyed on [shrincs_wots_grind_adrs a].
+    after the type store, so the digest is keyed on [shrincs_wots_grind_adrs a] --
+    equivalently, by [adrs_bytes_grind], on that address's anchor, which is
+    what the port's [digest_of] takes.
 
     - Phase 0 (type store): [addr[9] = 22]; switch the addr buffer to the
       wire view ([adrs_to_vals_raw]), fold the store via [upd_adrs_type]
@@ -58,13 +80,16 @@ Open Scope Z_scope.
       union grind address via [grind_addr_stores] (clean-anchor PROPs)
       and [forward_call shrincs_wots_h_grind] with [shrincs_wots_grind_adrs a].
     - Phase 1 (nibble loop): [forward_for_simple_bound 16]; the invariant
-      carries [digits = digits_to_vals (flat_map nibble_f (sublist 0 i hg))
-      ++ Zrepeat Vundef (32 - 2*i)]; each step is [nibble_step_shape].
-    - After phase 1 the whole [sublist] collapses (via [digest_of_flat_map])
-      to [digits_to_vals (digest_of ...)].
+      carries [digits = digits_to_vals (flat_map (nib hg) (shrincs.range 0 i))
+      ++ Zrepeat Vundef (32 - 2*i)].  The port's [nib] is indexed by BYTE
+      POSITION, so the loop advances over [shrincs.range 0 i], not over a
+      prefix of [hg]; each step is [nibble_step_shape].
+    - After phase 1 the full [range 0 16] flat-map IS the digit vector
+      ([digest_of_flat_map]).
     - Phase 2 (sum loop): [forward_for_simple_bound 32] with running-sum
-      [temp _sum (list_sum (firstn (Z.to_nat j) (digest_of ...)))]; each step
-      is [firstn_S_snoc] + [list_sum_app]; digits are <= 15 so no overflow. *)
+      [temp _sum (shrincs.sum_list (firstn (Z.to_nat j) (digest_of ...)))];
+      each step is [firstn_S_snoc] + [sum_list_app]; digits are <= 15 so
+      no overflow. *)
 
 Lemma body_shrincs_wots_map_digest : semax_body Vprog Gprog f_shrincs_wots_map_digest shrincs_wots_map_digest_spec.
 Proof.
@@ -82,7 +107,7 @@ Proof.
   rewrite grind_addr_stores by assumption.
 
   (* shrincs_wots_h_grind(hg, msg, counter, pk_seed, addr): reads the grind-typed addr,
-     so [hg := block_to_vals (H_grind pk_seed (shrincs_wots_grind_adrs a) ...)] *)
+     so [hg := block_to_vals (H_grind pk_seed (adrs_bytes (shrincs_wots_grind_adrs a)) ...)] *)
   forward_call (v_hg, m_ptr, counter, ps_ptr, a_ptr, msg, pk_seed,
                 shrincs_wots_grind_adrs a, Tsh, sh_m, sh_ps, sh_a).
 
@@ -94,20 +119,23 @@ Proof.
              temp _msg m_ptr; temp _counter (Vint (Int.repr counter));
              temp _pk_seed ps_ptr; temp _addr a_ptr)
       SEP (data_at Tsh (tarray tuchar n_bytes)
-             (block_to_vals (H_grind pk_seed (shrincs_wots_grind_adrs a) msg counter)) v_hg;
+             (block_to_vals (shrincs.H_grind pk_seed
+                (adrs_bytes (shrincs_wots_grind_adrs a)) msg counter)) v_hg;
            data_at sh_m (tarray tuchar msg_bytes) (block_to_vals msg) m_ptr;
            data_at sh_ps (tarray tuchar n_bytes) (block_to_vals pk_seed) ps_ptr;
            data_at sh_a t_addr (adrs_to_vals (shrincs_wots_grind_adrs a)) a_ptr;
            data_at sh_d (tarray tuchar 32)
              (digits_to_vals
-                (flat_map nibble_f
-                   (sublist 0 i (H_grind pk_seed (shrincs_wots_grind_adrs a) msg counter)))
+                (flat_map (nib (shrincs.H_grind pk_seed
+                   (adrs_bytes (shrincs_wots_grind_adrs a)) msg counter))
+                   (shrincs.range 0 i))
               ++ Zrepeat Vundef (32 - 2 * i)) d_ptr)).
   - (* loop entry *)
     unfold t_addr.
     entailer!!.
   - (* loop body *)
-    assert (HlHG : Zlength (H_grind pk_seed (shrincs_wots_grind_adrs a) msg counter) = 16)
+    assert (HlHG : Zlength (shrincs.H_grind pk_seed
+                     (adrs_bytes (shrincs_wots_grind_adrs a)) msg counter) = 16)
       by apply H_grind_Zlength.
     (* t'3 = hg[i] *)
     forward.
@@ -123,11 +151,9 @@ Proof.
     apply derives_refl'.
     f_equal.
     rewrite Znth_block_to_vals, digest_store_hi, digest_store_lo by lia.
-    apply (nibble_step_shape (H_grind pk_seed (shrincs_wots_grind_adrs a) msg counter) i ltac:(lia)
-             (H_grind_Zlength pk_seed (shrincs_wots_grind_adrs a) msg counter)).
+    apply (nibble_step_shape (shrincs.H_grind pk_seed
+             (adrs_bytes (shrincs_wots_grind_adrs a)) msg counter) i ltac:(lia) HlHG).
   - (* ===== after phase 1: digits = digits_to_vals (digest_of ...) ===== *)
-    pose proof (H_grind_Zlength pk_seed (shrincs_wots_grind_adrs a) msg counter) as HlHG.
-    rewrite sublist_same by lia.
     change (32 - 2 * 16) with 0.
     rewrite Zrepeat_0, app_nil_r.
     rewrite <- digest_of_flat_map.
@@ -138,22 +164,26 @@ Proof.
     forward_for_simple_bound 32
       (EX j : Z,
         PROP ()
-        LOCAL (temp _sum (Vint (Int.repr (Z.of_nat
-                 (list_sum (firstn (Z.to_nat j) (digest_of pk_seed a msg counter))))));
+        LOCAL (temp _sum (Vint (Int.repr (shrincs.sum_list
+                 (firstn (Z.to_nat j)
+                    (digest_of pk_seed (anchor_nh a) (anchor_ni a) msg counter)))));
                lvar _hg (tarray tuchar 16) v_hg; temp _digits d_ptr;
                temp _msg m_ptr; temp _counter (Vint (Int.repr counter));
                temp _pk_seed ps_ptr; temp _addr a_ptr)
         SEP (data_at Tsh (tarray tuchar n_bytes)
-               (block_to_vals (H_grind pk_seed (shrincs_wots_grind_adrs a) msg counter)) v_hg;
+               (block_to_vals (shrincs.H_grind pk_seed
+                  (adrs_bytes (shrincs_wots_grind_adrs a)) msg counter)) v_hg;
              data_at sh_m (tarray tuchar msg_bytes) (block_to_vals msg) m_ptr;
              data_at sh_ps (tarray tuchar n_bytes) (block_to_vals pk_seed) ps_ptr;
              data_at sh_a t_addr (adrs_to_vals (shrincs_wots_grind_adrs a)) a_ptr;
              data_at sh_d (tarray tuchar 32)
-               (digits_to_vals (digest_of pk_seed a msg counter)) d_ptr)).
+               (digits_to_vals
+                  (digest_of pk_seed (anchor_nh a) (anchor_ni a) msg counter)) d_ptr)).
     + (* loop entry *)
       entailer!!.
     + (* loop body *)
-      pose proof (digest_of_Zlength pk_seed a msg counter) as HlDIG.
+      pose proof (digest_of_Zlength pk_seed (anchor_nh a) (anchor_ni a) msg counter)
+        as HlDIG.
       (* t'1 = digits[i] *)
       forward.
       { close_tc_byte_digit. }
@@ -161,17 +191,18 @@ Proof.
       forward.
       (* re-establish the running-sum invariant *)
       assert (Hstep :
-        Z.of_nat (list_sum (firstn (Z.to_nat (i + 1)) (digest_of pk_seed a msg counter)))
-        = Z.of_nat (list_sum (firstn (Z.to_nat i) (digest_of pk_seed a msg counter)))
-          + Z.of_nat (Znth i (digest_of pk_seed a msg counter))).
+        shrincs.sum_list (firstn (Z.to_nat (i + 1))
+          (digest_of pk_seed (anchor_nh a) (anchor_ni a) msg counter))
+        = shrincs.sum_list (firstn (Z.to_nat i)
+            (digest_of pk_seed (anchor_nh a) (anchor_ni a) msg counter))
+          + Znth i (digest_of pk_seed (anchor_nh a) (anchor_ni a) msg counter)).
       { replace (Z.to_nat (i + 1)) with (S (Z.to_nat i)) by lia.
-        rewrite (firstn_S_snoc (Z.to_nat i) (digest_of pk_seed a msg counter) O)
+        rewrite (firstn_S_snoc (Z.to_nat i)
+                   (digest_of pk_seed (anchor_nh a) (anchor_ni a) msg counter) 0)
           by (rewrite <- ZtoNat_Zlength, HlDIG; lia).
         rewrite nth_Znth by lia.
-        rewrite list_sum_app.
-        change (list_sum (Znth i (digest_of pk_seed a msg counter) :: nil))
-          with (Znth i (digest_of pk_seed a msg counter) + 0)%nat.
-        lia. }
+        rewrite sum_list_snoc.
+        reflexivity. }
       rewrite Hstep.
       entailer!!.
       (* the loaded digit is <= 15, so [Byte.unsigned (Byte.repr d)] is [d]
@@ -180,10 +211,11 @@ Proof.
       rewrite Znth_map by lia.
       unfold Vubyte.
       rewrite Byte.unsigned_repr
-        by (pose proof (nth_digest_le_15 pk_seed a msg counter i ltac:(lia)); rep_lia).
+        by (pose proof (nth_digest_le_15 pk_seed (anchor_nh a) (anchor_ni a) msg
+                          counter i ltac:(lia)); rep_lia).
       cbn [force_val both_int sem_cast_i2i cast_int_int].
       now rewrite add_repr.
-    + (* ===== return: firstn 32 (digest_of ...) = digest_of ...; sum = list_sum ===== *)
+    + (* ===== return: firstn 32 (digest_of ...) = digest_of ...; sum = sum_list ===== *)
       rewrite firstn_all2 by (rewrite <- ZtoNat_Zlength, digest_of_Zlength; lia).
       forward.
       entailer!!.

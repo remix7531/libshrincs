@@ -6,10 +6,19 @@
 
 (** * contract.lemmas.arith_nibble: nibble extraction and base-16 digit facts.
 
-    [nibble_f] and the [flat_map nibble_f] digit bookkeeping (length, the
-    per-nibble [<= 15] bound) that [body_shrincs_wots_map_digest] uses, plus the
-    [digest_of] / [digits_to_vals] length lemmas and the digit-sum bound for
-    the constant-sum gate. *)
+    Two layers.  Below: the Clight-level nibble bridges ([nibble_hi] /
+    [nibble_lo] and the two store reductions) that
+    [body_shrincs_wots_map_digest] needs to read [hg[i] >> 4] and
+    [hg[i] & 0x0f] as [b / 16] and [b mod 16].  Above: the digit-vector
+    facts the WOTS+C bodies consume.
+
+    The digit vector is the port's [digest_of], whose byte-wise nibble
+    split ([digest_of_nib]) and range/length facts are already proved in
+    [Model.theory.shrincs] -- the port's generic [base_2b] never has to
+    be unfolded here.  This file only restates that shape at VST's
+    [Zlength] / [Znth] / [upd_Znth] and bounds the digit sum for the
+    constant-sum gate.  The digits are [Z] (the spec's ints are [Z]
+    throughout -- model/PORTING.md), so no [Z.of_nat] appears. *)
 
 From VST Require Import floyd.proofauto.
 From Vst Require Import contract.public.
@@ -18,8 +27,10 @@ From Vst Require Import theory.pure.
 
 Open Scope Z_scope.
 
+Local Notation adrs := (address.adrs len w_pred).
+
 (* ================================================================= *)
-(** ** Nibble extraction (for [body_expand_digits]). *)
+(** ** Nibble extraction (for [body_shrincs_wots_map_digest]). *)
 
 (** For a byte [0 <= x < 256]:
     - [Int.shr] by 4 equals [x / 16].
@@ -132,68 +143,80 @@ Proof.
   rep_lia.
 Qed.
 
-(** The nibble-extraction function. *)
-Definition nibble_f (b : byte) : list nat :=
-  [Z.to_nat (b / 16); Z.to_nat (b mod 16)].
+(* ================================================================= *)
+(** ** The port's nibble split [nib], at VST's indexing.
 
-Lemma length_flat_map_nibble_f : forall l : list byte,
-  length (flat_map nibble_f l) = (length l * 2)%nat.
-Proof.
-  induction l as [|x xs IH]; [reflexivity|]. 
-  simpl.
-  rewrite IH. 
-  lia.
-Qed.
+    [Model.theory.shrincs.nib x j] is the pair of nibbles of byte [j] of
+    [x], read through the spec's own [index]; the digit vector is
+    [flat_map (nib hg) (range 0 16)] ([digest_of_nib]).  What the C loop
+    needs on top of that: the [range] step it advances by, the [Znth]
+    form of one [nib], the prefix length, and the store shape those
+    three assemble into. *)
 
-Lemma Zlength_flat_map_nibble_f : forall l : block,
-  Zlength (flat_map nibble_f l) = Zlength l * 2.
+Lemma flat_map_nib_step : forall (x : block) (i : Z), 0 <= i ->
+  flat_map (nib x) (shrincs.range 0 (i + 1))
+  = flat_map (nib x) (shrincs.range 0 i) ++ nib x i.
 Proof.
-  intros. 
-  rewrite !Zlength_correct. 
-  rewrite length_flat_map_nibble_f.
-  lia.
-Qed.
-
-(** For [Zlength msg = 16] (the [H_grind] output), the full [base_2b msg 32]
-    is the un-truncated [flat_map] since it has exactly 32 entries. *)
-Lemma base_2b_full_16 : forall msg : block,
-  Zlength msg = 16 -> base_2b msg 32 = flat_map nibble_f msg.
-Proof.
-  intros msg HlM.
-  unfold base_2b.
-  pose proof (length_flat_map_nibble_f msg) as Hlen.
-  rewrite Zlength_correct in HlM.
-  assert (Hn : length msg = 16%nat) by lia.
-  rewrite Hn in Hlen.
-  apply firstn_all2.
-  lia.
-Qed.
-
-Lemma flat_map_nibble_f_sublist_step :
-  forall (msg : block) (i : Z),
-    0 <= i < Zlength msg ->
-    flat_map nibble_f (sublist 0 (i+1) msg) =
-    flat_map nibble_f (sublist 0 i msg) ++ nibble_f (Znth i msg).
-Proof.
-  intros msg i Hi.
-  rewrite (sublist_split 0 i (i+1)) by lia.
+  intros x i Hi.
+  unfold shrincs.range.
+  replace (Z.to_nat (i + 1 - 0)) with (S (Z.to_nat (i - 0))) by lia.
+  rewrite seq_S, map_app.
+  (* [flat_map_app] is VST's, stated right-to-left *)
   rewrite <- flat_map_app.
-  rewrite (sublist_one i (i+1) msg) by lia.
+  cbn [map flat_map].
+  rewrite app_nil_r.
+  f_equal.
+  f_equal.
+  lia.
+Qed.
+
+(** The spec reads a byte with [index] (0 out of range); VST reads it
+    with [Znth] (the [Inhabitant_byte] default is the same [zero_byte]),
+    so in range the two agree. *)
+Lemma nib_Znth : forall (x : block) (i : Z), 0 <= i ->
+  nib x i = [Znth i x / 16; Znth i x mod 16].
+Proof.
+  intros x i Hi.
+  unfold nib, shrincs.index, Znth.
+  destruct (Z_lt_dec i 0); [lia|].
+  rewrite Z.shiftr_div_pow2 by lia.
   reflexivity.
 Qed.
 
-(** Shape step using [flat_map nibble_f (sublist 0 i msg)]. *)
+Lemma length_flat_map_nib : forall (x : block) (l : list Z),
+  length (flat_map (nib x) l) = (2 * length l)%nat.
+Proof.
+  intros x.
+  induction l as [|j l IH]; [reflexivity|].
+  cbn [flat_map length].
+  rewrite length_app, IH.
+  unfold nib.
+  cbn [length].
+  lia.
+Qed.
+
+Lemma Zlength_flat_map_nib : forall (x : block) (i : Z), 0 <= i ->
+  Zlength (flat_map (nib x) (shrincs.range 0 i)) = 2 * i.
+Proof.
+  intros x i Hi.
+  rewrite Zlength_correct, length_flat_map_nib, length_range.
+  lia.
+Qed.
+
+(** One step of the digit-expansion loop: storing the two nibbles of
+    byte [i] over the two [Vundef] cells at [2i] / [2i+1] extends the
+    [flat_map (nib msg)] prefix by one index. *)
 Lemma nibble_step_shape :
   forall (msg : block) (i : Z),
     0 <= i < 16 -> Zlength msg = 16 ->
     let b := Byte.unsigned (Byte.repr (Znth i msg)) in
     upd_Znth (2 * i + 1)
       (upd_Znth (2 * i)
-        (digits_to_vals (flat_map nibble_f (sublist 0 i msg))
+        (digits_to_vals (flat_map (nib msg) (shrincs.range 0 i))
           ++ Zrepeat Vundef (32 - 2*i))
         (Vint (Int.repr (b / 16))))
       (Vint (Int.repr (b mod 16)))
-    = digits_to_vals (flat_map nibble_f (sublist 0 (i+1) msg))
+    = digits_to_vals (flat_map (nib msg) (shrincs.range 0 (i+1)))
       ++ Zrepeat Vundef (32 - 2*(i+1)).
 Proof.
   intros msg i Hi HlM b.
@@ -207,35 +230,27 @@ Proof.
     by (subst b; pose proof (Byte.unsigned_range
                   (Byte.repr (Znth i msg))); rep_lia).
 
-  rewrite flat_map_nibble_f_sublist_step by lia.
-  set (D := digits_to_vals (flat_map nibble_f (sublist 0 i msg))).
-  assert (HDlen : Zlength D = 2 * i).
-  { subst D.
-    rewrite Zlength_digits_to_vals, Zlength_flat_map_nibble_f.
-    rewrite Zlength_sublist by lia.
-    lia. }
+  rewrite flat_map_nib_step, nib_Znth by lia.
+  set (D := digits_to_vals (flat_map (nib msg) (shrincs.range 0 i))).
+  assert (HDlen : Zlength D = 2 * i)
+    by (subst D; rewrite Zlength_digits_to_vals, Zlength_flat_map_nib; lia).
 
   unfold digits_to_vals.
   rewrite map_app.
-  fold digits_to_vals.
-  fold D.
-  change (map (fun d : nat => Vubyte (Byte.repr (Z.of_nat d)))
-          (flat_map nibble_f (sublist 0 i msg))) with D.
-  unfold nibble_f.
+  cbn [map].
   rewrite Hbyte.
-  simpl map.
-  change (let (q, _) := Z.div_eucl b 16 in q) with (b / 16).
+  change (map (fun d : Z => Vubyte (Byte.repr d))
+            (flat_map (nib msg) (shrincs.range 0 i))) with D.
 
   assert (Hdiv : 0 <= b / 16 < 256)
     by (split; [apply Z.div_pos; lia | apply Z.div_lt_upper_bound; lia]).
   assert (Hmod : 0 <= b mod 16 < 256)
     by (pose proof (Z.mod_pos_bound b 16 ltac:(lia)); lia).
-  rewrite Z2Nat.id by (apply Z.div_pos; lia).
-  rewrite Z2Nat.id by (apply Z.mod_pos_bound; lia).
 
+  (* the two stores are [Vint]s; the invariant carries [Vubyte]s *)
   assert (Hvb : forall x, 0 <= x < 256 ->
     Vubyte (Byte.repr x) = Vint (Int.repr x)).
-  { intros x Hx. 
+  { intros x Hx.
     unfold Vubyte.
     do 2 f_equal.
     rewrite Byte.unsigned_repr by rep_lia.
@@ -247,110 +262,60 @@ Proof.
 Qed.
 
 (* ================================================================= *)
-(** ** [flat_map nibble_f] digit facts (length + per-nibble [<= 15] bound).
+(** ** [digest_of] at VST's [Zlength] / [Znth].
 
-    Support the [digest_of] length/bound lemmas just below (and thereby
-    the constant-sum gate); the digest is [base_2b] over the [H_grind]
-    output, i.e. the full [flat_map nibble_f]. *)
+    The grinding digest is [base_2b] at [b = 4] over the 16-byte
+    [H_grind] output, so it has exactly [len = 32] nibbles.  The C keys
+    it on the DEPENDENT grind address; the port keys it on that
+    address's anchor, and [adrs_bytes_grind] is the bridge. *)
 
-Lemma Zlength_flat_map_nibble_f_16 : forall msg,
-  Zlength msg = 16 -> Zlength (flat_map nibble_f msg) = 32.
+Lemma H_grind_Zlength : forall pk_seed A m counter,
+  Zlength (shrincs.H_grind pk_seed A m counter) = 16.
 Proof.
-  intros. rewrite Zlength_flat_map_nibble_f. lia.
+  intros. rewrite Zlength_correct, length_H_grind. reflexivity.
 Qed.
 
-(** Every element of [flat_map nibble_f msg] is <= 15 ([byte]'s range
-    is intrinsic now, so this needs no hypothesis on [msg]). *)
-Lemma Forall_flat_map_nibble_f_le_15 : forall msg : block,
-  Forall (fun n => (n <= 15)%nat) (flat_map nibble_f msg).
+Lemma digest_of_flat_map : forall pk_seed (a : adrs) m counter,
+  digest_of pk_seed (anchor_nh a) (anchor_ni a) m counter
+  = flat_map
+      (nib (shrincs.H_grind pk_seed (adrs_bytes (shrincs_wots_grind_adrs a)) m counter))
+      (shrincs.range 0 16).
 Proof.
-  intros msg.
-  induction msg as [|b rest IH]; simpl.
-  - constructor.
-  - pose proof (byte_val_range b) as Hb.
-    constructor; [|constructor].
-    + apply Nat2Z.inj_le.
-      rewrite Z2Nat.id by (apply Z.div_pos; lia).
-      assert (Hle : b / 16 <= 255 / 16).
-      { apply Z.div_le_mono; lia. }
-      change (255 / 16) with 15 in Hle.
-      assumption.
-    + apply Nat2Z.inj_le.
-      rewrite Z2Nat.id by (apply Z.mod_pos_bound; lia).
-      assert (0 <= b mod 16 < 16) by (apply Z.mod_pos_bound; lia).
-      lia.
-    + apply IH.
+  intros. rewrite digest_of_nib, adrs_bytes_grind. reflexivity.
 Qed.
 
-Lemma nibble_le_15 : forall (msg : block) (k : Z),
-  Zlength msg = 16 ->
-  0 <= k < 32 ->
-  (Znth k (flat_map nibble_f msg) <= 15)%nat.
+Lemma digest_of_Zlength : forall pk_seed nh ni m counter,
+  Zlength (digest_of pk_seed nh ni m counter) = 32.
 Proof.
-  intros msg k HlM Hk.
-  pose proof (Forall_flat_map_nibble_f_le_15 msg) as HF.
-  rewrite Forall_Znth in HF.
-  apply HF.
-  rewrite Zlength_flat_map_nibble_f_16; lia.
+  intros. rewrite Zlength_correct, length_digest_of. reflexivity.
 Qed.
 
-(* ================================================================= *)
-(** ** [digest_of] / [digits_to_vals] lengths.
-
-    The grinding digest is [base_2b] over the 16-byte truncated [H_grind]
-    output, so it has exactly [len = 32] nibbles and equals the full
-    flat_map (of the grind-typed address). *)
-
-Lemma H_grind_Zlength : forall pk_seed a m counter,
-  Zlength (H_grind pk_seed a m counter) = 16.
+(** Every digit is a base-16 digit -- unconditional in [k], since the
+    port's [index_int] reads 0 out of range. *)
+Lemma nth_digest_le_15 : forall pk_seed nh ni m counter k,
+  0 <= k ->
+  0 <= Znth k (digest_of pk_seed nh ni m counter) <= 15.
 Proof.
-  intros. unfold H_grind, trunc16.
-  rewrite Zlength_correct, length_firstn, length_sha256'. reflexivity.
-Qed.
-
-Lemma digest_of_flat_map : forall pk_seed a m counter,
-  digest_of pk_seed a m counter
-  = flat_map nibble_f (H_grind pk_seed (shrincs_wots_grind_adrs a) m counter).
-Proof.
-  intros. unfold digest_of.
-  change (Z.of_nat len) with 32.
-  apply base_2b_full_16. apply H_grind_Zlength.
-Qed.
-
-Lemma digest_of_Zlength : forall pk_seed a m counter,
-  Zlength (digest_of pk_seed a m counter) = 32.
-Proof.
-  intros. rewrite digest_of_flat_map.
-  apply Zlength_flat_map_nibble_f_16. apply H_grind_Zlength.
-Qed.
-
-Lemma nth_digest_le_15 : forall pk_seed a m counter k,
-  0 <= k < 32 ->
-  (Znth k (digest_of pk_seed a m counter) <= 15)%nat.
-Proof.
-  intros pk_seed a m counter k Hk.
-  rewrite digest_of_flat_map.
-  apply nibble_le_15; [apply H_grind_Zlength | exact Hk].
+  intros pk_seed nh ni m counter k Hk.
+  rewrite Znth_index_int by lia.
+  apply index_int_digest_of_range.
 Qed.
 
 (** *** Digit-sum bound (constant-sum gate).
 
     Bound the digit sum so the C [== 240] test can be reflected back
-    into the model's [good_counter] (a [Nat.eqb] on the sum).  All pure
-    [Z]/[nat]; no separation logic, no [find_counter] reduction. *)
+    into the model's [good_counter] (via [good_counter_Z_iff]).  All
+    pure [Z]; no separation logic, no [find_counter] reduction. *)
 
-Lemma digest_sum_bound : forall pk_seed a m counter,
-  (list_sum (digest_of pk_seed a m counter) <= 480)%nat.
+Lemma digest_sum_bound : forall pk_seed nh ni m counter,
+  0 <= shrincs.sum_list (digest_of pk_seed nh ni m counter) <= 480.
 Proof.
-  intros pk_seed a m counter.
-  rewrite digest_of_flat_map.
-  pose proof (Forall_flat_map_nibble_f_le_15
-                (H_grind pk_seed (shrincs_wots_grind_adrs a) m counter)) as HF.
-  pose proof (list_sum_le_bound _ 15 HF) as Hle.
-  assert (Hlen : length (H_grind pk_seed (shrincs_wots_grind_adrs a) m counter) = 16%nat).
-  { pose proof (H_grind_Zlength pk_seed (shrincs_wots_grind_adrs a) m counter) as HZ.
-    rewrite Zlength_correct in HZ. lia. }
-  rewrite length_flat_map_nibble_f, Hlen in Hle.
+  intros pk_seed nh ni m counter.
+  assert (HF : Forall (fun d => 0 <= d <= 15) (digest_of pk_seed nh ni m counter))
+    by (apply Forall_forall; intros d Hd;
+        exact (digest_of_In_range _ _ _ _ _ _ Hd)).
+  pose proof (sum_list_le_bound _ 15 ltac:(lia) HF) as Hle.
+  rewrite length_digest_of in Hle.
   lia.
 Qed.
 
@@ -359,12 +324,11 @@ Qed.
     guard leaves is injective.  Shared by the constant-sum gates in
     [body_shrincs_wots_grind_to_constant_sum] and
     [body_shrincs_wots_pubkey_from_sig]. *)
-Lemma digest_sum_repr_240 : forall pk_seed a m counter,
-  Int.repr (Z.of_nat (list_sum (digest_of pk_seed a m counter))) = Int.repr 240 ->
-  Z.of_nat (list_sum (digest_of pk_seed a m counter)) = 240.
+Lemma digest_sum_repr_240 : forall pk_seed nh ni m counter,
+  Int.repr (shrincs.sum_list (digest_of pk_seed nh ni m counter)) = Int.repr 240 ->
+  shrincs.sum_list (digest_of pk_seed nh ni m counter) = 240.
 Proof.
-  intros pk_seed a m counter H.
-  pose proof (digest_sum_bound pk_seed a m counter) as Hb.
+  intros pk_seed nh ni m counter H.
+  pose proof (digest_sum_bound pk_seed nh ni m counter) as Hb.
   apply repr_inj_unsigned; [ rep_lia | rep_lia | exact H ].
 Qed.
-

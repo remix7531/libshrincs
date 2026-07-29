@@ -96,7 +96,7 @@ Context (P : wc_params).
 (** Base-w digit vector of the digest at counter [c], MOST-SIGNIFICANT
     digit first (d parsed as (a_1, ..., a_l) with a_1 the top digit) --
     the same reading order as shrincs.py's base-w parse and
-    [Model.wots.base_2b], so the games<->model correspondence
+    [Model.shrincs.base_2b], so the games<->model correspondence
     (Sec.wots.model_bridge) is a plain equality. *)
 Definition digest_of (pp : wcp_PP P) (m : wcp_M P) (c : nat) : seq nat :=
   wotsc_digest_of (wcp_w P) (wcp_chain_count P) (wcp_PP P) (wcp_M P) (wc_adrs P)

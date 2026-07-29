@@ -14,7 +14,10 @@ Open Scope Z_scope.
 
 Local Notation adrs := (address.adrs len w_pred).
 
-Local Opaque to_byte shrincs_wots_derive_sk shrincs_wots_chain_iter chain_iter_c T_sf.
+(* Keep the port's hash and the 32-fold chain folded: the closing [cancel]'s
+   "close by conversion" would otherwise delta-unfold the whole chain map at
+   [Qed] (every tactic runs fast; only [Qed] blows up). *)
+Local Opaque to_byte derive_sk wc_chain shrincs.T_sf.
 
 Lemma body_shrincs_wots_pubkey_gen : semax_body Vprog Gprog f_shrincs_wots_pubkey_gen shrincs_wots_pubkey_gen_spec.
 Proof.
@@ -76,20 +79,19 @@ Proof.
     rewrite <- data_at__eq.
 
     (* shrincs_wots_chain_from_seed(ends + i*16, i, W - 1, sk_seed, pk_seed, addr) --
-       shrincs_wots_derive_sk + hash-retype + shrincs_wots_chain_iter in one call. *)
+       derive_sk + hash-retype + the chain in one call.  The step count is passed
+       as [Z.of_nat w_pred] rather than the literal 15, so the POST lands on
+       [pkgen_block]'s own step count with no re-normalisation. *)
     forward_call (pMID, sk_ptr, ps_ptr, a_ptr,
-                  i, 15, sk_seed, pk_seed, b,
+                  i, Z.of_nat w_pred, sk_seed, pk_seed, b,
                   Tsh, sh_sk, sh_ps, sh_a).
     { (* PARAMS slot address *)
       solve_slot_addr_pure pMID Hfc_ends. }
-    { (* chain index + step bound + seed lengths *)
-      change (Z.of_nat w_pred) with 15. change (Z.of_nat len) with 32.
-      repeat split; try rep_lia; try assumption. }
     change n_bytes with 16.
 
     (* Rewrite the chain result to [pkgen_block sk pk a i]. *)
-    change (Z.to_nat 15) with w_pred.
-    rewrite (iter_eq_pkgen_block sk_seed pk_seed a b (Z.to_nat i) H0).
+    rewrite Nat2Z.id.
+    rewrite (iter_eq_pkgen_block sk_seed pk_seed a b i H0 ltac:(lia)).
 
     (* The threaded address after this iteration is structurally equal to a. *)
     Exists (chain_addr_post (shrincs_wots_hash_adrs w_pred_pos b (to_chain32 (Z.to_nat i))) 0%nat w_pred).
@@ -177,8 +179,8 @@ Proof.
        [blocks_to_vals ... = block_to_vals (concat ...)], and re-express the
        array bounds 512 and 16 as the funspec's [Z.of_nat (len * n)] and
        [n_bytes]. *)
-    change (blocks_to_vals (chain_tips sk_seed pk_seed a))
-      with (block_to_vals (concat (chain_tips sk_seed pk_seed a))).
+    change (blocks_to_vals (chain_tips sk_seed pk_seed (anchor_nh a) (anchor_ni a)))
+      with (block_to_vals (concat (chain_tips sk_seed pk_seed (anchor_nh a) (anchor_ni a)))).
     change 512 with (Z.of_nat (len * n)).
     change 16 with n_bytes.
 
@@ -187,14 +189,15 @@ Proof.
     rewrite block_to_vals_length in Hlps.
     forward_call (pk_ptr, ps_ptr, a_ptr, v_ends,
                   shrincs_wots_pk_adrs a, pk_seed,
-                  concat (chain_tips sk_seed pk_seed a),
+                  concat (chain_tips sk_seed pk_seed (anchor_nh a) (anchor_ni a)),
                   sh_pk, sh_ps, sh_a, Tsh).
     { (* ends length *)
       apply Zlength_concat_chain_tips. }
 
-    (* Postcondition: pk = block_to_vals (shrincs_wots_pubkey_gen sk pk a). *)
-    change (T_sf pk_seed (shrincs_wots_pk_adrs a)
-              (concat (chain_tips sk_seed pk_seed a)))
-      with (shrincs_wots_pubkey_gen sk_seed pk_seed a).
+    (* Postcondition: section 5's reassembly, spent ONCE -- the port's
+       [wots_c_pubkey_gen] at [adrs_bytes a] IS the T_sf of the concatenated
+       per-chain tips the loop just built. *)
+    rewrite adrs_bytes_pk, adrs_bytes_mk_adrs, wots_c_pubkey_gen_tips.
+    unfold shrincs.concat.
     entailer!!.
 Qed.

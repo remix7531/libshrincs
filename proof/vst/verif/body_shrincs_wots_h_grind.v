@@ -250,8 +250,8 @@ Proof.
                 [Vint (Int.zero_ext 8 (Int.shru (Int.repr counter) (Int.repr 8)));
                  Vint (Int.zero_ext 8 (Int.repr counter))]
               = block_to_vals
-                  (pk_seed ++ zeros 48 ++ firstn 10 (adrs_bytes a)
-                   ++ msg ++ zeros 4 ++ to_byte counter 2)).
+                  (pk_seed ++ shrincs.zeros 48 ++ firstn 10 (adrs_bytes a)
+                   ++ msg ++ shrincs.zeros 4 ++ to_byte counter 2)).
   { rewrite !block_to_vals_app.
     rewrite <- Hcnt.
     unfold X1, Z2, X3, X4, Z5.
@@ -263,21 +263,21 @@ Proof.
 
   (* ===== Stage 9: sha256(hash, buf, sizeof buf) ===== *)
   forward_call (v_hash, v_buf, 112,
-                pk_seed ++ zeros 48 ++ firstn 10 (adrs_bytes a)
-                ++ msg ++ zeros 4 ++ to_byte counter 2,
+                pk_seed ++ shrincs.zeros 48 ++ firstn 10 (adrs_bytes a)
+                ++ msg ++ shrincs.zeros 4 ++ to_byte counter 2,
                 Tsh, Tsh).
   { rewrite !Zlength_app.
     rewrite <- sublist_adrs_bytes_10.
     rewrite Zlength_sublist by (rewrite ?Zlength_adrs_bytes; lia).
-    unfold zeros.
-    rewrite <- !to_byte_0_zeros.
+    unfold shrincs.zeros, shrincs.repeat.
+    rewrite !Zlength_repeat by lia.
     rewrite !to_byte_Zlength.
     unfold sha256_max_input_len.
     lia. }
 
   (* ===== Stage 10: memcpy(out, hash, N) -- truncate the digest ===== *)
-  set (sha := sha256' (pk_seed ++ zeros 48 ++ firstn 10 (adrs_bytes a)
-                      ++ msg ++ zeros 4 ++ to_byte counter 2)).
+  set (sha := shrincs.sha256 (pk_seed ++ shrincs.zeros 48 ++ firstn 10 (adrs_bytes a)
+                      ++ msg ++ shrincs.zeros 4 ++ to_byte counter 2)).
   (* Split the 32-byte digest into [0,16) ++ [16,32). *)
   assert (Hlsha : Zlength (block_to_vals sha) = 32)
     by (unfold sha; rewrite block_to_vals_length, SHA256_Zlength; reflexivity).
@@ -304,9 +304,15 @@ Proof.
   forward_call (Tsh, sh_o, out_ptr, v_hash, 16, block_ints (firstn 16 sha)).
 
   (* ===== Postcondition ===== *)
-  (* [out] holds the truncated digest [H_grind = trunc16 (SHA256 preimage)]. *)
-  assert (Hout : H_grind pk_seed a msg counter = firstn 16 sha)
-    by (unfold H_grind, trunc16, sha; reflexivity).
+  (* [out] holds the truncated digest [H_grind = slice (SHA256 preimage) 0 16].
+     The port's [to_bytes] counter field is this tree's [to_byte] one
+     ([theory.pure]); the two [slice]s are the [firstn]s the buffer was
+     assembled from. *)
+  assert (Hout : shrincs.H_grind pk_seed (adrs_bytes a) msg counter = firstn 16 sha).
+  { unfold shrincs.H_grind, sha.
+    rewrite to_bytes_2_eq.
+    unfold shrincs.slice.
+    reflexivity. }
   subst X1 X3 X4.
   rewrite <- Hsrc10.
   rewrite <- !block_to_vals_eq_Vint.

@@ -5,7 +5,7 @@
  *)
 
 (** * contract.lemmas.shrincs_wots_verify: the final link from the compiled
-    16-byte compare to [shrincs_wots_verify = true/false], used in
+    16-byte compare to [wc_verify = true/false], used in
     [body_shrincs_wots_verify].
 
     In WOTS+C the public key and the recovered candidate are single
@@ -40,42 +40,61 @@ Proof.
   - apply (IH ys Htl).
 Qed.
 
-(** A mismatch of the flattened blocks forces [shrincs_wots_verify] to reject. *)
-Lemma pk_int_neq_implies_verify_false :
-  forall pk sig msg counter pk_seed a,
-  block_ints (shrincs_wots_pubkey_from_sig msg sig counter pk_seed a) <> block_ints pk ->
-  shrincs_wots_verify pk sig msg counter pk_seed a = false.
+(** The verifier's three outcomes, at the compiled 16-byte compare.
+
+    The port's [wc_verify] ([Model.theory.shrincs] section 5.8) is a
+    view of [wots_c_pubkey_from_sig]: it recovers a candidate public key
+    and compares.  So each lemma below QUANTIFIES the recovered
+    candidate [pk'] and takes the recovery step as a hypothesis -- which
+    is exactly the shape the body proof has in hand after its call to
+    [shrincs_wots_pubkey_from_sig]. *)
+
+(** Recovery failed (the counter's digest is not constant-sum): reject,
+    without any comparison at all. *)
+Lemma from_sig_None_implies_verify_false :
+  forall pk sig M pk_seed ADRS,
+  shrincs.wots_c_pubkey_from_sig sig M pk_seed ADRS = None ->
+  wc_verify pk sig M pk_seed ADRS = false.
 Proof.
-  intros pk sig msg counter pk_seed a Hneq.
-  unfold shrincs_wots_verify.
-  destruct (list_eq_dec byte_eq_dec
-              (shrincs_wots_pubkey_from_sig msg sig counter pk_seed a) pk) as [He|Hne].
+  intros pk sig M pk_seed ADRS Hnone.
+  unfold wc_verify.
+  rewrite Hnone.
+  reflexivity.
+Qed.
+
+(** A mismatch of the flattened blocks forces [wc_verify] to reject. *)
+Lemma pk_int_neq_implies_verify_false :
+  forall pk pk' sig M pk_seed ADRS,
+  shrincs.wots_c_pubkey_from_sig sig M pk_seed ADRS = Some pk' ->
+  block_ints pk' <> block_ints pk ->
+  wc_verify pk sig M pk_seed ADRS = false.
+Proof.
+  intros pk pk' sig M pk_seed ADRS Hsome Hneq.
+  unfold wc_verify, shrincs.bytes_eqb.
+  rewrite Hsome.
+  destruct (list_eq_dec byte_eq_dec pk' pk) as [He|Hne].
   - exfalso. apply Hneq. rewrite He. reflexivity.
-  - rewrite andb_false_r. reflexivity.
+  - reflexivity.
 Qed.
 
 (** A match of the flattened blocks recovers the candidate equals [pk]. *)
-Lemma pk_int_eq_implies_shrincs_wots_pubkey_from_sig :
-  forall pk sig msg counter pk_seed a,
-  block_ints (shrincs_wots_pubkey_from_sig msg sig counter pk_seed a) = block_ints pk ->
-  shrincs_wots_pubkey_from_sig msg sig counter pk_seed a = pk.
+Lemma pk_int_eq_implies_pk : forall (pk pk' : block),
+  block_ints pk' = block_ints pk -> pk' = pk.
 Proof.
-  intros pk sig msg counter pk_seed a Heq.
+  intros pk pk' Heq.
   unfold block_ints in Heq.
   apply (map_block_ints_inj _ _ Heq).
 Qed.
 
 Lemma pk_int_eq_implies_verify :
-  forall pk sig msg counter pk_seed a,
-  valid_digest (digest_of pk_seed a msg counter) = true ->
-  block_ints (shrincs_wots_pubkey_from_sig msg sig counter pk_seed a) = block_ints pk ->
-  shrincs_wots_verify pk sig msg counter pk_seed a = true.
+  forall pk pk' sig M pk_seed ADRS,
+  shrincs.wots_c_pubkey_from_sig sig M pk_seed ADRS = Some pk' ->
+  block_ints pk' = block_ints pk ->
+  wc_verify pk sig M pk_seed ADRS = true.
 Proof.
-  intros pk sig msg counter pk_seed a Hvalid Heq.
-  unfold shrincs_wots_verify.
-  assert (Hpk : shrincs_wots_pubkey_from_sig msg sig counter pk_seed a = pk)
-    by (apply pk_int_eq_implies_shrincs_wots_pubkey_from_sig; auto).
-  rewrite Hpk, Hvalid.
+  intros pk pk' sig M pk_seed ADRS Hsome Heq.
+  unfold wc_verify, shrincs.bytes_eqb.
+  rewrite Hsome, (pk_int_eq_implies_pk pk pk' Heq).
   destruct (list_eq_dec byte_eq_dec pk pk) as [_|Hne];
     [reflexivity | contradiction].
 Qed.

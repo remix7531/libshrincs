@@ -10,7 +10,7 @@
     [shrincs_adrs_put32(addr, ADRS_HASH=18, start+j)] (which writes the
     position word) followed by the in-place [shrincs_thash(node,
     pk_seed, addr)] (the chain step [F]).  The loop invariant at index [j]
-    says [node] holds [chain_iter_c in_buf start j pk_seed a] and [addr]
+    says [node] holds [wc_chain pk_seed .. in_buf start j] and [addr]
     holds [chain_addr_post a start j].
 
     The funspec's [PROP] carries [exists nh ni chain pos, a = Wc_hash ..]:
@@ -25,9 +25,12 @@ From Vst Require Import contract.gprog contract.lemmas.
 
 Open Scope Z_scope.
 
-(* The [chain_iter_c] step laws this loop leans on ([chain_iter_c_0] for
-   the entry, [chain_iter_c_step_hash] for the per-iteration step) are
-   shared -- see [contract.lemmas.chain_blocks]. *)
+(* The [wc_chain] step law this loop leans on ([wc_chain_step], the
+   [Z]-indexed form of [Model.theory.shrincs]'s [wc_chain_succ]) is
+   shared -- see [contract.lemmas.chain_blocks].  Loop entry is
+   [wc_chain_0] straight from the model. *)
+
+Local Notation adrs := (address.adrs len w_pred).
 
 (** The per-step wire/byte bridge for the loop's position store: splicing
     position [p] into the raw wire view ([adrs_to_raw]) of the carried
@@ -64,6 +67,30 @@ Proof.
     reflexivity.
 Qed.
 
+(** The value-side counterpart: the union address the store leaves behind
+    serialises to the byte address [wc_chain]'s fold hashes under at
+    position [p].  The shared [adrs_bytes_hash_pos] (section 5.1b) is
+    stated through the smart constructors; this loop carries the bare
+    [Wc_hash] the funspec's [PROP] handed it, hence the file-local
+    restatement -- and it is the only place the two meet. *)
+Lemma wc_hash_adrs_Wc_hash :
+  forall (nh : fin 256) (ni : fin (2 ^ 64)) (ch : fin (Z.of_nat len))
+         (cp : fin (Z.of_nat w_pred)) (p : Z),
+    0 <= p < 15 ->
+    wc_hash_adrs (anchor_nh (Wc_hash nh ni ch cp : adrs))
+                 (anchor_ni (Wc_hash nh ni ch cp : adrs))
+                 (chain_of (Wc_hash nh ni ch cp : adrs)) p
+    = adrs_bytes (Wc_hash nh ni ch (to_pos15 (Z.to_nat p)) : adrs).
+Proof.
+  intros nh ni ch cp p Hp.
+  rewrite adrs_bytes_mk_adrs.
+  cbn [adrs_anchor_tag_z adrs_anchor_idx_z adrs_type
+       payload_a_z payload_b_z payload_c_z].
+  rewrite to_pos15_val by lia.
+  rewrite Z2Nat.id by lia.
+  reflexivity.
+Qed.
+
 Lemma body_shrincs_wots_chain_iter : semax_body Vprog Gprog f_shrincs_wots_chain_iter shrincs_wots_chain_iter_spec.
 Proof.
   start_function.
@@ -96,8 +123,11 @@ Proof.
              temp _addr a_ptr)
       SEP (data_at sh_b (tarray tuchar 16)
              (block_to_vals
-                (chain_iter_c in_buf (Z.to_nat start) (Z.to_nat j)
-                   pk_seed (Wc_hash nh ni chain pos)))
+                (wc_chain pk_seed
+                   (anchor_nh (Wc_hash nh ni chain pos))
+                   (anchor_ni (Wc_hash nh ni chain pos))
+                   (chain_of (Wc_hash nh ni chain pos))
+                   in_buf start j))
              buf_ptr;
            data_at_ Tsh (tarray tuchar 16) v_in;
            data_at sh_ps (tarray tuchar 16)
@@ -114,7 +144,7 @@ Proof.
 
   (* ===== Loop entry ([j = 0]): matches the precondition ===== *)
   - change (Z.to_nat 0) with 0%nat.
-    rewrite chain_iter_c_0.
+    rewrite wc_chain_0.
     cbn [chain_addr_post].
     entailer!!.
 
@@ -148,47 +178,66 @@ Proof.
     sep_apply (data_at__memory_block_cancel Tsh (Tarray tuchar 16 noattr) v_in).
     change (sizeof (Tarray tuchar 16 noattr)) with 16.
     rewrite (block_to_vals_eq_Vint
-               (chain_iter_c in_buf (Z.to_nat start) (Z.to_nat i)
-                  pk_seed (Wc_hash nh ni chain pos))).
+               (wc_chain pk_seed
+                  (anchor_nh (Wc_hash nh ni chain pos))
+                  (anchor_ni (Wc_hash nh ni chain pos))
+                  (chain_of (Wc_hash nh ni chain pos))
+                  in_buf start i)).
     forward_call (sh_b, Tsh, v_in, buf_ptr, 16,
-                  block_ints (chain_iter_c in_buf (Z.to_nat start) (Z.to_nat i)
-                                pk_seed (Wc_hash nh ni chain pos))).
+                  block_ints (wc_chain pk_seed
+                                (anchor_nh (Wc_hash nh ni chain pos))
+                                (anchor_ni (Wc_hash nh ni chain pos))
+                                (chain_of (Wc_hash nh ni chain pos))
+                                in_buf start i)).
 
     (* Retire the node's old content ([out] is overwritten by the hash) and
        restore [in]'s snapshot to [block_to_vals] form for the message SEP. *)
     sep_apply (data_at_data_at_ sh_b (tarray tuchar 16)
-                 (map Vint (block_ints (chain_iter_c in_buf (Z.to_nat start)
-                    (Z.to_nat i) pk_seed (Wc_hash nh ni chain pos)))) buf_ptr).
+                 (map Vint (block_ints (wc_chain pk_seed
+                    (anchor_nh (Wc_hash nh ni chain pos))
+                    (anchor_ni (Wc_hash nh ni chain pos))
+                    (chain_of (Wc_hash nh ni chain pos))
+                    in_buf start i))) buf_ptr).
     rewrite <- (block_to_vals_eq_Vint
-                 (chain_iter_c in_buf (Z.to_nat start) (Z.to_nat i)
-                    pk_seed (Wc_hash nh ni chain pos))).
+                 (wc_chain pk_seed
+                    (anchor_nh (Wc_hash nh ni chain pos))
+                    (anchor_ni (Wc_hash nh ni chain pos))
+                    (chain_of (Wc_hash nh ni chain pos))
+                    in_buf start i)).
 
     (* shrincs_thash(node, pk_seed, addr, in, 16) -- [out = node], the message
        is the snapshot in [in]. *)
     forward_call (buf_ptr, ps_ptr, a_ptr, v_in, 16,
                   Wc_hash nh ni chain (to_pos15 (Z.to_nat (start + i))),
                   pk_seed,
-                  chain_iter_c in_buf (Z.to_nat start) (Z.to_nat i)
-                    pk_seed (Wc_hash nh ni chain pos),
+                  wc_chain pk_seed
+                    (anchor_nh (Wc_hash nh ni chain pos))
+                    (anchor_ni (Wc_hash nh ni chain pos))
+                    (chain_of (Wc_hash nh ni chain pos))
+                    in_buf start i,
                   sh_b, sh_ps, sh_a, Tsh).
     { (* thash PRE PROP, proved whole (seed length, message length,
          SHA-256 range): forward_call's auto-discharge of the easy
          conjuncts is context-sensitive, so do not lean on it.  Only the
-         iterated node's length ([chain_iter_c_Zlength]) is non-trivial. *)
+         iterated node's length ([wc_chain_Zlength]) is non-trivial. *)
       split3; [exact Hlen_ps | | lia].
-      apply chain_iter_c_Zlength.
+      apply wc_chain_Zlength.
       exact Hlen_in. }
 
     (* Re-establish the invariant at [j = i + 1]: one more step via
-       [chain_iter_c_step_hash], the residual address via [chain_addr_post]'s
-       [S _] arm ([set_hash_pos] on the hash arm).  [in] is weakened back to
-       [data_at_] for the next iteration. *)
+       [wc_chain_step], whose hash address is the very one the position
+       store left in [addr] (the second file-local bridge); the residual
+       address is [chain_addr_post]'s [S _] arm ([set_hash_pos] on the hash
+       arm).  [in] is weakened back to [data_at_] for the next iteration. *)
+    rewrite (wc_chain_step pk_seed
+               (anchor_nh (Wc_hash nh ni chain pos))
+               (anchor_ni (Wc_hash nh ni chain pos))
+               (chain_of (Wc_hash nh ni chain pos))
+               in_buf start i) by lia.
+    rewrite wc_hash_adrs_Wc_hash by lia.
     replace (Z.to_nat (i + 1)) with (S (Z.to_nat i)) by lia.
-    rewrite (chain_iter_c_step_hash in_buf (Z.to_nat start) (Z.to_nat i)
-               pk_seed nh ni chain pos) by (unfold w_pred in *; lia).
     cbn [chain_addr_post set_hash_pos].
     replace (Z.to_nat start + Z.to_nat i)%nat with (Z.to_nat (start + i)) by lia.
-    unfold F.
     entailer!!.
 
   (* ===== Loop exit: invariant at [j = steps] is the postcondition ===== *)

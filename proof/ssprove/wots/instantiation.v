@@ -17,7 +17,7 @@
 
     The hash functions stay ABSTRACT over the concrete types here;
     axioms.v instantiates them with the spec's real
-    truncated-SHA-256 construction (via Model.wots), yielding the
+    truncated-SHA-256 construction (via Model.shrincs), yielding the
     unconditional [shrincs_wots_secure_sha256]. *)
 
 From Sec.lib Require Import prelude games.thf games.smtcr games.smpre games.smud

@@ -51,9 +51,11 @@ Definition n_bytes   : Z := Z.of_nat n.        (* 16 *)
 Definition seed_bytes : Z := Z.of_nat n.       (* 16 *)
 Definition msg_bytes : Z := 32.
 
-(** A [list nat] of base-16 digits as a list of VST byte [val]s. *)
-Definition digits_to_vals (ds : list nat) : list val :=
-  map (fun d : nat => Vubyte (Byte.repr (Z.of_nat d))) ds.
+(** A base-16 digit vector as a list of VST byte [val]s.  The port's
+    [base_2b] produces [Z] digits (the spec's ints are [Z] throughout --
+    see model/PORTING.md), so no [Z.of_nat] appears here. *)
+Definition digits_to_vals (ds : list Z) : list val :=
+  map (fun d : Z => Vubyte (Byte.repr d)) ds.
 
 (* ================================================================= *)
 (** ** [Inhabitant] instances for VST's [Znth] / [nth_Znth]. *)

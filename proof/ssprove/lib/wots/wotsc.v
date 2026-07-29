@@ -53,7 +53,7 @@ Context (tsum c_max : nat).
 Context (grind_adrs pk_adrs : A) (chain_adrs : nat -> nat -> A).
 
 (** Digit order: the native tree reads the digest MOST-significant digit
-    first (matching shrincs.py's base-w parse and [Model.wots.base_2b]),
+    first (matching shrincs.py's base-w parse and [Model.shrincs.base_2b]),
     FXMSS reads it least-significant first.  Both are self-consistent;
     only the chain-index-to-digit assignment differs. *)
 Context (dig_msb : bool).

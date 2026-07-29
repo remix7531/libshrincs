@@ -10,7 +10,7 @@
     [pk_seed(16) || zeros(48) || ADRS(22) || msg(msglen)] into
     [buf[0 .. 86+msglen)] (three [memcpy]s, the [16,64) gap left zero by
     the [memset]), hashes [buf[0 .. 86+msglen)] and copies the first 16
-    bytes to [out] -- i.e. [out := thash pk_seed A msg].  [msg] is a
+    bytes to [out] -- i.e. [out := F pk_seed (adrs_bytes A) msg].  [msg] is a
     separate readable buffer (no aliasing with [out]). *)
 
 From VST Require Import floyd.proofauto.
@@ -153,7 +153,7 @@ Proof.
   (* ===== Fold buf[0..86+msglen) to [block_to_vals] of the SHA-256 preimage,
      leaving the zero tail [R4] behind ([change reptype -> val] because the
      [split] lemmas typed the wire content at [reptype tuchar]). ===== *)
-  set (Preim := pk_seed ++ zeros 48 ++ adrs_bytes A ++ msg).
+  set (Preim := pk_seed ++ shrincs.zeros 48 ++ adrs_bytes A ++ msg).
   assert (Hpre : map Vint (block_ints pk_seed) ++ R1 ++ map Vint (block_ints (adrs_bytes A)) ++ map Vint (block_ints msg)
                = block_to_vals Preim).
   { unfold Preim.
@@ -164,6 +164,7 @@ Proof.
     unfold R1.
     change (Z.to_nat 48) with 48%nat.
     rewrite (zeros_to_vals 48).
+    change (Z.of_nat 48) with 48.
     reflexivity. }
   assert (Hcontent : map Vint (block_ints pk_seed) ++ R1 ++ map Vint (block_ints (adrs_bytes A)) ++ map Vint (block_ints msg) ++ R4
                    = block_to_vals Preim ++ R4).
@@ -172,7 +173,8 @@ Proof.
     reflexivity. }
   change (reptype tuchar) with val in *.
   rewrite Hcontent.
-  assert (Hz48 : Zlength (zeros 48) = 48) by (unfold zeros; rewrite Zlength_correct, repeat_length; reflexivity).
+  assert (Hz48 : Zlength (shrincs.zeros 48) = 48)
+    by (unfold shrincs.zeros, shrincs.repeat; rewrite Zlength_correct, repeat_length; reflexivity).
   assert (HpreLen : Zlength (block_to_vals Preim) = 86 + msglen).
   { rewrite block_to_vals_length.
     unfold Preim.
@@ -188,32 +190,32 @@ Proof.
 
   (* ===== Split hash[32] at 16; truncating memcpy(out, hash, 16) ===== *)
   assert_PROP (field_compatible (Tarray tuchar 32 noattr) nil v_hash) as FCh by entailer!.
-  assert (HlV : Zlength (block_to_vals (sha256' Preim)) = 32) by (rewrite block_to_vals_length, SHA256_Zlength; reflexivity).
-  assert (Hs1 : Zlength (sublist 0 16 (block_to_vals (sha256' Preim))) = 16) by (rewrite Zlength_sublist by lia; lia).
-  assert (Hs2 : Zlength (sublist 16 32 (block_to_vals (sha256' Preim))) = 32 - 16) by (rewrite Zlength_sublist by lia; lia).
-  assert (Hsplit : block_to_vals (sha256' Preim) = sublist 0 16 (block_to_vals (sha256' Preim)) ++ sublist 16 32 (block_to_vals (sha256' Preim)))
+  assert (HlV : Zlength (block_to_vals (shrincs.sha256 Preim)) = 32) by (rewrite block_to_vals_length, SHA256_Zlength; reflexivity).
+  assert (Hs1 : Zlength (sublist 0 16 (block_to_vals (shrincs.sha256 Preim))) = 16) by (rewrite Zlength_sublist by lia; lia).
+  assert (Hs2 : Zlength (sublist 16 32 (block_to_vals (shrincs.sha256 Preim))) = 32 - 16) by (rewrite Zlength_sublist by lia; lia).
+  assert (Hsplit : block_to_vals (shrincs.sha256 Preim) = sublist 0 16 (block_to_vals (shrincs.sha256 Preim)) ++ sublist 16 32 (block_to_vals (shrincs.sha256 Preim)))
     by list_solve.
   rewrite Hsplit.
-  rewrite (split2_data_at_Tarray_app 16 32 Tsh tuchar (sublist 0 16 (block_to_vals (sha256' Preim))) (sublist 16 32 (block_to_vals (sha256' Preim))) v_hash Hs1 Hs2).
-  rewrite <- (block_to_vals_sublist 0 16 (sha256' Preim)).
-  rewrite (block_to_vals_eq_Vint (sublist 0 16 (sha256' Preim))).
+  rewrite (split2_data_at_Tarray_app 16 32 Tsh tuchar (sublist 0 16 (block_to_vals (shrincs.sha256 Preim))) (sublist 16 32 (block_to_vals (shrincs.sha256 Preim))) v_hash Hs1 Hs2).
+  rewrite <- (block_to_vals_sublist 0 16 (shrincs.sha256 Preim)).
+  rewrite (block_to_vals_eq_Vint (sublist 0 16 (shrincs.sha256 Preim))).
   sep_apply (data_at__memory_block_cancel sh_o (Tarray tuchar 16 noattr) out_ptr).
   change (sizeof (Tarray tuchar 16 noattr)) with 16.
-  forward_call (Tsh, sh_o, out_ptr, v_hash, 16, block_ints (sublist 0 16 (sha256' Preim))).
+  forward_call (Tsh, sh_o, out_ptr, v_hash, 16, block_ints (sublist 0 16 (shrincs.sha256 Preim))).
 
-  (* ===== Postcondition: fold [out] to [thash], the reads back to their
+  (* ===== Postcondition: fold [out] to [F], the reads back to their
      inputs, and re-merge the stack locals ([hash]/[buf]). ===== *)
-  assert (Hthash : sublist 0 16 (sha256' Preim) = thash pk_seed A msg)
-    by (unfold Preim, thash, trunc16; rewrite sublist_firstn; reflexivity).
-  rewrite <- (block_to_vals_eq_Vint (sublist 0 16 (sha256' Preim))).
+  assert (Hthash : sublist 0 16 (shrincs.sha256 Preim) = shrincs.F pk_seed (adrs_bytes A) msg)
+    by (unfold Preim, shrincs.F, shrincs.slice; rewrite sublist_firstn; reflexivity).
+  rewrite <- (block_to_vals_eq_Vint (sublist 0 16 (shrincs.sha256 Preim))).
   rewrite Hthash.
   rewrite <- (block_to_vals_eq_Vint pk_seed).
   rewrite <- (block_to_vals_eq_Vint msg).
   unfold adrs_to_vals, t_addr.
   rewrite <- (block_to_vals_eq_Vint (adrs_bytes A)).
   entailer!.
-  sep_apply (data_at_data_at_ Tsh (tarray tuchar 16) (block_to_vals (thash pk_seed A msg)) v_hash).
-  sep_apply (data_at_data_at_ Tsh (tarray tuchar (32 - 16)) (sublist 16 32 (block_to_vals (sha256' Preim))) (field_address0 (tarray tuchar 32) (SUB 16) v_hash)).
+  sep_apply (data_at_data_at_ Tsh (tarray tuchar 16) (block_to_vals (shrincs.F pk_seed (adrs_bytes A) msg)) v_hash).
+  sep_apply (data_at_data_at_ Tsh (tarray tuchar (32 - 16)) (sublist 16 32 (block_to_vals (shrincs.sha256 Preim))) (field_address0 (tarray tuchar 32) (SUB 16) v_hash)).
   sep_apply (data_at_data_at_ Tsh (tarray tuchar (86 + Zlength msg)) (block_to_vals Preim) v_buf).
   sep_apply (data_at_data_at_ Tsh (tarray tuchar (598 - (86 + Zlength msg))) R4 (field_address0 (tarray tuchar 598) (SUB (86 + Zlength msg)) v_buf)).
   unfold tarray.

@@ -13,7 +13,8 @@ Open Scope Z_scope.
 
 (** [t_sf] is now a thin wrapper: it just calls the shared tweakable hash
     [shrincs_thash(out, pk_seed, addr, ends, 512)] over the [len * n = 512]
-    concatenated chain tips.  [T_sf] is definitionally [thash], so the
+    concatenated chain tips.  The port spells [T_sf] and [F] separately
+    (as the spec does) but they are the same construction, so the
     generalized [shrincs_thash_spec] discharges the whole body. *)
 Lemma body_shrincs_wots_t_sf : semax_body Vprog Gprog f_shrincs_wots_t_sf shrincs_wots_t_sf_spec.
 Proof.
@@ -24,7 +25,8 @@ Proof.
   (* shrincs_thash(out, pk_seed, addr, ends, 512) *)
   forward_call (out_ptr, ps_ptr, a_ptr, e_ptr, 512, A, pk_seed, ends,
                 sh_o, sh_ps, sh_a, sh_e).
-  (* [T_sf pk_seed A ends = thash pk_seed A ends] definitionally. *)
-  unfold T_sf.
+  (* [T_sf] and the callee's [F] are convertible (model/PORTING.md). *)
+  change (shrincs.T_sf pk_seed (adrs_bytes A) ends)
+    with (shrincs.F pk_seed (adrs_bytes A) ends).
   entailer!!.
 Qed.

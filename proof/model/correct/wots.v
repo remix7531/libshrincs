@@ -6,105 +6,147 @@
 
 (** * Model.correct.wots: end-to-end correctness of WOTS+C.
 
-    [wots_correct] -- [shrincs_wots_verify] accepts any signature produced
-    by [shrincs_wots_sign] against the matching [shrincs_wots_pubkey_gen].
+    [wots_c_correct] -- the spec's own verifier accepts the spec's own
+    signature against the spec's own public key.
 
-    This is a property of the Stdlib-only ground-truth model (it consumes
-    only [model.wots] and its facts), so it lives in the top-level model
-    rather than in either framework's tree. *)
+    This is now a statement about [Model.shrincs] DIRECTLY: all three
+    algorithms are the port's ([wots_c_pubkey_gen], [wots_c_sign], and
+    [wc_verify], which is [Model.theory.shrincs] section 5.8's name for
+    the comparison shrincs.py inlines into [fxmss_pubkey_from_sig]), and
+    the signature travels between them as the FLAT byte string the spec
+    lays out -- a two-byte big-endian counter followed by 32 sixteen-byte
+    chain values.  Nothing is re-encoded on the way, so the theorem says
+    what a reader wants it to say: sign then verify, at the spec,
+    succeeds.
 
-From Stdlib Require Import List ZArith Lia Bool Arith.Peano_dec.
-From Model Require Import wots theory.wots.
+    The one hypothesis is that grinding found a counter.  It is not
+    removable and it is not a defect: [wots_c_sign] is total and returns
+    the spec's documented zero block when the 2^16-counter search comes
+    up empty (model/PORTING.md's assert/raise table, verdict (4)), and
+    that block is not a signature.  Grinding failure has negligible
+    probability but is not impossible, so the spec -- and this theorem --
+    say so out loud.
+
+    Stdlib-only, like the rest of [Model]. *)
+
+From Stdlib Require Import List ZArith Lia.
+From Model Require Import byte shrincs theory.shrincs.
 Import ListNotations.
 Open Scope Z_scope.
 
-(** The dependent [chain_iter]'s step-bound argument is proof-irrelevant
-    ([Peano_dec.le_unique]): the iterate does not depend on WHICH proof
-    of [i + s <= w_pred] is supplied. *)
-Lemma chain_iter_pirr : forall X i s pk_seed ADRS (H1 H2 : (i + s <= w_pred)%nat),
-  shrincs_wots_chain_iter X i s pk_seed ADRS H1
-  = shrincs_wots_chain_iter X i s pk_seed ADRS H2.
-Proof. intros. f_equal. apply le_unique. Qed.
+(* ================================================================= *)
+(** ** Chain composition.
 
-(** Chain composition (start 0, second segment length [m]): iterating [d]
-    steps then [m] more from position [d] is the same as [d + m] steps.
-    Threaded with the dependent step bounds -- [chain_iter_pirr] absorbs
-    the [<=]-proof mismatch, [fin_val_inj] the position-proof mismatch. *)
-Lemma chain_split_gen : forall m X d pk_seed ADRS
-    (Hd : (0 + d <= w_pred)%nat) (Hdm : (d + m <= w_pred)%nat)
-    (Hsum : (0 + (d + m) <= w_pred)%nat),
-  shrincs_wots_chain_iter (shrincs_wots_chain_iter X 0 d pk_seed ADRS Hd) d m pk_seed ADRS Hdm
-  = shrincs_wots_chain_iter X 0 (d + m) pk_seed ADRS Hsum.
+    The verifier completes a chain the signer left part-way up.  That
+    the two halves compose is the whole mathematical content of WOTS
+    correctness; everything else in this file is bookkeeping.
+
+    [wc_chain] is a [fold_left] over the positions the spec visits, so
+    composition is really [fold_left_app] -- but it is stated here at
+    [nat] step counts, because that is what makes the induction
+    structural. *)
+
+Lemma wc_chain_add (pk_seed : bytes) (nh ni i : Z) (X : bytes) (start : Z)
+      (j k : nat) :
+  wc_chain pk_seed nh ni i
+    (wc_chain pk_seed nh ni i X start (Z.of_nat j)) (start + Z.of_nat j) (Z.of_nat k)
+  = wc_chain pk_seed nh ni i X start (Z.of_nat (j + k)).
 Proof.
-  induction m as [|m IH]; intros X d pk_seed ADRS Hd Hdm Hsum.
-  - (* m = 0: the outer iterate is the identity; [d + 0 = d]. *)
-    revert Hsum. rewrite Nat.add_0_r. intros Hsum.
-    cbn [shrincs_wots_chain_iter]. apply chain_iter_pirr.
-  - (* m = S m': peel the last step off both sides ([d + S m' = S (d + m')]). *)
-    revert Hsum. rewrite Nat.add_succ_r. intros Hsum.
-    cbn [shrincs_wots_chain_iter].
-    f_equal.
-    + (* the position field: both at [d + m'], proofs differ *)
-      f_equal. apply fin_val_inj. reflexivity.
-    + apply IH.
+  induction k as [|k IH].
+  - rewrite Nat.add_0_r.
+    change (Z.of_nat 0) with 0.
+    apply wc_chain_0.
+  - rewrite wc_chain_succ, IH.
+    replace (j + S k)%nat with (S (j + k)) by lia.
+    rewrite wc_chain_succ.
+    replace (start + Z.of_nat j + Z.of_nat k) with (start + Z.of_nat (j + k)) by lia.
+    reflexivity.
 Qed.
 
-(** Splitting a length-[k] chain from 0 at any [d <= k]: complete the
-    [d]-step prefix by [k - d] more steps and recover the full chain. *)
-Lemma chain_split : forall X d k pk_seed ADRS
-    (Hd : (0 + d <= w_pred)%nat) (Hcomp : (d + (k - d) <= w_pred)%nat)
-    (Hk : (0 + k <= w_pred)%nat),
-  (d <= k)%nat ->
-  shrincs_wots_chain_iter (shrincs_wots_chain_iter X 0 d pk_seed ADRS Hd) d (k - d) pk_seed ADRS Hcomp
-  = shrincs_wots_chain_iter X 0 k pk_seed ADRS Hk.
+(** The same at [Z] step counts, which is the shape section 5's views
+    are written in: a digit [d] and its complement [15 - d]. *)
+Lemma wc_chain_split (pk_seed : bytes) (nh ni i : Z) (X : bytes) (d s : Z) :
+  0 <= d -> 0 <= s ->
+  wc_chain pk_seed nh ni i (wc_chain pk_seed nh ni i X 0 d) d s
+  = wc_chain pk_seed nh ni i X 0 (d + s).
 Proof.
-  intros X d k pk_seed ADRS Hd Hcomp Hk Hdk.
-  assert (Heq : (d + (k - d) = k)%nat) by lia.
-  assert (Hsum : (0 + (d + (k - d)) <= w_pred)%nat) by (rewrite Heq; exact Hk).
-  rewrite (chain_split_gen (k - d) X d pk_seed ADRS Hd Hcomp Hsum).
-  revert Hsum. rewrite Heq. intros Hsum. apply chain_iter_pirr.
+  intros Hd Hs.
+  rewrite <- (Z2Nat.id d Hd), <- (Z2Nat.id s Hs), <- Nat2Z.inj_add.
+  rewrite <- (Z.add_0_l (Z.of_nat (Z.to_nat d))) at 2.
+  apply wc_chain_add.
 Qed.
 
-(** The verifier's chain completion recovers the honest chain tips from
-    an honest signature, for any digit vector bounded by [w_pred].  Kept
-    as its own lemma (digest opaque) so the kernel proof term stays
-    shallow -- the [T_sf] compression is grafted on in [wots_correct]. *)
-Lemma complete_ends_sign_chains_eq : forall M sk_seed pk_seed ADRS c,
-  (forall i, (nth i (digest_of pk_seed ADRS M c) 0%nat <= w_pred)%nat) ->
-  complete_ends M (sign_chains M sk_seed pk_seed ADRS c) c pk_seed ADRS
-  = chain_tips sk_seed pk_seed ADRS.
+(* ================================================================= *)
+(** ** The verifier's completed chains ARE the signer's tips.
+
+    Elementwise: chain [i] of the signature stops at digit [ds[i]], and
+    completing it by [15 - ds[i]] more steps lands on exactly the tip
+    [chain_tips] builds by running all 15 steps from the start. *)
+
+Lemma complete_ends_sign_chains (M sk_seed pk_seed : bytes) (nh ni counter : Z) :
+  complete_ends M (sign_chains M sk_seed pk_seed nh ni counter) counter pk_seed nh ni
+  = chain_tips sk_seed pk_seed nh ni.
 Proof.
-  intros M sk_seed pk_seed ADRS c Hb.
-  unfold complete_ends, chain_tips, sign_chains. cbv zeta.
-  apply for_idx_dep_ext. intros i Hi.
-  rewrite (nth_for_idx_dep len _ default i Hi).
-  apply chain_split. apply Hb.
+  unfold complete_ends, chain_tips, sign_chains.
+  apply map_ext_in.
+  intros i Hi.
+  pose proof (in_range _ _ _ Hi) as Hir.
+  pose proof (index_int_digest_of_range pk_seed nh ni M counter i) as Hd.
+  unfold WOTS_C_CHAIN_COUNT in Hir.
+  (* the signature block at [i] is the signer's own partial chain *)
+  assert (Hblk : index_block
+                   (map (fun k => wc_chain pk_seed nh ni k
+                                    (derive_sk sk_seed pk_seed nh ni k)
+                                    0 (index_int (digest_of pk_seed nh ni M counter) k))
+                        (range 0 WOTS_C_CHAIN_COUNT)) i
+                 = wc_chain pk_seed nh ni i (derive_sk sk_seed pk_seed nh ni i)
+                     0 (index_int (digest_of pk_seed nh ni M counter) i)).
+  { unfold index_block.
+    rewrite (nth_map_range _ 0 WOTS_C_CHAIN_COUNT (Z.to_nat i) [])
+      by (unfold WOTS_C_CHAIN_COUNT; lia).
+    rewrite Z.add_0_l, Z2Nat.id by lia.
+    reflexivity. }
+  rewrite Hblk, wc_chain_split by (unfold WOTS_C_CHAIN_BITS; lia).
+  f_equal.
+  unfold WOTS_C_CHAIN_BITS in *.
+  lia.
 Qed.
 
-(** End-to-end correctness (conditional on grinding success): whenever
-    [shrincs_wots_sign] returns a signature and counter, [shrincs_wots_verify] accepts
-    it against the matching [shrincs_wots_pubkey_gen].  No [byte_ok M] hypothesis
-    is needed -- the digits come from the grinding hash, not from [M]. *)
-Theorem wots_correct : forall M sk_seed pk_seed ADRS sig counter,
-  shrincs_wots_sign M sk_seed pk_seed ADRS = Some (sig, counter) ->
-  shrincs_wots_verify (shrincs_wots_pubkey_gen sk_seed pk_seed ADRS) sig M counter pk_seed ADRS = true.
+(* ================================================================= *)
+(** ** End-to-end correctness.
+
+    [wc_verify_ends]' three well-formedness hypotheses are discharged
+    from the signature the spec itself produced: the counter is below
+    2^16 because the search only ranges that far, and the 32 blocks are
+    16 bytes each because every chain ends in an [F] (or, at digit 0, in
+    the PRF output).  The verifier's slice arithmetic recovers chain [i]
+    only when the buffer really is laid out that way, so these are not
+    bookkeeping -- they are why the round trip closes. *)
+
+Theorem wots_c_correct (M sk_seed pk_seed : bytes)
+        (nh ni ty pa pb pc counter : Z) :
+  find_counter pk_seed nh ni M = Some counter ->
+  wc_verify (wots_c_pubkey_gen sk_seed pk_seed (mk_adrs nh ni ty pa pb pc))
+            (wots_c_sign M sk_seed pk_seed (mk_adrs nh ni ty pa pb pc))
+            M pk_seed (mk_adrs nh ni ty pa pb pc)
+  = true.
 Proof.
-  intros M sk_seed pk_seed ADRS sig counter Hsign.
-  (* Invert [shrincs_wots_sign] via [sign_inv] -- which keeps [find_counter] in the goal,
-     so the kernel never WHNF-reduces it (that would force [Z.to_nat (2^16)]). *)
-  apply sign_inv in Hsign. destruct Hsign as [Hfc Hsig]. subst sig.
-  assert (Hgood := find_counter_good _ _ _ _ Hfc). unfold good_counter in Hgood.
-  unfold shrincs_wots_verify.
-  apply andb_true_intro. split.
-  - exact Hgood.
-  - (* Second conjunct: [shrincs_wots_pubkey_from_sig] recovers [shrincs_wots_pubkey_gen].  Case on
-       [list_eq_dec] symbolically; the equality reduces (through [T_sf]) to the
-       chain-completion lemma. *)
-    destruct (list_eq_dec _ _ _) as [_|Hne]; [reflexivity|].
-    exfalso. apply Hne.
-    unfold shrincs_wots_pubkey_from_sig, shrincs_wots_pubkey_gen.
-    f_equal. f_equal.
-    apply complete_ends_sign_chains_eq.
-    intro i. pose proof (nth_digest_of_le_15 pk_seed ADRS M counter i).
-    unfold w_pred. lia.
+  intros Hfc.
+  (* the flat signature: a two-byte counter followed by the 32 chains *)
+  rewrite wots_c_sign_chains, Hfc.
+  set (sg := sign_chains M sk_seed pk_seed nh ni counter).
+  assert (Hlen : length sg = Z.to_nat WOTS_C_CHAIN_COUNT)
+    by (unfold sg; rewrite length_sign_chains; reflexivity).
+  assert (Hblk : forall b, In b sg -> length b = 16%nat)
+    by (unfold sg; apply Forall_forall, Forall_length_sign_chains).
+  rewrite (wc_verify_ends _ M sg counter pk_seed nh ni ty pa pb pc
+             (find_counter_lt _ _ _ _ _ Hfc) Hlen Hblk).
+  rewrite (find_counter_good _ _ _ _ _ Hfc).
+  cbn [andb].
+  (* both sides compress the SAME tips, so the comparison is reflexive *)
+  unfold sg.
+  rewrite complete_ends_sign_chains, wots_c_pubkey_gen_tips.
+  unfold bytes_eqb.
+  destruct (list_eq_dec byte_eq_dec _ _) as [_|Hne];
+    [reflexivity | contradiction Hne; reflexivity].
 Qed.

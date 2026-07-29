@@ -23,16 +23,15 @@ model/byte.v
 model/address.v
 model/sha256.v
 model/iteration.v
-model/wots.v
 model/fxmss.v
 model/theory/address.v
-model/theory/wots.v
 model/theory/fxmss.v
 model/correct/wots.v
-# The port of the normative Python spec (see model/PORTING.md), and the
-# derived views above it (decompositions + reassembly lemmas, plus the
-# TRANSITIONAL Model.wots reconciliation the SSProve bridges consume).
-# It replaces Model.wots / Model.fxmss once the VST bridge re-anchors too.
+# The port of the normative Python spec (see model/PORTING.md) -- THE
+# model of record -- and the derived views above it: the per-chain WOTS+C
+# decomposition, its reassembly lemmas back to the port, and the facts
+# both refinement proofs consume.  Everything below model/ is stated
+# over these two files.
 model/shrincs.v
 model/theory/shrincs.v
 

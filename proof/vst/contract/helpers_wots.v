@@ -7,7 +7,9 @@
 (** * contract.helpers_wots: VST funspecs for the WOTS+C step functions in [src/wots.c].
 
     Each funspec relates a C step function to its pure counterpart in
-    [model.wots]: [_t_sf], [_h_grind], [_derive_sk], [_chain_iter],
+    the spec port [Model.shrincs] and the per-chain views above it
+    ([Model.theory.shrincs] section 5): [_t_sf], [_h_grind], [_derive_sk],
+    [_chain_iter],
     [_chain_from_seed], [_map_digest], [_grind_to_constant_sum].  Bodies
     are proved in [verif/*].  The shared tweakable-hash specs
     ([shrincs_adrs_put32], [shrincs_thash]) live in [contract.helpers_thash]
@@ -26,7 +28,8 @@ Local Notation adrs := (address.adrs len w_pred).
 (* ================================================================= *)
 (** ** [shrincs_wots_t_sf(out, pk_seed, addr, ends)] -- the tweakable hash over the
     [len] concatenated chain tips ([len * n = 512] bytes):
-    [T_sf pk_seed A ends = SHA256(pk_seed || zeros(48) || ADRS || ends)[:16]].
+    [T_sf pk_seed (adrs_bytes A) ends
+       = SHA256(pk_seed || zeros(48) || ADRS || ends)[:16]].
     Reads [addr]; does not mutate it. *)
 
 Definition shrincs_wots_t_sf_spec : ident * funspec :=
@@ -45,14 +48,15 @@ Definition shrincs_wots_t_sf_spec : ident * funspec :=
          data_at sh_e  (tarray tuchar (Z.of_nat (len * n))) (block_to_vals ends) e_ptr)
   POST [ tvoid ]
     PROP () RETURN ()
-    SEP (data_at sh_o (tarray tuchar n_bytes) (block_to_vals (T_sf pk_seed A ends)) out_ptr;
+    SEP (data_at sh_o (tarray tuchar n_bytes)
+           (block_to_vals (shrincs.T_sf pk_seed (adrs_bytes A) ends)) out_ptr;
          data_at sh_ps (tarray tuchar n_bytes) (block_to_vals pk_seed) ps_ptr;
          data_at sh_a  t_addr                  (adrs_to_vals A)         a_ptr;
          data_at sh_e  (tarray tuchar (Z.of_nat (len * n))) (block_to_vals ends) e_ptr).
 
 (* ================================================================= *)
 (** ** [shrincs_wots_h_grind(out, msg, counter, pk_seed, addr)] -- grinding hash
-    [H_grind(pk_seed, addr, msg, counter)].  Reads the first 10 bytes of
+    [H_grind(pk_seed, adrs_bytes addr, msg, counter)].  Reads the first 10 bytes of
     [addr] (caller has set the grind type byte); does not mutate [addr].
     [msg] is the 32-byte message digest. *)
 
@@ -74,7 +78,7 @@ Definition shrincs_wots_h_grind_spec : ident * funspec :=
   POST [ tvoid ]
     PROP () RETURN ()
     SEP (data_at sh_o (tarray tuchar n_bytes)
-           (block_to_vals (H_grind pk_seed a msg counter)) out_ptr;
+           (block_to_vals (shrincs.H_grind pk_seed (adrs_bytes a) msg counter)) out_ptr;
          data_at sh_m  (tarray tuchar msg_bytes) (block_to_vals msg)      m_ptr;
          data_at sh_ps (tarray tuchar n_bytes) (block_to_vals pk_seed) ps_ptr;
          data_at sh_a  t_addr                  (adrs_to_vals a)         a_ptr).
@@ -82,8 +86,14 @@ Definition shrincs_wots_h_grind_spec : ident * funspec :=
 (* ================================================================= *)
 (** ** [shrincs_wots_derive_sk(out, chain_i, sk_seed, pk_seed, addr)].
 
-    Implements [shrincs_wots_derive_sk chain_i sk_seed pk_seed a].  Mutates [addr] to
-    the PRF-typed address [shrincs_wots_prf_adrs a chain_i]. *)
+    Implements section 5.4's [derive_sk sk_seed pk_seed nh ni chain_i]
+    at [a]'s anchor.  Mutates [addr] to the PRF-typed address
+    [shrincs_wots_prf_adrs a chain_i].
+
+    The VALUE side takes the chain index as a plain [Z] (the port
+    addresses at the byte level, so no bound is threaded); only the
+    ADDRESS side still needs the bound-carrying [fin 32], which is what
+    [to_chain32] supplies. *)
 
 Definition shrincs_wots_derive_sk_spec : ident * funspec :=
   DECLARE _shrincs_wots_derive_sk
@@ -104,7 +114,7 @@ Definition shrincs_wots_derive_sk_spec : ident * funspec :=
   POST [ tvoid ]
     PROP () RETURN ()
     SEP (data_at sh_o (tarray tuchar n_bytes)
-           (block_to_vals (shrincs_wots_derive_sk (to_chain32 (Z.to_nat chain_i)) sk_seed pk_seed a))
+           (block_to_vals (derive_sk sk_seed pk_seed (anchor_nh a) (anchor_ni a) chain_i))
            out_ptr;
          data_at sh_ss (tarray tuchar n_bytes) (block_to_vals sk_seed)  ss_ptr;
          data_at sh_ps (tarray tuchar n_bytes) (block_to_vals pk_seed) ps_ptr;
@@ -113,10 +123,19 @@ Definition shrincs_wots_derive_sk_spec : ident * funspec :=
 
 (* ================================================================= *)
 (** ** [shrincs_wots_chain_iter(node, start, steps, pk_seed, addr)] -- iterates
-    [F] [steps] times in place on [node].  The caller sets the type +
-    chain address before calling; this only writes the hash address.
-    [chain_addr_post] is [set_payload_c a (start+steps-1)] when
-    [steps > 0], else [a] untouched. *)
+    [F] [steps] times in place on [node], which is section 5.2's
+    [wc_chain] at [a]'s anchor and chain index.  The caller sets the
+    type + chain address before calling; this only writes the hash
+    address.  [chain_addr_post] is [set_payload_c a (start+steps-1)]
+    when [steps > 0], else [a] untouched.
+
+    The port's chain is TOTAL -- an ordinary [fold_left] over the
+    positions the spec visits -- so the [start + steps <= w_pred]
+    funspec bound is no longer needed to even STATE the POST (the
+    previous model's chain was a dependent Fixpoint and needed a
+    totalizing wrapper here).  The bound is kept in the PROP because the
+    C's position field genuinely is a [fin 15]: it is what makes
+    [chain_addr_post] faithful. *)
 
 Definition chain_addr_post (a : adrs) (start steps : nat) : adrs :=
   match steps with
@@ -183,7 +202,8 @@ Definition shrincs_wots_chain_iter_spec : ident * funspec :=
     PROP () RETURN ()
     SEP (data_at sh_b (tarray tuchar n_bytes)
            (block_to_vals
-              (chain_iter_c in_buf (Z.to_nat start) (Z.to_nat steps) pk_seed a))
+              (wc_chain pk_seed (anchor_nh a) (anchor_ni a) (chain_of a)
+                 in_buf start steps))
            buf_ptr;
          data_at sh_ps (tarray tuchar n_bytes) (block_to_vals pk_seed) ps_ptr;
          data_at sh_a  t_addr
@@ -221,9 +241,9 @@ Definition shrincs_wots_chain_from_seed_spec : ident * funspec :=
     PROP () RETURN ()
     SEP (data_at sh_n (tarray tuchar n_bytes)
            (block_to_vals
-              (chain_iter_c (shrincs_wots_derive_sk (to_chain32 (Z.to_nat chain_i)) sk_seed pk_seed a)
-                 0 (Z.to_nat steps) pk_seed
-                 (shrincs_wots_hash_adrs w_pred_pos a (to_chain32 (Z.to_nat chain_i))))) node_ptr;
+              (wc_chain pk_seed (anchor_nh a) (anchor_ni a) chain_i
+                 (derive_sk sk_seed pk_seed (anchor_nh a) (anchor_ni a) chain_i)
+                 0 steps)) node_ptr;
          data_at sh_ss (tarray tuchar n_bytes) (block_to_vals sk_seed)  ss_ptr;
          data_at sh_ps (tarray tuchar n_bytes) (block_to_vals pk_seed) ps_ptr;
          data_at sh_a  t_addr
@@ -259,9 +279,10 @@ Definition shrincs_wots_map_digest_spec : ident * funspec :=
          data_at sh_a  t_addr                  (adrs_to_vals a)         a_ptr)
   POST [ tuint ]
     PROP ()
-    RETURN (Vint (Int.repr (Z.of_nat (list_sum (digest_of pk_seed a msg counter)))))
+    RETURN (Vint (Int.repr
+             (shrincs.sum_list (digest_of pk_seed (anchor_nh a) (anchor_ni a) msg counter))))
     SEP (data_at sh_d (tarray tuchar (Z.of_nat len))
-           (digits_to_vals (digest_of pk_seed a msg counter)) d_ptr;
+           (digits_to_vals (digest_of pk_seed (anchor_nh a) (anchor_ni a) msg counter)) d_ptr;
          data_at sh_m  (tarray tuchar msg_bytes) (block_to_vals msg)      m_ptr;
          data_at sh_ps (tarray tuchar n_bytes) (block_to_vals pk_seed) ps_ptr;
          data_at sh_a  t_addr             (adrs_to_vals (shrincs_wots_grind_adrs a)) a_ptr).
@@ -293,10 +314,12 @@ Definition shrincs_wots_grind_to_constant_sum_spec : ident * funspec :=
   POST [ tint ]
     PROP ()
     RETURN (Vint (Int.repr
-             (match find_counter pk_seed a msg with Some _ => 0 | None => 1 end)))
-    SEP (match find_counter pk_seed a msg with
+             (match find_counter pk_seed (anchor_nh a) (anchor_ni a) msg with
+              | Some _ => 0 | None => 1 end)))
+    SEP (match find_counter pk_seed (anchor_nh a) (anchor_ni a) msg with
          | Some c => data_at sh_d (tarray tuchar (Z.of_nat len))
-                       (digits_to_vals (digest_of pk_seed a msg c)) d_ptr *
+                       (digits_to_vals
+                          (digest_of pk_seed (anchor_nh a) (anchor_ni a) msg c)) d_ptr *
                      data_at sh_c tuint (Vint (Int.repr c)) c_ptr
          | None   => data_at_ sh_d (tarray tuchar (Z.of_nat len)) d_ptr *
                      data_at_ sh_c tuint c_ptr

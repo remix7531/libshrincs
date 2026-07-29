@@ -27,8 +27,8 @@ Proof.
   forward_call (node_ptr, ss_ptr, ps_ptr, a_ptr,
                 chain_i, sk_seed, pk_seed, a,
                 sh_n, sh_ss, sh_ps, sh_a).
-  (* node := shrincs_wots_derive_sk (Z.to_nat chain_i) sk_seed pk_seed a;
-     addr := shrincs_wots_prf_adrs a (Z.to_nat chain_i). *)
+  (* node := derive_sk sk_seed pk_seed (anchor_nh a) (anchor_ni a) chain_i;
+     addr := shrincs_wots_prf_adrs a (to_chain32 (Z.to_nat chain_i)). *)
 
   (* ===== addr[ADRS_TYPE] = SF_SHRINCS_WOTS_HASH (16) ===== *)
   (* [store_type_byte] exposes the wire view and folds the type-byte store
@@ -44,16 +44,27 @@ Proof.
   (* ===== shrincs_wots_chain_iter(node, 0, steps, pk_seed, addr) ===== *)
   forward_call (node_ptr, ps_ptr, a_ptr,
                 0, steps,
-                shrincs_wots_derive_sk (to_chain32 (Z.to_nat chain_i)) sk_seed pk_seed a,
+                derive_sk sk_seed pk_seed (anchor_nh a) (anchor_ni a) chain_i,
                 pk_seed, shrincs_wots_hash_adrs w_pred_pos a (to_chain32 (Z.to_nat chain_i)),
                 sh_n, sh_ps, sh_a).
   { (* step bound + secret / seed lengths + the hash-address precondition
        ([shrincs_wots_hash_adrs a i] is a [Wc_hash] by construction) *)
     change (Z.of_nat w_pred) with 15 in *.
-    repeat split; try rep_lia; try assumption; try apply shrincs_wots_derive_sk_Zlength;
+    repeat split; try rep_lia; try assumption; try apply derive_sk_Zlength;
       try (apply adrs_hash_is_Wc_hash; reflexivity). }
 
-  (* ===== Postcondition ===== *)
+  (* ===== Postcondition: [shrincs_wots_chain_iter] reports its chain at the
+     address it was handed, so re-key it onto the base address [a] -- the
+     hash constructor keeps [a]'s anchor ([shrincs_wots_hash_adrs_struct_eq])
+     and stores [chain_i] in the word [chain_of] reads back. *)
+  assert (Hci : chain_of (shrincs_wots_hash_adrs w_pred_pos a
+                            (to_chain32 (Z.to_nat chain_i))) = chain_i).
+  { cbn [shrincs_wots_hash_adrs payload_b_z].
+    apply to_chain32_val.
+    lia. }
+  destruct (shrincs_wots_hash_adrs_struct_eq a (to_chain32 (Z.to_nat chain_i)))
+    as (Hnh & Hni).
+  rewrite Hci, Hnh, Hni.
   change (Z.to_nat 0) with 0%nat.
   entailer!!.
 Qed.

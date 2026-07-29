@@ -14,7 +14,7 @@
     These were factored out of [contract.lemmas.arith] so they can live
     below the separation-logic layer. [contract.lemmas.arith] imports
     this file for the [to_byte] shape, [div_mod256_mod2pow32],
-    [Z_testbit_above_8], [Zland_15_mod16] and [list_sum_le_bound] facts
+    [Z_testbit_above_8], [Zland_15_mod16] and [sum_list_le_bound] facts
     it builds its VST bridges on top of. *)
 
 From Stdlib Require Import List ZArith Lia.
@@ -200,14 +200,40 @@ Proof.
 Qed.
 
 (* ================================================================= *)
-(** ** [list_sum] bound (constant-sum gate support). *)
+(** ** Digit-sum bound (constant-sum gate support).
 
-Lemma list_sum_le_bound : forall (l : list nat) (b : nat),
-  Forall (fun x => (x <= b)%nat) l -> (list_sum l <= length l * b)%nat.
+    At the port the digit vector is [list Z] (the spec's ints are [Z]
+    throughout -- model/PORTING.md), so the bound is stated over
+    [Model.shrincs.sum_list], not stdlib's [nat]-valued [list_sum]. *)
+
+Lemma sum_list_le_bound : forall (l : list Z) (b : Z),
+  0 <= b -> Forall (fun x => 0 <= x <= b) l ->
+  0 <= shrincs.sum_list l <= Z.of_nat (length l) * b.
 Proof.
-  induction l as [|x xs IH]; intros b Hall; simpl.
-  - lia.
+  induction l as [|x xs IH]; intros b Hb Hall; cbn [length].
+  - cbn. lia.
   - inversion Hall as [|? ? Hx Hxs]; subst.
-    specialize (IH b Hxs).
+    specialize (IH b Hb Hxs).
+    change (shrincs.sum_list (x :: xs)) with (x + shrincs.sum_list xs).
     lia.
 Qed.
+
+(* ================================================================= *)
+(** ** The two byte-serializers, reconciled.
+
+    [Model.address.to_byte] (a [nat]-indexed Fixpoint, what the ADRS
+    wire layout is built from) and [Model.shrincs.to_bytes] (the port's
+    [Z]-indexed [int.to_bytes], what the signature's counter field is
+    built from) are the same big-endian recursion.  The funspecs state
+    the counter field with the PORT's serializer; this is what lets the
+    [to_byte]-shaped arithmetic above still apply to it. *)
+
+Lemma to_bytes_to_byte : forall (x : Z) (n : nat),
+  shrincs.to_bytes x (Z.of_nat n) = to_byte x n.
+Proof. intros x n. symmetry. apply to_byte_to_bytes. Qed.
+
+Lemma to_bytes_2_eq : forall x, shrincs.to_bytes x 2 = to_byte x 2.
+Proof. intros x. exact (to_bytes_to_byte x 2%nat). Qed.
+
+Lemma to_bytes_4_eq : forall x, shrincs.to_bytes x 4 = to_byte x 4.
+Proof. intros x. exact (to_bytes_to_byte x 4%nat). Qed.

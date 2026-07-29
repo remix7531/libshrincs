@@ -9,11 +9,19 @@
     [body_shrincs_wots_pubkey_from_sig] (the [set_type_byte_prf_hash] type-byte
     bridge is also reused by [body_shrincs_wots_chain_from_seed]).
 
-    In the WOTS+C construction each chain is launched from the named
-    [shrincs_wots_hash_adrs a i] address and started from the PRF-derived secret
-    [shrincs_wots_derive_sk i]; the loop invariants only need the caller's address
-    prefix ([adrs_struct_eq]) preserved.  The per-chain address-stepping
-    lemmas are proved alongside the body proofs that use them. *)
+    In the WOTS+C construction each chain is launched from the PRF-derived
+    secret [derive_sk] and iterated by [wc_chain] at the caller's anchor
+    ([anchor_nh] / [anchor_ni]) and the chain's own index; the loop
+    invariants only need the caller's address prefix ([adrs_struct_eq])
+    preserved.  The per-chain address-stepping lemmas are proved alongside
+    the body proofs that use them.
+
+    The port's chain ([Model.theory.shrincs] section 5.2) is a plain
+    [fold_left] over the positions the spec visits: it is TOTAL, takes
+    [nh]/[ni]/the chain index as bare [Z]s, and does not read the ADRS
+    position word at all.  So the previous model's totalizing wrapper and
+    its position-independence / proof-irrelevance family are gone -- what
+    is left below is only what the C refinement genuinely needs. *)
 
 From VST Require Import floyd.proofauto.
 From Vst Require Import contract.public.
@@ -25,123 +33,155 @@ Open Scope Z_scope.
 Local Notation adrs := (address.adrs len w_pred).
 
 (* ================================================================= *)
-(** ** Per-chain blocks. *)
+(** ** Per-chain blocks.
 
-(** The [i]-th chain tip of [shrincs_wots_pubkey_gen].
+    These VST-side per-chain blocks are plain [nat]-indexed, so the loop
+    invariants below stay non-dependent and iterate [seq 0 len]; the
+    port's own views are [map]s over [range 0 WOTS_C_CHAIN_COUNT].
+    [map_range_seq] is the bridge, and the [_map] lemmas below are where
+    it is spent. *)
 
-    These VST-side per-chain blocks are plain [nat]-indexed (so the loop
-    invariants below stay non-dependent) but build the model's [fin 32]
-    chain index via the C-refinement totalizer [to_chain32] and iterate
-    with the total [chain_iter_c] wrapper.  The [_map] bridges then relate
-    them to the dependent model ([chain_tips] / [sign_chains] /
-    [complete_ends], written with [fin_of_nat] + the dependent
-    [shrincs_wots_chain_iter]) via [for_idx_dep_map_eq]. *)
+(** The [i]-th chain tip of [shrincs_wots_pubkey_gen]. *)
 Definition pkgen_block (sk_seed pk_seed : block) (a : adrs) (i : nat) : block :=
-  chain_iter_c (shrincs_wots_derive_sk (to_chain32 i) sk_seed pk_seed a) 0 w_pred pk_seed
-                  (shrincs_wots_hash_adrs w_pred_pos a (to_chain32 i)).
+  wc_chain pk_seed (anchor_nh a) (anchor_ni a) (Z.of_nat i)
+    (derive_sk sk_seed pk_seed (anchor_nh a) (anchor_ni a) (Z.of_nat i))
+    0 (Z.of_nat w_pred).
 
 (** The [i]-th chain signature of [shrincs_wots_sign] (for digit vector [ds]). *)
-Definition sign_block (sk_seed pk_seed : block) (a : adrs) (ds : list nat)
+Definition sign_block (sk_seed pk_seed : block) (a : adrs) (ds : list Z)
                       (i : nat) : block :=
-  chain_iter_c (shrincs_wots_derive_sk (to_chain32 i) sk_seed pk_seed a) 0 (nth i ds 0%nat) pk_seed
-                  (shrincs_wots_hash_adrs w_pred_pos a (to_chain32 i)).
+  wc_chain pk_seed (anchor_nh a) (anchor_ni a) (Z.of_nat i)
+    (derive_sk sk_seed pk_seed (anchor_nh a) (anchor_ni a) (Z.of_nat i))
+    0 (shrincs.index_int ds (Z.of_nat i)).
 
 (** The [i]-th completed chain tip of [shrincs_wots_pubkey_from_sig]. *)
-Definition complete_block (sig : list block) (ds : list nat) (pk_seed : block)
+Definition complete_block (sig : list block) (ds : list Z) (pk_seed : block)
                           (a : adrs) (i : nat) : block :=
-  chain_iter_c (nth i sig default) (nth i ds 0%nat)
-                  (w_pred - nth i ds 0%nat) pk_seed (shrincs_wots_hash_adrs w_pred_pos a (to_chain32 i)).
+  wc_chain pk_seed (anchor_nh a) (anchor_ni a) (Z.of_nat i)
+    (index_block sig (Z.of_nat i))
+    (shrincs.index_int ds (Z.of_nat i))
+    (Z.of_nat w_pred - shrincs.index_int ds (Z.of_nat i)).
 
 Lemma pkgen_block_Zlength : forall sk pub a i,
   Zlength (pkgen_block sk pub a i) = n_bytes.
-Proof. intros. unfold pkgen_block. apply chain_iter_c_Zlength, shrincs_wots_derive_sk_Zlength. Qed.
+Proof. intros. apply wc_chain_Zlength, derive_sk_Zlength. Qed.
 
 Lemma sign_block_Zlength : forall sk pub a ds i,
   Zlength (sign_block sk pub a ds i) = n_bytes.
-Proof. intros. unfold sign_block. apply chain_iter_c_Zlength, shrincs_wots_derive_sk_Zlength. Qed.
+Proof. intros. apply wc_chain_Zlength, derive_sk_Zlength. Qed.
 
+(** A completed end is [n] bytes as soon as its launch block is: a digit
+    of 15 runs ZERO steps, so the block IS the signature's own. *)
 Lemma complete_block_Zlength : forall sig ds pub a i,
-  Zlength (nth i sig default) = n_bytes ->
+  Zlength (index_block sig (Z.of_nat i)) = n_bytes ->
   Zlength (complete_block sig ds pub a i) = n_bytes.
-Proof. intros. unfold complete_block. apply chain_iter_c_Zlength. assumption. Qed.
+Proof. intros. apply wc_chain_Zlength. assumption. Qed.
+
+(** In-range indexing into a fixed-width block list.  The port's
+    [index_block] defaults to the EMPTY block (not a zero block), so the
+    caller's length hypothesis is what rules the default out. *)
+Lemma index_block_Zlength : forall (bs : list block) (i : Z),
+  0 <= i < Z.of_nat (length bs) ->
+  Forall (fun b => Zlength b = n_bytes) bs ->
+  Zlength (index_block bs i) = n_bytes.
+Proof.
+  intros bs i [Hi0 Hi1] HF.
+  rewrite Forall_forall in HF.
+  apply HF, nth_In.
+  (* [nth_In] instantiates the element type as the port's [bytes], so the
+     two [length bs] are only CONVERTIBLE ([block := list byte]) -- [lia]
+     would see them as distinct atoms. *)
+  apply Nat2Z.inj_lt. rewrite Z2Nat.id by lia. exact Hi1.
+Qed.
 
 (* ================================================================= *)
-(** ** [chain_tips] / [sign_chains] / [complete_ends] as maps. *)
+(** ** [chain_tips] / [sign_chains] / [complete_ends] as maps.
+
+    Each port view is a [map] over [range 0 WOTS_C_CHAIN_COUNT]; [len_port]
+    re-reads that count as [Z.of_nat len] and [map_range_seq] turns the
+    [range] into the [seq 0 len] the C loops count over. *)
 
 Lemma chain_tips_map : forall sk pub a,
-  chain_tips sk pub a = map (pkgen_block sk pub a) (seq 0 len).
+  chain_tips sk pub (anchor_nh a) (anchor_ni a)
+  = map (pkgen_block sk pub a) (seq 0 len).
 Proof.
-  intros sk pub a. unfold chain_tips. apply for_idx_dep_map_eq. intros i Hi.
-  unfold pkgen_block.
-  rewrite (chain_iter_c_eq _ _ _ _ _ full_chain_bound).
-  rewrite !(to_chain32_id i (chain_idx_lt i Hi)).
+  intros sk pub a. unfold chain_tips.
+  rewrite <- len_port, map_range_seq.
   reflexivity.
 Qed.
 
 Lemma sign_chains_map : forall msg sk pub a counter,
-  sign_chains msg sk pub a counter
-  = map (sign_block sk pub a (digest_of pub a msg counter)) (seq 0 len).
+  sign_chains msg sk pub (anchor_nh a) (anchor_ni a) counter
+  = map (sign_block sk pub a
+           (digest_of pub (anchor_nh a) (anchor_ni a) msg counter))
+        (seq 0 len).
 Proof.
   intros msg sk pub a counter. unfold sign_chains. cbv zeta.
-  apply for_idx_dep_map_eq. intros i Hi. unfold sign_block.
-  rewrite (chain_iter_c_eq _ _ _ _ _ (sign_chain_bound pub a msg counter i)).
-  rewrite !(to_chain32_id i (chain_idx_lt i Hi)).
+  rewrite <- len_port, map_range_seq.
   reflexivity.
 Qed.
 
 Lemma complete_ends_map : forall msg sig counter pub a,
-  complete_ends msg sig counter pub a
-  = map (complete_block sig (digest_of pub a msg counter) pub a) (seq 0 len).
+  complete_ends msg sig counter pub (anchor_nh a) (anchor_ni a)
+  = map (complete_block sig
+           (digest_of pub (anchor_nh a) (anchor_ni a) msg counter) pub a)
+        (seq 0 len).
 Proof.
   intros msg sig counter pub a. unfold complete_ends. cbv zeta.
-  apply for_idx_dep_map_eq. intros i Hi. unfold complete_block.
-  rewrite (chain_iter_c_eq _ _ _ _ _ (complete_chain_bound pub a msg counter i)).
-  rewrite !(to_chain32_id i (chain_idx_lt i Hi)).
+  rewrite <- len_port, map_range_seq.
   reflexivity.
 Qed.
 
 (* ================================================================= *)
-(** ** Lengths of the tip lists (for the T_sf compression buffer). *)
+(** ** Lengths of the tip lists (for the T_sf compression buffer).
 
-Lemma chain_tips_length : forall sk pub a,
-  length (chain_tips sk pub a) = len.
-Proof. intros. unfold chain_tips. apply length_for_idx_dep. Qed.
+    The block widths are [Model.theory.shrincs]'s; these only restate them
+    at VST's [Zlength] and push them through [concat]. *)
 
-Lemma chain_tips_Forall_Zlength : forall sk pub a,
-  Forall (fun b => Zlength b = n_bytes) (chain_tips sk pub a).
+Lemma chain_tips_Forall_Zlength : forall sk pub nh ni,
+  Forall (fun b => Zlength b = n_bytes) (chain_tips sk pub nh ni).
 Proof.
-  intros. rewrite chain_tips_map. apply Forall_map, Forall_forall.
-  intros k _. apply pkgen_block_Zlength.
+  intros sk pub nh ni.
+  pose proof (Forall_length_chain_tips sk pub nh ni) as HL.
+  rewrite Forall_forall in HL |- *.
+  intros b Hb. rewrite Zlength_correct, (HL b Hb). reflexivity.
 Qed.
 
-Lemma complete_ends_length : forall msg sig counter pub a,
-  length (complete_ends msg sig counter pub a) = len.
-Proof. intros. unfold complete_ends. apply length_for_idx_dep. Qed.
-
-Lemma complete_ends_Forall_Zlength : forall msg sig counter pub a,
+(** The [length sig] hypothesis is real: at digit 15 the chain runs zero
+    steps and the end block IS the signature's own. *)
+Lemma complete_ends_Forall_Zlength : forall msg sig counter pub nh ni,
+  length sig = len ->
   Forall (fun b => Zlength b = n_bytes) sig ->
-  Forall (fun b => Zlength b = n_bytes) (complete_ends msg sig counter pub a).
+  Forall (fun b => Zlength b = n_bytes) (complete_ends msg sig counter pub nh ni).
 Proof.
-  intros msg sig counter pub a Hs.
-  rewrite complete_ends_map. apply Forall_map, Forall_forall.
-  intros k _. apply complete_block_Zlength, nth_block_Zlength_default, Hs.
+  intros msg sig counter pub nh ni Hlen HF.
+  rewrite Forall_forall in HF.
+  assert (Hk : forall b, In b sig -> length b = 16%nat).
+  { intros b Hb. specialize (HF b Hb).
+    rewrite Zlength_correct, n_bytes_eq in HF. lia. }
+  pose proof (Forall_length_complete_ends msg sig counter pub nh ni
+                ltac:(rewrite Hlen; reflexivity) Hk) as HL.
+  rewrite Forall_forall in HL |- *.
+  intros b Hb. rewrite Zlength_correct, (HL b Hb). reflexivity.
 Qed.
 
 (** The concatenated tip buffers have exactly [len * n] bytes. *)
-Lemma Zlength_concat_chain_tips : forall sk pub a,
-  Zlength (concat (chain_tips sk pub a)) = Z.of_nat (len * n).
+Lemma Zlength_concat_chain_tips : forall sk pub nh ni,
+  Zlength (concat (chain_tips sk pub nh ni)) = Z.of_nat (len * n).
 Proof.
   intros. rewrite Zlength_concat_fixed by apply chain_tips_Forall_Zlength.
-  rewrite chain_tips_length. rewrite Nat2Z.inj_mul. reflexivity.
+  rewrite length_chain_tips. reflexivity.
 Qed.
 
-Lemma Zlength_concat_complete_ends : forall msg sig counter pub a,
+Lemma Zlength_concat_complete_ends : forall msg sig counter pub nh ni,
+  length sig = len ->
   Forall (fun b => Zlength b = n_bytes) sig ->
-  Zlength (concat (complete_ends msg sig counter pub a)) = Z.of_nat (len * n).
+  Zlength (concat (complete_ends msg sig counter pub nh ni)) = Z.of_nat (len * n).
 Proof.
-  intros msg sig counter pub a Hs.
-  rewrite Zlength_concat_fixed by (apply complete_ends_Forall_Zlength, Hs).
-  rewrite complete_ends_length. rewrite Nat2Z.inj_mul. reflexivity.
+  intros msg sig counter pub nh ni Hlen HF.
+  rewrite Zlength_concat_fixed
+    by (apply complete_ends_Forall_Zlength; assumption).
+  rewrite length_complete_ends. reflexivity.
 Qed.
 
 (* ================================================================= *)
@@ -187,16 +227,13 @@ Proof.
   unfold shrincs_wots_pk_adrs. rewrite Hnh, Hni. reflexivity.
 Qed.
 
-(** [shrincs_wots_derive_sk] reads the base address only through [shrincs_wots_prf_adrs],
-    hence only through the caller-prefilled prefix. *)
-Lemma shrincs_wots_derive_sk_congr : forall i sk pk x a,
-  adrs_struct_eq x a -> shrincs_wots_derive_sk i sk pk x = shrincs_wots_derive_sk i sk pk a.
-Proof.
-  intros i sk pk x a Hxa.
-  unfold shrincs_wots_derive_sk.
-  rewrite (shrincs_wots_prf_adrs_congr x a i Hxa).
-  reflexivity.
-Qed.
+(** [derive_sk] reads the address only through its anchor, which is
+    exactly what [adrs_struct_eq] preserves. *)
+Lemma derive_sk_congr : forall sk pk x a i,
+  adrs_struct_eq x a ->
+  derive_sk sk pk (anchor_nh x) (anchor_ni x) i
+  = derive_sk sk pk (anchor_nh a) (anchor_ni a) i.
+Proof. intros sk pk x a i (Hh & Hi). rewrite Hh, Hi. reflexivity. Qed.
 
 (** Storing the HASH type byte over the wire view ([adrs_to_raw]) of a
     PRF-typed address yields the wire view of the hash-typed address at
@@ -230,66 +267,21 @@ Proof.
 Qed.
 
 (* ================================================================= *)
-(** ** [chain_iter_c] step laws (loop entry / one step / position
-    independence), shared by the chain_iter and pubkey_from_sig body
-    proofs. *)
+(** ** The [wc_chain] step law used by the [shrincs_wots_chain_iter] loop.
 
-(** [chain_iter_c] with zero steps is the identity (loop entry). *)
-Lemma chain_iter_c_0 : forall X start pk_seed a,
-  chain_iter_c X start 0 pk_seed a = X.
-Proof. intros. unfold chain_iter_c. destruct (le_dec (start + 0) w_pred); reflexivity. Qed.
-
-(** One more chain step on a hash address: [chain_iter_c] at [S i] is [F]
-    of the position-[start+i] hash address applied to the [i]-step prefix.
-    Both wrappers reduce (via [chain_iter_c_eq]) to the dependent model
-    [shrincs_wots_chain_iter]; the position field is the value-faithful
-    [to_pos15 (start+i)] and the step/position proofs are proof-irrelevant
-    ([le_unique] / [fin_val_inj]). *)
-Lemma chain_iter_c_step_hash : forall in_buf start i pk_seed nh ni chain pos,
-  (start + S i <= w_pred)%nat ->
-  chain_iter_c in_buf start (S i) pk_seed (Wc_hash nh ni chain pos)
-  = F pk_seed (Wc_hash nh ni chain (to_pos15 (start + i)))
-      (chain_iter_c in_buf start i pk_seed (Wc_hash nh ni chain pos)).
+    [wc_chain_succ] peels the last step at [Z.of_nat (S n)]; the C loop
+    counts at [Z], so this is the same law at [j + 1].  (Loop entry is
+    [Model.theory.shrincs]'s [wc_chain_0] -- nothing to add here.) *)
+Lemma wc_chain_step : forall pk_seed nh ni ci node start j,
+  0 <= j ->
+  wc_chain pk_seed nh ni ci node start (j + 1)
+  = shrincs.F pk_seed (wc_hash_adrs nh ni ci (start + j))
+      (wc_chain pk_seed nh ni ci node start j).
 Proof.
-  intros in_buf start i pk_seed nh ni chain pos Hb.
-  assert (Hb' : (start + i <= w_pred)%nat) by lia.
-  rewrite (chain_iter_c_eq _ _ _ _ _ Hb).
-  rewrite (chain_iter_c_eq _ _ _ _ _ Hb').
-  simpl shrincs_wots_chain_iter. unfold F. f_equal.
-  - cbn [set_hash_pos]. f_equal. apply fin_val_inj.
-    rewrite fin_val_of_nat, to_pos15_val by (unfold w_pred in Hb; lia). reflexivity.
-  - f_equal. apply le_unique.
-Qed.
-
-(** [shrincs_wots_chain_iter] rewrites the ADRS position before every [F],
-    so its result is invariant under the incoming position word.  Stated
-    on the dependent model iterate: the step-bound proofs are irrelevant
-    ([le_unique]) and the per-step position field is rebuilt at index
-    [start + k] regardless of the incoming [pos] ([fin_val_inj]). *)
-Lemma chain_iter_dep_pos_indep : forall s X st pk_seed nh ni ch p q
-    (H1 H2 : (st + s <= w_pred)%nat),
-  shrincs_wots_chain_iter X st s pk_seed (Wc_hash nh ni ch p) H1
-  = shrincs_wots_chain_iter X st s pk_seed (Wc_hash nh ni ch q) H2.
-Proof.
-  induction s as [|k IH]; intros X st pk_seed nh ni ch p q H1 H2.
-  - reflexivity.
-  - cbn [shrincs_wots_chain_iter].
-    f_equal.
-    + cbn [set_hash_pos].
-      f_equal.
-      apply fin_val_inj. reflexivity.
-    + apply IH.
-Qed.
-
-(** Position independence lifts to the total wrapper [chain_iter_c]. *)
-Lemma chain_iter_c_pos_indep : forall X st s pk_seed nh ni ch p q,
-  chain_iter_c X st s pk_seed (Wc_hash nh ni ch p)
-  = chain_iter_c X st s pk_seed (Wc_hash nh ni ch q).
-Proof.
-  intros X st s pk_seed nh ni ch p q. unfold chain_iter_c.
-  destruct (le_dec (st + s) w_pred) as [Hle|Hle].
-  - apply chain_iter_dep_pos_indep.
-  - reflexivity.
+  intros pk_seed nh ni ci node start j Hj.
+  rewrite <- (Z2Nat.id j) by lia.
+  replace (Z.of_nat (Z.to_nat j) + 1) with (Z.of_nat (S (Z.to_nat j))) by lia.
+  apply wc_chain_succ.
 Qed.
 
 (* ================================================================= *)
@@ -300,9 +292,9 @@ Qed.
     ([shrincs_adrs_put32 ADRS_CHAIN]) on the residual address left by
     the previous chain -- it never re-zeroes the hash-position word.  So
     the union threaded through the loop carries an arbitrary residual
-    position, which [wc_set_chain] overwrites the chain index of; the
-    chain iteration then re-writes the position before every [F], making
-    its result invariant under the residual ([chain_iter_c_pos_indep]). *)
+    position, which [wc_set_chain] overwrites the chain index of.  The
+    position is immaterial to the model: [wc_chain] reads only the anchor
+    and the chain index. *)
 
 (** Overwrite the WOTS+C chain index of a hash-typed address; identity on
     any non-hash arm.  Its wire view is exactly the [ADRS_CHAIN] splice on
@@ -324,6 +316,18 @@ Proof.
   intros ai c Ht.
   destruct ai as [nh ni ch pos| | | | | | | | | | | ]; try discriminate Ht.
   reflexivity.
+Qed.
+
+(** The chain index [wc_chain] reads back off the launch address is the
+    one that was stored ([to_chain32] is value-faithful in range). *)
+Lemma wc_set_chain_chain_of : forall ai c,
+  adrs_type ai = SF_SHRINCS_WOTS_HASH ->
+  0 <= c < Z.of_nat len ->
+  chain_of (wc_set_chain ai (Z.to_nat c)) = c.
+Proof.
+  intros ai c Ht Hc.
+  destruct ai as [nh ni ch pos| | | | | | | | | | | ]; try discriminate Ht.
+  apply to_chain32_val, Hc.
 Qed.
 
 (** A hash-typed address is a [Wc_hash] (used to discharge the
@@ -357,75 +361,79 @@ Proof.
 Qed.
 
 (** The chain the C runs from slot [i] -- launched from the previous
-    chain's residual address with its chain index reset to [i] -- computes
-    exactly the model's [complete_block] at the named [shrincs_wots_hash_adrs a
-    i]: the two addresses agree on the caller anchor ([adrs_struct_eq]) and
-    on the chain index, and the position is immaterial. *)
-Lemma chain_wc_set_chain : forall X st s pk_seed ai a i,
+    chain's residual address with its chain index reset to [i] -- is the
+    model's chain at the base anchor and index [i]: the two addresses
+    agree on the caller anchor ([adrs_struct_eq]) and on the chain index,
+    and neither the residual position nor anything else is read. *)
+Lemma wc_chain_wc_set_chain : forall X st sp pk_seed ai a i,
   adrs_struct_eq ai a ->
   adrs_type ai = SF_SHRINCS_WOTS_HASH ->
-  chain_iter_c X st s pk_seed (wc_set_chain ai (Z.to_nat i))
-  = chain_iter_c X st s pk_seed (shrincs_wots_hash_adrs w_pred_pos a (to_chain32 (Z.to_nat i))).
+  0 <= i < Z.of_nat len ->
+  wc_chain pk_seed (anchor_nh (wc_set_chain ai (Z.to_nat i)))
+                   (anchor_ni (wc_set_chain ai (Z.to_nat i)))
+                   (chain_of (wc_set_chain ai (Z.to_nat i))) X st sp
+  = wc_chain pk_seed (anchor_nh a) (anchor_ni a) i X st sp.
 Proof.
-  intros X st s pk_seed ai a i Hse Ht.
-  destruct ai as [nh ni ch pos| | | | | | | | | | | ]; try discriminate Ht.
-  destruct Hse as [Hh Hi].
-  cbn [adrs_anchor_tag_z adrs_anchor_idx_z] in Hh, Hi.
-  assert (Hnh : nh = adrs_nh a) by (apply fin_val_inj; rewrite adrs_nh_tag_z; exact Hh).
-  assert (Hni : ni = adrs_ni a) by (apply fin_val_inj; rewrite adrs_ni_idx_z; exact Hi).
-  cbn [wc_set_chain].
-  unfold shrincs_wots_hash_adrs.
-  rewrite Hnh, Hni.
-  apply chain_iter_c_pos_indep.
+  intros X st sp pk_seed ai a i Hse Ht Hi.
+  destruct (wc_set_chain_struct_eq ai (Z.to_nat i)) as (Hh & Hn).
+  destruct Hse as (Hh' & Hn').
+  rewrite Hh, Hn, Hh', Hn', (wc_set_chain_chain_of ai i Ht Hi).
+  reflexivity.
 Qed.
 
 Lemma complete_block_from_ai : forall sig ds pk_seed ai a i,
   adrs_struct_eq ai a ->
   adrs_type ai = SF_SHRINCS_WOTS_HASH ->
-  chain_iter_c (nth (Z.to_nat i) sig default) (nth (Z.to_nat i) ds 0%nat)
-    (w_pred - nth (Z.to_nat i) ds 0%nat) pk_seed (wc_set_chain ai (Z.to_nat i))
+  0 <= i < Z.of_nat len ->
+  wc_chain pk_seed (anchor_nh (wc_set_chain ai (Z.to_nat i)))
+                   (anchor_ni (wc_set_chain ai (Z.to_nat i)))
+                   (chain_of (wc_set_chain ai (Z.to_nat i)))
+                   (index_block sig i)
+                   (shrincs.index_int ds i)
+                   (Z.of_nat w_pred - shrincs.index_int ds i)
   = complete_block sig ds pk_seed a (Z.to_nat i).
 Proof.
-  intros sig ds pk_seed ai a i Hse Ht.
-  unfold complete_block.
-  apply chain_wc_set_chain; assumption.
+  intros sig ds pk_seed ai a i Hse Ht Hi.
+  unfold complete_block. rewrite Z2Nat.id by lia.
+  apply wc_chain_wc_set_chain; assumption.
 Qed.
 
 (* ================================================================= *)
 (** ** Per-iteration block folds: the loop bodies compute the named
     blocks over the residual address, re-keyed onto the base address. *)
 
-(** One completed loop iteration on a structurally-equal address computes the
-    canonical [pkgen_block]: derive the secret, re-type to hash, chain [w-1]
-    steps.  Both [shrincs_wots_derive_sk] and the hash address only see the prefix fields,
-    which [b] shares with [a]. *)
+(** One completed loop iteration on a structurally-equal address computes
+    the canonical [pkgen_block]: derive the secret, re-type to hash, chain
+    [w-1] steps.  Both [derive_sk] and [wc_chain] see the address only
+    through its anchor, which [b] shares with [a].  Stated at the [Z]
+    chain index the C loop carries, which is what
+    [shrincs_wots_chain_from_seed]'s POST hands the body. *)
 Lemma iter_eq_pkgen_block : forall sk_seed pk_seed a b i,
   adrs_struct_eq b a ->
-  chain_iter_c (shrincs_wots_derive_sk (to_chain32 i) sk_seed pk_seed b) 0 w_pred pk_seed
-                  (shrincs_wots_hash_adrs w_pred_pos b (to_chain32 i))
-  = pkgen_block sk_seed pk_seed a i.
+  0 <= i ->
+  wc_chain pk_seed (anchor_nh b) (anchor_ni b) i
+    (derive_sk sk_seed pk_seed (anchor_nh b) (anchor_ni b) i)
+    0 (Z.of_nat w_pred)
+  = pkgen_block sk_seed pk_seed a (Z.to_nat i).
 Proof.
-  intros sk_seed pk_seed a b i Hs.
-  unfold pkgen_block.
-  rewrite (shrincs_wots_derive_sk_congr (to_chain32 i) sk_seed pk_seed b a Hs).
-  rewrite (shrincs_wots_hash_adrs_congr b a (to_chain32 i) Hs).
-  reflexivity.
+  intros sk_seed pk_seed a b i (Hh & Hn) Hi.
+  unfold pkgen_block. rewrite Z2Nat.id by lia.
+  rewrite Hh, Hn. reflexivity.
 Qed.
 
 (** The [sign_block] sibling of [iter_eq_pkgen_block]: one signing-loop
-    iteration on a structurally-equal address computes the canonical
-    [sign_block] (chain [nth i ds] steps instead of [w_pred]). *)
+    iteration chains [ds[i]] steps instead of [w_pred]. *)
 Lemma iter_eq_sign_block : forall sk_seed pk_seed a b ds i,
   adrs_struct_eq b a ->
-  chain_iter_c (shrincs_wots_derive_sk (to_chain32 i) sk_seed pk_seed b) 0 (nth i ds 0%nat) pk_seed
-                  (shrincs_wots_hash_adrs w_pred_pos b (to_chain32 i))
-  = sign_block sk_seed pk_seed a ds i.
+  0 <= i ->
+  wc_chain pk_seed (anchor_nh b) (anchor_ni b) i
+    (derive_sk sk_seed pk_seed (anchor_nh b) (anchor_ni b) i)
+    0 (shrincs.index_int ds i)
+  = sign_block sk_seed pk_seed a ds (Z.to_nat i).
 Proof.
-  intros sk_seed pk_seed a b ds i Hs.
-  unfold sign_block.
-  rewrite (shrincs_wots_derive_sk_congr (to_chain32 i) sk_seed pk_seed b a Hs).
-  rewrite (shrincs_wots_hash_adrs_congr b a (to_chain32 i) Hs).
-  reflexivity.
+  intros sk_seed pk_seed a b ds i (Hh & Hn) Hi.
+  unfold sign_block. rewrite Z2Nat.id by lia.
+  rewrite Hh, Hn. reflexivity.
 Qed.
 
 (* ================================================================= *)

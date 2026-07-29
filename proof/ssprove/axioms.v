@@ -24,7 +24,7 @@
     [n0_shrincs] is built as a bare [Ordinal]).  [Model.shrincs]'s hash
     functions live over [Model.sha256.block = list Model.byte.byte]
     instead, with no length invariant in the TYPE (lengths are proven
-    facts, e.g. [Model.theory.wots.H_grind_length]).  The encoding
+    facts, e.g. [Model.theory.shrincs.length_H_grind]).  The encoding
     bridges these:
 
     - [decode_block bits n]: the [bits]-byte big-endian rendering of
@@ -155,7 +155,7 @@ Require Import Sec.wots.theorem.
 From mathcomp Require Import reals.
 Require Import Sec.wots.instantiation.
 From Sec Require Import bridge.
-From Model Require wots byte address shrincs.
+From Model Require byte address shrincs.
 (* See header IMPORT DISCIPLINE: BinInt (Import) + Znat (plain
    Require) keep Z literals/infix notation without shadowing
    mathcomp's nat "^". *)
@@ -239,7 +239,7 @@ rewrite size_map hsz pow256_16 in h1.
 exact: h1.
 Qed.
 
-(** The reverse direction: any [Model.wots] hash output, normalized to
+(** The reverse direction: any [Model.shrincs] hash output, normalized to
     exactly 16 bytes (a no-op on every value this file actually
     applies it to), read as an [N_shrincs] ordinal. *)
 Definition encode16 (X : sha256.block) : N_shrincs.
@@ -273,45 +273,50 @@ Qed.
 (** ** The concrete truncated-SHA256 hash instantiation
 
     All four are anchor-free: the WOTS+C address type at the shrincs
-    numbers ([address.adrs chain_count_shrincs w_shrincs.-1]) is
-    convertible to [Model.wots]'s own [adrs = address.adrs 32 15].
+    numbers is [address.adrs chain_count_shrincs w_shrincs.-1], i.e.
+    [address.adrs 32 15].
 
     The four hashes are [Model.shrincs]'s -- the transcription of the
     normative Python spec (model/PORTING.md) -- applied to the ADRS's
     22-byte WIRE form ([Model.address.adrs_bytes]), which is what the
-    spec's own tweaked hashes take.  Each was previously spelled with
-    [Model.wots]'s dependent-address hash of the same name; the two are
-    PROPOSITIONALLY EQUAL, each by one named lemma in
-    model/theory/shrincs.v, cited at its site below.  The four axiom
-    statements further down mention these names, never their bodies, so
-    the change is statement-neutral (audit gate 4's digests are
-    unchanged) as well as meaning-neutral. *)
+    spec's own tweaked hashes take.  There is nothing above them to
+    reconcile with any more: the port IS the model of record, so each
+    body below is read directly against shrincs.py's own definition of
+    that hash.
+
+    (History, because audit gate 4 cannot see it: these four bodies were
+    once spelled with a separate dependent-address model, [Model.wots],
+    and were re-pointed at the port under four named
+    propositional-equality lemmas.  That model and those lemmas are
+    gone; the equalities are no longer needed because there is only one
+    model left.  Gate 4 hashes the axiom STATEMENTS, which mention these
+    names and never their bodies -- so, then as now, reviewing what a
+    body says is the manual step the gate cannot do.) *)
 
 Definition F_sha256 (pp : PP_shrincs)
     (a : address.adrs chain_count_shrincs w_shrincs.-1) (x : N_shrincs) : N_shrincs :=
-  (* body change justified by F_shrincs (model/theory/shrincs.v);
-     propositionally equal to the previous definition *)
+  (* [F] is shrincs.py's chain hash: SHA256(pk_seed || zeros(48) ||
+     ADRS || M)[:16]. *)
   encode16 (shrincs.F (decode16 pp) (address.adrs_bytes a) (decode16 x)).
 
 Definition T_sf_sha256 (pp : PP_shrincs)
     (a : address.adrs chain_count_shrincs w_shrincs.-1) (xs : seq N_shrincs) : N_shrincs :=
-  (* body change justified by T_sf_shrincs (model/theory/shrincs.v);
-     propositionally equal to the previous definition *)
+  (* [T_sf] is shrincs.py's stateful-leaf compression hash -- the same
+     construction as [F], at the pk-typed ADRS. *)
   encode16 (shrincs.T_sf (decode16 pp) (address.adrs_bytes a)
               (flatten (map decode16 xs))).
 
 Definition PRF_sha256 (pp : PP_shrincs)
     (a : address.adrs chain_count_shrincs w_shrincs.-1) (k : K_shrincs) : N_shrincs :=
-  (* body change justified by PRF_shrincs (model/theory/shrincs.v);
-     propositionally equal to the previous definition -- note the port
-     keeps the spec's [PRF pk_seed sk_seed ADRS] argument order, where
-     [Model.wots] took the address second *)
+  (* [PRF] is shrincs.py's key-derivation hash.  Note the argument
+     order is the spec's own, [PRF pk_seed sk_seed ADRS] -- address
+     LAST, unlike [F] / [T_sf] / [H_grind]. *)
   encode16 (shrincs.PRF (decode16 pp) (decode16 k) (address.adrs_bytes a)).
 
 Definition H_grind0_sha256 (pp : PP_shrincs)
     (a : address.adrs chain_count_shrincs w_shrincs.-1) (mc : M_shrincs * nat) : N_shrincs :=
-  (* body change justified by H_grind_shrincs (model/theory/shrincs.v);
-     propositionally equal to the previous definition *)
+  (* [H_grind] is shrincs.py's grinding hash: it reads only ADRS[0:10]
+     (the anchor and the type byte) and appends the 16-bit counter. *)
   encode16 (shrincs.H_grind (decode16 pp) (address.adrs_bytes a)
               (decode32 mc.1) (Z.of_nat mc.2)).
 

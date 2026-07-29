@@ -41,7 +41,7 @@ Set Printing Width 4000.
    real-number/probability stack and thus SSProve's classical axioms. *)
 Print Assumptions Adv_triangle.
 
-(* Pure spec-contract bridge (Sec.bridge): Model.wots's byte
+(* Pure spec-contract bridge (Sec.bridge): Model.shrincs's byte
    nibble-splitting vs this repo's LSB-first digits_w. *)
 Require Import Sec.bridge.
 Print Assumptions Sec.bridge.base_2b_digits_w.

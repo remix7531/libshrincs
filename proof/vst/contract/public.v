@@ -6,9 +6,17 @@
 
 (** * contract.public: VST funspecs for the WOTS+C C library.
 
-    Re-exports the pure functional model in [model.wots] and wraps it
-    in VST contracts for the four public entry points.  Internal helper
-    funspecs live in [contract.helpers]. *)
+    Re-exports the tree's model surface ([model.wots], which is the
+    spec port [Model.shrincs] plus [Model.theory.shrincs] section 5's
+    per-chain views) and wraps it in VST contracts for the four public
+    entry points.  Internal helper funspecs live in [contract.helpers].
+
+    The four POSTs below name the PORT's own [wots_c_*] functions at
+    [adrs_bytes a] -- the C's 22-byte ADRS, which is what the spec
+    hashes.  Section 5's reassembly lemmas ([wots_c_pubkey_gen_tips],
+    [wots_c_sign_chains], [wots_c_pubkey_from_sig_ends]) are what each
+    body proof rewrites with once, to turn that into the per-chain view
+    its loop invariant iterates. *)
 
 From Vst Require Export contract.repr.
 From Model Require Import theory.address.
@@ -97,7 +105,7 @@ Qed.
 Lemma pk_bytes_eq         : pk_bytes         = 16.     Proof. reflexivity. Qed.
 Lemma sig_bytes_eq        : sig_bytes        = 514.    Proof. reflexivity. Qed.
 Lemma len_eq_Z            : Z.of_nat len     = 32.     Proof. reflexivity. Qed.
-Lemma constant_sum_eq     : Z.of_nat constant_sum = 240.   Proof. reflexivity. Qed.
+Lemma constant_sum_eq     : constant_sum     = 240.    Proof. reflexivity. Qed.
 Lemma w_pred_eq           : w_pred           = 15%nat. Proof. reflexivity. Qed.
 
 #[export] Hint Rewrite
@@ -108,9 +116,8 @@ Lemma w_pred_eq           : w_pred           = 15%nat. Proof. reflexivity. Qed.
 (** ** The C-refinement chain-index totalizer.
 
     [Model.address]'s WOTS+C constructors ([shrincs_wots_hash_adrs] /
-    [shrincs_wots_prf_adrs]) and [Model.wots.shrincs_wots_derive_sk] now
-    take a bound-carrying [fin 32] chain index directly (the exact
-    reachable-states model).  The C step functions carry the chain index
+    [shrincs_wots_prf_adrs]) take a bound-carrying [fin 32] chain index
+    directly (the exact reachable-states model).  The C step functions carry the chain index
     as a plain [nat]/[Z] word with the bound only in the funspec [PROP],
     which is NOT in scope in the funspec POST.  [to_chain32] is the forced
     total [nat -> fin 32] inverse used at this C-refinement boundary --
@@ -164,72 +171,64 @@ Proof.
   - exfalso. apply H'. unfold w_pred. lia.
 Qed.
 
-(** Bridge from the model's dependent comprehension [for_idx_dep] to the
-    plain [map (_) (seq 0 k)] the VST loop invariants iterate over.  Two
-    comprehensions agree when the dependent body [f i Hi] equals the plain
-    body [g i] at every in-range index -- the [i < k] proof is discharged
-    inside, so the VST side never carries it. *)
-Lemma for_idx_dep_map_eq {A} `{Default A} (k : nat)
-    (f : forall i, (i < k)%nat -> A) (g : nat -> A) :
-  (forall i (Hi : (i < k)%nat), f i Hi = g i) ->
-  for_idx_dep k f = map g (seq 0 k).
-Proof.
-  intros Hfg. unfold for_idx_dep. apply map_ext_in. intros i Hi.
-  apply in_seq in Hi. destruct (lt_dec i k) as [Hlt|Hlt].
-  - apply Hfg.
-  - exfalso. apply Hlt. lia.
-Qed.
+(** Bridge from the port's [range]-indexed per-chain views to the plain
+    [map (_) (seq 0 k)] the VST loop invariants iterate over.  The port
+    indexes at [Z] (the spec's ints are [Z] throughout); the C counts at
+    [nat], so every [map f (range 0 (Z.of_nat k))] the model produces is
+    the [seq 0 k] map of [f o Z.of_nat].
 
-(** The C-refinement totalizer for the DEPENDENT chain iterate.
-    [Model.wots.shrincs_wots_chain_iter] is a dependent [Fixpoint] taking a
-    final [start + steps <= w_pred] proof; a VST funspec POST cannot see
-    the [PROP]-level bound (WITH binders are not a dependent telescope in
-    this VST), so the POST is written with this total wrapper instead.  It
-    matches the model exactly whenever the step bound holds (which every
-    WOTS+C funspec [PROP] guarantees) and is the identity out of range.
-    [chain_iter_c_eq] discharges the equality inside each body once the
-    numeric bound is in hand. *)
-Definition chain_iter_c (X : block) (start steps : nat)
-    (pk_seed : block) (a : adrs) : block :=
-  match le_dec (start + steps) w_pred with
-  | left  H => shrincs_wots_chain_iter X start steps pk_seed a H
-  | right _ => X
-  end.
+    This REPLACES the dependent-comprehension bridge the previous model
+    needed ([for_idx_dep_map_eq]): the port's loops are plain [map]s, so
+    no [i < k] proof is threaded and nothing has to be discharged
+    inside. *)
+Lemma map_range_seq {A} (k : nat) (f : Z -> A) :
+  map f (shrincs.range 0 (Z.of_nat k)) = map (fun i => f (Z.of_nat i)) (seq 0 k).
+Proof. rewrite range0_map_of_nat, map_map. reflexivity. Qed.
 
-Lemma chain_iter_c_eq : forall X start steps pk_seed a
-    (H : (start + steps <= w_pred)%nat),
-  chain_iter_c X start steps pk_seed a
-  = shrincs_wots_chain_iter X start steps pk_seed a H.
-Proof.
-  intros X start steps pk_seed a H. unfold chain_iter_c.
-  destruct (le_dec (start + steps) w_pred) as [H'|H'].
-  - f_equal. apply le_unique.
-  - exfalso. exact (H' H).
-Qed.
+(** The chain index the C carries in the address's second payload word.
+    [wc_chain] takes it as a plain [Z] argument (the port addresses at
+    the byte level, so there is no bound to thread); on a WOTS+C hash
+    address it IS [payload_b_z]. *)
+Notation chain_of a := (payload_b_z a).
 
 (* ================================================================= *)
 (** ** Public API funspecs.
 
-    The grinding search ([find_counter] / [find_from] in [model.wots]) is a
-    deterministic, fuel-bounded loop over counters [0, 1, .., c_max - 1]
-    ([c_max = 2^16]): it always terminates within that many steps and
-    returns either [Some c] (the smallest good counter) or [None] (no
-    counter below [c_max] is good).  It is not open-ended or possibly-
-    non-terminating -- "grinding failure" just means [None] came back, an
-    ordinary (negligible-probability) outcome, not divergence.
-    [shrincs_wots_sign] leaves [addr] in a scratch state that depends on
-    which of these two outcomes occurred, so its post-condition
-    existentially quantifies it.  [shrincs_wots_pubkey_from_sig] and
-    [shrincs_wots_verify] do not grind -- they each probe a single,
-    caller-supplied [counter] -- so their residual address is deterministic
-    and stated exactly: [shrincs_wots_pk_adrs a] when the digest at that
-    counter is constant-sum ([valid_digest (digest_of pk_seed a msg
-    counter)]), else [shrincs_wots_grind_adrs a].  This is keyed on digest
-    validity, NOT on the function's return value: [shrincs_wots_verify]
-    can still return -1 (pk mismatch) while [valid_digest] holds, and the
-    address is left pk-typed in that case too.  [shrincs_wots_pubkey_gen]
-    does not grind at all and ends in the deterministic pk-typed address
+    The grinding search ([find_counter] / [find_from], [Model.theory.
+    shrincs] section 5.3) is a deterministic loop over counters
+    [0, 1, .., c_max - 1] ([c_max = 2^16], the span the spec's own
+    [range(2**16)] gives it): it always terminates within that many
+    steps and returns either [Some c] (the smallest good counter) or
+    [None] (no counter below [c_max] is good).  It is not open-ended or
+    possibly-non-terminating -- "grinding failure" just means [None]
+    came back, an ordinary (negligible-probability) outcome, not
+    divergence.  [shrincs_wots_sign] leaves [addr] in a scratch state
+    that depends on which of these two outcomes occurred, so its
+    post-condition existentially quantifies it.
+
+    [shrincs_wots_pubkey_from_sig] and [shrincs_wots_verify] do not
+    grind -- they each probe a single, caller-supplied [counter] -- so
+    their residual address is deterministic and stated exactly:
+    [shrincs_wots_pk_adrs a] when the port's [wots_c_pubkey_from_sig]
+    accepts that counter (equivalently, when its digest is constant-sum
+    -- section 5's [wots_c_pubkey_from_sig_ends] proves the two the
+    same under this funspec's own PROP), else [shrincs_wots_grind_adrs
+    a].  This is keyed on the PORT's accept/reject, NOT on the C's
+    return value: [shrincs_wots_verify] can still return -1 (pk
+    mismatch) on an accepted counter, and the address is left pk-typed
+    in that case too.  [shrincs_wots_pubkey_gen] does not grind at all
+    and ends in the deterministic pk-typed address
     [shrincs_wots_pk_adrs a].
+
+    WHERE THE PORT IS TOTAL AND THE C IS NOT.  [Model.shrincs.
+    wots_c_sign] keeps the spec's signature: it has no [None], and
+    returns [zeros (2 + WOTS_C_CHAINS_SIZE)] when grinding fails
+    (model/PORTING.md's assert/raise table, verdict (4)).  The C
+    instead returns -2 and leaves the buffer uninitialised.  So the sign
+    POST is keyed on [find_counter] -- the port's own search, section
+    5.3 -- and names [wots_c_sign] only on the branch where the spec and
+    the C agree.  [wots_c_pubkey_from_sig] IS partial ([option bytes]),
+    so from_sig/verify key on it directly.
 
     CALLER OBLIGATION (clean anchor): [shrincs_wots_sign],
     [shrincs_wots_pubkey_from_sig] and [shrincs_wots_verify] additionally
@@ -267,16 +266,19 @@ Definition shrincs_wots_pubkey_gen_spec : ident * funspec :=
     PROP ()
     RETURN ()
     SEP (data_at sh_pk (tarray tuchar pk_bytes)
-           (block_to_vals (shrincs_wots_pubkey_gen sk_seed pk_seed a)) pk_ptr;
+           (block_to_vals
+              (shrincs.wots_c_pubkey_gen sk_seed pk_seed (adrs_bytes a))) pk_ptr;
          data_at sh_sk (tarray tuchar seed_bytes) (block_to_vals sk_seed) sk_ptr;
          data_at sh_ps (tarray tuchar seed_bytes) (block_to_vals pk_seed) ps_ptr;
          data_at sh_a  t_addr
                  (adrs_to_vals (shrincs_wots_pk_adrs a)) a_ptr).
 
-(** [sig] holds the 2-byte big-endian counter [to_byte counter 2] followed
-    by the [len] chain signatures.  The whole buffer is written only on
-    success ([shrincs_wots_sign ... = Some ...]); on grinding failure the return
-    is -2 and the buffer is left uninitialised. *)
+(** [sig] holds the 2-byte big-endian counter [to_bytes counter 2]
+    followed by the [len] chain signatures -- the spec's own flat
+    layout, which is what [wots_c_sign] returns whole.  The buffer is
+    written only when grinding succeeds ([find_counter ... = Some _]);
+    on failure the return is -2 and the buffer is left uninitialised
+    (where the port, being total, would return its zero block). *)
 Definition shrincs_wots_sign_spec : ident * funspec :=
   DECLARE _shrincs_wots_sign
   WITH sig_ptr : val, msg_ptr : val, sk_ptr : val, ps_ptr : val, a_ptr : val,
@@ -299,11 +301,13 @@ Definition shrincs_wots_sign_spec : ident * funspec :=
     EX a' : adrs,
     PROP ()
     RETURN (Vint (Int.repr
-             (match shrincs_wots_sign msg sk_seed pk_seed a with Some _ => 0 | None => -2 end)))
-    SEP (match shrincs_wots_sign msg sk_seed pk_seed a with
-         | Some (sg, counter) =>
+             (match find_counter pk_seed (anchor_nh a) (anchor_ni a) msg with
+              | Some _ => 0 | None => -2 end)))
+    SEP (match find_counter pk_seed (anchor_nh a) (anchor_ni a) msg with
+         | Some _ =>
              data_at sh_sig (tarray tuchar sig_bytes)
-               (block_to_vals (to_byte counter 2) ++ blocks_to_vals sg) sig_ptr
+               (block_to_vals
+                  (shrincs.wots_c_sign msg sk_seed pk_seed (adrs_bytes a))) sig_ptr
          | None => data_at_ sh_sig (tarray tuchar sig_bytes) sig_ptr
          end;
          data_at sh_m  (tarray tuchar msg_bytes) (block_to_vals msg)      msg_ptr;
@@ -312,10 +316,10 @@ Definition shrincs_wots_sign_spec : ident * funspec :=
          data_at sh_a  t_addr                  (adrs_to_vals a')        a_ptr).
 
 (** [sig] holds the 2-byte counter followed by [len] chain signatures.
-    The candidate pk (= [shrincs_wots_pubkey_from_sig], a single [n]-byte block)
-    is written only when the digest at the counter is constant-sum
-    ([valid_digest]); otherwise the return is -1 and pk is left
-    uninitialised. *)
+    The candidate pk (a single [n]-byte block) is written exactly when
+    the port's [wots_c_pubkey_from_sig] returns [Some] -- i.e. when the
+    digest at the counter is constant-sum; otherwise the return is -1
+    and pk is left uninitialised. *)
 Definition shrincs_wots_pubkey_from_sig_spec : ident * funspec :=
   DECLARE _shrincs_wots_pubkey_from_sig
   WITH pk_ptr : val, sig_ptr : val, msg_ptr : val, ps_ptr : val, a_ptr : val,
@@ -333,26 +337,31 @@ Definition shrincs_wots_pubkey_from_sig_spec : ident * funspec :=
     PARAMS (pk_ptr; sig_ptr; msg_ptr; ps_ptr; a_ptr)
     SEP (data_at_ sh_pk (tarray tuchar pk_bytes) pk_ptr;
          data_at sh_sig (tarray tuchar sig_bytes)
-           (block_to_vals (to_byte counter 2) ++ blocks_to_vals sig) sig_ptr;
+           (block_to_vals (shrincs.to_bytes counter 2) ++ blocks_to_vals sig) sig_ptr;
          data_at sh_m   (tarray tuchar msg_bytes) (block_to_vals msg)      msg_ptr;
          data_at sh_ps  (tarray tuchar seed_bytes) (block_to_vals pk_seed) ps_ptr;
          data_at sh_a   t_addr                  (adrs_to_vals a)         a_ptr)
   POST [ tint ]
     PROP ()
     RETURN (Vint (Int.repr
-             (if valid_digest (digest_of pk_seed a msg counter) then 0 else -1)))
-    SEP (match valid_digest (digest_of pk_seed a msg counter) with
-         | true => data_at sh_pk (tarray tuchar pk_bytes)
-                     (block_to_vals (shrincs_wots_pubkey_from_sig msg sig counter pk_seed a)) pk_ptr
-         | false => data_at_ sh_pk (tarray tuchar pk_bytes) pk_ptr
+             (match shrincs.wots_c_pubkey_from_sig
+                      (shrincs.to_bytes counter 2 ++ shrincs.concat sig)
+                      msg pk_seed (adrs_bytes a) with
+              | Some _ => 0 | None => -1 end)))
+    SEP (match shrincs.wots_c_pubkey_from_sig
+                 (shrincs.to_bytes counter 2 ++ shrincs.concat sig)
+                 msg pk_seed (adrs_bytes a) with
+         | Some pk => data_at sh_pk (tarray tuchar pk_bytes)
+                        (block_to_vals pk) pk_ptr
+         | None    => data_at_ sh_pk (tarray tuchar pk_bytes) pk_ptr
          end;
          data_at sh_sig (tarray tuchar sig_bytes)
-           (block_to_vals (to_byte counter 2) ++ blocks_to_vals sig) sig_ptr;
+           (block_to_vals (shrincs.to_bytes counter 2) ++ blocks_to_vals sig) sig_ptr;
          data_at sh_m   (tarray tuchar msg_bytes) (block_to_vals msg)      msg_ptr;
          data_at sh_ps  (tarray tuchar seed_bytes) (block_to_vals pk_seed) ps_ptr;
          data_at sh_a   t_addr
                  (adrs_to_vals
-                   (if valid_digest (digest_of pk_seed a msg counter)
+                   (if good_counter pk_seed (anchor_nh a) (anchor_ni a) msg counter
                     then shrincs_wots_pk_adrs a
                     else shrincs_wots_grind_adrs a))
                  a_ptr).
@@ -375,21 +384,24 @@ Definition shrincs_wots_verify_spec : ident * funspec :=
     PARAMS (pk_ptr; sig_ptr; msg_ptr; ps_ptr; a_ptr)
     SEP (data_at sh_pk  (tarray tuchar pk_bytes)  (block_to_vals pk)  pk_ptr;
          data_at sh_sig (tarray tuchar sig_bytes)
-           (block_to_vals (to_byte counter 2) ++ blocks_to_vals sig) sig_ptr;
+           (block_to_vals (shrincs.to_bytes counter 2) ++ blocks_to_vals sig) sig_ptr;
          data_at sh_m   (tarray tuchar msg_bytes) (block_to_vals msg)      msg_ptr;
          data_at sh_ps  (tarray tuchar seed_bytes) (block_to_vals pk_seed) ps_ptr;
          data_at sh_a   t_addr                  (adrs_to_vals a)         a_ptr)
   POST [ tint ]
     PROP ()
-    RETURN (Vint (Int.repr (if shrincs_wots_verify pk sig msg counter pk_seed a then 0 else -1)))
+    RETURN (Vint (Int.repr
+             (if wc_verify pk (shrincs.to_bytes counter 2 ++ shrincs.concat sig)
+                    msg pk_seed (adrs_bytes a)
+              then 0 else -1)))
     SEP (data_at sh_pk  (tarray tuchar pk_bytes)  (block_to_vals pk)  pk_ptr;
          data_at sh_sig (tarray tuchar sig_bytes)
-           (block_to_vals (to_byte counter 2) ++ blocks_to_vals sig) sig_ptr;
+           (block_to_vals (shrincs.to_bytes counter 2) ++ blocks_to_vals sig) sig_ptr;
          data_at sh_m   (tarray tuchar msg_bytes) (block_to_vals msg)      msg_ptr;
          data_at sh_ps  (tarray tuchar seed_bytes) (block_to_vals pk_seed) ps_ptr;
          data_at sh_a   t_addr
                  (adrs_to_vals
-                   (if valid_digest (digest_of pk_seed a msg counter)
+                   (if good_counter pk_seed (anchor_nh a) (anchor_ni a) msg counter
                     then shrincs_wots_pk_adrs a
                     else shrincs_wots_grind_adrs a))
                  a_ptr).
