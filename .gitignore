@@ -20,3 +20,4 @@ docs/
 proof/assumptions/*.out
 proof/assumptions/*.found
 proof/assumptions/*.normalized
+proof/assumptions/*.digests

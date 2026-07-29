@@ -1,0 +1,77 @@
+# proof/assumptions/statements.sha256
+#
+# Gate 4 of assumptions/check.sh: the PINNED printed statement of every
+# axiom each tree's Print Assumptions probe reports.  Gate 3 diffs axiom
+# NAMES against allowed.txt; on its own that lets an axiom be silently
+# RESTATED -- weakened, or its quantification widened -- under a name that
+# is already allowlisted.  This file closes that hole.
+#
+# Format: `<tree> <name> <digest>`, where <digest> is the sha256 of the
+# axiom's whole printed statement with all whitespace squeezed to single
+# spaces.
+#
+# Keyed by (TREE, NAME), not by name alone.  This is not redundancy: the
+# same axiom genuinely prints differently in different trees, because each
+# probe loads a different notation scope.  Measured, not assumed:
+#
+#   ssprove  sha256.SHA256 : ... -> ...   prints with SSProve's unicode
+#   model    sha256.SHA256 : ... -> ...   prints ASCII
+#   ssprove  boolp.propositional_extensionality : /\-P Q : Prop, P <-> Q -> P = Q
+#            prints as  "\-/ P Q : Prop, P <-> Q -> P = Q"  with unicode
+#            forall/iff/arrow, where fxmss prints the ASCII spelling.
+#
+# Five names diverge this way across trees (sha256.SHA256, the three
+# boolp axioms, realsum.__admitted__interchange_psum).  Collapsing to one
+# digest per name would force ONE tree's spelling to stand for all of
+# them, which would make the gate blind to a genuine restatement in every
+# other tree -- exactly the hole this file exists to close.  So each tree
+# pins what ITS OWN probe prints, which is also what a reviewer reads.
+#
+# A digest changes ONLY when the axiom's statement changes.  That is a
+# trust-surface edit: re-review the statement, then regenerate the line.
+# Never regenerate this file wholesale to make a red gate go green.
+
+[model]
+model sha256.SHA256 c4331cc0ab90691d8419e3f2eb0f2a13909d5d861efa09996c056d25e66b4d2f
+
+[ssprove]
+ssprove boolp.constructive_indefinite_description cc471c4b73b1f93ead5195cfcb76944ce4e7e15bb8df73bf49a3c22a16ef9c1b
+ssprove boolp.functional_extensionality_dep dc0804cbba9e88a33bf0640c7cab815d8cb17b10946c310906123b78ce41577c
+ssprove boolp.propositional_extensionality cfe54521256f036a71e3cf503a28d5c838d058e4a338302a1b1908d6e48292e8
+ssprove eps_pre 7f9cff2e7b975b1a703e1e34ace2e4b6d99ee6f2c3855317572ca0c91d25b358
+ssprove eps_prf aa53ff862186d81da5978464efecf9872e38875bf4d4ba0d3f78edca396854b1
+ssprove eps_smud 8ece3b86efe1f51ae7684867a114a7c542419a7d0c60281e21400e2a94cfe05c
+ssprove eps_stcrp c9a3247e67cdfb50d05a7607569995e9fbb54986c8710a86799faf06186de111
+ssprove eps_tcr_chain 99059f02dbdaccb42f8485aadf2c6d144c960024e09f5309442c7b1e3f5d0a10
+ssprove eps_tcr_pk b33566baa2ce6dc720912aef174843449ac855f7854af575ef406c6f3f103983
+ssprove functional_extensionality_dep 3cf6f0c48397bb91d224515cee4f21584791dc9a8e6ab0c8154dce58094faea6
+ssprove R ae3eb16566a2f6673f4dfaf265e8f7943b945ed25c3067e2731a39051bbf4e7f
+ssprove realsum.__admitted__interchange_psum 3305325bc938f6615b7cbfc38f2333a06c66007115b97277eda0eefeda15c45c
+ssprove sha256_pre_secure da0cd20350ef75636cdd8777605877497855cbe575dd4f1ffa8a2816aee74fdb
+ssprove sha256_prf_secure 820c7f8c7a6e7a8be1e18882d3ba4fd61e6d68e9b63893788bdf234e8a2f2f97
+ssprove sha256.SHA256 f9cb4fdb4e3e89c3de97886814bc41082f97affbba2e43e923a62e3f3290b29b
+ssprove sha256_smud_secure e18fef46aabaeb7325f6bcaeb61e7af675bba627a08b2c337e1d5fca4dd545f5
+ssprove sha256_stcrp_secure e35c132a2ce219b104697c6f4b74eef3d6886e1991f448f5033b68144007d8aa
+ssprove sha256_tcr_chain_secure 1142962069022f547d1e62bf91a907ca86359a95e14d36da4c46d8ea6abc1c7e
+ssprove sha256_tcr_pk_secure d8cd7013d9a5b87207b7f911c2879be88f8bcb57d8f5ae49db8244fc76519cca
+ssprove SPropBase.ax_proof_irrel 41d895041f4f56f55fa8be02888686c035f92786a1717c895ba78156e9731c51
+
+[fxmss]
+fxmss Axioms.R 7b36aec51f78d5cc2881ae4fbdf2c859f0bb2f11cd680e391dc51db99887483e
+fxmss boolp.constructive_indefinite_description 0e2d0d6a03fbaf038f147188a99d2a07d87e1a3b3eac2df8d41c8221c92667dc
+fxmss boolp.functional_extensionality_dep 53b4c0f5aba2c42425b27c10d7f81acce7ec8eb68cb0a7af1deb9f34ce0c8a67
+fxmss boolp.propositional_extensionality 78e1a6a51e078663999e85c48b193a820db26785ae0508752562c58f52eccf54
+fxmss FunctionalExtensionality.functional_extensionality_dep 4dd82256869073b3c6b08a7a56fca0d871b4eca670e5fc31c62847f34a6e5498
+fxmss realsum.__admitted__interchange_psum e5aae41cfde17efaf1ed79231235f411713b7e977c77ae6cf3291b9f0028ba2e
+fxmss SPropBase.ax_proof_irrel 41d895041f4f56f55fa8be02888686c035f92786a1717c895ba78156e9731c51
+
+[vst]
+vst Axioms.prop_ext bbb98ed8a5e7267916353938fda28c7ecf740b3fc6fd1f0f8ae4fc3d1eb8e5a2
+vst ClassicalDedekindReals.sig_forall_dec 23d36f9f102c1db7f86ea812ae4af76c689b0e3888e8e376c9958d8ea70ab3b3
+vst ClassicalDedekindReals.sig_not_dec 79ecb1e96babdcd728931aebd55941ae057d31dcd2c38fdb9c83d7bbb7f83882
+vst Classical_Prop.classic 30e0b64045167b27b1a92c6b9f70e38eb48e89c919769ee96a1502ee1b651b97
+vst Ensembles.Extensionality_Ensembles 35800914408e9da2440b466942c3c9b7c0dae18b22a58a461ed4d102af7cb429
+vst Eqdep.Eq_rect_eq.eq_rect_eq 6e265495fa80802eec42a422629ae7bb972b752727f72c5f3b21613c96831f6a
+vst FunctionalExtensionality.functional_extensionality_dep 4dd82256869073b3c6b08a7a56fca0d871b4eca670e5fc31c62847f34a6e5498
+vst gprog.body_sha256 1e5c370d08c538645ec05d9bb5dd0c2421d8802fe25dc592e95e703e05716601
+vst sha256.SHA256 c4331cc0ab90691d8419e3f2eb0f2a13909d5d861efa09996c056d25e66b4d2f

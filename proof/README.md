@@ -52,3 +52,52 @@ The same WOTS+C concept is spelled four ways across the layers: a reviewer jumpi
 | scheme ops (keygen/sign/verify) | `shrincs_wots_scheme` (a `sig_scheme`: `shrincs_wots_pubkey`/`shrincs_wots_sign`/`shrincs_wots_verify` in `wots/scheme.v`) | `shrincs_wots_pubkey_gen` / `_sign` / `_verify` / `_pubkey_from_sig` (`Model.wots`, refining `src/wots.c` 1:1) | `SHRINCS_WOTS_PK_BYTES`=16, `SHRINCS_WOTS_SIG_BYTES`=514 | n/a (caller-supplied base address) |
 
 `shrincs_wots_hash_adrs` (model) and `shrincs_wots_chain_adrs` (Sec) look like the same name reused, but are not: different arity, different type; see the "one concept, one name" note in `STYLE.md` for why that pair is a documented exception. The full naming rationale (casing table, suffix conventions, instantiation namespaces) is canonical in `STYLE.md`.
+
+## Known findings
+
+Load-bearing negative results and open gaps, so a reader does not re-derive
+them. Each is a *deliberate* state of the tree, not an oversight.
+
+- **The native WOTS+C ladder is NOT demoted to a corollary of the FXMSS leaf
+  bound (NO-GO).** The tempting simplification — drop `ssprove/wots/hop/*` and
+  re-derive `shrincs_wots_secure*` from `Leaf_MIW_km_bound` at `n_max = 1` via
+  the `KOTS_vc` ↔ `MIW_kmS` link lemma — was probed mechanically and rejected on
+  three blockers. (1) *Digit order*: the two schemes are the same generic
+  `Sec.lib.wots.wotsc` construction at different `dig_msb`, native `true` vs
+  FXMSS `false`; every other argument, including all three anchored addresses,
+  coincides by conversion. (2) *Collections*: the five banked leaf collections
+  (`CUD_leaf`, `CFl_leaf` ×2, `CPl_leaf`, `CGl_leaf`) are strict **supersets** of
+  the native 2-member `coll_chain`/`coll_pkcompress`/`coll_grind` — they carry
+  the FXMSS tree hash `Htree`, which WOTS+C does not have. Demoting would
+  therefore silently **strengthen** the six hash-game axioms (each quantified
+  over a larger collection) while **weakening** nothing in the headline
+  theorem's favour: the same axiom name would stand for a strictly stronger
+  assumption. (3) *Budgets/anchors* do not line up at `n_max = 1` without
+  restating the frozen native statements. The native ladder is kept on purpose;
+  the P7 link lemma remains as the stated (unused-by-the-headline) bridge.
+  Probes archived at scratchpad `p8-evidence/` (`p8_baseline.v`,
+  `p8_demote_probe.v`, `p8_probe_a.v`, `p8_probe_b1.v`, `p8_probe_b1b.v`,
+  `p8_probe_b2.v`).
+- **`dig_msb` divergence.** `Sec.lib.wots.wotsc` is parameterized by
+  `dig_msb : bool`; the native wrapper instantiates it MSB-first (`true`,
+  matching the spec, `Model.wots` and the C), the FXMSS wrapper LSB-first
+  (`false`). This is benign for every statement the two trees actually make —
+  both are pk-level (public key / forgery) claims, and the digit order is an
+  internal bookkeeping convention that both sides use consistently — but it is
+  the reason the two schemes are not convertible. Unifying it is possible but
+  re-orders digits inside the ~12.5k lines of `leaf2_*` target bookkeeping, so
+  it is only worth bundling into a window that already rebuilds those
+  transcripts.
+- **FXMSS model bridge coverage.** `ssprove/fxmss/model_bridge.v` establishes
+  agreement at the *verification* level (the game's verifier and
+  `Model.fxmss`'s agree). Two lemmas are open: the **auth-path signing
+  agreement** lemma, and the **leaf-schedule permutation** lemma (the games walk
+  the leaf schedule left-to-right, the spec's `leaf_select` right-to-left; the
+  two are a permutation of each other). Neither is needed for the FXMSS EU-CMA
+  headline, which is stated over the games; both are needed before the FXMSS
+  tree can be anchored to the C the way the native tree is.
+- **Upstream spec bug (to be reported).** `shrincs.py:1245-1249`: at depth 0 the
+  UXMSS `leaf_select` returns `(1, 254)` instead of `None`. The formalization
+  follows the intended behaviour (`None`), not the code as written; the two
+  agree at every depth the spec's own parameter sets reach, so this is a latent
+  bug rather than a live one.

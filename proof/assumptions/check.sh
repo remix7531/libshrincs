@@ -4,7 +4,7 @@
 # Run inside `nix develop`, via `make audit` or standalone once the trees are
 # built:  nix develop -c bash proof/assumptions/check.sh
 #
-# Four gates run per tree (model first -- the shared trust root):
+# Five gates run per tree (model first -- the shared trust root):
 #   0. build freshness -- every tree/*.v in _RocqProject has an up-to-date .vo.
 #   1. proof gaps      -- no Admitted / admit. / give_up. in the tree.
 #   2. assumption confinement -- every Axiom/Parameter/Conjecture/Hypothesis
@@ -21,8 +21,14 @@
 #      is diffed against its own section -- fxmss is NOT re-checked against
 #      ssprove's wider baseline, so it cannot silently acquire ssprove's
 #      eps_*/sha256_*_secure entries and stay green.
+#   4. axiom STATEMENT pinning -- gate 3 diffs axiom NAMES only, so an axiom
+#      could be silently RESTATED (weakened, or its quantification widened)
+#      under an allowlisted name and stay green.  Gate 4 hashes each found
+#      axiom's full printed statement from the same probe output and diffs the
+#      digests against assumptions/statements.sha256.  Fails if a digest
+#      differs or a found axiom has no pinned entry.
 #
-# KNOWN TRAP: gate 3 strips "Fetching opaque proofs from disk" stderr lines
+# KNOWN TRAP: gates 3/4 strip "Fetching opaque proofs from disk" stderr lines
 # before parsing (VST/CompCert print them cold; they are NOT axioms) -- do not
 # remove that grep -v.  That is why gate 3 shells to coqc, not rocq-mcp.
 #
@@ -35,6 +41,7 @@ cd "$(dirname "$0")/.."   # assumptions/ -> proof/
 
 ASSUMPTIONS_DIR=assumptions
 ALLOWLIST="$ASSUMPTIONS_DIR/allowed.txt"
+STATEMENTS="$ASSUMPTIONS_DIR/statements.sha256"
 fail=0
 
 # Every coqc -Q load-path mapping this project uses, derived mechanically
@@ -194,6 +201,57 @@ gate3_assumptions() {
   [ "$ok" = 1 ]
 }
 
+# Gate 4 helper: emit one `<name> <digest>` line per axiom in a probe's
+# output, where <digest> is the sha256 of the axiom's whole printed
+# STATEMENT with whitespace squeezed to single spaces (so re-indentation or
+# a line rewrap is not a change).  Every probe sets `Set Printing Width
+# 4000`, so a statement is normally one line; an over-long one wraps onto
+# indented continuation lines, which are folded back in here.
+statement_digests() {
+  grep -v '^Fetching opaque proofs from disk' "$1" \
+    | awk '
+        /^[A-Za-z_][^[:space:]]* : / {
+          if (n != "") print n "\t" s
+          n = $1; s = $0; next
+        }
+        /^[[:space:]]/ { if (n != "") s = s " " $0; next }
+        { if (n != "") print n "\t" s; n = ""; s = "" }
+        END { if (n != "") print n "\t" s }
+      ' \
+    | while IFS=$'\t' read -r n s; do
+        printf '%s %s\n' "$n" \
+          "$(printf '%s' "$s" | tr -s '[:space:]' ' ' | sed -e 's/^ //' -e 's/ $//' \
+             | sha256sum | cut -d' ' -f1)"
+      done \
+    | sort -u
+}
+
+# Gate 4: every axiom the probe found must have the SAME printed statement
+# it had when statements.sha256 was pinned.  Names are recorded per tree,
+# because the same axiom prints differently under different trees' notation
+# scopes (mathcomp's `seq` vs stdlib's `list`, qualified vs short names).
+# Regenerate a line ONLY together with a deliberate, reviewed trust-surface
+# change -- that is the whole point of the gate.
+gate4_statements() {
+  local tree="$1"
+  local got="$ASSUMPTIONS_DIR/$tree.digests"
+
+  statement_digests "$ASSUMPTIONS_DIR/$tree.out" > "$got"
+
+  local ok=1 name digest pinned
+  while read -r name digest; do
+    pinned=$(awk -v t="$tree" -v n="$name" '$1 == t && $2 == n { print $3 }' "$STATEMENTS")
+    if [ -z "$pinned" ]; then
+      echo "FAIL: $tree $name has no pinned statement digest in $STATEMENTS"
+      ok=0
+    elif [ "$pinned" != "$digest" ]; then
+      echo "FAIL: $tree $name statement CHANGED (pinned $pinned, found $digest)"
+      ok=0
+    fi
+  done < "$got"
+  [ "$ok" = 1 ]
+}
+
 # TRUST SURFACE report (printed once every gate is green). The large, low-signal
 # ssprove/vst classical-logic baselines are grouped into one summary row each;
 # every named trust anchor / advantage bound / hash-game axiom is still listed.
@@ -272,28 +330,32 @@ gate0_build_freshness model || tree_fail=1
 gate1_proof_gaps model || tree_fail=1
 gate2_model || tree_fail=1
 gate3_assumptions model "$QFLAGS" || tree_fail=1
-[ "$tree_fail" = 0 ] && echo "model    gates 0-3 green" || fail=1
+gate4_statements model || tree_fail=1
+[ "$tree_fail" = 0 ] && echo "model    gates 0-4 green" || fail=1
 
 tree_fail=0
 gate0_build_freshness ssprove || tree_fail=1
 gate1_proof_gaps ssprove "$ASSUMPTIONS_DIR" || tree_fail=1
 gate2_ssprove || tree_fail=1
 gate3_assumptions ssprove "$QFLAGS" || tree_fail=1
-[ "$tree_fail" = 0 ] && echo "ssprove  gates 0-3 green" || fail=1
+gate4_statements ssprove || tree_fail=1
+[ "$tree_fail" = 0 ] && echo "ssprove  gates 0-4 green" || fail=1
 
 tree_fail=0
 gate0_build_freshness fxmss || tree_fail=1
 gate1_proof_gaps fxmss || tree_fail=1
 gate2_confined fxmss 'a^' fxmss || tree_fail=1
 gate3_assumptions fxmss "$QFLAGS" || tree_fail=1
-[ "$tree_fail" = 0 ] && echo "fxmss    gates 0-3 green" || fail=1
+gate4_statements fxmss || tree_fail=1
+[ "$tree_fail" = 0 ] && echo "fxmss    gates 0-4 green" || fail=1
 
 tree_fail=0
 gate0_build_freshness vst || tree_fail=1
 gate1_proof_gaps vst || tree_fail=1
 gate2_vst || tree_fail=1
 gate3_assumptions vst "$QFLAGS" || tree_fail=1
-[ "$tree_fail" = 0 ] && echo "vst      gates 0-3 green" || fail=1
+gate4_statements vst || tree_fail=1
+[ "$tree_fail" = 0 ] && echo "vst      gates 0-4 green" || fail=1
 
 if [ "$fail" = 0 ]; then
   print_trust_surface

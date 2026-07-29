@@ -34,14 +34,14 @@ here.
 
 Every directory and file under every proof tree is `snake_case`
 (`contract/helpers_wots.v`, `wots/hop/chain_tcr.v`, `lib/chain/core.v`,
-`model/math/chain.v`). The **logical/module roots** stay capitalized —
+`model/math/encoding.v`). The **logical/module roots** stay capitalized —
 `Model`, `Sec`, `Vst`, `Assumptions` — because those are the `-Q` load-path
 names registered in `proof/_RocqProject` (`-Q model Model`, `-Q ssprove Sec`,
 `-Q vst Vst`, `-Q assumptions Assumptions`), not directory names on disk; the
 physical directories they map from (`model/`, `ssprove/`, `vst/`,
 `assumptions/`) are themselves lowercase. Every other segment of a module
 path is the snake_case file/directory name unchanged (`Sec.wots.hop`,
-`Vst.contract.gprog`, `Model.math.chain`).
+`Vst.contract.gprog`, `Model.math.encoding`).
 
 This is uniform now — there is no per-tree exception left. (Earlier
 revisions of this rule had `Sec` files in `CamelCase` and carved `model/math/`
@@ -245,11 +245,11 @@ comment. Generated files (`vst/clight/`) are exempt.
   In Sec: `From Sec.lib Require Import prelude` first (it brings the whole
   SSProve + MathComp + Equations surface plus the project settings), then
   the rest of `Sec.lib.*`, then `Sec.*`, then bare `mathcomp` extras, then
-  `From Model Require Import math.chain math.encoding`.
+  `From Model Require Import math.encoding`.
 - A `Model` file must never `Require` anything from `Vst`, `Sec`, `VST`,
   `compcert`, or the SSProve/MathComp surface. `machine.v` is a
   self-contained clone precisely so this boundary holds.
-- **Carve-out: `math/`.** `Model.math.*` (`chain.v`, `encoding.v`) is the
+- **Carve-out: `math/`.** `Model.math.*` (`encoding.v`) is the
   MathComp island: it opens `From mathcomp Require Import all_boot
   all_order` and follows ssreflect idiom (`seq`, boolean reflection, `Set
   Implicit Arguments`) instead of the plain-Gallina style the rest of

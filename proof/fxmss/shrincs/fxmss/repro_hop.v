@@ -320,6 +320,80 @@ Definition g3c_sign_body (mz : M × ('nat × 'nat)) : raw_code ('option FXSIG) :
      #put shrincs_fxmss_scnt_loc := sc.+1 ;;
      ret None).
 
+(** The two SIGN bodies, merged: [ro] picks the reprogrammed (G3c)
+    or the table-lazy (G2c) leaf branch.  Both instances are
+    CONVERTIBLE to the original bodies (the [if] is under the whole
+    shared prefix), so [G2c]/[G3c] below keep their meaning. *)
+Definition gc_sign_body (ro : bool) (mz : M × ('nat × 'nat)) :
+    raw_code ('option FXSIG) :=
+  (sc ← get shrincs_fxmss_scnt_loc ;;
+   #assert (sc < q_s)%N ;;
+   st ← getSome Lst ;;
+   us ← get shrincs_fxmss_used_loc ;;
+   lg ← get Llog ;;
+   mp ← get Lrom ;;
+   tb ← get Lrt ;;
+   if [&& flok st.2.1 mz.2 & mz.2 \notin domm us] then
+     (if ro then
+       match getm tb (mz.2, mz.1) with
+       | Some r =>
+           #put shrincs_fxmss_used_loc := setm us mz.2 Datatypes.tt ;;
+           #put Lrt := setm tb (mz.2, mz.1) r ;;
+           md ← (match getm mp (r, (st.1, (mz.2, mz.1))) with
+                 | Some d => ret d
+                 | None => d ← dD ;; ret d
+                 end) ;;
+           #put Lrom := setm mp (r, (st.1, (mz.2, mz.1))) md ;;
+           match fxsignx st.1.1 st.2.1 st.2.2 (flidx st.2.1 mz.2) r md with
+           | Some sg =>
+               #put Llog := rcons lg mz.1 ;;
+               #put shrincs_fxmss_scnt_loc := sc.+1 ;;
+               ret (Some sg)
+           | None =>
+               #put shrincs_fxmss_scnt_loc := sc.+1 ;;
+               ret None
+           end
+       | None =>
+           r ← dR ;;
+           md ← dD ;;
+           #put shrincs_fxmss_used_loc := setm us mz.2 Datatypes.tt ;;
+           #put Lrt := setm tb (mz.2, mz.1) r ;;
+           #put Lrom := setm mp (r, (st.1, (mz.2, mz.1))) md ;;
+           match fxsignx st.1.1 st.2.1 st.2.2 (flidx st.2.1 mz.2) r md with
+           | Some sg =>
+               #put Llog := rcons lg mz.1 ;;
+               #put shrincs_fxmss_scnt_loc := sc.+1 ;;
+               ret (Some sg)
+           | None =>
+               #put shrincs_fxmss_scnt_loc := sc.+1 ;;
+               ret None
+           end
+       end
+      else
+       r ← (match getm tb (mz.2, mz.1) with
+            | Some r => ret r
+            | None => r ← dR ;; ret r
+            end) ;;
+       #put shrincs_fxmss_used_loc := setm us mz.2 Datatypes.tt ;;
+       #put Lrt := setm tb (mz.2, mz.1) r ;;
+       md ← (match getm mp (r, (st.1, (mz.2, mz.1))) with
+             | Some d => ret d
+             | None => d ← dD ;; ret d
+             end) ;;
+       #put Lrom := setm mp (r, (st.1, (mz.2, mz.1))) md ;;
+       match fxsignx st.1.1 st.2.1 st.2.2 (flidx st.2.1 mz.2) r md with
+       | Some sg =>
+           #put Llog := rcons lg mz.1 ;;
+           #put shrincs_fxmss_scnt_loc := sc.+1 ;;
+           ret (Some sg)
+       | None =>
+           #put shrincs_fxmss_scnt_loc := sc.+1 ;;
+           ret None
+       end)
+   else
+     #put shrincs_fxmss_scnt_loc := sc.+1 ;;
+     ret None).
+
 Definition gc_hash_body (x : ROIN) : raw_code D :=
   (hc ← get shrincs_fxmss_hcnt_loc ;;
    #assert (hc < q_h)%N ;;
@@ -478,12 +552,21 @@ case: (getm tb _) => [r|].
   + eapply valid_putr; first by fmap_solve. apply valid_ret.
 Qed.
 
-Definition G2c (b : bool) : game IG.
+#[export] Instance gc_sign_body_valid (I : Interface) (ro : bool)
+    (mz : M × ('nat × 'nat)) :
+  ValidCode Gc_locs I (gc_sign_body ro mz).
+Proof.
+case: ro.
+- exact: (g3c_sign_body_valid I mz).
+- exact: (g2c_sign_body_valid I mz).
+Qed.
+
+Definition Gc (ro : bool) (b : bool) : game IG.
 Proof.
 notypeclasses refine [package Gc_locs ;
     [ FXGEN ] : { 'list 'bool ~> PP × N } (sp) { gc_gen_body sp } ;
     [ FXSIGN ] : { M × ('nat × 'nat) ~> 'option FXSIG } (mz) {
-      g2c_sign_body mz } ;
+      gc_sign_body ro mz } ;
     [ FXHASH ] : { ROIN ~> D } (x) { gc_hash_body x } ;
     [ FXFORGE ] : { M × FXSIG ~> 'bool } '(m, sg) { gc_forge_body b m sg }
   ].
@@ -494,36 +577,17 @@ eapply valid_package_cons.
       { apply: valid_empty_package. }
       { intros [m sg]; exact: gc_forge_body_valid. } }
     { intros x; exact: gc_hash_body_valid. } }
-  { intro mz; exact: g2c_sign_body_valid. } }
+  { intro mz; exact: gc_sign_body_valid. } }
 { intro sp; exact: gc_gen_body_valid. }
 Defined.
 
-(* ------------------------------------------------------------------ *)
-(** ** G3c: digests reprogrammed (the post-hop game)
-
-    Only SIGN differs from G2c: on a table miss the digest is a
-    FRESH uniform stored over (rather than read from) the rom at
-    the fresh point (r, x) (header). *)
-
-Definition G3c (b : bool) : game IG.
-Proof.
-notypeclasses refine [package Gc_locs ;
-    [ FXGEN ] : { 'list 'bool ~> PP × N } (sp) { gc_gen_body sp } ;
-    [ FXSIGN ] : { M × ('nat × 'nat) ~> 'option FXSIG } (mz) {
-      g3c_sign_body mz } ;
-    [ FXHASH ] : { ROIN ~> D } (x) { gc_hash_body x } ;
-    [ FXFORGE ] : { M × FXSIG ~> 'bool } '(m, sg) { gc_forge_body b m sg }
-  ].
-eapply valid_package_cons.
-{ eapply valid_package_cons.
-  { eapply valid_package_cons.
-    { eapply valid_package_cons.
-      { apply: valid_empty_package. }
-      { intros [m sg]; exact: gc_forge_body_valid. } }
-    { intros x; exact: gc_hash_body_valid. } }
-  { intro mz; exact: g3c_sign_body_valid. } }
-{ intro sp; exact: gc_gen_body_valid. }
-Defined.
+(** [G2c]: digests read lazily from the rom (the pre-hop game).
+    [G3c]: on a randomness-table miss the digest is a FRESH uniform
+    stored over (rather than read from) the rom at the fresh point
+    (r, x) (header).  Both are [Gc] instances, convertible to their
+    former stand-alone assemblies. *)
+Definition G2c (b : bool) : game IG := Gc false b.
+Definition G3c (b : bool) : game IG := Gc true b.
 
 (* ------------------------------------------------------------------ *)
 (** ** The reduction *)
@@ -1281,10 +1345,15 @@ case Esig: (fxsignx stv.1.1 stv.2.1 stv.2.2 idx rv md) => [sg|].
 Qed.
 
 (* ------------------------------------------------------------------ *)
-(** ** THE real-side equivalence *)
+(** ** THE equivalence, both REPRO variants at once
 
-Lemma R_rep_real (b : bool) :
-  perfect IG (G2c b) (R_rep b ∘ ROG false).
+    [ro] selects the REPRO oracle on the right ([ROG ro]) and the
+    matching SIGN leaf branch on the left ([Gc ro b]).  The two
+    readings share every bullet but the randomness-table-MISS branch
+    of FXSIGN, which is where [ro] is finally cased. *)
+
+Lemma R_rep_perfect (ro : bool) (b : bool) :
+  perfect IG (Gc ro b) (R_rep b ∘ ROG ro).
 Proof.
 ssprove_share. eapply prove_perfect.
 eapply (eq_rel_perf_ind _ _ inv3).
@@ -1439,6 +1508,7 @@ simplify_eq_rel arg.
     case Etb: (getm tb (arg.2, arg.1)) => [r0|].
     * (* randomness table hit: QUERY only *)
       simpl.
+      rewrite if_same.
       eapply (r_put_lhs_weak _ _ _
                 (λ '(s0, s1),
                    S3 stv (setm us arg.2 Datatypes.tt) us sc lg mp mp
@@ -1526,114 +1596,223 @@ simplify_eq_rel arg.
                         (setm tb (arg.2, arg.1) r0) 1 0 (s0, s1))).
          { move=> s0 s1 h; exact: S3_set_romL h. }
          by apply: r_sign_tail.
-    * (* randomness table miss: REPRO then QUERY *)
-      simpl.
-      eapply r_get_remember_rhs => rc.
-      eapply (r_fact ((rc < q_s)%N)).
-      { move=> s0 s1 [hblk hrem].
-        rewrite /rem_inv /= in hrem.
-        case: hblk => _ _ _ [_ b1] _.
-        rewrite hrem addn0 in b1.
-        exact: leq_ltn_trans b1 hsc. }
-      move=> hrc.
-      eapply r_bind_assertD_rhs.
-      { by move=> ? ? _. }
-      move=> _.
-      eapply (r_put_bind_rhs Lrc rc.+1 _
-                (λ '(s0, s1), S3 stv us us sc lg mp mp tb tb 0 1 (s0, s1))).
-      { move=> s0 s1 [hblk hrem].
-        rewrite /rem_inv /= in hrem.
-        exact: S3_set_rc hrem hblk. }
-      rewrite ?bind_assoc.
-      simpl.
-      eapply (r_scheme_bind dR); first exact: prog_valid.
-      move=> r; cbv beta.
-      simpl.
-      eapply (r_put_lhs_weak _ _ _
-                (λ '(s0, s1),
-                   S3 stv (setm us arg.2 Datatypes.tt) us sc lg mp mp
-                     tb tb 0 1 (s0, s1))).
-      { move=> s0 s1 h; exact: S3_set_usedL h. }
-      eapply (r_put_rhs_weak _ _ _
-                (λ '(s0, s1),
-                   S3 stv (setm us arg.2 Datatypes.tt)
-                     (setm us arg.2 Datatypes.tt) sc lg mp mp
-                     tb tb 0 1 (s0, s1))).
-      { move=> s0 s1 h; exact: S3_set_usedR h. }
-      eapply (r_put_lhs_weak _ _ _
-                (λ '(s0, s1),
-                   S3 stv (setm us arg.2 Datatypes.tt)
-                     (setm us arg.2 Datatypes.tt) sc lg mp mp
-                     (setm tb (arg.2, arg.1) r) tb 0 1 (s0, s1))).
-      { move=> s0 s1 h; exact: S3_set_rtL h. }
-      eapply (r_put_rhs_weak _ _ _
-                (λ '(s0, s1),
-                   S3 stv (setm us arg.2 Datatypes.tt)
-                     (setm us arg.2 Datatypes.tt) sc lg mp mp
-                     (setm tb (arg.2, arg.1) r)
-                     (setm tb (arg.2, arg.1) r) 0 1 (s0, s1))).
-      { move=> s0 s1 h; exact: S3_set_rtR h. }
-      eapply r_get_remember_rhs => qc.
-      eapply (r_fact ((qc < qh')%N)).
-      { move=> s0 s1 [hblk hrem].
-        rewrite /rem_inv /= in hrem.
-        case: hblk => _ _ _ [b1 _] [b2 b3].
-        rewrite hrem addn0 in b1.
-        apply: leq_ltn_trans b1 _.
-        exact: leq_add3_ltn_m b2 hsc b3. }
-      move=> hqc.
-      eapply r_bind_assertD_rhs.
-      { by move=> ? ? _. }
-      move=> _.
-      eapply (r_put_bind_rhs Lqc qc.+1 _
-                (λ '(s0, s1),
-                   S3 stv (setm us arg.2 Datatypes.tt)
-                     (setm us arg.2 Datatypes.tt) sc lg mp mp
-                     (setm tb (arg.2, arg.1) r)
-                     (setm tb (arg.2, arg.1) r) 1 1 (s0, s1))).
-      { move=> s0 s1 [hblk hrem].
-        rewrite /rem_inv /= in hrem.
-        exact: S3_set_qc hrem hblk. }
-      eapply (r_get_bind_rhs Lmap mp).
-      { by move=> s0 s1 [_ _ [_ h _ _ _] _ _]. }
-      cbv beta iota.
-      simpl.
-      case Emd: (getm mp (r, (stv.1, (arg.2, arg.1))))
-        => [d|].
-      -- simpl.
-         rewrite (setm_same Emd).
-         eapply (r_put_lhs_weak _ _ _
-                   (λ '(s0, s1),
-                      S3 stv (setm us arg.2 Datatypes.tt)
-                        (setm us arg.2 Datatypes.tt) sc lg mp mp
-                        (setm tb (arg.2, arg.1) r)
-                        (setm tb (arg.2, arg.1) r) 1 1 (s0, s1))).
-         { move=> s0 s1 h; exact: S3_set_romL h. }
-         by apply: r_sign_tail.
-      -- rewrite ?bind_assoc.
-         simpl.
-         eapply (r_scheme_bind dD); first exact: prog_valid.
-         move=> d; cbv beta.
-         eapply (r_put_rhs_weak Lmap
-                   (setm mp (r, (stv.1, (arg.2, arg.1))) d) _
-                   (λ '(s0, s1),
-                      S3 stv (setm us arg.2 Datatypes.tt)
-                        (setm us arg.2 Datatypes.tt) sc lg mp
-                        (setm mp (r, (stv.1, (arg.2, arg.1))) d)
-                        (setm tb (arg.2, arg.1) r)
-                        (setm tb (arg.2, arg.1) r) 1 1 (s0, s1))).
-         { move=> s0 s1 h; exact: S3_set_M h. }
-         simpl.
-         eapply (r_put_lhs_weak _ _ _
-                   (λ '(s0, s1),
-                      S3 stv (setm us arg.2 Datatypes.tt)
-                        (setm us arg.2 Datatypes.tt) sc lg
-                        (setm mp (r, (stv.1, (arg.2, arg.1))) d)
-                        (setm mp (r, (stv.1, (arg.2, arg.1))) d)
-                        (setm tb (arg.2, arg.1) r)
-                        (setm tb (arg.2, arg.1) r) 1 1 (s0, s1))).
-         { move=> s0 s1 h; exact: S3_set_romL h. }
-         by apply: r_sign_tail.
+    * (* randomness table miss: the REPRO variants split here *)
+      case: ro.
+      { (* ro = true: REPRO reprograms, QUERY reads it back *)
+        simpl.
+        eapply r_get_remember_rhs => rc.
+        eapply (r_fact ((rc < q_s)%N)).
+        { move=> s0 s1 [hblk hrem].
+          rewrite /rem_inv /= in hrem.
+          case: hblk => _ _ _ [_ b1] _.
+          rewrite hrem addn0 in b1.
+          exact: leq_ltn_trans b1 hsc. }
+        move=> hrc.
+        eapply r_bind_assertD_rhs.
+        { by move=> ? ? _. }
+        move=> _.
+        eapply (r_put_bind_rhs Lrc rc.+1 _
+                  (λ '(s0, s1), S3 stv us us sc lg mp mp tb tb 0 1 (s0, s1))).
+        { move=> s0 s1 [hblk hrem].
+          rewrite /rem_inv /= in hrem.
+          exact: S3_set_rc hrem hblk. }
+        rewrite ?bind_assoc.
+        simpl.
+        eapply (r_scheme_bind dR); first exact: prog_valid.
+        move=> r; cbv beta.
+        simpl.
+        eapply (r_get_bind_rhs Lmap mp).
+        { by move=> s0 s1 [_ _ [_ h _ _ _] _ _]. }
+        rewrite ?bind_assoc.
+        simpl.
+        eapply (r_scheme_bind dD); first exact: prog_valid.
+        move=> d; cbv beta.
+        simpl.
+        eapply (r_put_rhs_weak Lmap
+                  (setm mp (r, (stv.1, (arg.2, arg.1))) d) _
+                  (λ '(s0, s1),
+                     S3 stv us us sc lg mp
+                       (setm mp (r, (stv.1, (arg.2, arg.1))) d)
+                       tb tb 0 1 (s0, s1))).
+        { move=> s0 s1 h; exact: S3_set_M h. }
+        eapply (r_put_rhs_weak _ _ _
+                  (λ '(s0, s1),
+                     S3 stv us (setm us arg.2 Datatypes.tt) sc lg mp
+                       (setm mp (r, (stv.1, (arg.2, arg.1))) d)
+                       tb tb 0 1 (s0, s1))).
+        { move=> s0 s1 h; exact: S3_set_usedR h. }
+        eapply (r_put_rhs_weak _ _ _
+                  (λ '(s0, s1),
+                     S3 stv us (setm us arg.2 Datatypes.tt) sc lg mp
+                       (setm mp (r, (stv.1, (arg.2, arg.1))) d)
+                       tb (setm tb (arg.2, arg.1) r)
+                       0 1 (s0, s1))).
+        { move=> s0 s1 h; exact: S3_set_rtR h. }
+        eapply r_get_remember_rhs => qc.
+        eapply (r_fact ((qc < qh')%N)).
+        { move=> s0 s1 [hblk hrem].
+          rewrite /rem_inv /= in hrem.
+          case: hblk => _ _ _ [b1 _] [b2 b3].
+          rewrite hrem addn0 in b1.
+          apply: leq_ltn_trans b1 _.
+          exact: leq_add3_ltn_m b2 hsc b3. }
+        move=> hqc.
+        eapply r_bind_assertD_rhs.
+        { by move=> ? ? _. }
+        move=> _.
+        eapply (r_put_bind_rhs Lqc qc.+1 _
+                  (λ '(s0, s1),
+                     S3 stv us (setm us arg.2 Datatypes.tt) sc lg mp
+                       (setm mp (r, (stv.1, (arg.2, arg.1))) d)
+                       tb (setm tb (arg.2, arg.1) r)
+                       1 1 (s0, s1))).
+        { move=> s0 s1 [hblk hrem].
+          rewrite /rem_inv /= in hrem.
+          exact: S3_set_qc hrem hblk. }
+        eapply (r_get_bind_rhs Lmap
+                  (setm mp (r, (stv.1, (arg.2, arg.1))) d)).
+        { by move=> s0 s1 [_ _ [_ h _ _ _] _ _]. }
+        cbv beta iota.
+        rewrite setmE eqxx.
+        simpl.
+        eapply (r_put_lhs_weak _ _ _
+                  (λ '(s0, s1),
+                     S3 stv (setm us arg.2 Datatypes.tt)
+                       (setm us arg.2 Datatypes.tt) sc lg mp
+                       (setm mp (r, (stv.1, (arg.2, arg.1))) d)
+                       tb (setm tb (arg.2, arg.1) r)
+                       1 1 (s0, s1))).
+        { move=> s0 s1 h; exact: S3_set_usedL h. }
+        eapply (r_put_lhs_weak _ _ _
+                  (λ '(s0, s1),
+                     S3 stv (setm us arg.2 Datatypes.tt)
+                       (setm us arg.2 Datatypes.tt) sc lg mp
+                       (setm mp (r, (stv.1, (arg.2, arg.1))) d)
+                       (setm tb (arg.2, arg.1) r)
+                       (setm tb (arg.2, arg.1) r)
+                       1 1 (s0, s1))).
+        { move=> s0 s1 h; exact: S3_set_rtL h. }
+        eapply (r_put_lhs_weak _ _ _
+                  (λ '(s0, s1),
+                     S3 stv (setm us arg.2 Datatypes.tt)
+                       (setm us arg.2 Datatypes.tt) sc lg
+                       (setm mp (r, (stv.1, (arg.2, arg.1))) d)
+                       (setm mp (r, (stv.1, (arg.2, arg.1))) d)
+                       (setm tb (arg.2, arg.1) r)
+                       (setm tb (arg.2, arg.1) r)
+                       1 1 (s0, s1))).
+        { move=> s0 s1 h; exact: S3_set_romL h. }
+        by apply: r_sign_tail.
+      }
+      { (* ro = false: REPRO only samples; QUERY fills lazily *)
+        simpl.
+        eapply r_get_remember_rhs => rc.
+        eapply (r_fact ((rc < q_s)%N)).
+        { move=> s0 s1 [hblk hrem].
+          rewrite /rem_inv /= in hrem.
+          case: hblk => _ _ _ [_ b1] _.
+          rewrite hrem addn0 in b1.
+          exact: leq_ltn_trans b1 hsc. }
+        move=> hrc.
+        eapply r_bind_assertD_rhs.
+        { by move=> ? ? _. }
+        move=> _.
+        eapply (r_put_bind_rhs Lrc rc.+1 _
+                  (λ '(s0, s1), S3 stv us us sc lg mp mp tb tb 0 1 (s0, s1))).
+        { move=> s0 s1 [hblk hrem].
+          rewrite /rem_inv /= in hrem.
+          exact: S3_set_rc hrem hblk. }
+        rewrite ?bind_assoc.
+        simpl.
+        eapply (r_scheme_bind dR); first exact: prog_valid.
+        move=> r; cbv beta.
+        simpl.
+        eapply (r_put_lhs_weak _ _ _
+                  (λ '(s0, s1),
+                     S3 stv (setm us arg.2 Datatypes.tt) us sc lg mp mp
+                       tb tb 0 1 (s0, s1))).
+        { move=> s0 s1 h; exact: S3_set_usedL h. }
+        eapply (r_put_rhs_weak _ _ _
+                  (λ '(s0, s1),
+                     S3 stv (setm us arg.2 Datatypes.tt)
+                       (setm us arg.2 Datatypes.tt) sc lg mp mp
+                       tb tb 0 1 (s0, s1))).
+        { move=> s0 s1 h; exact: S3_set_usedR h. }
+        eapply (r_put_lhs_weak _ _ _
+                  (λ '(s0, s1),
+                     S3 stv (setm us arg.2 Datatypes.tt)
+                       (setm us arg.2 Datatypes.tt) sc lg mp mp
+                       (setm tb (arg.2, arg.1) r) tb 0 1 (s0, s1))).
+        { move=> s0 s1 h; exact: S3_set_rtL h. }
+        eapply (r_put_rhs_weak _ _ _
+                  (λ '(s0, s1),
+                     S3 stv (setm us arg.2 Datatypes.tt)
+                       (setm us arg.2 Datatypes.tt) sc lg mp mp
+                       (setm tb (arg.2, arg.1) r)
+                       (setm tb (arg.2, arg.1) r) 0 1 (s0, s1))).
+        { move=> s0 s1 h; exact: S3_set_rtR h. }
+        eapply r_get_remember_rhs => qc.
+        eapply (r_fact ((qc < qh')%N)).
+        { move=> s0 s1 [hblk hrem].
+          rewrite /rem_inv /= in hrem.
+          case: hblk => _ _ _ [b1 _] [b2 b3].
+          rewrite hrem addn0 in b1.
+          apply: leq_ltn_trans b1 _.
+          exact: leq_add3_ltn_m b2 hsc b3. }
+        move=> hqc.
+        eapply r_bind_assertD_rhs.
+        { by move=> ? ? _. }
+        move=> _.
+        eapply (r_put_bind_rhs Lqc qc.+1 _
+                  (λ '(s0, s1),
+                     S3 stv (setm us arg.2 Datatypes.tt)
+                       (setm us arg.2 Datatypes.tt) sc lg mp mp
+                       (setm tb (arg.2, arg.1) r)
+                       (setm tb (arg.2, arg.1) r) 1 1 (s0, s1))).
+        { move=> s0 s1 [hblk hrem].
+          rewrite /rem_inv /= in hrem.
+          exact: S3_set_qc hrem hblk. }
+        eapply (r_get_bind_rhs Lmap mp).
+        { by move=> s0 s1 [_ _ [_ h _ _ _] _ _]. }
+        cbv beta iota.
+        simpl.
+        case Emd: (getm mp (r, (stv.1, (arg.2, arg.1))))
+          => [d|].
+        -- simpl.
+           rewrite (setm_same Emd).
+           eapply (r_put_lhs_weak _ _ _
+                     (λ '(s0, s1),
+                        S3 stv (setm us arg.2 Datatypes.tt)
+                          (setm us arg.2 Datatypes.tt) sc lg mp mp
+                          (setm tb (arg.2, arg.1) r)
+                          (setm tb (arg.2, arg.1) r) 1 1 (s0, s1))).
+           { move=> s0 s1 h; exact: S3_set_romL h. }
+           by apply: r_sign_tail.
+        -- rewrite ?bind_assoc.
+           simpl.
+           eapply (r_scheme_bind dD); first exact: prog_valid.
+           move=> d; cbv beta.
+           eapply (r_put_rhs_weak Lmap
+                     (setm mp (r, (stv.1, (arg.2, arg.1))) d) _
+                     (λ '(s0, s1),
+                        S3 stv (setm us arg.2 Datatypes.tt)
+                          (setm us arg.2 Datatypes.tt) sc lg mp
+                          (setm mp (r, (stv.1, (arg.2, arg.1))) d)
+                          (setm tb (arg.2, arg.1) r)
+                          (setm tb (arg.2, arg.1) r) 1 1 (s0, s1))).
+           { move=> s0 s1 h; exact: S3_set_M h. }
+           simpl.
+           eapply (r_put_lhs_weak _ _ _
+                     (λ '(s0, s1),
+                        S3 stv (setm us arg.2 Datatypes.tt)
+                          (setm us arg.2 Datatypes.tt) sc lg
+                          (setm mp (r, (stv.1, (arg.2, arg.1))) d)
+                          (setm mp (r, (stv.1, (arg.2, arg.1))) d)
+                          (setm tb (arg.2, arg.1) r)
+                          (setm tb (arg.2, arg.1) r) 1 1 (s0, s1))).
+           { move=> s0 s1 h; exact: S3_set_romL h. }
+           by apply: r_sign_tail.
+      }
 - (* FXHASH *)
   ssprove_code_simpl. simpl.
   eapply r_get_remember_lhs => hc.
@@ -1882,602 +2061,15 @@ simplify_eq_rel arg.
 Qed.
 
 (* ------------------------------------------------------------------ *)
-(** ** THE ideal-side equivalence *)
+(** ** THE real- and ideal-side equivalences *)
+
+Lemma R_rep_real (b : bool) :
+  perfect IG (G2c b) (R_rep b ∘ ROG false).
+Proof. exact: (R_rep_perfect false b). Qed.
 
 Lemma R_rep_ideal (b : bool) :
   perfect IG (G3c b) (R_rep b ∘ ROG true).
-Proof.
-ssprove_share. eapply prove_perfect.
-eapply (eq_rel_perf_ind _ _ inv3).
-{ rewrite /inv3; ssprove_invariant => //. }
-simplify_eq_rel arg.
-- (* FXGEN *)
-  ssprove_code_simpl. simpl.
-  eapply r_get_remember_lhs => sto.
-  eapply r_get_remember_rhs => sto'.
-  eapply (r_fact (sto' = sto)).
-  { move=> s0 s1 [[hinv h0] h1].
-    case/inv3E: hinv => _ [[e1 _ _ _ _] _ _ _].
-    rewrite /rem_inv /= in h0 h1.
-    by rewrite -h0 -h1. }
-  move=> e; subst sto'.
-  eapply r_assertD; first by [].
-  move=> e0 _.
-  eapply r_assertD; first by [].
-  move=> hcap _.
-  eapply rpre_weaken_rule with
-    (pre := λ '(s0, s1), B3G (s0, s1)); last first.
-  { move=> s0 s1 [[hinv h0] h1].
-    case/inv3E: hinv
-      => hig [[e1 e2 e3 e4 e5] [e6 e7 e8] [e9 e10] [e11 e12 e13]].
-    split.
-    - by split.
-    - by split.
-    - by split.
-    - by split. }
-  rewrite (code_link_scheme _ _ _ _ (prog_valid dPP)).
-  eapply r_scheme_bind; first exact: prog_valid.
-  move=> pp; cbv beta.
-  rewrite (code_link_scheme _ _ _ _ (prog_valid dN)).
-  eapply r_scheme_bind; first exact: prog_valid.
-  move=> x0; cbv beta.
-  rewrite (code_link_scheme _ _ _ _ (prog_valid dR)).
-  eapply r_scheme_bind; first exact: prog_valid.
-  move=> x1; cbv beta.
-  rewrite (code_link_scheme _ _ _ _
-             (@sample_keys_valid l N dN emptym [interface] _)).
-  eapply (r_scheme_bind (skeys (size (leaf_paths (tshape arg)))));
-    first exact: sample_keys_valid.
-  move=> xss; cbv beta.
-  eapply r_put_lhs. eapply r_put_rhs.
-  apply r_ret => s0 s1 hpre.
-  case: hpre => s1a [hpre1 g1].
-  case: hpre1 => s0a [hblk g2].
-  subst.
-  split; first by [].
-  case: hblk => -[hig m1 m2 m3 m4] [m5 m6 m7] [m8 m9] [m10 m11 m12].
-  apply: inv3I.
-  + apply: heap_ignore_set_r; first by apply: fhas_in; fmap_solve.
-    apply: heap_ignore_set_l; first by apply: fhas_in; fmap_solve.
-    exact: hig.
-  + get_heap_simpl.
-    split.
-    * by split.
-    * by split.
-    * by split.
-    * by split.
-- (* FXSIGN *)
-  ssprove_code_simpl. simpl.
-  eapply r_get_remember_lhs => sc.
-  eapply r_get_remember_rhs => sc'.
-  eapply (r_fact (sc' = sc)).
-  { move=> s0 s1 [[hinv h0] h1].
-    case/inv3E: hinv => _ [[_ _ e3 _ _] _ _ _].
-    rewrite /rem_inv /= in h0 h1.
-    by rewrite -h0 -h1. }
-  move=> e; subst sc'.
-  eapply r_assertD; first by [].
-  move=> hsc _.
-  eapply r_get_remember_lhs => sto.
-  eapply r_get_remember_rhs => sto'.
-  eapply (r_fact (sto' = sto)).
-  { move=> s0 s1 [[[[hinv h0] h1] h2] h3].
-    case/inv3E: hinv => _ [[e1 _ _ _ _] _ _ _].
-    rewrite /rem_inv /= in h2 h3.
-    by rewrite -h2 -h3. }
-  move=> e; subst sto'.
-  eapply r_assertD; first by [].
-  move=> e0 e1.
-  case: sto e0 e1 => [stv|] e0 e1; last by discriminate e0.
-  simpl.
-  eapply r_get_remember_lhs => us.
-  eapply r_get_remember_rhs => us'.
-  eapply (r_fact (us' = us)).
-  { move=> s0 s1 [[[[[[hinv h0] h1] h2] h3] h4] h5].
-    case/inv3E: hinv => _ [[_ e2 _ _ _] _ _ _].
-    rewrite /rem_inv /= in h4 h5.
-    by rewrite -h4 -h5. }
-  move=> e; subst us'.
-  eapply r_get_remember_lhs => lg.
-  eapply r_get_remember_rhs => lg'.
-  eapply (r_fact (lg' = lg)).
-  { move=> s0 s1 [[[[[[[[hinv h0] h1] h2] h3] h4] h5] h6] h7].
-    case/inv3E: hinv => _ [[_ _ _ e4 _] _ _ _].
-    rewrite /rem_inv /= in h6 h7.
-    by rewrite -h6 -h7. }
-  move=> e; subst lg'.
-  eapply r_get_remember_lhs => mp.
-  eapply r_get_remember_lhs => tb.
-  eapply r_get_remember_rhs => tb'.
-  eapply (r_fact (tb' = tb)).
-  { move=> s0 s1 [[[[[[[[[[[hinv h0] h1] h2] h3] h4] h5] h6] h7] h8] h9] h10].
-    case/inv3E: hinv => _ [_ [e6 _ _] _ _].
-    rewrite /rem_inv /= in h9 h10.
-    by rewrite -h9 -h10. }
-  move=> e; subst tb'.
-  eapply rpre_weaken_rule with
-    (pre := λ '(s0, s1), S3 stv us us sc lg mp mp tb tb 0 0 (s0, s1));
-    last first.
-  { move=> s0 s1 [[[[[[[[[[[hinv h0] h1] h2] h3] h4] h5] h6] h7] h8] h9] h10].
-    case/inv3E: hinv
-      => hig [[f1 f2 f3 f4 f5] [f6 f7 f8] [f9 f10] [f11 f12 f13]].
-    rewrite /rem_inv /= in h0 h1 h2 h3 h4 h5 h6 h7 h8 h9 h10.
-    split.
-    - by split.
-    - by split.
-    - split=> //.
-      by rewrite f8 h8.
-    - split.
-      + by rewrite addn0 -h0.
-      + by rewrite addn0 -h0.
-    - by split. }
-  case E: ([&& flok stv.2.1 arg.2 & arg.2 \notin domm us]); last first.
-  + (* leaf schedule exhausted: burn the budget on both sides *)
-    eapply r_put_lhs; eapply r_put_rhs.
-    apply r_ret => s0 s1 hpre.
-    case: hpre => s1a [hpre1 g1].
-    case: hpre1 => s0a [hblk g2].
-    subst.
-    split; first by [].
-    case: hblk => -[hig p1 p2 p3 p4] [p5 p6 p7 p8 p9] [p10 p11 p12 p13 p14]
-                  [p15 p16] [p17 p18].
-    apply: inv3I.
-    * apply: heap_ignore_set_r; first by apply: fhas_in; fmap_solve.
-      apply: heap_ignore_set_l; first by apply: fhas_in; fmap_solve.
-      exact: hig.
-    * get_heap_simpl.
-      rewrite ?p1 ?p2 ?p3 ?p4 ?p7 ?p8 ?p9 ?p10 ?p11 ?p12 ?p13 ?p14.
-      split.
-      -- by split.
-      -- by split.
-      -- split.
-         ++ apply: (leq_trans p15).
-            by rewrite addn0 addnS addSn leqnSn.
-         ++ apply: (leq_trans p16).
-            by rewrite addn0 leqnSn.
-      -- by split.
-  + (* leaf available *)
-    case Etb: (getm tb (arg.2, arg.1)) => [r0|].
-    * (* randomness table hit: QUERY only *)
-      simpl.
-      eapply (r_put_lhs_weak _ _ _
-                (λ '(s0, s1),
-                   S3 stv (setm us arg.2 Datatypes.tt) us sc lg mp mp
-                     tb tb 0 0 (s0, s1))).
-      { move=> s0 s1 h; exact: S3_set_usedL h. }
-      eapply (r_put_rhs_weak _ _ _
-                (λ '(s0, s1),
-                   S3 stv (setm us arg.2 Datatypes.tt)
-                     (setm us arg.2 Datatypes.tt) sc lg mp mp
-                     tb tb 0 0 (s0, s1))).
-      { move=> s0 s1 h; exact: S3_set_usedR h. }
-      eapply (r_put_lhs_weak _ _ _
-                (λ '(s0, s1),
-                   S3 stv (setm us arg.2 Datatypes.tt)
-                     (setm us arg.2 Datatypes.tt) sc lg mp mp
-                     (setm tb (arg.2, arg.1) r0) tb 0 0 (s0, s1))).
-      { move=> s0 s1 h; exact: S3_set_rtL h. }
-      eapply (r_put_rhs_weak _ _ _
-                (λ '(s0, s1),
-                   S3 stv (setm us arg.2 Datatypes.tt)
-                     (setm us arg.2 Datatypes.tt) sc lg mp mp
-                     (setm tb (arg.2, arg.1) r0)
-                     (setm tb (arg.2, arg.1) r0) 0 0 (s0, s1))).
-      { move=> s0 s1 h; exact: S3_set_rtR h. }
-      eapply r_get_remember_rhs => qc.
-      eapply (r_fact ((qc < qh')%N)).
-      { move=> s0 s1 [hblk hrem].
-        rewrite /rem_inv /= in hrem.
-        case: hblk => _ _ _ [b1 _] [b2 b3].
-        rewrite hrem addn0 in b1.
-        apply: leq_ltn_trans b1 _.
-        exact: leq_add3_ltn_m b2 hsc b3. }
-      move=> hqc.
-      eapply r_bind_assertD_rhs.
-      { by move=> ? ? _. }
-      move=> _.
-      eapply (r_put_bind_rhs Lqc qc.+1 _
-                (λ '(s0, s1),
-                   S3 stv (setm us arg.2 Datatypes.tt)
-                     (setm us arg.2 Datatypes.tt) sc lg mp mp
-                     (setm tb (arg.2, arg.1) r0)
-                     (setm tb (arg.2, arg.1) r0) 1 0 (s0, s1))).
-      { move=> s0 s1 [hblk hrem].
-        rewrite /rem_inv /= in hrem.
-        exact: S3_set_qc hrem hblk. }
-      eapply (r_get_bind_rhs Lmap mp).
-      { by move=> s0 s1 [_ _ [_ h _ _ _] _ _]. }
-      cbv beta iota.
-      simpl.
-      case Emd: (getm mp (r0, (stv.1, (arg.2, arg.1))))
-        => [d|].
-      -- (* rom hit: QUERY answers from the map, the game re-stores *)
-         simpl.
-         rewrite (setm_same Emd).
-         eapply (r_put_lhs_weak _ _ _
-                   (λ '(s0, s1),
-                      S3 stv (setm us arg.2 Datatypes.tt)
-                        (setm us arg.2 Datatypes.tt) sc lg mp mp
-                        (setm tb (arg.2, arg.1) r0)
-                        (setm tb (arg.2, arg.1) r0) 1 0 (s0, s1))).
-         { move=> s0 s1 h; exact: S3_set_romL h. }
-         by apply: r_sign_tail.
-      -- (* rom miss: the two lazy samples couple *)
-         rewrite ?bind_assoc.
-         simpl.
-         eapply (r_scheme_bind dD); first exact: prog_valid.
-         move=> d; cbv beta.
-         eapply (r_put_rhs_weak Lmap
-                   (setm mp (r0, (stv.1, (arg.2, arg.1))) d) _
-                   (λ '(s0, s1),
-                      S3 stv (setm us arg.2 Datatypes.tt)
-                        (setm us arg.2 Datatypes.tt) sc lg mp
-                        (setm mp (r0, (stv.1, (arg.2, arg.1))) d)
-                        (setm tb (arg.2, arg.1) r0)
-                        (setm tb (arg.2, arg.1) r0) 1 0 (s0, s1))).
-         { move=> s0 s1 h; exact: S3_set_M h. }
-         simpl.
-         eapply (r_put_lhs_weak _ _ _
-                   (λ '(s0, s1),
-                      S3 stv (setm us arg.2 Datatypes.tt)
-                        (setm us arg.2 Datatypes.tt) sc lg
-                        (setm mp (r0, (stv.1, (arg.2, arg.1))) d)
-                        (setm mp (r0, (stv.1, (arg.2, arg.1))) d)
-                        (setm tb (arg.2, arg.1) r0)
-                        (setm tb (arg.2, arg.1) r0) 1 0 (s0, s1))).
-         { move=> s0 s1 h; exact: S3_set_romL h. }
-         by apply: r_sign_tail.
-    * (* randomness table miss: REPRO reprograms, QUERY reads it *)
-      simpl.
-      eapply r_get_remember_rhs => rc.
-      eapply (r_fact ((rc < q_s)%N)).
-      { move=> s0 s1 [hblk hrem].
-        rewrite /rem_inv /= in hrem.
-        case: hblk => _ _ _ [_ b1] _.
-        rewrite hrem addn0 in b1.
-        exact: leq_ltn_trans b1 hsc. }
-      move=> hrc.
-      eapply r_bind_assertD_rhs.
-      { by move=> ? ? _. }
-      move=> _.
-      eapply (r_put_bind_rhs Lrc rc.+1 _
-                (λ '(s0, s1), S3 stv us us sc lg mp mp tb tb 0 1 (s0, s1))).
-      { move=> s0 s1 [hblk hrem].
-        rewrite /rem_inv /= in hrem.
-        exact: S3_set_rc hrem hblk. }
-      rewrite ?bind_assoc.
-      simpl.
-      eapply (r_scheme_bind dR); first exact: prog_valid.
-      move=> r; cbv beta.
-      simpl.
-      eapply (r_get_bind_rhs Lmap mp).
-      { by move=> s0 s1 [_ _ [_ h _ _ _] _ _]. }
-      rewrite ?bind_assoc.
-      simpl.
-      eapply (r_scheme_bind dD); first exact: prog_valid.
-      move=> d; cbv beta.
-      simpl.
-      eapply (r_put_rhs_weak Lmap
-                (setm mp (r, (stv.1, (arg.2, arg.1))) d) _
-                (λ '(s0, s1),
-                   S3 stv us us sc lg mp
-                     (setm mp (r, (stv.1, (arg.2, arg.1))) d)
-                     tb tb 0 1 (s0, s1))).
-      { move=> s0 s1 h; exact: S3_set_M h. }
-      eapply (r_put_rhs_weak _ _ _
-                (λ '(s0, s1),
-                   S3 stv us (setm us arg.2 Datatypes.tt) sc lg mp
-                     (setm mp (r, (stv.1, (arg.2, arg.1))) d)
-                     tb tb 0 1 (s0, s1))).
-      { move=> s0 s1 h; exact: S3_set_usedR h. }
-      eapply (r_put_rhs_weak _ _ _
-                (λ '(s0, s1),
-                   S3 stv us (setm us arg.2 Datatypes.tt) sc lg mp
-                     (setm mp (r, (stv.1, (arg.2, arg.1))) d)
-                     tb (setm tb (arg.2, arg.1) r)
-                     0 1 (s0, s1))).
-      { move=> s0 s1 h; exact: S3_set_rtR h. }
-      eapply r_get_remember_rhs => qc.
-      eapply (r_fact ((qc < qh')%N)).
-      { move=> s0 s1 [hblk hrem].
-        rewrite /rem_inv /= in hrem.
-        case: hblk => _ _ _ [b1 _] [b2 b3].
-        rewrite hrem addn0 in b1.
-        apply: leq_ltn_trans b1 _.
-        exact: leq_add3_ltn_m b2 hsc b3. }
-      move=> hqc.
-      eapply r_bind_assertD_rhs.
-      { by move=> ? ? _. }
-      move=> _.
-      eapply (r_put_bind_rhs Lqc qc.+1 _
-                (λ '(s0, s1),
-                   S3 stv us (setm us arg.2 Datatypes.tt) sc lg mp
-                     (setm mp (r, (stv.1, (arg.2, arg.1))) d)
-                     tb (setm tb (arg.2, arg.1) r)
-                     1 1 (s0, s1))).
-      { move=> s0 s1 [hblk hrem].
-        rewrite /rem_inv /= in hrem.
-        exact: S3_set_qc hrem hblk. }
-      eapply (r_get_bind_rhs Lmap
-                (setm mp (r, (stv.1, (arg.2, arg.1))) d)).
-      { by move=> s0 s1 [_ _ [_ h _ _ _] _ _]. }
-      cbv beta iota.
-      rewrite setmE eqxx.
-      simpl.
-      eapply (r_put_lhs_weak _ _ _
-                (λ '(s0, s1),
-                   S3 stv (setm us arg.2 Datatypes.tt)
-                     (setm us arg.2 Datatypes.tt) sc lg mp
-                     (setm mp (r, (stv.1, (arg.2, arg.1))) d)
-                     tb (setm tb (arg.2, arg.1) r)
-                     1 1 (s0, s1))).
-      { move=> s0 s1 h; exact: S3_set_usedL h. }
-      eapply (r_put_lhs_weak _ _ _
-                (λ '(s0, s1),
-                   S3 stv (setm us arg.2 Datatypes.tt)
-                     (setm us arg.2 Datatypes.tt) sc lg mp
-                     (setm mp (r, (stv.1, (arg.2, arg.1))) d)
-                     (setm tb (arg.2, arg.1) r)
-                     (setm tb (arg.2, arg.1) r)
-                     1 1 (s0, s1))).
-      { move=> s0 s1 h; exact: S3_set_rtL h. }
-      eapply (r_put_lhs_weak _ _ _
-                (λ '(s0, s1),
-                   S3 stv (setm us arg.2 Datatypes.tt)
-                     (setm us arg.2 Datatypes.tt) sc lg
-                     (setm mp (r, (stv.1, (arg.2, arg.1))) d)
-                     (setm mp (r, (stv.1, (arg.2, arg.1))) d)
-                     (setm tb (arg.2, arg.1) r)
-                     (setm tb (arg.2, arg.1) r)
-                     1 1 (s0, s1))).
-      { move=> s0 s1 h; exact: S3_set_romL h. }
-      by apply: r_sign_tail.
-- (* FXHASH *)
-  ssprove_code_simpl. simpl.
-  eapply r_get_remember_lhs => hc.
-  eapply r_get_remember_rhs => hc'.
-  eapply (r_fact (hc' = hc)).
-  { move=> s0 s1 [[hinv h0] h1].
-    case/inv3E: hinv => _ [[_ _ _ _ e5] _ _ _].
-    rewrite /rem_inv /= in h0 h1.
-    by rewrite -h0 -h1. }
-  move=> e; subst hc'.
-  eapply r_assertD; first by [].
-  move=> hhc _.
-  eapply r_get_remember_lhs => mp.
-  eapply rpre_weaken_rule with
-    (pre := λ '(s0, s1), H3 hc mp mp 0 (s0, s1)); last first.
-  { move=> s0 s1 [[[hinv h0] h1] h2].
-    case/inv3E: hinv
-      => hig [[e1 e2 e3 e4 e5] [e6 e7 e8] [e9 e10] [e11 e12 e13]].
-    rewrite /rem_inv /= in h0 h1 h2.
-    split.
-    - by split.
-    - split=> //.
-      by rewrite e8.
-    - by split.
-    - split=> //.
-      by rewrite addn0 -h0.
-    - by split. }
-  eapply r_get_remember_rhs => qc.
-  eapply (r_fact ((qc < qh')%N)).
-  { move=> s0 s1 [hblk hrem].
-    rewrite /rem_inv /= in hrem.
-    case: hblk => _ _ _ [b1 _] [b2 b3].
-    rewrite hrem addn0 in b1.
-    apply: leq_ltn_trans b1 _.
-    exact: leq_add3_ltn_l hhc b2 b3. }
-  move=> hqc.
-  eapply r_bind_assertD_rhs.
-  { by move=> ? ? _. }
-  move=> _.
-  eapply (r_put_bind_rhs Lqc qc.+1 _
-            (λ '(s0, s1), H3 hc mp mp 1 (s0, s1))).
-  { move=> s0 s1 [hblk hrem].
-    rewrite /rem_inv /= in hrem.
-    exact: H3_set_qc hrem hblk. }
-  eapply (r_get_bind_rhs Lmap mp).
-  { by move=> s0 s1 [_ [_ _ _ h] _ _ _]. }
-  cbv beta iota.
-  simpl.
-  case Emd: (getm mp arg) => [d|].
-  + simpl.
-    rewrite (setm_same Emd).
-    eapply r_put_lhs; eapply r_put_lhs.
-    eapply r_put_rhs.
-    apply r_ret => s0 s1 hpre.
-    case: hpre => s1a [hp1 g1].
-    case: hp1 => s0a [hp2 g2].
-    case: hp2 => s0b [hblk g3].
-    subst.
-    split; first by [].
-    case: hblk => -[hig p1 p2 p3 p4] [p5 p6 p7 p8] [p9 p10] [p11 p12]
-                  [p13 p14].
-    apply: inv3I.
-    * apply: heap_ignore_set_r; first by apply: fhas_in; fmap_solve.
-      do 2 (apply: heap_ignore_set_l; first by apply: fhas_in; fmap_solve).
-      exact: hig.
-    * get_heap_simpl.
-      rewrite ?p1 ?p2 ?p3 ?p4 ?p8 ?p9 ?p10.
-      split.
-      -- by split.
-      -- by split.
-      -- split.
-         ++ apply: (leq_trans p11).
-            by rewrite addn1 !addSn leqnn.
-         ++ exact: p12.
-      -- by split.
-  + rewrite ?bind_assoc.
-    simpl.
-    eapply (r_scheme_bind dD); first exact: prog_valid.
-    move=> d; cbv beta.
-    eapply (r_put_rhs_weak Lmap (setm mp arg d) _
-              (λ '(s0, s1), H3 hc mp (setm mp arg d) 1 (s0, s1))).
-    { move=> s0 s1 h; exact: H3_set_M h. }
-    simpl.
-    eapply r_put_lhs; eapply r_put_lhs.
-    eapply r_put_rhs.
-    apply r_ret => s0 s1 hpre.
-    case: hpre => s1a [hp1 g1].
-    case: hp1 => s0a [hp2 g2].
-    case: hp2 => s0b [hblk g3].
-    subst.
-    split; first by [].
-    case: hblk => -[hig p1 p2 p3 p4] [p5 p6 p7 p8] [p9 p10] [p11 p12]
-                  [p13 p14].
-    apply: inv3I.
-    * apply: heap_ignore_set_r; first by apply: fhas_in; fmap_solve.
-      do 2 (apply: heap_ignore_set_l; first by apply: fhas_in; fmap_solve).
-      exact: hig.
-    * get_heap_simpl.
-      rewrite ?p1 ?p2 ?p3 ?p4 ?p8 ?p9 ?p10.
-      split.
-      -- by split.
-      -- by split.
-      -- split.
-         ++ apply: (leq_trans p11).
-            by rewrite addn1 !addSn leqnn.
-         ++ exact: p12.
-      -- by split.
-- (* FXFORGE: bookkeeping is now b-unconditional (incl. the RHS QUERY
-     counter machinery); the [if b] rides on the returned verdict,
-     identical on both sides — a pure sync. *)
-  case: arg => [m sg].
-  ssprove_code_simpl. simpl.
-  eapply r_get_remember_lhs => fc.
-  eapply r_get_remember_rhs => fc'.
-  eapply (r_fact (fc' = fc)).
-  { move=> s0 s1 [[hinv h0] h1].
-    case/inv3E: hinv => _ [_ [_ e7 _] _ _].
-    rewrite /rem_inv /= in h0 h1.
-    by rewrite -h0 -h1. }
-  move=> e; subst fc'.
-  rewrite code_link_assert.
-  eapply r_assertD; first by [].
-  move=> hfc _.
-  simpl.
-  eapply r_get_remember_lhs => sto.
-  eapply r_get_remember_rhs => sto'.
-  eapply (r_fact (sto' = sto)).
-  { move=> s0 s1 [[[[hinv h0] h1] h2] h3].
-    case/inv3E: hinv => _ [[e1 _ _ _ _] _ _ _].
-    rewrite /rem_inv /= in h2 h3.
-    by rewrite -h2 -h3. }
-  move=> e; subst sto'.
-  rewrite code_link_assertD.
-  refine (r_assertD _ _ _ _ _ _ _ _); first by [].
-  move=> e0 e1.
-  case: sto e0 e1 => [stv|] e0 e1; last by discriminate e0.
-  simpl.
-  ssprove_code_simpl.
-  eapply r_get_remember_lhs => lg.
-  eapply r_get_remember_rhs => lg'.
-  eapply (r_fact (lg' = lg)).
-  { move=> s0 s1 [[[[[[hinv h0] h1] h2] h3] h4] h5].
-    case/inv3E: hinv => _ [[_ _ _ e4 _] _ _ _].
-    rewrite /rem_inv /= in h4 h5.
-    by rewrite -h4 -h5. }
-  move=> e; subst lg'.
-  eapply r_get_remember_lhs => mp.
-  eapply rpre_weaken_rule with
-    (pre := λ '(s0, s1), F3 stv lg mp mp fc 0 (s0, s1)); last first.
-  { move=> s0 s1 [[[[[[[hinv h0] h1] h2] h3] h4] h5] h6].
-    case/inv3E: hinv
-      => hig [[f1 f2 f3 f4 f5] [f6 f7 f8] [f9 f10] [f11 f12 f13]].
-    rewrite /rem_inv /= in h0 h1 h2 h3 h4 h5 h6.
-    split.
-    - by split.
-    - split=> //.
-      by rewrite f8.
-    - by split.
-    - split=> //.
-      by rewrite addn0 -h0.
-    - by split. }
-  eapply r_get_remember_rhs => qc.
-  eapply (r_fact ((qc < qh')%N)).
-  { move=> s0 s1 [hblk hrem].
-    rewrite /rem_inv /= in hrem.
-    case: hblk => _ _ _ [b1 _] [b2 b3].
-    rewrite hrem addn0 in b1.
-    apply: leq_ltn_trans b1 _.
-    exact: leq_add3_ltn_r b2 b3 hfc. }
-  move=> hqc.
-  eapply r_bind_assertD_rhs.
-  { by move=> ? ? _. }
-  move=> _.
-  eapply (r_put_bind_rhs Lqc qc.+1 _
-            (λ '(s0, s1), F3 stv lg mp mp fc 1 (s0, s1))).
-  { move=> s0 s1 [hblk hrem].
-    rewrite /rem_inv /= in hrem.
-    exact: F3_set_qc hrem hblk. }
-  eapply (r_get_bind_rhs Lmap mp).
-  { by move=> s0 s1 [_ [_ h _ _] _ _ _]. }
-  cbv beta iota.
-  simpl.
-  case Emd: (getm mp (sg.1.2, (stv.1, (sg.1.1, m)))) => [d|].
-  * simpl.
-    rewrite (setm_same Emd).
-    eapply r_put_lhs; eapply r_put_lhs.
-    eapply r_put_rhs.
-    apply r_ret => s0 s1 hpre.
-    case: hpre => s1a [hp1 g1].
-    case: hp1 => s0a [hp2 g2].
-    case: hp2 => s0b [hblk g3].
-    subst.
-    split; first by [].
-    case: hblk => -[hig p1 p2 p3 p4] [p5 p6 p7 p8] [p9 p10 p11 p12]
-                  [p13 p14] [p15 p16].
-    apply: inv3I.
-    -- apply: heap_ignore_set_r; first by apply: fhas_in; fmap_solve.
-       do 2 (apply: heap_ignore_set_l;
-             first by apply: fhas_in; fmap_solve).
-       exact: hig.
-    -- get_heap_simpl.
-       rewrite ?p1 ?p2 ?p3 ?p4 ?p6 ?p9 ?p10 ?p11 ?p12.
-       split.
-       ++ by split.
-       ++ by split.
-       ++ split.
-          ** apply: (leq_trans p13).
-             by rewrite addn1 addnS leqnn.
-          ** exact: p14.
-       ++ by split.
-  * rewrite ?bind_assoc.
-    simpl.
-    eapply (r_scheme_bind dD); first exact: prog_valid.
-    move=> d; cbv beta.
-    eapply (r_put_rhs_weak Lmap (setm mp (sg.1.2, (stv.1, (sg.1.1, m))) d) _
-              (λ '(s0, s1),
-                 F3 stv lg mp (setm mp (sg.1.2, (stv.1, (sg.1.1, m))) d)
-                   fc 1 (s0, s1))).
-    { move=> s0 s1 h; exact: F3_set_M h. }
-    simpl.
-    eapply r_put_lhs; eapply r_put_lhs.
-    eapply r_put_rhs.
-    apply r_ret => s0 s1 hpre.
-    case: hpre => s1a [hp1 g1].
-    case: hp1 => s0a [hp2 g2].
-    case: hp2 => s0b [hblk g3].
-    subst.
-    split; first by [].
-    case: hblk => -[hig p1 p2 p3 p4] [p5 p6 p7 p8] [p9 p10 p11 p12]
-                  [p13 p14] [p15 p16].
-    apply: inv3I.
-    -- apply: heap_ignore_set_r; first by apply: fhas_in; fmap_solve.
-       do 2 (apply: heap_ignore_set_l;
-             first by apply: fhas_in; fmap_solve).
-       exact: hig.
-    -- get_heap_simpl.
-       rewrite ?p1 ?p2 ?p3 ?p4 ?p6 ?p9 ?p10 ?p11 ?p12.
-       split.
-       ++ by split.
-       ++ by split.
-       ++ split.
-          ** apply: (leq_trans p13).
-             by rewrite addn1 addnS leqnn.
-          ** exact: p14.
-       ++ by split.
-Qed.
+Proof. exact: (R_rep_perfect true b). Qed.
 
 
 (* ------------------------------------------------------------------ *)

@@ -32,20 +32,17 @@
     single-anchor WOTS+C proof ([Sec.wots.*]) and the banked FXMSS leaf
     bound ([SHRINCS.fxmss.leaf2_*]) instantiate it.
 
-    [Model.math.chain] is the separate, width-bounded formulation kept
-    for the C-facing model: its step [f : forall p, (p < w)%N -> A -> A]
-    RECEIVES the in-range proof and its fold is a FUNCTION of a bound
-    proof [(s + n <= w)%N].  [chaincE] below is the bridge between the
-    two, and the only place this layer mentions it.  (Before the
-    exact-or-zero address facade landed, this layer's own step carried
-    that dependent type and had to be wrapped in a position-guarding
-    total step [Fc] with a bridge [FcE]; every concrete step now ignores
-    the bound proof, so the guard had no content left and both are
-    gone.)
+    (Before the exact-or-zero address facade landed, this layer's own
+    step carried a dependent type and had to be wrapped in a
+    position-guarding total step [Fc] with a bridge [FcE]; every
+    concrete step now ignores the bound proof, so the guard had no
+    content left and both are gone.  A separate width-bounded model
+    chain and its bridge [chaincE] existed for the same reason and are
+    likewise gone -- nothing consumed either.)
 
     See each section's header comment for details. *)
 
-From Model Require Import math.chain math.encoding.
+From Model Require Import math.encoding.
 From Sec.lib Require Import prelude sig.scheme
   toolkit.sample_seq math.chain.
 
@@ -232,25 +229,6 @@ Context (l w tsum : nat).
     shape: the position is the step function's first argument. *)
 Definition chainf (pp : PP) (i : nat) : nat -> N -> N :=
   fun pos x => F pp (i, pos) x.
-
-(* ------------------------------------------------------------------ *)
-(** ** Bridge to the width-bounded model chain
-
-    [Model.math.chain] is the C-facing, width-bounded formulation: its
-    step [f : forall p, (p < w)%N -> A -> A] RECEIVES the in-range proof
-    and its fold is a FUNCTION of a bound proof.  Below the chain width
-    the two folds agree; this is the one lemma that ties the model chain
-    to the (total) library fold used everywhere here. *)
-Lemma chaincE pp i x s n (H : (s + n <= w)%N) :
-  chain (chainf pp i) x s n
-  = @Model.math.chain.chain N w (fun p (_ : (p < w)%N) => F pp (i, p)) x s n H.
-Proof.
-elim: n s x H => [|n IH] s x H.
-- by rewrite (@Model.math.chain.chain0 N w _ x s H).
-- have Hf : (s < w)%N := @Model.math.chain.chain_hd_lt w s n H.
-  have Ht : (s.+1 + n <= w)%N := @Model.math.chain.chain_tl_le w s n H.
-  by rewrite (@Model.math.chain.chainSr N w _ x s n H Hf Ht) -IH.
-Qed.
 
 (* ================= former Sec.lib.chain.scheme ================= *)
 

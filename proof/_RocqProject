@@ -17,7 +17,6 @@
 
 model/machine.v
 model/fin.v
-model/math/chain.v
 model/math/encoding.v
 model/bounded.v
 model/byte.v

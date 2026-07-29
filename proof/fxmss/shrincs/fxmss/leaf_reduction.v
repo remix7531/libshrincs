@@ -2976,8 +2976,10 @@ case E: (shrincs_fxmss_forgery_case_at_N st.1.1 st.2.1 st.2.2 sg.1.1 d sg.2.1 sg
 Qed.
 
 (** M5 lift: the SIGN-coupling tail (from the [shrincs_fxmss_used] tracked put
-    onward), shared unchanged by all four SIGN sub-branches (both perfects,
-    both digest-slot cases).  The lifted SIGN body writes [shrincs_fxmss_used] (a
+    onward), shared unchanged by both digest-slot cases (table hit / fresh
+    sample) of [R_leaf''_perfect]'s SIGN bullet, at either [ro] — so it is
+    proved once here, over the digest [md] the two cases disagree about.
+    The lifted SIGN body writes [shrincs_fxmss_used] (a
     tracked loc), so the tracked put + the two ROM puts are deferred to
     [set_heap] form; the RHS [mr_sign] reads (slog/tgts/pp) are discharged
     off the buried [lf_inv2]; freshness of the appended slot [flidx zi] in
@@ -2985,321 +2987,81 @@ Qed.
     two [r_ret] leaves reconstruct [lf_inv2] with the grown used-set
     ([image_subset_setm] / [flidx_in_image_setm] / [used_valid_setm]). *)
 
-Lemma R_leaf''_real (b : bool) :
-  perfect IG (G5 b) (R_leaf'' b ∘ MIW_leaf'' true).
+Lemma r_leaf_sign_tail'' (stL : FXST) (arg : M × ('nat × 'nat)) (sc : nat)
+    (us : chMap ('nat × 'nat) 'unit) (lg : seq M) (mp : chMap ROIN D)
+    (tb : chMap (('nat × 'nat) × M) R) (pkm : {fmap (seq bool) -> N})
+    (r : R) (md : D) :
+  flok stL.2.1 arg.2 ->
+  arg.2 \notin domm us ->
+  (flidx stL.2.1 arg.2 < size (leaf_paths (tshape stL.2.1)))%N ->
+  (forall p, p \in leaf_paths (tshape stL.2.1) ->
+     getm pkm p = Some (anchor_val stL.1.1 stL.2.1 stL.2.2 p)) ->
+  ⊢ ⦃ λ '(s0, s1),
+        (lf_inv2 ⋊ rem_lhs Lst (Some stL)
+              ⋊ rem_rhs Lst (Some (stL.1, (stL.2.1, dummy_xss)))
+              ⋊ rem_lhs shrincs_fxmss_used_loc us
+              ⋊ rem_rhs shrincs_fxmss_used_loc us
+              ⋊ rem_rhs rl_pks_loc pkm) (s0, s1) ⦄
+     (#put shrincs_fxmss_used_loc := setm us arg.2 Datatypes.tt ;;
+      #put Lrt := setm tb (arg.2, arg.1) r ;;
+      #put Lrom := setm mp (r, (stL.1, (arg.2, arg.1))) md ;;
+      match fxsignx stL.1.1 stL.2.1 stL.2.2 (flidx stL.2.1 arg.2) r md with
+      | Some sg =>
+          #put Llog := rcons lg arg.1 ;;
+          #put shrincs_fxmss_scnt_loc := sc.+1 ;;
+          ret (Some sg)
+      | None =>
+          #put shrincs_fxmss_scnt_loc := sc.+1 ;;
+          ret None
+      end)
+   ≈ (#put shrincs_fxmss_used_loc := setm us arg.2 Datatypes.tt ;;
+      #put Lrt := setm tb (arg.2, arg.1) r ;;
+      #put Lrom := setm mp (r, (stL.1, (arg.2, arg.1))) md ;;
+      v ← get miw_slog_loc ;;
+      ans ← (#assert (index (spath stL.2.1 (flidx stL.2.1 arg.2))
+                        (leaf_paths (tshape stL.2.1)) \notin v) ;;
+             tgts ← get miw_tgts_loc ;;
+             match getm tgts (index (spath stL.2.1 (flidx stL.2.1 arg.2))
+                                (leaf_paths (tshape stL.2.1))) with
+             | Some (t0, xs0) =>
+                 ppo ← get miw_pp_loc ;;
+                 match ppo with
+                 | Some pp =>
+                     match leaf_sign pp t0 xs0 md with
+                     | Some ws =>
+                         #put miw_slog_loc :=
+                           rcons v (index (spath stL.2.1 (flidx stL.2.1 arg.2))
+                                      (leaf_paths (tshape stL.2.1))) ;;
+                         ret (Some ws)
+                     | None => ret None
+                     end
+                 | None =>
+                     pp ← dPP ;;
+                     #put miw_pp_loc := Some pp ;;
+                     match leaf_sign pp t0 xs0 md with
+                     | Some ws =>
+                         #put miw_slog_loc :=
+                           rcons v (index (spath stL.2.1 (flidx stL.2.1 arg.2))
+                                      (leaf_paths (tshape stL.2.1))) ;;
+                         ret (Some ws)
+                     | None => ret None
+                     end
+                 end
+             | None => ret None
+             end) ;;
+      match ans with
+      | Some ws =>
+          #put Llog := rcons lg arg.1 ;;
+          #put shrincs_fxmss_scnt_loc := sc.+1 ;;
+          ret (Some ((posid (spath stL.2.1 (flidx stL.2.1 arg.2)), r),
+                     (ws, leaf_ap stL.1.1 stL.2.1 pkm (flidx stL.2.1 arg.2))))
+      | None =>
+          #put shrincs_fxmss_scnt_loc := sc.+1 ;;
+          ret None
+      end)
+  ⦃ λ '(b0, s0) '(b1, s1), b0 = b1 ∧ lf_inv2 (s0, s1) ⦄.
 Proof.
-ssprove_share. eapply prove_perfect.
-eapply (eq_rel_perf_ind _ _ lf_inv2).
-{ rewrite /lf_inv2. ssprove_invariant. by rewrite /rel_empty /RLf2. }
-simplify_eq_rel arg.
-- (* GEN *)
-  rewrite /gen5 /gen5_body /gen_redL''.
-  eapply r_get_remember_lhs => sto.
-  eapply r_get_remember_rhs => sto'.
-  eapply (r_fact (isSome sto = isSome sto')).
-    { move=> s0 s1 [[hinv hrem0] hrem1].
-      move/lf_inv2E: hinv => [_ hR].
-      rewrite /rem_lhs /rem_rhs /= in hrem0 hrem1.
-      rewrite -hrem0 -hrem1.
-      case E0: (get_heap s0 (shrincs_fxmss_st_loc PP N)) => [st|]; rewrite E0 in hR;
-        by case: hR => hsoR _ _ _ _; rewrite hsoR. }
-  move=> eIS.
-  rewrite code_link_assertD.
-  eapply r_assertD; first by rewrite eIS.
-  move=> e0 _.
-  rewrite code_link_assertD.
-  eapply r_assertD; first by [].
-  move=> hcap _.
-  case: sto e0 eIS => [pk|] e0 eIS; first by discriminate e0.
-  eapply rpre_weaken_rule with
-    (pre := λ '(s0, s1), lblk'' None false [::] emptym emptym (s0, s1));
-    last first.
-  { move=> s0 s1 [[hinv hrem0] hrem1].
-    rewrite /rem_lhs /= in hrem0.
-    exact: (lfinv2_init s0 s1 hinv hrem0). }
-  simpl.
-  rewrite (resolve_lcq'' true (encode_adrs (gadrs (0, 0)))
-             (inl (n0, n0) : (N × N) ∐ (D × 'nat))) /miw_collq.
-  eapply (r_get_bind_rhs miw_pp_loc None).
-    { by move=> s0 s1 [_ h _ _ _]. }
-  cbv beta iota.
-  rewrite !bind_assoc.
-  eapply r_scheme_bind; first exact: prog_valid.
-  move=> pp; cbv beta.
-  eapply r_put_bind_rhs.
-    { move=> s0 s1 hpre; exact: (lblk''_set_pp pp _ _ _ _ _ _ hpre). }
-  simpl.
-  rewrite code_link_bind (code_link_scheme _ _ _ _ (prog_valid dN)).
-  eapply r_scheme_bind; first exact: prog_valid.
-  move=> x0; cbv beta.
-  rewrite code_link_bind (code_link_scheme _ _ _ _ (prog_valid dR)).
-  eapply r_scheme_bind; first exact: prog_valid.
-  move=> x1; cbv beta.
-  rewrite code_link_bind.
-  eapply (lf_tree''_spec true pp _ [::] (tshape arg) [::] emptym).
-  + exact: gen_uniq.
-  + by apply: gen_bud.
-  move=> xss hxsz hkeys.
-  cbv beta.
-  rewrite cat0s.
-  rewrite code_link_bind (code_link_scheme _ _ _ _
-             (fill_code_valid D dD emptym [interface] (iota 0 n_max) emptym)).
-  eapply (r_scheme_bind (fillc (iota 0 n_max) emptym)); first exact: fill_code_valid.
-  move=> sd; cbv beta.
-  rewrite code_link_bind.
-  eapply (r_gcheck''_spec true pp _ arg sd (iota 0 (size (leaf_paths (tshape arg))))).
-  rewrite code_link_assertD.
-  rewrite -[all _ _]/(sdgrind pp arg sd).
-  eapply r_assertD_same.
-  move=> e1.
-  simpl.
-  rewrite (resolve_lgp'' true Datatypes.tt) /miw_getpp.
-  eapply (r_get_bind_rhs miw_pp_loc (Some pp)).
-    { by move=> s0 s1 [_ h _ _ _]. }
-  cbv beta iota.
-  eapply r_put_rhs_weak.
-    { move=> s0 s1 hpre; exact: (lblk''_set_rev _ _ _ _ _ _ hpre). }
-  eapply r_put_lhs; eapply r_put_lhs.
-  eapply r_put_rhs; eapply r_put_rhs.
-  apply r_ret => s0 s1 hpre.
-  case: hpre => s1c [hpre1 ->].
-  case: hpre1 => s1d [hpre2 ->].
-  case: hpre2 => s0c [hpre3 ->].
-  case: hpre3 => s0d [hblk ->].
-  case: hblk => hign hpp hrv htws [htgts hpkm hqL hslog].
-  split; first by rewrite (tvalL_root pp arg xss hxsz).
-  apply: lf_inv2I.
-  + apply: heap_ignore_set_both.
-    apply: heap_ignore_set_l; first by rewrite mem_domm.
-    apply: heap_ignore_set_r; first by rewrite mem_domm.
-    exact: hign.
-  + get_heap_simpl.
-    rewrite hpp hrv htws htgts hpkm hqL hslog.
-    rewrite (tvalL_root pp arg xss hxsz) (lf_commitsL_root arg xss hxsz)
-            unzip1_leafcommitq.
-    split; [ by [] | by [] | by [] | by [] |].
-    split; [ by [] | | | by [] ].
-    + by move=> p hp; rewrite (getm_pkm_of pp arg xss hxsz p hp).
-    + split.
-      * by move=> x; rewrite in_nil.
-      * by move=> zi; rewrite domm0 in_fset0.
-- (* SIGN *)
-  rewrite /sign5 /sign5_body /sign_redL''.
-  ssprove_code_simpl. simpl.
-  ssprove_sync. { lf_get2_pre. } move=> sc.
-  ssprove_sync => hsc.
-  eapply r_get_remember_lhs => stoL.
-  eapply r_get_remember_rhs => stoR.
-  eapply (r_fact (isSome stoL = isSome stoR)).
-    { move=> s0 s1 [[hinv hrem0] hrem1].
-      move/lf_inv2E: hinv => [_ hR].
-      rewrite /rem_lhs /rem_rhs /= in hrem0 hrem1.
-      rewrite -hrem0 -hrem1.
-      case E0: (get_heap s0 (shrincs_fxmss_st_loc PP N)) => [st|]; rewrite E0 in hR;
-        by case: hR => hsoR _ _ _ _; rewrite hsoR. }
-  move=> eIS.
-  (* the [getSome] asserts (diverging conditions, aligned by [eIS]) *)
-  eapply r_assertD; first by move=> *; exact: eIS.
-  move=> vSomeL vSomeR.
-  (* concretize both states; the [None] cases are killed by the proofs *)
-  case: stoL eIS vSomeL => [stL|] eIS vSomeL; last by [].
-  case: stoR eIS vSomeR => [stR|] eIS vSomeR; last by [].
-  rewrite !(getSomeE stL vSomeL) !(getSomeE stR vSomeR).
-  (* the RHS state is the LHS state with a dummy key list (RLf2 [Some] branch) *)
-  eapply (r_fact (stR = (stL.1, (stL.2.1, dummy_xss)))).
-    { move=> s0 s1 [[hinv hr0] hr1].
-      move/lf_inv2E: hinv => [_ hR].
-      rewrite /rem_lhs /rem_rhs /= in hr0 hr1.
-      rewrite hr0 hr1 in hR.
-      by case: hR => /Some_inj h _ _ _ _; exact: h. }
-  move=> hstR; subst stR.
-  cbn [fst snd].
-  (* shrincs_fxmss_used : synced used-set read (loc 410), both sides agree *)
-  eapply r_get_remember_lhs => us.
-  eapply r_get_remember_rhs => usr.
-  eapply (r_fact (us = usr)).
-    { move=> s0 s1 [[[[hinv _] _] hrq] hrqr].
-      move/lf_inv2E: hinv => [hign _].
-      rewrite /rem_lhs /rem_rhs /= in hrq hrqr.
-      rewrite -hrq -hrqr.
-      apply: hign; by rewrite /IGN2 /IGN''; fmap_solve. }
-  move=> ?; subst usr.
-  (* lg, mp, tb, sd : synced reads *)
-  ssprove_sync. { lf_getr. } move=> lg.
-  ssprove_sync. { lf_getr. } move=> mp.
-  ssprove_sync. { lf_getr. } move=> tb.
-  ssprove_sync. { lf_getr. } move=> sd.
-  (* pkm : RHS-only read of [rl_pks] *)
-  eapply r_get_remember_rhs => pkm.
-  case Hg: [&& flok stL.2.1 arg.2 & arg.2 \notin domm us]; last first.
-  { (* FALSE branch: both [put shrincs_fxmss_scnt; ret None] *)
-    ssprove_sync. { lf_put2_pre. }
-    apply r_ret => s0 s1 hpre.
-    split; first by [].
-    by move: hpre => [[[[[hinv _] _] _] _] _]; exact: hinv. }
-  (* TRUE branch: valid + fresh leaf id *)
-  move: Hg => /andP [hfok hfresh].
-  have Hli := leafid_index_lt h_sf stL.2.1 arg.2 hfok.
-  (* the pk-map condition (for the coupling lemma + auth-path) *)
-  eapply (r_fact (forall p, p \in leaf_paths (tshape stL.2.1) ->
-                    getm pkm p = Some (anchor_val stL.1.1 stL.2.1 stL.2.2 p))).
-    { move=> s0 s1 [[[[[hinv hstoL] hstoR] _] _] hpkmr].
-      move/lf_inv2E: hinv => [_ hR].
-      rewrite /rem_lhs /rem_rhs /= in hstoL hstoR hpkmr.
-      rewrite hstoL hstoR in hR.
-      case: hR => _ _ _ _ [_ hpk _ _].
-      move=> p hp; rewrite -hpkmr; exact: (hpk p hp). }
-  move=> hpkm.
-  (* r <- dR (synced scheme) *)
-  rewrite ?(code_link_scheme _ _ _ _ (prog_valid dR)).
-  eapply r_scheme_bind; first exact: prog_valid. move=> r.
-  (* md (synced): the leaf-keyed slot [flidx st.2.1 arg.2] *)
-  case: (sd (flidx stL.2.1 arg.2)) => [md|]; last first.
-  { (* md sampled from dD *)
-    rewrite ?(code_link_scheme _ _ _ _ (prog_valid dD)).
-    rewrite !bind_assoc /=.
-    eapply r_scheme_bind; first exact: prog_valid. move=> md.
-    ssprove_code_simpl. simpl.
-   eapply r_put_lhs; eapply r_put_rhs;
-  eapply r_put_lhs; eapply r_put_rhs;
-  eapply r_put_lhs; eapply r_put_rhs;
-  rewrite (shrincs_fxmss_sign_x_eq_redsign stL.1.1 stL.2.1 stL.2.2 pkm
-             (flidx stL.2.1 arg.2) r md Hli hpkm);
-  rewrite !(index_sign_path h_sf stL.2.1 (flidx stL.2.1 arg.2) Hli);
-  eapply r_get_remember_rhs => v;
-  (eapply r_bind_assertD_rhs;
-   [ intros s0 s1 hpre;
-     destruct hpre as [hpre0 hvrem];
-     destruct hpre0 as [s1a [hpre1 E1]]; subst s1;
-     destruct hpre1 as [s0a [hpre2 E2]]; subst s0;
-     destruct hpre2 as [s1b [hpre3 E3]]; subst s1a;
-     destruct hpre3 as [s0b [hpre4 E4]]; subst s0a;
-     destruct hpre4 as [s1c [hpre5 E5]]; subst s1b;
-     destruct hpre5 as [s0c [hpre6 E6]]; subst s0b;
-     destruct hpre6 as [[[[[hinv hstoL] hstoR] husL] husR] hpkmr];
-     rewrite /rem_lhs /rem_rhs /= in hstoL hstoR husL husR hpkmr hvrem;
-     rewrite !get_set_heap_neq // in hvrem;
-     apply lf_inv2E in hinv; destruct hinv as [hign hR];
-     rewrite hstoL husL hvrem in hR;
-     destruct hR as [_ _ _ _ [_ _ [hsub hval] _]];
-     pose proof (flidx_notin_image stL.2.1 us arg.2 hfok hfresh hval) as hni;
-     exact (contra (hsub (flidx stL.2.1 arg.2)) hni)
-   | idtac ]);
-  intros _;
-  (eapply (r_get_bind_rhs miw_tgts_loc
-             (qmap_from 0 (leafcommitq stL.2.1 stL.2.2)));
-   [ intros s0 s1 hpre;
-     destruct hpre as [hpre0 hvrem];
-     destruct hpre0 as [s1a [hpre1 E1]]; subst s1;
-     destruct hpre1 as [s0a [hpre2 E2]]; subst s0;
-     destruct hpre2 as [s1b [hpre3 E3]]; subst s1a;
-     destruct hpre3 as [s0b [hpre4 E4]]; subst s0a;
-     destruct hpre4 as [s1c [hpre5 E5]]; subst s1b;
-     destruct hpre5 as [s0c [hpre6 E6]]; subst s0b;
-     destruct hpre6 as [[[[[hinv hstoL] hstoR] husL] husR] hpkmr];
-     rewrite /rem_lhs /rem_rhs /= in hstoL;
-     rewrite !get_set_heap_neq //;
-     apply lf_inv2E in hinv; destruct hinv as [_ hR];
-     rewrite hstoL in hR;
-     destruct hR as [_ _ _ htg _]; rewrite htg; reflexivity
-   | idtac ]);
-  rewrite (getm_leafcommitq_at stL.2.1 stL.2.2 (flidx stL.2.1 arg.2) Hli);
-  (eapply (r_get_bind_rhs miw_pp_loc (Some stL.1.1));
-   [ intros s0 s1 hpre;
-     destruct hpre as [hpre0 hvrem];
-     destruct hpre0 as [s1a [hpre1 E1]]; subst s1;
-     destruct hpre1 as [s0a [hpre2 E2]]; subst s0;
-     destruct hpre2 as [s1b [hpre3 E3]]; subst s1a;
-     destruct hpre3 as [s0b [hpre4 E4]]; subst s0a;
-     destruct hpre4 as [s1c [hpre5 E5]]; subst s1b;
-     destruct hpre5 as [s0c [hpre6 E6]]; subst s0b;
-     destruct hpre6 as [[[[[hinv hstoL] hstoR] husL] husR] hpkmr];
-     rewrite /rem_lhs /rem_rhs /= in hstoL;
-     rewrite !get_set_heap_neq //;
-     apply lf_inv2E in hinv; destruct hinv as [_ hR];
-     rewrite hstoL in hR;
-     destruct hR as [_ hpo _ _ _]; rewrite hpo; reflexivity
-   | idtac ]);
-  simpl;
-  (case: (leaf_sign stL.1.1 (panchor (spath stL.2.1 (flidx stL.2.1 arg.2)))
-           (nth [::] stL.2.2 (flidx stL.2.1 arg.2)) md) => [ws|];
-   [ eapply r_put_rhs;
-     simpl;
-     eapply r_put_lhs; eapply r_put_rhs;
-     eapply r_put_lhs; eapply r_put_rhs;
-     apply r_ret; intros s0 s1 hpre;
-     split; first by [];
-     destruct hpre as [s1A [hpre0 E1]]; subst s1;
-     destruct hpre0 as [s0A [hpre1 E2]]; subst s0;
-     destruct hpre1 as [s1B [hpre2 E3]]; subst s1A;
-     destruct hpre2 as [s0B [hpre3 E4]]; subst s0A;
-     destruct hpre3 as [s1C [hpre4 E5]]; subst s1B;
-     destruct hpre4 as [hpreW hslogput];
-     destruct hpreW as [s1D [hpreW1 E6]]; subst s1C;
-     destruct hpreW1 as [s0D [hpreW2 E7]]; subst s0B;
-     destruct hpreW2 as [s1E [hpreW3 E8]]; subst s1D;
-     destruct hpreW3 as [s0E [hpreW4 E9]]; subst s0D;
-     destruct hpreW4 as [s1F [hpreW5 E10]]; subst s1E;
-     destruct hpreW5 as [s0F [hpreW6 E11]]; subst s0E;
-     destruct hpreW6 as [[[[[hinv hstoL] hstoR] husL] husR] hpkmr];
-     rewrite /rem_lhs /rem_rhs /= in hstoL hstoR husL husR hpkmr hslogput;
-     rewrite !get_set_heap_neq // in hslogput;
-     apply lf_inv2E in hinv; destruct hinv as [hign hR];
-     apply lf_inv2I;
-     [ apply: heap_ignore_set_both;
-       apply: heap_ignore_set_both;
-       (apply: heap_ignore_set_r; first by rewrite mem_domm);
-       apply: heap_ignore_set_both;
-       apply: heap_ignore_set_both;
-       apply: heap_ignore_set_both;
-       exact: hign
-     | get_heap_simpl;
-       rewrite hstoL hstoR;
-       revert hR; rewrite hstoL hstoR husL hslogput; intro hR;
-       destruct hR as [_ hpo hrv htg [htw hpk [hsub hval] hroot]];
-       split; [ by [] | exact: hpo | exact: hrv | exact: htg |];
-       split; [ exact: htw | exact: hpk | | exact: hroot ];
-       split;
-       [ intros x; rewrite mem_rcons in_cons; intro Hor;
-         destruct (elimT orP Hor) as [Heq | hx];
-         [ apply (elimT eqP) in Heq; subst x; exact: flidx_in_image_setm
-         | exact: (image_subset_setm stL.2.1 us arg.2 _ (hsub x hx)) ]
-       | exact: (used_valid_setm stL.2.1 us arg.2 hfok hval) ] ]
-   | simpl;
-     eapply r_put_lhs; eapply r_put_rhs;
-     apply r_ret; intros s0 s1 hpre;
-     split; first by [];
-     destruct hpre as [s1A [hpre0 E1]]; subst s1;
-     destruct hpre0 as [s0A [hpreWm E2]]; subst s0;
-     destruct hpreWm as [hpreW hslogput];
-     destruct hpreW as [s1D [hpreW1 E3]]; subst s1A;
-     destruct hpreW1 as [s0D [hpreW2 E4]]; subst s0A;
-     destruct hpreW2 as [s1E [hpreW3 E5]]; subst s1D;
-     destruct hpreW3 as [s0E [hpreW4 E6]]; subst s0D;
-     destruct hpreW4 as [s1F [hpreW5 E7]]; subst s1E;
-     destruct hpreW5 as [s0F [hpreW6 E8]]; subst s0E;
-     destruct hpreW6 as [[[[[hinv hstoL] hstoR] husL] husR] hpkmr];
-     rewrite /rem_lhs /rem_rhs /= in hstoL hstoR husL husR hpkmr hslogput;
-     rewrite !get_set_heap_neq // in hslogput;
-     apply lf_inv2E in hinv; destruct hinv as [hign hR];
-     apply lf_inv2I;
-     [ apply: heap_ignore_set_both;
-       apply: heap_ignore_set_both;
-       apply: heap_ignore_set_both;
-       apply: heap_ignore_set_both;
-       exact: hign
-     | get_heap_simpl;
-       rewrite hstoL hstoR;
-       revert hR; rewrite hstoL hstoR husL hslogput; intro hR;
-       destruct hR as [_ hpo hrv htg [htw hpk [hsub hval] hroot]];
-       split; [ by [] | exact: hpo | exact: hrv | exact: htg |];
-       split; [ exact: htw | exact: hpk | | exact: hroot ];
-       split;
-       [ intros x hx;
-         exact: (image_subset_setm stL.2.1 us arg.2 _ (hsub x hx))
-       | exact: (used_valid_setm stL.2.1 us arg.2 hfok hval) ] ] ]). }
-  ssprove_code_simpl. simpl.
-  (* === SIGN coupling tail (md = sd sc) === *)
+move=> hfok hfresh Hli hpkm.
   eapply r_put_lhs; eapply r_put_rhs;
   eapply r_put_lhs; eapply r_put_rhs;
   eapply r_put_lhs; eapply r_put_rhs;
@@ -3438,6 +3200,199 @@ simplify_eq_rel arg.
        [ intros x hx;
          exact: (image_subset_setm stL.2.1 us arg.2 _ (hsub x hx))
        | exact: (used_valid_setm stL.2.1 us arg.2 hfok hval) ] ] ]).
+Qed.
+
+(** The two leaf perfects are ONE statement.  [G5f] and [G6f] are the same
+    [Gkeep] package family at two FORGE-verdict modifiers ([fun _ => true]
+    resp. [keepAnchor]), and the [MIW_leaf''] bool travels with them, so the
+    whole coupling is uniform in [ro] except the FORGE LCHECK branch (where
+    [ro = false] collapses LCHECK to [ret false]). *)
+Local Notation Gkp keep b :=
+  (Gkeep PP N D M R F Tl Hgrind Htree dPP dN dR dD S_wn c_max h_sf
+     q_s q_h n_max q_f keep b).
+
+Lemma R_leaf''_perfect (ro b : bool) :
+  perfect IG (Gkp (if ro then (fun _ => true) else keepA) b)
+             (R_leaf'' b ∘ MIW_leaf'' ro).
+Proof.
+ssprove_share. eapply prove_perfect.
+eapply (eq_rel_perf_ind _ _ lf_inv2).
+{ rewrite /lf_inv2. ssprove_invariant. by rewrite /rel_empty /RLf2. }
+simplify_eq_rel arg.
+- (* GEN *)
+  rewrite /gen5 /gen5_body /gen_redL''.
+  eapply r_get_remember_lhs => sto.
+  eapply r_get_remember_rhs => sto'.
+  eapply (r_fact (isSome sto = isSome sto')).
+    { move=> s0 s1 [[hinv hrem0] hrem1].
+      move/lf_inv2E: hinv => [_ hR].
+      rewrite /rem_lhs /rem_rhs /= in hrem0 hrem1.
+      rewrite -hrem0 -hrem1.
+      case E0: (get_heap s0 (shrincs_fxmss_st_loc PP N)) => [st|]; rewrite E0 in hR;
+        by case: hR => hsoR _ _ _ _; rewrite hsoR. }
+  move=> eIS.
+  rewrite code_link_assertD.
+  eapply r_assertD; first by rewrite eIS.
+  move=> e0 _.
+  rewrite code_link_assertD.
+  eapply r_assertD; first by [].
+  move=> hcap _.
+  case: sto e0 eIS => [pk|] e0 eIS; first by discriminate e0.
+  eapply rpre_weaken_rule with
+    (pre := λ '(s0, s1), lblk'' None false [::] emptym emptym (s0, s1));
+    last first.
+  { move=> s0 s1 [[hinv hrem0] hrem1].
+    rewrite /rem_lhs /= in hrem0.
+    exact: (lfinv2_init s0 s1 hinv hrem0). }
+  simpl.
+  rewrite (resolve_lcq'' ro (encode_adrs (gadrs (0, 0)))
+             (inl (n0, n0) : (N × N) ∐ (D × 'nat))) /miw_collq.
+  eapply (r_get_bind_rhs miw_pp_loc None).
+    { by move=> s0 s1 [_ h _ _ _]. }
+  cbv beta iota.
+  rewrite !bind_assoc.
+  eapply r_scheme_bind; first exact: prog_valid.
+  move=> pp; cbv beta.
+  eapply r_put_bind_rhs.
+    { move=> s0 s1 hpre; exact: (lblk''_set_pp pp _ _ _ _ _ _ hpre). }
+  simpl.
+  rewrite code_link_bind (code_link_scheme _ _ _ _ (prog_valid dN)).
+  eapply r_scheme_bind; first exact: prog_valid.
+  move=> x0; cbv beta.
+  rewrite code_link_bind (code_link_scheme _ _ _ _ (prog_valid dR)).
+  eapply r_scheme_bind; first exact: prog_valid.
+  move=> x1; cbv beta.
+  rewrite code_link_bind.
+  eapply (lf_tree''_spec ro pp _ [::] (tshape arg) [::] emptym).
+  + exact: gen_uniq.
+  + by apply: gen_bud.
+  move=> xss hxsz hkeys.
+  cbv beta.
+  rewrite cat0s.
+  rewrite code_link_bind (code_link_scheme _ _ _ _
+             (fill_code_valid D dD emptym [interface] (iota 0 n_max) emptym)).
+  eapply (r_scheme_bind (fillc (iota 0 n_max) emptym)); first exact: fill_code_valid.
+  move=> sd; cbv beta.
+  rewrite code_link_bind.
+  eapply (r_gcheck''_spec ro pp _ arg sd (iota 0 (size (leaf_paths (tshape arg))))).
+  rewrite code_link_assertD.
+  rewrite -[all _ _]/(sdgrind pp arg sd).
+  eapply r_assertD_same.
+  move=> e1.
+  simpl.
+  rewrite (resolve_lgp'' ro Datatypes.tt) /miw_getpp.
+  eapply (r_get_bind_rhs miw_pp_loc (Some pp)).
+    { by move=> s0 s1 [_ h _ _ _]. }
+  cbv beta iota.
+  eapply r_put_rhs_weak.
+    { move=> s0 s1 hpre; exact: (lblk''_set_rev _ _ _ _ _ _ hpre). }
+  eapply r_put_lhs; eapply r_put_lhs.
+  eapply r_put_rhs; eapply r_put_rhs.
+  apply r_ret => s0 s1 hpre.
+  case: hpre => s1c [hpre1 ->].
+  case: hpre1 => s1d [hpre2 ->].
+  case: hpre2 => s0c [hpre3 ->].
+  case: hpre3 => s0d [hblk ->].
+  case: hblk => hign hpp hrv htws [htgts hpkm hqL hslog].
+  split; first by rewrite (tvalL_root pp arg xss hxsz).
+  apply: lf_inv2I.
+  + apply: heap_ignore_set_both.
+    apply: heap_ignore_set_l; first by rewrite mem_domm.
+    apply: heap_ignore_set_r; first by rewrite mem_domm.
+    exact: hign.
+  + get_heap_simpl.
+    rewrite hpp hrv htws htgts hpkm hqL hslog.
+    rewrite (tvalL_root pp arg xss hxsz) (lf_commitsL_root arg xss hxsz)
+            unzip1_leafcommitq.
+    split; [ by [] | by [] | by [] | by [] |].
+    split; [ by [] | | | by [] ].
+    + by move=> p hp; rewrite (getm_pkm_of pp arg xss hxsz p hp).
+    + split.
+      * by move=> x; rewrite in_nil.
+      * by move=> zi; rewrite domm0 in_fset0.
+- (* SIGN *)
+  rewrite /sign5 /sign5_body /sign_redL''.
+  ssprove_code_simpl. simpl.
+  ssprove_sync. { lf_get2_pre. } move=> sc.
+  ssprove_sync => hsc.
+  eapply r_get_remember_lhs => stoL.
+  eapply r_get_remember_rhs => stoR.
+  eapply (r_fact (isSome stoL = isSome stoR)).
+    { move=> s0 s1 [[hinv hrem0] hrem1].
+      move/lf_inv2E: hinv => [_ hR].
+      rewrite /rem_lhs /rem_rhs /= in hrem0 hrem1.
+      rewrite -hrem0 -hrem1.
+      case E0: (get_heap s0 (shrincs_fxmss_st_loc PP N)) => [st|]; rewrite E0 in hR;
+        by case: hR => hsoR _ _ _ _; rewrite hsoR. }
+  move=> eIS.
+  (* the [getSome] asserts (diverging conditions, aligned by [eIS]) *)
+  eapply r_assertD; first by move=> *; exact: eIS.
+  move=> vSomeL vSomeR.
+  (* concretize both states; the [None] cases are killed by the proofs *)
+  case: stoL eIS vSomeL => [stL|] eIS vSomeL; last by [].
+  case: stoR eIS vSomeR => [stR|] eIS vSomeR; last by [].
+  rewrite !(getSomeE stL vSomeL) !(getSomeE stR vSomeR).
+  (* the RHS state is the LHS state with a dummy key list (RLf2 [Some] branch) *)
+  eapply (r_fact (stR = (stL.1, (stL.2.1, dummy_xss)))).
+    { move=> s0 s1 [[hinv hr0] hr1].
+      move/lf_inv2E: hinv => [_ hR].
+      rewrite /rem_lhs /rem_rhs /= in hr0 hr1.
+      rewrite hr0 hr1 in hR.
+      by case: hR => /Some_inj h _ _ _ _; exact: h. }
+  move=> hstR; subst stR.
+  cbn [fst snd].
+  (* shrincs_fxmss_used : synced used-set read (loc 410), both sides agree *)
+  eapply r_get_remember_lhs => us.
+  eapply r_get_remember_rhs => usr.
+  eapply (r_fact (us = usr)).
+    { move=> s0 s1 [[[[hinv _] _] hrq] hrqr].
+      move/lf_inv2E: hinv => [hign _].
+      rewrite /rem_lhs /rem_rhs /= in hrq hrqr.
+      rewrite -hrq -hrqr.
+      apply: hign; by rewrite /IGN2 /IGN''; fmap_solve. }
+  move=> ?; subst usr.
+  (* lg, mp, tb, sd : synced reads *)
+  ssprove_sync. { lf_getr. } move=> lg.
+  ssprove_sync. { lf_getr. } move=> mp.
+  ssprove_sync. { lf_getr. } move=> tb.
+  ssprove_sync. { lf_getr. } move=> sd.
+  (* pkm : RHS-only read of [rl_pks] *)
+  eapply r_get_remember_rhs => pkm.
+  case Hg: [&& flok stL.2.1 arg.2 & arg.2 \notin domm us]; last first.
+  { (* FALSE branch: both [put shrincs_fxmss_scnt; ret None] *)
+    ssprove_sync. { lf_put2_pre. }
+    apply r_ret => s0 s1 hpre.
+    split; first by [].
+    by move: hpre => [[[[[hinv _] _] _] _] _]; exact: hinv. }
+  (* TRUE branch: valid + fresh leaf id *)
+  move: Hg => /andP [hfok hfresh].
+  have Hli := leafid_index_lt h_sf stL.2.1 arg.2 hfok.
+  (* the pk-map condition (for the coupling lemma + auth-path) *)
+  eapply (r_fact (forall p, p \in leaf_paths (tshape stL.2.1) ->
+                    getm pkm p = Some (anchor_val stL.1.1 stL.2.1 stL.2.2 p))).
+    { move=> s0 s1 [[[[[hinv hstoL] hstoR] _] _] hpkmr].
+      move/lf_inv2E: hinv => [_ hR].
+      rewrite /rem_lhs /rem_rhs /= in hstoL hstoR hpkmr.
+      rewrite hstoL hstoR in hR.
+      case: hR => _ _ _ _ [_ hpk _ _].
+      move=> p hp; rewrite -hpkmr; exact: (hpk p hp). }
+  move=> hpkm.
+  (* r <- dR (synced scheme) *)
+  rewrite ?(code_link_scheme _ _ _ _ (prog_valid dR)).
+  eapply r_scheme_bind; first exact: prog_valid. move=> r.
+  (* md (synced): the leaf-keyed slot [flidx st.2.1 arg.2] *)
+  case: (sd (flidx stL.2.1 arg.2)) => [md|]; last first.
+  { (* md sampled from dD *)
+    rewrite ?(code_link_scheme _ _ _ _ (prog_valid dD)).
+    rewrite !bind_assoc /=.
+    eapply r_scheme_bind; first exact: prog_valid. move=> md.
+    ssprove_code_simpl. simpl.
+    exact: (r_leaf_sign_tail'' stL arg sc us lg mp tb pkm r md
+              hfok hfresh Hli hpkm). }
+  ssprove_code_simpl. simpl.
+  (* md read from the digest slot [sd (flidx …)]; same tail *)
+  exact: (r_leaf_sign_tail'' stL arg sc us lg mp tb pkm r md
+            hfok hfresh Hli hpkm).
 - (* HASH *)
   rewrite /hash5 /hash5_body.
   ssprove_code_simpl. simpl.
@@ -3461,6 +3416,66 @@ simplify_eq_rel arg.
   rewrite /forge_keep_body /forge_redL''.
   ssprove_code_simpl. simpl.
   ssprove_sync. { lf_get2_pre. } move=> fc.
+  case: ro; last first.
+  { (* IDEAL: LCHECK is [ret false], so the FAnchor verdict is [_ && false]. *)
+    eapply rel_jdg_replace; [| reflexivity | solve [ssprove_match_commut_gen]].
+    simpl.
+    ssprove_sync => hfc.
+    eapply r_get_remember_lhs => stoL.
+    eapply r_get_remember_rhs => stoR.
+    eapply (r_fact (isSome stoL = isSome stoR)).
+      { move=> s0 s1 [[hinv hrem0] hrem1].
+        move/lf_inv2E: hinv => [_ hR].
+        rewrite /rem_lhs /rem_rhs /= in hrem0 hrem1.
+        rewrite -hrem0 -hrem1.
+        case E0: (get_heap s0 (shrincs_fxmss_st_loc PP N)) => [st|]; rewrite E0 in hR;
+          by case: hR => hsoR _ _ _ _; rewrite hsoR. }
+    move=> eIS.
+    eapply r_assertD; first by move=> *; exact: eIS.
+    move=> vSomeL vSomeR.
+    case: stoL eIS vSomeL => [stL|] eIS vSomeL; last by [].
+    case: stoR eIS vSomeR => [stR|] eIS vSomeR; last by [].
+    rewrite !(getSomeE stL vSomeL) !(getSomeE stR vSomeR).
+    eapply (r_fact (stR = (stL.1, (stL.2.1, dummy_xss)))).
+      { move=> s0 s1 [[hinv hr0] hr1].
+        move/lf_inv2E: hinv => [_ hR].
+        rewrite /rem_lhs /rem_rhs /= in hr0 hr1.
+        rewrite hr0 hr1 in hR.
+        by case: hR => /Some_inj h _ _ _ _; exact: h. }
+    move=> hstR; subst stR.
+    cbn [fst snd].
+    ssprove_code_simpl. simpl.
+    ssprove_sync. { lf_getr. } move=> lg.
+    ssprove_sync. { lf_getr. } move=> mp.
+    ssprove_sync. { lf_getr. } move=> tb.
+    ssprove_sync. { lf_getr. } move=> sd.
+    eapply r_get_remember_rhs => pkm.
+    eapply (r_fact (forall p, p \in leaf_paths (tshape stL.2.1) ->
+                      getm pkm p = Some (anchor_val stL.1.1 stL.2.1 stL.2.2 p))).
+      { move=> s0 s1 [[[hinv hstoL] hstoR] hpkmr].
+        move/lf_inv2E: hinv => [_ hR].
+        rewrite /rem_lhs /rem_rhs /= in hstoL hstoR hpkmr.
+        rewrite hstoL hstoR in hR.
+        case: hR => _ _ _ _ [_ hpk _ _].
+        move=> p hp; rewrite -hpkmr; exact: (hpk p hp). }
+    move=> hpkm.
+    case Emd: (getm mp (sg.1.2, (stL.1, (sg.1.1, m)))) => [md|]; last first.
+    { rewrite (code_link_scheme _ _ _ _ (prog_valid dD)).
+      eapply r_scheme_bind; first exact: prog_valid. move=> md.
+      ssprove_code_simpl. simpl.
+      ssprove_sync. { lf_put2_pre. }
+      ssprove_sync. { lf_put2_pre. }
+      case: b; last first.
+      { apply r_ret => s0 s1 hpre. split; first by [].
+        by move: hpre => [[[hinv _] _] _]; exact: hinv. }
+      exact: (r_leaf_forge_verdict''_ideal stL pkm lg tb sd m sg md hpkm). }
+    ssprove_code_simpl. simpl.
+    ssprove_sync. { lf_put2_pre. }
+    ssprove_sync. { lf_put2_pre. }
+    case: b; last first.
+    { apply r_ret => s0 s1 hpre. split; first by [].
+      by move: hpre => [[[hinv _] _] _]; exact: hinv. }
+    exact: (r_leaf_forge_verdict''_ideal stL pkm lg tb sd m sg md hpkm). }
   ssprove_code_simpl. simpl.
   ssprove_sync => hfc.
   eapply r_get_remember_lhs => stoL.
@@ -3520,541 +3535,13 @@ simplify_eq_rel arg.
   exact: (r_leaf_forge_verdict'' stL pkm lg tb sd m sg md hpkm).
 Qed.
 
+Lemma R_leaf''_real (b : bool) :
+  perfect IG (G5 b) (R_leaf'' b ∘ MIW_leaf'' true).
+Proof. exact: (R_leaf''_perfect true b). Qed.
+
 Lemma R_leaf''_ideal (b : bool) :
   perfect IG (G6 b) (R_leaf'' b ∘ MIW_leaf'' false).
-Proof.
-ssprove_share. eapply prove_perfect.
-eapply (eq_rel_perf_ind _ _ lf_inv2).
-{ rewrite /lf_inv2. ssprove_invariant. by rewrite /rel_empty /RLf2. }
-simplify_eq_rel arg.
-- (* GEN *)
-  rewrite /gen5 /gen5_body /gen_redL''.
-  eapply r_get_remember_lhs => sto.
-  eapply r_get_remember_rhs => sto'.
-  eapply (r_fact (isSome sto = isSome sto')).
-    { move=> s0 s1 [[hinv hrem0] hrem1].
-      move/lf_inv2E: hinv => [_ hR].
-      rewrite /rem_lhs /rem_rhs /= in hrem0 hrem1.
-      rewrite -hrem0 -hrem1.
-      case E0: (get_heap s0 (shrincs_fxmss_st_loc PP N)) => [st|]; rewrite E0 in hR;
-        by case: hR => hsoR _ _ _ _; rewrite hsoR. }
-  move=> eIS.
-  rewrite code_link_assertD.
-  eapply r_assertD; first by rewrite eIS.
-  move=> e0 _.
-  rewrite code_link_assertD.
-  eapply r_assertD; first by [].
-  move=> hcap _.
-  case: sto e0 eIS => [pk|] e0 eIS; first by discriminate e0.
-  eapply rpre_weaken_rule with
-    (pre := λ '(s0, s1), lblk'' None false [::] emptym emptym (s0, s1));
-    last first.
-  { move=> s0 s1 [[hinv hrem0] hrem1].
-    rewrite /rem_lhs /= in hrem0.
-    exact: (lfinv2_init s0 s1 hinv hrem0). }
-  simpl.
-  rewrite (resolve_lcq'' false (encode_adrs (gadrs (0, 0)))
-             (inl (n0, n0) : (N × N) ∐ (D × 'nat))) /miw_collq.
-  eapply (r_get_bind_rhs miw_pp_loc None).
-    { by move=> s0 s1 [_ h _ _ _]. }
-  cbv beta iota.
-  rewrite !bind_assoc.
-  eapply r_scheme_bind; first exact: prog_valid.
-  move=> pp; cbv beta.
-  eapply r_put_bind_rhs.
-    { move=> s0 s1 hpre; exact: (lblk''_set_pp pp _ _ _ _ _ _ hpre). }
-  simpl.
-  rewrite code_link_bind (code_link_scheme _ _ _ _ (prog_valid dN)).
-  eapply r_scheme_bind; first exact: prog_valid.
-  move=> x0; cbv beta.
-  rewrite code_link_bind (code_link_scheme _ _ _ _ (prog_valid dR)).
-  eapply r_scheme_bind; first exact: prog_valid.
-  move=> x1; cbv beta.
-  rewrite code_link_bind.
-  eapply (lf_tree''_spec false pp _ [::] (tshape arg) [::] emptym).
-  + exact: gen_uniq.
-  + by apply: gen_bud.
-  move=> xss hxsz hkeys.
-  cbv beta.
-  rewrite cat0s.
-  rewrite code_link_bind (code_link_scheme _ _ _ _
-             (fill_code_valid D dD emptym [interface] (iota 0 n_max) emptym)).
-  eapply (r_scheme_bind (fillc (iota 0 n_max) emptym)); first exact: fill_code_valid.
-  move=> sd; cbv beta.
-  rewrite code_link_bind.
-  eapply (r_gcheck''_spec false pp _ arg sd (iota 0 (size (leaf_paths (tshape arg))))).
-  rewrite code_link_assertD.
-  rewrite -[all _ _]/(sdgrind pp arg sd).
-  eapply r_assertD_same.
-  move=> e1.
-  simpl.
-  rewrite (resolve_lgp'' false Datatypes.tt) /miw_getpp.
-  eapply (r_get_bind_rhs miw_pp_loc (Some pp)).
-    { by move=> s0 s1 [_ h _ _ _]. }
-  cbv beta iota.
-  eapply r_put_rhs_weak.
-    { move=> s0 s1 hpre; exact: (lblk''_set_rev _ _ _ _ _ _ hpre). }
-  eapply r_put_lhs; eapply r_put_lhs.
-  eapply r_put_rhs; eapply r_put_rhs.
-  apply r_ret => s0 s1 hpre.
-  case: hpre => s1c [hpre1 ->].
-  case: hpre1 => s1d [hpre2 ->].
-  case: hpre2 => s0c [hpre3 ->].
-  case: hpre3 => s0d [hblk ->].
-  case: hblk => hign hpp hrv htws [htgts hpkm hqL hslog].
-  split; first by rewrite (tvalL_root pp arg xss hxsz).
-  apply: lf_inv2I.
-  + apply: heap_ignore_set_both.
-    apply: heap_ignore_set_l; first by rewrite mem_domm.
-    apply: heap_ignore_set_r; first by rewrite mem_domm.
-    exact: hign.
-  + get_heap_simpl.
-    rewrite hpp hrv htws htgts hpkm hqL hslog.
-    rewrite (tvalL_root pp arg xss hxsz) (lf_commitsL_root arg xss hxsz)
-            unzip1_leafcommitq.
-    split; [ by [] | by [] | by [] | by [] |].
-    split; [ by [] | | | by [] ].
-    + by move=> p hp; rewrite (getm_pkm_of pp arg xss hxsz p hp).
-    + split.
-      * by move=> x; rewrite in_nil.
-      * by move=> zi; rewrite domm0 in_fset0.
-- (* SIGN *)
-  rewrite /sign5 /sign5_body /sign_redL''.
-  ssprove_code_simpl. simpl.
-  ssprove_sync. { lf_get2_pre. } move=> sc.
-  ssprove_sync => hsc.
-  eapply r_get_remember_lhs => stoL.
-  eapply r_get_remember_rhs => stoR.
-  eapply (r_fact (isSome stoL = isSome stoR)).
-    { move=> s0 s1 [[hinv hrem0] hrem1].
-      move/lf_inv2E: hinv => [_ hR].
-      rewrite /rem_lhs /rem_rhs /= in hrem0 hrem1.
-      rewrite -hrem0 -hrem1.
-      case E0: (get_heap s0 (shrincs_fxmss_st_loc PP N)) => [st|]; rewrite E0 in hR;
-        by case: hR => hsoR _ _ _ _; rewrite hsoR. }
-  move=> eIS.
-  (* the [getSome] asserts (diverging conditions, aligned by [eIS]) *)
-  eapply r_assertD; first by move=> *; exact: eIS.
-  move=> vSomeL vSomeR.
-  (* concretize both states; the [None] cases are killed by the proofs *)
-  case: stoL eIS vSomeL => [stL|] eIS vSomeL; last by [].
-  case: stoR eIS vSomeR => [stR|] eIS vSomeR; last by [].
-  rewrite !(getSomeE stL vSomeL) !(getSomeE stR vSomeR).
-  (* the RHS state is the LHS state with a dummy key list (RLf2 [Some] branch) *)
-  eapply (r_fact (stR = (stL.1, (stL.2.1, dummy_xss)))).
-    { move=> s0 s1 [[hinv hr0] hr1].
-      move/lf_inv2E: hinv => [_ hR].
-      rewrite /rem_lhs /rem_rhs /= in hr0 hr1.
-      rewrite hr0 hr1 in hR.
-      by case: hR => /Some_inj h _ _ _ _; exact: h. }
-  move=> hstR; subst stR.
-  cbn [fst snd].
-  (* shrincs_fxmss_used : synced used-set read (loc 410), both sides agree *)
-  eapply r_get_remember_lhs => us.
-  eapply r_get_remember_rhs => usr.
-  eapply (r_fact (us = usr)).
-    { move=> s0 s1 [[[[hinv _] _] hrq] hrqr].
-      move/lf_inv2E: hinv => [hign _].
-      rewrite /rem_lhs /rem_rhs /= in hrq hrqr.
-      rewrite -hrq -hrqr.
-      apply: hign; by rewrite /IGN2 /IGN''; fmap_solve. }
-  move=> ?; subst usr.
-  (* lg, mp, tb, sd : synced reads *)
-  ssprove_sync. { lf_getr. } move=> lg.
-  ssprove_sync. { lf_getr. } move=> mp.
-  ssprove_sync. { lf_getr. } move=> tb.
-  ssprove_sync. { lf_getr. } move=> sd.
-  (* pkm : RHS-only read of [rl_pks] *)
-  eapply r_get_remember_rhs => pkm.
-  case Hg: [&& flok stL.2.1 arg.2 & arg.2 \notin domm us]; last first.
-  { (* FALSE branch: both [put shrincs_fxmss_scnt; ret None] *)
-    ssprove_sync. { lf_put2_pre. }
-    apply r_ret => s0 s1 hpre.
-    split; first by [].
-    by move: hpre => [[[[[hinv _] _] _] _] _]; exact: hinv. }
-  (* TRUE branch: valid + fresh leaf id *)
-  move: Hg => /andP [hfok hfresh].
-  have Hli := leafid_index_lt h_sf stL.2.1 arg.2 hfok.
-  (* the pk-map condition (for the coupling lemma + auth-path) *)
-  eapply (r_fact (forall p, p \in leaf_paths (tshape stL.2.1) ->
-                    getm pkm p = Some (anchor_val stL.1.1 stL.2.1 stL.2.2 p))).
-    { move=> s0 s1 [[[[[hinv hstoL] hstoR] _] _] hpkmr].
-      move/lf_inv2E: hinv => [_ hR].
-      rewrite /rem_lhs /rem_rhs /= in hstoL hstoR hpkmr.
-      rewrite hstoL hstoR in hR.
-      case: hR => _ _ _ _ [_ hpk _ _].
-      move=> p hp; rewrite -hpkmr; exact: (hpk p hp). }
-  move=> hpkm.
-  (* r <- dR (synced scheme) *)
-  rewrite ?(code_link_scheme _ _ _ _ (prog_valid dR)).
-  eapply r_scheme_bind; first exact: prog_valid. move=> r.
-  (* md (synced): the leaf-keyed slot [flidx st.2.1 arg.2] *)
-  case: (sd (flidx stL.2.1 arg.2)) => [md|]; last first.
-  { (* md sampled from dD *)
-    rewrite ?(code_link_scheme _ _ _ _ (prog_valid dD)).
-    rewrite !bind_assoc /=.
-    eapply r_scheme_bind; first exact: prog_valid. move=> md.
-    ssprove_code_simpl. simpl.
-   eapply r_put_lhs; eapply r_put_rhs;
-  eapply r_put_lhs; eapply r_put_rhs;
-  eapply r_put_lhs; eapply r_put_rhs;
-  rewrite (shrincs_fxmss_sign_x_eq_redsign stL.1.1 stL.2.1 stL.2.2 pkm
-             (flidx stL.2.1 arg.2) r md Hli hpkm);
-  rewrite !(index_sign_path h_sf stL.2.1 (flidx stL.2.1 arg.2) Hli);
-  eapply r_get_remember_rhs => v;
-  (eapply r_bind_assertD_rhs;
-   [ intros s0 s1 hpre;
-     destruct hpre as [hpre0 hvrem];
-     destruct hpre0 as [s1a [hpre1 E1]]; subst s1;
-     destruct hpre1 as [s0a [hpre2 E2]]; subst s0;
-     destruct hpre2 as [s1b [hpre3 E3]]; subst s1a;
-     destruct hpre3 as [s0b [hpre4 E4]]; subst s0a;
-     destruct hpre4 as [s1c [hpre5 E5]]; subst s1b;
-     destruct hpre5 as [s0c [hpre6 E6]]; subst s0b;
-     destruct hpre6 as [[[[[hinv hstoL] hstoR] husL] husR] hpkmr];
-     rewrite /rem_lhs /rem_rhs /= in hstoL hstoR husL husR hpkmr hvrem;
-     rewrite !get_set_heap_neq // in hvrem;
-     apply lf_inv2E in hinv; destruct hinv as [hign hR];
-     rewrite hstoL husL hvrem in hR;
-     destruct hR as [_ _ _ _ [_ _ [hsub hval] _]];
-     pose proof (flidx_notin_image stL.2.1 us arg.2 hfok hfresh hval) as hni;
-     exact (contra (hsub (flidx stL.2.1 arg.2)) hni)
-   | idtac ]);
-  intros _;
-  (eapply (r_get_bind_rhs miw_tgts_loc
-             (qmap_from 0 (leafcommitq stL.2.1 stL.2.2)));
-   [ intros s0 s1 hpre;
-     destruct hpre as [hpre0 hvrem];
-     destruct hpre0 as [s1a [hpre1 E1]]; subst s1;
-     destruct hpre1 as [s0a [hpre2 E2]]; subst s0;
-     destruct hpre2 as [s1b [hpre3 E3]]; subst s1a;
-     destruct hpre3 as [s0b [hpre4 E4]]; subst s0a;
-     destruct hpre4 as [s1c [hpre5 E5]]; subst s1b;
-     destruct hpre5 as [s0c [hpre6 E6]]; subst s0b;
-     destruct hpre6 as [[[[[hinv hstoL] hstoR] husL] husR] hpkmr];
-     rewrite /rem_lhs /rem_rhs /= in hstoL;
-     rewrite !get_set_heap_neq //;
-     apply lf_inv2E in hinv; destruct hinv as [_ hR];
-     rewrite hstoL in hR;
-     destruct hR as [_ _ _ htg _]; rewrite htg; reflexivity
-   | idtac ]);
-  rewrite (getm_leafcommitq_at stL.2.1 stL.2.2 (flidx stL.2.1 arg.2) Hli);
-  (eapply (r_get_bind_rhs miw_pp_loc (Some stL.1.1));
-   [ intros s0 s1 hpre;
-     destruct hpre as [hpre0 hvrem];
-     destruct hpre0 as [s1a [hpre1 E1]]; subst s1;
-     destruct hpre1 as [s0a [hpre2 E2]]; subst s0;
-     destruct hpre2 as [s1b [hpre3 E3]]; subst s1a;
-     destruct hpre3 as [s0b [hpre4 E4]]; subst s0a;
-     destruct hpre4 as [s1c [hpre5 E5]]; subst s1b;
-     destruct hpre5 as [s0c [hpre6 E6]]; subst s0b;
-     destruct hpre6 as [[[[[hinv hstoL] hstoR] husL] husR] hpkmr];
-     rewrite /rem_lhs /rem_rhs /= in hstoL;
-     rewrite !get_set_heap_neq //;
-     apply lf_inv2E in hinv; destruct hinv as [_ hR];
-     rewrite hstoL in hR;
-     destruct hR as [_ hpo _ _ _]; rewrite hpo; reflexivity
-   | idtac ]);
-  simpl;
-  (case: (leaf_sign stL.1.1 (panchor (spath stL.2.1 (flidx stL.2.1 arg.2)))
-           (nth [::] stL.2.2 (flidx stL.2.1 arg.2)) md) => [ws|];
-   [ eapply r_put_rhs;
-     simpl;
-     eapply r_put_lhs; eapply r_put_rhs;
-     eapply r_put_lhs; eapply r_put_rhs;
-     apply r_ret; intros s0 s1 hpre;
-     split; first by [];
-     destruct hpre as [s1A [hpre0 E1]]; subst s1;
-     destruct hpre0 as [s0A [hpre1 E2]]; subst s0;
-     destruct hpre1 as [s1B [hpre2 E3]]; subst s1A;
-     destruct hpre2 as [s0B [hpre3 E4]]; subst s0A;
-     destruct hpre3 as [s1C [hpre4 E5]]; subst s1B;
-     destruct hpre4 as [hpreW hslogput];
-     destruct hpreW as [s1D [hpreW1 E6]]; subst s1C;
-     destruct hpreW1 as [s0D [hpreW2 E7]]; subst s0B;
-     destruct hpreW2 as [s1E [hpreW3 E8]]; subst s1D;
-     destruct hpreW3 as [s0E [hpreW4 E9]]; subst s0D;
-     destruct hpreW4 as [s1F [hpreW5 E10]]; subst s1E;
-     destruct hpreW5 as [s0F [hpreW6 E11]]; subst s0E;
-     destruct hpreW6 as [[[[[hinv hstoL] hstoR] husL] husR] hpkmr];
-     rewrite /rem_lhs /rem_rhs /= in hstoL hstoR husL husR hpkmr hslogput;
-     rewrite !get_set_heap_neq // in hslogput;
-     apply lf_inv2E in hinv; destruct hinv as [hign hR];
-     apply lf_inv2I;
-     [ apply: heap_ignore_set_both;
-       apply: heap_ignore_set_both;
-       (apply: heap_ignore_set_r; first by rewrite mem_domm);
-       apply: heap_ignore_set_both;
-       apply: heap_ignore_set_both;
-       apply: heap_ignore_set_both;
-       exact: hign
-     | get_heap_simpl;
-       rewrite hstoL hstoR;
-       revert hR; rewrite hstoL hstoR husL hslogput; intro hR;
-       destruct hR as [_ hpo hrv htg [htw hpk [hsub hval] hroot]];
-       split; [ by [] | exact: hpo | exact: hrv | exact: htg |];
-       split; [ exact: htw | exact: hpk | | exact: hroot ];
-       split;
-       [ intros x; rewrite mem_rcons in_cons; intro Hor;
-         destruct (elimT orP Hor) as [Heq | hx];
-         [ apply (elimT eqP) in Heq; subst x; exact: flidx_in_image_setm
-         | exact: (image_subset_setm stL.2.1 us arg.2 _ (hsub x hx)) ]
-       | exact: (used_valid_setm stL.2.1 us arg.2 hfok hval) ] ]
-   | simpl;
-     eapply r_put_lhs; eapply r_put_rhs;
-     apply r_ret; intros s0 s1 hpre;
-     split; first by [];
-     destruct hpre as [s1A [hpre0 E1]]; subst s1;
-     destruct hpre0 as [s0A [hpreWm E2]]; subst s0;
-     destruct hpreWm as [hpreW hslogput];
-     destruct hpreW as [s1D [hpreW1 E3]]; subst s1A;
-     destruct hpreW1 as [s0D [hpreW2 E4]]; subst s0A;
-     destruct hpreW2 as [s1E [hpreW3 E5]]; subst s1D;
-     destruct hpreW3 as [s0E [hpreW4 E6]]; subst s0D;
-     destruct hpreW4 as [s1F [hpreW5 E7]]; subst s1E;
-     destruct hpreW5 as [s0F [hpreW6 E8]]; subst s0E;
-     destruct hpreW6 as [[[[[hinv hstoL] hstoR] husL] husR] hpkmr];
-     rewrite /rem_lhs /rem_rhs /= in hstoL hstoR husL husR hpkmr hslogput;
-     rewrite !get_set_heap_neq // in hslogput;
-     apply lf_inv2E in hinv; destruct hinv as [hign hR];
-     apply lf_inv2I;
-     [ apply: heap_ignore_set_both;
-       apply: heap_ignore_set_both;
-       apply: heap_ignore_set_both;
-       apply: heap_ignore_set_both;
-       exact: hign
-     | get_heap_simpl;
-       rewrite hstoL hstoR;
-       revert hR; rewrite hstoL hstoR husL hslogput; intro hR;
-       destruct hR as [_ hpo hrv htg [htw hpk [hsub hval] hroot]];
-       split; [ by [] | exact: hpo | exact: hrv | exact: htg |];
-       split; [ exact: htw | exact: hpk | | exact: hroot ];
-       split;
-       [ intros x hx;
-         exact: (image_subset_setm stL.2.1 us arg.2 _ (hsub x hx))
-       | exact: (used_valid_setm stL.2.1 us arg.2 hfok hval) ] ] ]). }
-  ssprove_code_simpl. simpl.
-  (* === SIGN coupling tail (md = sd sc) === *)
-  eapply r_put_lhs; eapply r_put_rhs;
-  eapply r_put_lhs; eapply r_put_rhs;
-  eapply r_put_lhs; eapply r_put_rhs;
-  rewrite (shrincs_fxmss_sign_x_eq_redsign stL.1.1 stL.2.1 stL.2.2 pkm
-             (flidx stL.2.1 arg.2) r md Hli hpkm);
-  rewrite !(index_sign_path h_sf stL.2.1 (flidx stL.2.1 arg.2) Hli);
-  eapply r_get_remember_rhs => v;
-  (eapply r_bind_assertD_rhs;
-   [ intros s0 s1 hpre;
-     destruct hpre as [hpre0 hvrem];
-     destruct hpre0 as [s1a [hpre1 E1]]; subst s1;
-     destruct hpre1 as [s0a [hpre2 E2]]; subst s0;
-     destruct hpre2 as [s1b [hpre3 E3]]; subst s1a;
-     destruct hpre3 as [s0b [hpre4 E4]]; subst s0a;
-     destruct hpre4 as [s1c [hpre5 E5]]; subst s1b;
-     destruct hpre5 as [s0c [hpre6 E6]]; subst s0b;
-     destruct hpre6 as [[[[[hinv hstoL] hstoR] husL] husR] hpkmr];
-     rewrite /rem_lhs /rem_rhs /= in hstoL hstoR husL husR hpkmr hvrem;
-     rewrite !get_set_heap_neq // in hvrem;
-     apply lf_inv2E in hinv; destruct hinv as [hign hR];
-     rewrite hstoL husL hvrem in hR;
-     destruct hR as [_ _ _ _ [_ _ [hsub hval] _]];
-     pose proof (flidx_notin_image stL.2.1 us arg.2 hfok hfresh hval) as hni;
-     exact (contra (hsub (flidx stL.2.1 arg.2)) hni)
-   | idtac ]);
-  intros _;
-  (eapply (r_get_bind_rhs miw_tgts_loc
-             (qmap_from 0 (leafcommitq stL.2.1 stL.2.2)));
-   [ intros s0 s1 hpre;
-     destruct hpre as [hpre0 hvrem];
-     destruct hpre0 as [s1a [hpre1 E1]]; subst s1;
-     destruct hpre1 as [s0a [hpre2 E2]]; subst s0;
-     destruct hpre2 as [s1b [hpre3 E3]]; subst s1a;
-     destruct hpre3 as [s0b [hpre4 E4]]; subst s0a;
-     destruct hpre4 as [s1c [hpre5 E5]]; subst s1b;
-     destruct hpre5 as [s0c [hpre6 E6]]; subst s0b;
-     destruct hpre6 as [[[[[hinv hstoL] hstoR] husL] husR] hpkmr];
-     rewrite /rem_lhs /rem_rhs /= in hstoL;
-     rewrite !get_set_heap_neq //;
-     apply lf_inv2E in hinv; destruct hinv as [_ hR];
-     rewrite hstoL in hR;
-     destruct hR as [_ _ _ htg _]; rewrite htg; reflexivity
-   | idtac ]);
-  rewrite (getm_leafcommitq_at stL.2.1 stL.2.2 (flidx stL.2.1 arg.2) Hli);
-  (eapply (r_get_bind_rhs miw_pp_loc (Some stL.1.1));
-   [ intros s0 s1 hpre;
-     destruct hpre as [hpre0 hvrem];
-     destruct hpre0 as [s1a [hpre1 E1]]; subst s1;
-     destruct hpre1 as [s0a [hpre2 E2]]; subst s0;
-     destruct hpre2 as [s1b [hpre3 E3]]; subst s1a;
-     destruct hpre3 as [s0b [hpre4 E4]]; subst s0a;
-     destruct hpre4 as [s1c [hpre5 E5]]; subst s1b;
-     destruct hpre5 as [s0c [hpre6 E6]]; subst s0b;
-     destruct hpre6 as [[[[[hinv hstoL] hstoR] husL] husR] hpkmr];
-     rewrite /rem_lhs /rem_rhs /= in hstoL;
-     rewrite !get_set_heap_neq //;
-     apply lf_inv2E in hinv; destruct hinv as [_ hR];
-     rewrite hstoL in hR;
-     destruct hR as [_ hpo _ _ _]; rewrite hpo; reflexivity
-   | idtac ]);
-  simpl;
-  (case: (leaf_sign stL.1.1 (panchor (spath stL.2.1 (flidx stL.2.1 arg.2)))
-           (nth [::] stL.2.2 (flidx stL.2.1 arg.2)) md) => [ws|];
-   [ eapply r_put_rhs;
-     simpl;
-     eapply r_put_lhs; eapply r_put_rhs;
-     eapply r_put_lhs; eapply r_put_rhs;
-     apply r_ret; intros s0 s1 hpre;
-     split; first by [];
-     destruct hpre as [s1A [hpre0 E1]]; subst s1;
-     destruct hpre0 as [s0A [hpre1 E2]]; subst s0;
-     destruct hpre1 as [s1B [hpre2 E3]]; subst s1A;
-     destruct hpre2 as [s0B [hpre3 E4]]; subst s0A;
-     destruct hpre3 as [s1C [hpre4 E5]]; subst s1B;
-     destruct hpre4 as [hpreW hslogput];
-     destruct hpreW as [s1D [hpreW1 E6]]; subst s1C;
-     destruct hpreW1 as [s0D [hpreW2 E7]]; subst s0B;
-     destruct hpreW2 as [s1E [hpreW3 E8]]; subst s1D;
-     destruct hpreW3 as [s0E [hpreW4 E9]]; subst s0D;
-     destruct hpreW4 as [s1F [hpreW5 E10]]; subst s1E;
-     destruct hpreW5 as [s0F [hpreW6 E11]]; subst s0E;
-     destruct hpreW6 as [[[[[hinv hstoL] hstoR] husL] husR] hpkmr];
-     rewrite /rem_lhs /rem_rhs /= in hstoL hstoR husL husR hpkmr hslogput;
-     rewrite !get_set_heap_neq // in hslogput;
-     apply lf_inv2E in hinv; destruct hinv as [hign hR];
-     apply lf_inv2I;
-     [ apply: heap_ignore_set_both;
-       apply: heap_ignore_set_both;
-       (apply: heap_ignore_set_r; first by rewrite mem_domm);
-       apply: heap_ignore_set_both;
-       apply: heap_ignore_set_both;
-       apply: heap_ignore_set_both;
-       exact: hign
-     | get_heap_simpl;
-       rewrite hstoL hstoR;
-       revert hR; rewrite hstoL hstoR husL hslogput; intro hR;
-       destruct hR as [_ hpo hrv htg [htw hpk [hsub hval] hroot]];
-       split; [ by [] | exact: hpo | exact: hrv | exact: htg |];
-       split; [ exact: htw | exact: hpk | | exact: hroot ];
-       split;
-       [ intros x; rewrite mem_rcons in_cons; intro Hor;
-         destruct (elimT orP Hor) as [Heq | hx];
-         [ apply (elimT eqP) in Heq; subst x; exact: flidx_in_image_setm
-         | exact: (image_subset_setm stL.2.1 us arg.2 _ (hsub x hx)) ]
-       | exact: (used_valid_setm stL.2.1 us arg.2 hfok hval) ] ]
-   | simpl;
-     eapply r_put_lhs; eapply r_put_rhs;
-     apply r_ret; intros s0 s1 hpre;
-     split; first by [];
-     destruct hpre as [s1A [hpre0 E1]]; subst s1;
-     destruct hpre0 as [s0A [hpreWm E2]]; subst s0;
-     destruct hpreWm as [hpreW hslogput];
-     destruct hpreW as [s1D [hpreW1 E3]]; subst s1A;
-     destruct hpreW1 as [s0D [hpreW2 E4]]; subst s0A;
-     destruct hpreW2 as [s1E [hpreW3 E5]]; subst s1D;
-     destruct hpreW3 as [s0E [hpreW4 E6]]; subst s0D;
-     destruct hpreW4 as [s1F [hpreW5 E7]]; subst s1E;
-     destruct hpreW5 as [s0F [hpreW6 E8]]; subst s0E;
-     destruct hpreW6 as [[[[[hinv hstoL] hstoR] husL] husR] hpkmr];
-     rewrite /rem_lhs /rem_rhs /= in hstoL hstoR husL husR hpkmr hslogput;
-     rewrite !get_set_heap_neq // in hslogput;
-     apply lf_inv2E in hinv; destruct hinv as [hign hR];
-     apply lf_inv2I;
-     [ apply: heap_ignore_set_both;
-       apply: heap_ignore_set_both;
-       apply: heap_ignore_set_both;
-       apply: heap_ignore_set_both;
-       exact: hign
-     | get_heap_simpl;
-       rewrite hstoL hstoR;
-       revert hR; rewrite hstoL hstoR husL hslogput; intro hR;
-       destruct hR as [_ hpo hrv htg [htw hpk [hsub hval] hroot]];
-       split; [ by [] | exact: hpo | exact: hrv | exact: htg |];
-       split; [ exact: htw | exact: hpk | | exact: hroot ];
-       split;
-       [ intros x hx;
-         exact: (image_subset_setm stL.2.1 us arg.2 _ (hsub x hx))
-       | exact: (used_valid_setm stL.2.1 us arg.2 hfok hval) ] ] ]).
-- (* HASH *)
-  rewrite /hash5 /hash5_body.
-  ssprove_code_simpl. simpl.
-  ssprove_sync. { lf_get2_pre. } move=> hc.
-  ssprove_sync => hhc.
-  ssprove_sync. { lf_get2_pre. } move=> mp.
-  case: (getm mp arg) => [d|].
-  { ssprove_code_simpl. simpl.
-    ssprove_sync. { lf_put2_pre. }
-    ssprove_sync. { lf_put2_pre. }
-    apply r_ret => s0 s1 hpre. split; first by []. exact: hpre. }
-  rewrite ?(code_link_scheme _ _ _ _ (prog_valid dD)).
-  rewrite !bind_assoc /=.
-  eapply r_scheme_bind; first exact: prog_valid. move=> d.
-  ssprove_code_simpl. simpl.
-  ssprove_sync. { lf_put2_pre. }
-  ssprove_sync. { lf_put2_pre. }
-  apply r_ret => s0 s1 hpre. split; first by []. exact: hpre.
-- (* FORGE *)
-  destruct arg as [m sg].
-  rewrite /forge_keep_body /forge_redL''.
-  ssprove_code_simpl. simpl.
-  ssprove_sync. { lf_get2_pre. } move=> fc.
-  eapply rel_jdg_replace; [| reflexivity | solve [ssprove_match_commut_gen]].
-  simpl.
-  ssprove_sync => hfc.
-  eapply r_get_remember_lhs => stoL.
-  eapply r_get_remember_rhs => stoR.
-  eapply (r_fact (isSome stoL = isSome stoR)).
-    { move=> s0 s1 [[hinv hrem0] hrem1].
-      move/lf_inv2E: hinv => [_ hR].
-      rewrite /rem_lhs /rem_rhs /= in hrem0 hrem1.
-      rewrite -hrem0 -hrem1.
-      case E0: (get_heap s0 (shrincs_fxmss_st_loc PP N)) => [st|]; rewrite E0 in hR;
-        by case: hR => hsoR _ _ _ _; rewrite hsoR. }
-  move=> eIS.
-  eapply r_assertD; first by move=> *; exact: eIS.
-  move=> vSomeL vSomeR.
-  case: stoL eIS vSomeL => [stL|] eIS vSomeL; last by [].
-  case: stoR eIS vSomeR => [stR|] eIS vSomeR; last by [].
-  rewrite !(getSomeE stL vSomeL) !(getSomeE stR vSomeR).
-  eapply (r_fact (stR = (stL.1, (stL.2.1, dummy_xss)))).
-    { move=> s0 s1 [[hinv hr0] hr1].
-      move/lf_inv2E: hinv => [_ hR].
-      rewrite /rem_lhs /rem_rhs /= in hr0 hr1.
-      rewrite hr0 hr1 in hR.
-      by case: hR => /Some_inj h _ _ _ _; exact: h. }
-  move=> hstR; subst stR.
-  cbn [fst snd].
-  ssprove_code_simpl. simpl.
-  ssprove_sync. { lf_getr. } move=> lg.
-  ssprove_sync. { lf_getr. } move=> mp.
-  ssprove_sync. { lf_getr. } move=> tb.
-  ssprove_sync. { lf_getr. } move=> sd.
-  eapply r_get_remember_rhs => pkm.
-  eapply (r_fact (forall p, p \in leaf_paths (tshape stL.2.1) ->
-                    getm pkm p = Some (anchor_val stL.1.1 stL.2.1 stL.2.2 p))).
-    { move=> s0 s1 [[[hinv hstoL] hstoR] hpkmr].
-      move/lf_inv2E: hinv => [_ hR].
-      rewrite /rem_lhs /rem_rhs /= in hstoL hstoR hpkmr.
-      rewrite hstoL hstoR in hR.
-      case: hR => _ _ _ _ [_ hpk _ _].
-      move=> p hp; rewrite -hpkmr; exact: (hpk p hp). }
-  move=> hpkm.
-  case Emd: (getm mp (sg.1.2, (stL.1, (sg.1.1, m)))) => [md|]; last first.
-  { rewrite (code_link_scheme _ _ _ _ (prog_valid dD)).
-    eapply r_scheme_bind; first exact: prog_valid. move=> md.
-    ssprove_code_simpl. simpl.
-    ssprove_sync. { lf_put2_pre. }
-    ssprove_sync. { lf_put2_pre. }
-    case: b; last first.
-    { apply r_ret => s0 s1 hpre. split; first by [].
-      by move: hpre => [[[hinv _] _] _]; exact: hinv. }
-    exact: (r_leaf_forge_verdict''_ideal stL pkm lg tb sd m sg md hpkm). }
-  ssprove_code_simpl. simpl.
-  ssprove_sync. { lf_put2_pre. }
-  ssprove_sync. { lf_put2_pre. }
-  case: b; last first.
-  { apply r_ret => s0 s1 hpre. split; first by [].
-    by move: hpre => [[[hinv _] _] _]; exact: hinv. }
-  exact: (r_leaf_forge_verdict''_ideal stL pkm lg tb sd m sg md hpkm).
-Qed.
+Proof. exact: (R_leaf''_perfect false b). Qed.
 
 (* ------------------------------------------------------------------ *)
 (** ** The FORGE verdict line-up (the [shrincs_fxmss_forgery_case_FAnchor] discharge) *)

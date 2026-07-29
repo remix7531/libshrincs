@@ -8,13 +8,13 @@
 
     Pure equivalences between the shared canonical model
     (Model.wots/Model.address/Model.byte, Stdlib vocabulary, Z-valued,
-    MSB-first digits) and this repo's math layer (Model.math.chain /
-    Model.math.encoding, mathcomp vocabulary, LSB-first digits).
+    MSB-first digits) and this repo's math layer (Model.math.encoding /
+    Sec.lib.math.chain, mathcomp vocabulary, LSB-first digits).
     MathComp-only; no SSProve (the Model.math audit boundary).
 
     Contents:
     - Stdlib <-> mathcomp glue (take/sum/eqb);
-    - a [byte]-as-[eqType] instance (needed for [Model.math.chain.chain],
+    - a [byte]-as-[eqType] instance (needed for [Sec.lib.math.chain.chain],
       and reusable groundwork for the byte-level instantiation:
       [Model.wots]'s [block] needs an eqType before it can be given
       the richer choice_type/Countable/Finite structure that step
@@ -92,7 +92,7 @@ Proof. by elim: a b => [|a IH] [|b] //=. Qed.
 (* ------------------------------------------------------------------ *)
 (** ** [byte] as an [eqType]
 
-    Needed for [Model.math.chain.chain] (its step function's domain,
+    Needed for [Sec.lib.math.chain.chain] (its step function's domain,
     here [Model.sha256.block = list byte], must be an [eqType]); also
     reusable groundwork for axioms.v's choice_type encoding
     (an eqType is a prerequisite of the richer structures that step

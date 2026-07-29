@@ -8,8 +8,10 @@
 
     [Print Assumptions] for the shared pure-model surface: the ground-truth
     correctness theorem [Model.correct.wots.wots_correct] and the pure
-    combinatorial core (chain extraction, target-sum/checksum encoding)
-    that both proof trees' reductions rest on.  assumptions/check.sh's
+    combinatorial encoding core (target sum / checksum) that both proof
+    trees' reductions rest on.  (The chain-extraction half of that core is
+    [Sec.lib.math.chain]'s, audited inside assumptions/ssprove.v's cone.)
+    assumptions/check.sh's
     model gate 3 compiles this file, extracts the axiom names, and diffs
     them against the `[model]` section of
     assumptions/allowed.txt: the build fails if any theorem
@@ -28,12 +30,11 @@
     build (see _RocqProject's trailing comment); `make audit` / check.sh
     recompiles them standalone. *)
 
-From Model Require Import math.chain math.encoding correct.wots.
+From Model Require Import math.encoding correct.wots.
 
 Set Printing Width 4000.
 
 (* Pure combinatorial core used by the chain reductions. *)
-Print Assumptions chain.chain_extractP.        (* chain collision / preimage extraction *)
 Print Assumptions encoding.eq_sumn_exists_lt.  (* WOTS+C target-sum lemma *)
 Print Assumptions encoding.checksum_exists_lt. (* checksum domination (proves EC's two_encodings axiom) *)
 
