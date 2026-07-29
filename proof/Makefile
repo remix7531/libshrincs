@@ -73,29 +73,12 @@ ssprove-prove: Makefile.coq
 	@$(MAKE) -j $(NPROC) --no-print-directory -f Makefile.coq $(SSPROVE_VOFILES)
 	@$(SUCCESS) "SSProve Verification Succeeded"
 
-# NOTE: ssprove-prove above builds ONLY ssprove/ -- fxmss/ has its own
-# fxmss-prove target below (P8/G4 baseline: ssprove-prove is the native
-# WOTS+C tree's cold build time, and must not silently include fxmss).
-# Since the HBS root was retired, ssprove/ also holds the SHARED generic
-# library (Sec.lib.*: chain ladder, Merkle maths, random-oracle toolkit,
-# fixed-sum WOTS hops) that fxmss/ instantiates -- so ssprove-prove's
-# scope grew by that library, while fxmss/ itself is still excluded.
+# vst-prove / ssprove-prove / fxmss-prove are conveniences over the single
+# build: each just asks the one generated Makefile.coq for its tree's .vo
+# slice, so `make prove` (no target list) still builds everything together.
 
-# fxmss-prove builds ONLY the fxmss tree (plus its model/ssprove
-# dependencies) through its own generated Makefile.fxmss.coq, instead of
-# the shared Makefile.coq -- whose regeneration rule always depends on the
-# clightgen-produced clight/*.v files. fxmss doesn't Require anything under
-# Vst, so _RocqProject.fxmss drops vst/'s file listing and -Q mapping
-# before handing off to `rocq makefile`, keeping this path clightgen- and
-# VST-free for a quick fxmss-only check.
-_RocqProject.fxmss: _RocqProject
-	@grep -vE '^(vst/.*\.v$$|-Q vst Vst$$)' _RocqProject > $@
-
-Makefile.fxmss.coq: _RocqProject.fxmss
-	@rocq makefile -f _RocqProject.fxmss -o Makefile.fxmss.coq
-
-fxmss-prove: Makefile.fxmss.coq
-	@$(MAKE) -j $(NPROC) --no-print-directory -f Makefile.fxmss.coq $(FXMSS_VOFILES)
+fxmss-prove: Makefile.coq
+	@$(MAKE) -j $(NPROC) --no-print-directory -f Makefile.coq $(FXMSS_VOFILES)
 	@$(SUCCESS) "FXMSS Verification Succeeded"
 
 prove: Makefile.coq extract
@@ -130,9 +113,5 @@ clean:
 	@if [ -e Makefile.coq ]; then \
 	    $(MAKE) --no-print-directory -f Makefile.coq cleanall; \
 	fi
-	@if [ -e Makefile.fxmss.coq ]; then \
-	    $(MAKE) --no-print-directory -f Makefile.fxmss.coq cleanall; \
-	fi
-	@rm -f Makefile.coq Makefile.coq.conf Makefile.fxmss.coq Makefile.fxmss.coq.conf \
-	       _RocqProject.fxmss \
+	@rm -f Makefile.coq Makefile.coq.conf \
 	       $(VST_DIR)/clight/wots.v $(VST_DIR)/clight/thash.v $(VST_DIR)/clight/sha256.v
