@@ -13,7 +13,7 @@ This is the **one** style guide for all three proof trees under `proof/`:
   ssreflect, state-separating proofs) that WOTS+C is one-time
   known-message unforgeable.
 - **`Vst`** (`proof/vst/`) — the VST/CompCert functional-correctness proof
-  that `src/wots.c` implements `Model.wots`.
+  that `src/wots.c` implements `Model.shrincs`.
 - **`Assumptions`** (`proof/assumptions/`) — the cross-cutting
   `Print Assumptions` probes (`model.v`, `ssprove.v`, `vst.v`) that back the
   honesty gate below; not a proof tree of its own, but it shares the same

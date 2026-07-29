@@ -14,9 +14,10 @@ standard classical axioms plus one admitted upstream lemma); the concrete coroll
 hash-hardness axioms, by design. It is a self-contained proof-of-concept: a generic
 hash-based-signature library (`lib/`), the WOTS+C scheme and proof (under `wots/`,
 including `wots/hop/`/`wots/bound/`), `bridge.v`, which bridges this tree's
-math layer directly to the shared `Model.wots` (also used by the VST proof, at
-`proof/model/wots.v`), and `wots/model_bridge.v`, which uses that bridge to prove the
-games scheme's public key / signing / verification agree with `Model.wots` end to end
+math layer directly to the shared `Model.shrincs` (the port of the normative Python
+spec, also used by the VST proof, at `proof/model/shrincs.v`), and
+`wots/model_bridge.v`, which uses that bridge to prove the
+games scheme's public key / signing / verification agree with the port end to end
 at the concrete SHA-256 instantiation. Naming was originally
 chosen to track the shrincs-bip specification's `wots_c_*` algorithm names
 and `chain_count`/`constant_sum` parameters; after libshrincs's multi-scheme
@@ -111,16 +112,16 @@ entire human review surface:
    `shrincs_wots_pubkey_gen`/`shrincs_wots_sign`/`shrincs_wots_verify` (PRF key derivation, grinding,
    chains, public-key compression) and the address structure faithfully define
    WOTS+C? This is the artifact's specification of the scheme; the pure contract it
-   is bridged against is the shared [`Model.wots`](../model/wots.v) (also used by the
+   is bridged against is the shared [`Model.shrincs`](../model/shrincs.v) (also used by the
    VST proof), with the digit/chain/counter equivalences proved in
    [`bridge.v`](bridge.v). The games↔model correspondence is now proved
    **end-to-end** in [`wots/model_bridge.v`](wots/model_bridge.v): at the concrete
    truncated-SHA256 instantiation, the games scheme computes the same thing as the
-   ground-truth `Model.wots`, discharged as plain equalities through the
+   ground-truth `Model.shrincs`, discharged as plain equalities through the
    `encode16`/`decode16` dictionary — the four headliners are `pubkey_gen_modelE`
    (keyed public key), `find_counter_modelE` (grinding search), `verify_modelE`
    (boolean verification) and `sign_modelE` (partial signing).
-   `scheme.digest_of` reads MSB-first, matching `Model.wots.base_2b`, so
+   `scheme.digest_of` reads MSB-first, matching `Model.shrincs.base_2b`, so
    `model_bridge.digest_of_modelE` proves the two digit vectors *equal* (no
    `[i ↔ chain_count-1-i]` relabeling).
 4. **The statement** — [`theorem.v`](wots/theorem.v): quantified over
@@ -202,11 +203,11 @@ under the `Model` root, and the cross-cutting assumption probes under `Assumptio
 (`proof/assumptions/`, one level up).
 
 - **`bridge.v`** — the proved equivalences between the shared
-  [`Model.wots`](../model/wots.v) (also used by the VST proof) and this repo's math
+  [`Model.shrincs`](../model/shrincs.v) (also used by the VST proof) and this repo's math
   layer (MSB-first bit-group digits vs LSB-first `digits_w`, the counter search, the
   chain recursion), plus (in `axioms.v`) the
   instantiation to concrete SHA-256. `wots/model_bridge.v` then consumes these
-  equivalences to prove the full games↔`Model.wots` correspondence (pubkey, counter,
+  equivalences to prove the full games↔`Model.shrincs` correspondence (pubkey, counter,
   signing, verification) at that instantiation. The big-endian byte-encoding lemmas
   it builds on (`be_num`, `digits_w_split`) live in the shared
   [`Model.math.encoding`](../model/math/encoding.v).
@@ -226,7 +227,7 @@ under the `Model` root, and the cross-cutting assumption probes under `Assumptio
   over their shared `ChainCommon`, `UD`, and the key-derivation hop `Prf` with the
   keyed game `G_forge_keyed`), the per-hop advantage bounds (`wots/bound/`), the
   assembling `theorem.v`, the spec-parameter corollary (`instantiation.v`), the
-  concrete SHA-256 connection (`axioms.v`), the games↔`Model.wots`
+  concrete SHA-256 connection (`axioms.v`), the games↔`Model.shrincs`
   correspondence (`model_bridge.v`), and the link to the standard KOTS notion
   (`kots_link.v`) — all under the `Sec.wots.*` namespace.
 
@@ -247,5 +248,5 @@ under the `Model` root, and the cross-cutting assumption probes under `Assumptio
 - **Abstract, with a concrete SHA-256 corollary.** The headline theorems are proved
   over abstract tweakable-hash families; [`axioms.v`](axioms.v)
   instantiates them with the spec's real truncated-SHA-256 construction (via
-  [`Model.wots`](../model/wots.v)), yielding `shrincs_wots_secure_sha256`: an
+  [`Model.shrincs`](../model/shrincs.v)), yielding `shrincs_wots_secure_sha256`: an
   unconditional bound modulo 6 named hash-hardness axioms.

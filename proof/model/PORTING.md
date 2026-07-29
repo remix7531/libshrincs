@@ -20,8 +20,9 @@ Two rules govern everything below:
 1. **Definitions only.** No lemmas, no dependent types, no invariants
    pushed into types, no `fin`. The port is a transcription; everything one
    may *conclude* about it goes in a theory file above it. This is a
-   deliberate break from `Model.wots` / `Model.fxmss`, which encode
-   bounds in types and pay for it in every definition.
+   deliberate break from the dependent-typed models that preceded this
+   one (`Model.wots` / `Model.fxmss`, both since retired), which encoded
+   bounds in types and paid for it in every definition.
 2. **The Python-facing signature is the spec's signature.** Every ported
    function takes and returns what the Python takes and returns, at `Z` and
    `bytes`. Gallina's structural-recursion requirement is absorbed by a
@@ -124,7 +125,7 @@ The policy, in order of preference:
    (`wots_c_grind_to_constant_sum`'s `raise RuntimeError("Unreachable")`):
    the return type becomes `option`, and the raise is `None`. This is the
    only signature change in the port, and it matches what
-   `Model.wots.find_counter` already does.
+   the predecessor model's `find_counter` already did.
 3. **The `assert` is a sanity check on a well-formedness the callers
    guarantee**: it becomes a *caller obligation*, stated in the ported
    docstring, and the body stays total. The total behaviour is whatever the
@@ -200,8 +201,8 @@ Parameter SHA256 : BList.t byte sha256_max_input_len -> Vec.t byte hash_bytes.
 projects the output back out, so the port's `sha256 : bytes -> bytes` has
 the spec's signature. The clip never truncates anything a real SHRINCS call
 produces; it exists only to satisfy `SHA256`'s type without threading a
-length invariant through the file. This is exactly what `Model.wots`
-already does.
+length invariant through the file. This is exactly what the predecessor
+model already did.
 
 Everything above `sha256` is an ordinary ported definition, not a new
 assumption:
@@ -247,10 +248,12 @@ context`.
 - **Bugs are ported, not fixed.** `shrincs_sf_leaf_select`'s depth-0 UXMSS
   fall-through (`shrincs.py:1245-1249`) returns `(1, 254)` where `None` was
   meant; the port returns `Some (1, 254)` and carries a comment pointing at
-  the "Upstream spec bug" entry in `proof/README.md`. Note this is the
-  *opposite* choice from `Model.fxmss`, which formalizes the intended
-  behaviour — that divergence is now explicit in two places instead of
-  invisible.
+  the "Upstream spec bug" entry in `proof/README.md`. Since this file is now
+  the only model in the tree, that is the only formalization of the case —
+  nothing anywhere quietly implements the intended behaviour instead. The
+  depth-0 shape is excluded where it belongs, as a stated side condition on
+  the security theorem (`SHRINCS.fxmss.scheme.shrincs_fxmss_wf_shape`),
+  rather than by making it unrepresentable in a second model.
 
 ## Validation
 

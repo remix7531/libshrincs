@@ -39,7 +39,7 @@
 
     Stdlib-only, like the rest of [Model]: no SSProve, no VST. *)
 
-From Stdlib Require Import List ZArith Lia.
+From Stdlib Require Import List ZArith Lia Bool.
 From Model Require Import byte shrincs.
 (** [Require] without [Import]: [Model.address] and [Model.shrincs]
     both define [SL_WOTS_TW_HASH] and friends (at [byte] and at [Z]
@@ -1365,4 +1365,439 @@ Proof.
     apply Hk, nth_In.
     rewrite Hlen. unfold WOTS_C_CHAIN_COUNT. lia.
   - apply length_wc_chain. unfold WOTS_C_CHAIN_BITS in *. lia.
+Qed.
+
+(* ================================================================= *)
+(** ** 6. FXMSS, decomposed
+
+    The same treatment section 5 gives WOTS+C, for the tree above it.
+    The port states [fxmss_node] the way shrincs.py does -- one
+    recursion threading a mutated 22-byte [ADRS] and a 2-byte
+    [structure] -- but every proof ABOUT the tree is per-node, and the
+    games layer indexes its nodes by (height, index) rather than by a
+    serialized address.  So this section names the per-node pieces
+    ([fx_H], [fx_anchor], [fx_node], [fx_root], [fx_walk]) and proves,
+    at each of the port's own entry points, that they REASSEMBLE into
+    it.
+
+    Two things make this shorter than section 5.  The port carries no
+    bound proofs -- a node index is a plain [Z] and an out-of-range one
+    serializes by truncation, not by refusal -- so there is no
+    invariant to thread and no proof-irrelevance lemma to state.  And
+    the ADRS dependence collapses completely: [fx_node] takes the
+    position as two [Z]s because the recursion rewrites every byte it
+    hashes before hashing it. *)
+
+(** *** 6.1 The FXMSS address, and the two values at a position.
+
+    A position is a (node height, node index) pair.  Internal nodes are
+    typed SF_FXMSS_TREE; an anchor is a WOTS+C instance, so its value
+    comes from section 5 and its address is the WOTS+C pk address at
+    the same anchor. *)
+
+Definition fx_tree_adrs (nh ni : Z) : bytes := mk_adrs nh ni SF_FXMSS_TREE 0 0 0.
+
+(** The tree-node hash of shrincs.py :807. *)
+Definition fx_H (pk_seed : bytes) (nh ni : Z) (x y : bytes) : bytes :=
+  H pk_seed (fx_tree_adrs nh ni) (x ++ y).
+
+(** The anchor value: the compressed WOTS+C public key of the instance
+    anchored at this position (shrincs.py :788). *)
+Definition fx_anchor (sk_seed pk_seed : bytes) (nh ni : Z) : bytes :=
+  T_sf pk_seed (wc_pk_adrs nh ni) (concat (chain_tips sk_seed pk_seed nh ni)).
+
+(** The SF_FXMSS_TREE arm of the dependent address, serialized -- the
+    tree's entry in the section-5.1b dictionary.  [Model.address] has
+    no smart constructor for it (the tree builds the arm directly), so
+    this is stated at the constructor. *)
+Lemma adrs_bytes_fxmss {cc pb : nat}
+      (nh : fin.fin 256) (ni : fin.fin (2 ^ 64)) :
+  address.adrs_bytes (@address.Fxmss cc pb nh ni)
+  = fx_tree_adrs (fin.fin_val nh) (fin.fin_val ni).
+Proof. rewrite adrs_bytes_mk_adrs. reflexivity. Qed.
+
+(** The WOTS+C pk arm, at the constructor: an FXMSS anchor's carrier. *)
+Lemma adrs_bytes_wc_pk {cc pb : nat}
+      (nh : fin.fin 256) (ni : fin.fin (2 ^ 64)) :
+  address.adrs_bytes (@address.Wc_pk cc pb nh ni)
+  = wc_pk_adrs (fin.fin_val nh) (fin.fin_val ni).
+Proof. rewrite adrs_bytes_mk_adrs. reflexivity. Qed.
+
+Lemma length_H (pk_seed ADRS M : bytes) : length (H pk_seed ADRS M) = 16%nat.
+Proof.
+  unfold H, slice.
+  rewrite length_firstn, length_skipn, length_sha256.
+  reflexivity.
+Qed.
+
+Lemma length_fx_H (pk_seed : bytes) (nh ni : Z) (x y : bytes) :
+  length (fx_H pk_seed nh ni x y) = 16%nat.
+Proof. apply length_H. Qed.
+
+Lemma length_fx_anchor (sk_seed pk_seed : bytes) (nh ni : Z) :
+  length (fx_anchor sk_seed pk_seed nh ni) = 16%nat.
+Proof. apply length_T_sf. Qed.
+
+(** REASSEMBLY: the port's WOTS+C public key at an anchor carrier IS
+    [fx_anchor].  The carrier's type byte and payload words are
+    irrelevant -- [wots_c_pubkey_gen] retypes and rezeroes them -- which
+    is exactly why the tree can hand it a [Wc_pk]-typed address. *)
+Lemma wots_c_pubkey_gen_fx_anchor (sk_seed pk_seed : bytes)
+      (nh ni ty pa pb pc : Z) :
+  wots_c_pubkey_gen sk_seed pk_seed (mk_adrs nh ni ty pa pb pc)
+  = fx_anchor sk_seed pk_seed nh ni.
+Proof. apply wots_c_pubkey_gen_tips. Qed.
+
+(* ----------------------------------------------------------------- *)
+(** *** 6.2 The node recursion.
+
+    Structurally identical to the port's [fxmss_node_loop], minus the
+    [ADRS] (absorbed into the position) and the [structure] byte string
+    (read once, into its two fields).  The spec's two anti-runaway
+    escapes and its [node_height = 0] fall-through are all kept, at
+    [zeros 16] -- porting the bug, not fixing it (model/PORTING.md,
+    verdict (4)). *)
+
+Fixpoint fx_node (node_height : nat) (sh td : Z) (sk_seed pk_seed : bytes)
+                 (node_index : Z) : bytes :=
+  let node_depth := FXMSS_HEIGHT - Z.of_nat node_height in
+  let is_uxmss_leaf :=
+    (sh =? FXMSS_SHAPE_UNBALANCED)
+      && ((node_index =? 1) || (node_depth =? td)) in
+  let is_bxmss_leaf :=
+    (sh =? FXMSS_SHAPE_BALANCED) && (node_depth =? td) in
+  if is_uxmss_leaf || is_bxmss_leaf then
+    fx_anchor sk_seed pk_seed (Z.of_nat node_height) node_index
+  else
+    if (sh =? FXMSS_SHAPE_UNBALANCED) && negb (node_index =? 0) then
+      zeros 16
+    else if (sh =? FXMSS_SHAPE_BALANCED) && negb (node_depth <? td) then
+      zeros 16
+    else
+      match node_height with
+      | O => zeros 16
+      | S child_height =>
+          fx_H pk_seed (Z.of_nat node_height) node_index
+            (fx_node child_height sh td sk_seed pk_seed (2 * node_index))
+            (fx_node child_height sh td sk_seed pk_seed (2 * node_index + 1))
+      end.
+
+(** REASSEMBLY: the port's node recursion IS [fx_node], at any ADRS in
+    normal form.  The ADRS the caller supplies is irrelevant -- the
+    recursion rewrites every byte it hashes -- which is the tree's half
+    of the drop-at-boundary argument in model/PORTING.md. *)
+Lemma fxmss_node_loop_fx_node :
+  forall (node_height : nat) (sk_seed pk_seed structure : bytes)
+         (node_index nh ni ty pa pb pc : Z),
+  fxmss_node_loop node_height sk_seed node_index pk_seed structure
+    (mk_adrs nh ni ty pa pb pc)
+  = fx_node node_height (index structure 0) (index structure 1)
+      sk_seed pk_seed node_index.
+Proof.
+  induction node_height as [|child_height IH];
+    intros sk_seed pk_seed structure node_index nh ni ty pa pb pc;
+    cbn [fxmss_node_loop fx_node];
+    (destruct ((index structure 0 =? FXMSS_SHAPE_UNBALANCED)
+                 && ((node_index =? 1)
+                     || (FXMSS_HEIGHT - Z.of_nat _ =? index structure 1))
+               || (index structure 0 =? FXMSS_SHAPE_BALANCED)
+                    && (FXMSS_HEIGHT - Z.of_nat _ =? index structure 1));
+     [ rewrite set_anchor_tag, set_anchor_idx;
+       apply wots_c_pubkey_gen_fx_anchor
+     | destruct ((index structure 0 =? FXMSS_SHAPE_UNBALANCED)
+                   && negb (node_index =? 0)); [reflexivity|];
+       destruct ((index structure 0 =? FXMSS_SHAPE_BALANCED)
+                   && negb (FXMSS_HEIGHT - Z.of_nat _ <? index structure 1));
+       [reflexivity|] ]).
+  - reflexivity.
+  - rewrite !IH.
+    unfold fx_H, fx_tree_adrs.
+    rewrite set_anchor_tag, set_anchor_idx, set_type, zero_payload_abc.
+    reflexivity.
+Qed.
+
+(* ----------------------------------------------------------------- *)
+(** *** 6.3 The root, and the two unfoldings the UXMSS spine needs.
+
+    shrincs.py :1220 builds the FXMSS root by calling [fxmss_node] at
+    index 0 and the declared height, on a fresh [bytearray(22)]. *)
+
+Definition fx_root (sh td : Z) (sk_seed pk_seed : bytes) : bytes :=
+  fx_node (Z.to_nat FXMSS_HEIGHT) sh td sk_seed pk_seed 0.
+
+Lemma fxmss_node_fx_root (sk_seed pk_seed structure : bytes) :
+  fxmss_node sk_seed 0 FXMSS_HEIGHT pk_seed structure (zeros 22)
+  = fx_root (index structure 0) (index structure 1) sk_seed pk_seed.
+Proof.
+  unfold fxmss_node, fx_root.
+  rewrite zeros_22_mk_adrs.
+  apply fxmss_node_loop_fx_node.
+Qed.
+
+(** On the UXMSS spine every node is at index 0 or 1: index 1 is an
+    anchor at every depth (shrincs.py's [is_uxmss_leaf] disjunct), and
+    index 0 descends until the declared tree depth.  These are the two
+    steps the games-layer induction takes. *)
+
+Lemma fx_node_uxmss_anchor (td : Z) (sk_seed pk_seed : bytes)
+      (node_height : nat) (node_index : Z) :
+  node_index = 1 \/ FXMSS_HEIGHT - Z.of_nat node_height = td ->
+  fx_node node_height FXMSS_SHAPE_UNBALANCED td sk_seed pk_seed node_index
+  = fx_anchor sk_seed pk_seed (Z.of_nat node_height) node_index.
+Proof.
+  intros Hleaf.
+  assert (Hor : ((node_index =? 1)
+                 || (FXMSS_HEIGHT - Z.of_nat node_height =? td)) = true).
+  { apply orb_true_intro.
+    destruct Hleaf as [Hidx|Hdep].
+    - left. apply Z.eqb_eq. exact Hidx.
+    - right. apply Z.eqb_eq. exact Hdep. }
+  destruct node_height as [|child_height];
+    cbn [fx_node]; rewrite Hor; reflexivity.
+Qed.
+
+Lemma fx_node_uxmss_step (td : Z) (sk_seed pk_seed : bytes) (child_height : nat) :
+  FXMSS_HEIGHT - Z.of_nat (S child_height) <> td ->
+  fx_node (S child_height) FXMSS_SHAPE_UNBALANCED td sk_seed pk_seed 0
+  = fx_H pk_seed (Z.of_nat (S child_height)) 0
+      (fx_node child_height FXMSS_SHAPE_UNBALANCED td sk_seed pk_seed 0)
+      (fx_node child_height FXMSS_SHAPE_UNBALANCED td sk_seed pk_seed 1).
+Proof.
+  intros Hne.
+  cbn [fx_node].
+  replace (FXMSS_HEIGHT - Z.of_nat (S child_height) =? td) with false
+    by (symmetry; apply Z.eqb_neq; exact Hne).
+  reflexivity.
+Qed.
+
+Lemma length_fx_node (node_height : nat) (sh td : Z) (sk_seed pk_seed : bytes)
+      (node_index : Z) :
+  length (fx_node node_height sh td sk_seed pk_seed node_index) = 16%nat.
+Proof.
+  revert node_index.
+  induction node_height as [|child_height IH]; intros node_index; cbn [fx_node].
+  - destruct (_ || _); [apply length_fx_anchor|].
+    destruct (_ && negb _); [reflexivity|].
+    destruct (_ && negb _); reflexivity.
+  - destruct (_ || _); [apply length_fx_anchor|].
+    destruct (_ && negb _); [reflexivity|].
+    destruct (_ && negb _); [reflexivity|].
+    apply length_fx_H.
+Qed.
+
+(* ----------------------------------------------------------------- *)
+(** *** 6.4 The verifier's walk.
+
+    [fxmss_pubkey_from_sig] recomputes the root from a recovered anchor
+    and the authentication path, BOTTOM-UP: at step [k] the current
+    node's parent sits one height up, at index [leaf_index >> (k+1)],
+    and the sibling goes left or right according to bit [k] of
+    [leaf_index].  The port threads that through a mutated ADRS whose
+    height byte it increments in place -- the one spot in the whole
+    spec where a caller reads back an ADRS byte (model/PORTING.md's
+    drop-at-boundary appendix).
+
+    [fx_walk] is the same recursion with the position carried as two
+    [Z]s and the path as a list of blocks, which is what a per-node
+    proof can induct on. *)
+
+Fixpoint fx_walk (pk_seed : bytes) (nh leaf_index : Z) (node : bytes)
+                 (ap : list bytes) : bytes :=
+  match ap with
+  | []           => node
+  | sib :: rest  =>
+      fx_walk pk_seed (nh + 1) (Z.shiftr leaf_index 1)
+        (if Z.land leaf_index 1 =? 1
+         then fx_H pk_seed (nh + 1) (Z.shiftr leaf_index 1) sib node
+         else fx_H pk_seed (nh + 1) (Z.shiftr leaf_index 1) node sib)
+        rest
+  end.
+
+Lemma fx_walk_nil (pk_seed : bytes) (nh leaf_index : Z) (node : bytes) :
+  fx_walk pk_seed nh leaf_index node [] = node.
+Proof. reflexivity. Qed.
+
+(** One step up the path: the sibling goes left or right according to
+    the current index's low bit, and the parent sits one height up at
+    half the index. *)
+Lemma fx_walk_cons (pk_seed : bytes) (nh leaf_index : Z) (node sib : bytes)
+      (ap : list bytes) :
+  fx_walk pk_seed nh leaf_index node (sib :: ap)
+  = fx_walk pk_seed (nh + 1) (Z.shiftr leaf_index 1)
+      (if Z.land leaf_index 1 =? 1
+       then fx_H pk_seed (nh + 1) (Z.shiftr leaf_index 1) sib node
+       else fx_H pk_seed (nh + 1) (Z.shiftr leaf_index 1) node sib) ap.
+Proof. reflexivity. Qed.
+
+(** Every value the walk passes through is a 16-byte hash -- except an
+    empty path, which returns the anchor it was handed. *)
+Lemma length_fx_walk (pk_seed : bytes) (nh leaf_index : Z) (node : bytes)
+      (ap : list bytes) :
+  length node = 16%nat -> length (fx_walk pk_seed nh leaf_index node ap) = 16%nat.
+Proof.
+  revert nh leaf_index node.
+  induction ap as [|sib rest IH]; intros nh leaf_index node Hn; [exact Hn|].
+  cbn [fx_walk].
+  apply IH.
+  destruct (Z.land leaf_index 1 =? 1); apply length_fx_H.
+Qed.
+
+(** Reading one step of the auth string as a block.  The port slices a
+    flat [xmss_auth]; the walk consumes blocks. *)
+Lemma slice_auth_block (ap : list bytes) (k : Z) :
+  (forall b, In b ap -> length b = 16%nat) ->
+  0 <= k -> (Z.to_nat k < length ap)%nat ->
+  slice (concat ap) (k * 16) ((k + 1) * 16) = index_block ap k.
+Proof.
+  intros Hk Hk0 Hlt.
+  unfold slice, index_block, concat.
+  replace ((k + 1) * 16 - k * 16) with 16 by lia.
+  replace (Z.to_nat (k * 16)) with (16 * Z.to_nat k)%nat by lia.
+  change (Z.to_nat 16) with 16%nat.
+  apply (slice_uniform_blocks 16%nat ap Hk _ Hlt).
+Qed.
+
+(** The auth string of the TAIL is the original minus its first block. *)
+Lemma skipn_concat_cons (sib : bytes) (rest : list bytes) :
+  length sib = 16%nat ->
+  skipn 16 (concat (sib :: rest)) = concat rest.
+Proof.
+  intros Hs.
+  cbn [concat List.concat].
+  rewrite skipn_app, Hs, Nat.sub_diag.
+  rewrite (skipn_all2 (n := 16%nat) sib) by lia.
+  reflexivity.
+Qed.
+
+(** The path the port hands the walk: [leaf_depth] consecutive 16-byte
+    blocks of the flat auth string, from block [off] on. *)
+Definition fx_auth_blocks (xmss_auth : bytes) (off : Z) (n : nat) : list bytes :=
+  map (fun k => slice xmss_auth ((off + k) * 16) ((off + k + 1) * 16))
+      (range 0 (Z.of_nat n)).
+
+Lemma fx_auth_blocks_cons (xmss_auth : bytes) (off : Z) (n : nat) :
+  fx_auth_blocks xmss_auth off (S n)
+  = slice xmss_auth (off * 16) ((off + 1) * 16)
+    :: fx_auth_blocks xmss_auth (off + 1) n.
+Proof.
+  unfold fx_auth_blocks.
+  rewrite range0_cons.
+  cbn [map].
+  rewrite Z.add_0_r, map_map.
+  f_equal.
+  apply map_ext. intros k.
+  f_equal; f_equal; lia.
+Qed.
+
+(** Two folds whose step functions agree ON THE LIST agree.  The
+    in-list restriction is load-bearing here, not decoration: the
+    reindexing below needs [0 <= k] to move a [Z.shiftr] past another,
+    and that comes from [in_range], never from the step function's
+    type. *)
+Lemma fold_left_ext_in {A B : Type} (f g : A -> B -> A) (l : list B) :
+  (forall a b, In b l -> f a b = g a b) ->
+  forall a, fold_left f l a = fold_left g l a.
+Proof.
+  induction l as [|b l IH]; intros Hfg a; cbn; [reflexivity|].
+  rewrite (Hfg a b (or_introl eq_refl)).
+  apply IH.
+  intros a' b' Hb'. apply Hfg. right. exact Hb'.
+Qed.
+
+Lemma fold_left_map_shift {A : Type} (f : A -> Z -> A) (l : list Z) (a : A) :
+  fold_left f (map (fun i => i + 1) l) a = fold_left (fun x i => f x (i + 1)) l a.
+Proof.
+  revert a. induction l as [|i l IH]; intros a; cbn; [reflexivity|apply IH].
+Qed.
+
+(** REASSEMBLY: the port's authentication-path fold IS [fx_walk].
+
+    Stated at [fx_tree_adrs] rather than a general [mk_adrs]: the port
+    zeroes all three payload words ([ADRS[10:22] = zeros 12]) before
+    entering the loop, and the loop itself writes only the height byte
+    and the index -- so the payload is zero throughout, which is what
+    makes each step's address exactly the tree address of the node it
+    is computing.
+
+    The height hypothesis is real, and it is the spec's own: [ADRS[0]]
+    is ONE byte and the loop increments it once per level, so the walk
+    only means what it says while [nh + length ap] still fits.  Every
+    caller satisfies it -- the sum is [FXMSS_HEIGHT = 255] on the nose
+    -- but the port truncates rather than refusing, so the bound is
+    stated rather than assumed. *)
+Lemma fxmss_walk_fold_gen (pk_seed xmss_auth : bytes) :
+  forall (n : nat) (node : bytes) (nh leaf_index off : Z),
+  0 <= nh -> nh + Z.of_nat n < 256 ->
+  fst (fold_left
+         (fun '(node, ADRS) k =>
+            let ADRS := set_index ADRS 0 (index ADRS 0 + 1) in
+            let ADRS := set_slice ADRS 1 9 (to_bytes (Z.shiftr leaf_index (k + 1)) 8) in
+            let sibling := slice xmss_auth ((off + k) * 16) ((off + k + 1) * 16) in
+            if Z.land (Z.shiftr leaf_index k) 1 =? 1
+            then (H pk_seed ADRS (sibling ++ node), ADRS)
+            else (H pk_seed ADRS (node ++ sibling), ADRS))
+         (range 0 (Z.of_nat n))
+         (node, fx_tree_adrs nh leaf_index))
+  = fx_walk pk_seed nh leaf_index node (fx_auth_blocks xmss_auth off n).
+Proof.
+  induction n as [|m IH]; intros node nh leaf_index off Hnh0 Hnh.
+  - cbn [Z.of_nat]. rewrite range_nil. reflexivity.
+  - rewrite range0_cons, fx_auth_blocks_cons.
+    cbn [fold_left].
+    (* step 0: the height byte is read back, incremented and re-stored --
+       the one cross-call ADRS read in the whole spec. *)
+    unfold fx_tree_adrs at 1 2 3 4.
+    rewrite (index_anchor_tag nh leaf_index SF_FXMSS_TREE 0 0 0)
+      by (cbn [Z.of_nat] in Hnh; lia).
+    rewrite !set_anchor_tag, !set_anchor_idx.
+    rewrite Z.add_0_r, Z.shiftr_0_r, Z.add_0_l.
+    rewrite fold_left_map_shift.
+    cbn [fx_walk].
+    unfold fx_H, fx_tree_adrs.
+    rewrite (index_anchor_tag nh leaf_index SF_FXMSS_TREE 0 0 0)
+      by (cbn [Z.of_nat] in Hnh; lia).
+    rewrite !set_anchor_tag, !set_anchor_idx.
+    change (mk_adrs (nh + 1) (Z.shiftr leaf_index 1) SF_FXMSS_TREE 0 0 0)
+      with (fx_tree_adrs (nh + 1) (Z.shiftr leaf_index 1)).
+    rewrite <- (IH _ (nh + 1) (Z.shiftr leaf_index 1) (off + 1)
+                  ltac:(lia) ltac:(cbn [Z.of_nat] in Hnh; lia)).
+    (* the remaining fold re-indexes by one, which is the tail's own *)
+    destruct (Z.land leaf_index 1 =? 1);
+      f_equal;
+      apply fold_left_ext_in;
+      intros [n' A'] k Hk;
+      pose proof (in_range _ _ _ Hk) as Hk0;
+      rewrite !(Z.shiftr_shiftr leaf_index 1) by lia;
+      replace (1 + (k + 1)) with (k + 1 + 1) by lia;
+      replace (1 + k) with (k + 1) by lia;
+      replace (off + 1 + k) with (off + (k + 1)) by lia;
+      replace (off + 1 + k + 1) with (off + (k + 1) + 1) by lia;
+      reflexivity.
+Qed.
+
+(** REASSEMBLY at the port's own entry point: [fxmss_pubkey_from_sig]'s
+    fold, which starts at block 0 of the auth string. *)
+Lemma fxmss_walk_fold (pk_seed xmss_auth : bytes) (n : nat)
+      (node : bytes) (nh leaf_index : Z) :
+  0 <= nh -> nh + Z.of_nat n < 256 ->
+  fst (fold_left
+         (fun '(node, ADRS) k =>
+            let ADRS := set_index ADRS 0 (index ADRS 0 + 1) in
+            let ADRS := set_slice ADRS 1 9 (to_bytes (Z.shiftr leaf_index (k + 1)) 8) in
+            let sibling := slice xmss_auth (k * 16) ((k + 1) * 16) in
+            if Z.land (Z.shiftr leaf_index k) 1 =? 1
+            then (H pk_seed ADRS (sibling ++ node), ADRS)
+            else (H pk_seed ADRS (node ++ sibling), ADRS))
+         (range 0 (Z.of_nat n))
+         (node, fx_tree_adrs nh leaf_index))
+  = fx_walk pk_seed nh leaf_index node (fx_auth_blocks xmss_auth 0 n).
+Proof.
+  intros Hnh0 Hnh.
+  rewrite <- (fxmss_walk_fold_gen pk_seed xmss_auth n node nh leaf_index 0
+                Hnh0 Hnh).
+  apply (f_equal fst).
+  apply fold_left_ext_in.
+  intros [n' A'] k _.
+  rewrite !Z.add_0_l.
+  reflexivity.
 Qed.
