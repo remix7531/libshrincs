@@ -103,8 +103,10 @@ prove: Makefile.coq extract
 #     probes Model.correct.wots.wots_correct, so check.sh's model-side
 #     coqc step needs it too.
 #   model/shrincs.vo       -- the port of the normative Python spec
-#     (model/PORTING.md); additive until the VST and SSProve bridges
-#     re-anchor on it.
+#     (model/PORTING.md).  The SSProve bridges now Require the derived
+#     views above it (model/theory/shrincs.v), so THAT file is built as
+#     part of ssprove-prove; the port itself is still listed here so a
+#     from-scratch `make audit` cannot miss it if that ever changes.
 audit: vst-prove ssprove-prove fxmss-prove
 	@$(MAKE) -j $(NPROC) --no-print-directory -f Makefile.coq model/correct/wots.vo model/shrincs.vo
 	@$(BANNER) "combined honesty gate (model + ssprove + fxmss + vst)"

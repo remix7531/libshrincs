@@ -79,11 +79,12 @@ Print Assumptions Sec.axioms.shrincs_wots_secure_kots_sha256.
 (* The games<->model machine link (Sec.wots.model_bridge): the headline
    functional-correspondence lemmas -- keyed pubkey, grinding counter,
    verification, and signing -- proving the games scheme computes the
-   same thing as the ground-truth Model.wots at the concrete
-   truncated-SHA256 instantiation.  These are PURE equalities, NOT
-   security claims: their cones must stay within the classical baseline
-   plus sha256.SHA256 (the SHA-256 function), and must NOT touch any of
-   the 6 hash-game axioms -- the correspondence is unconditional. *)
+   same thing as the model of record, Model.shrincs (the port of the
+   normative Python spec), at the concrete truncated-SHA256
+   instantiation.  These are PURE equalities, NOT security claims:
+   their cones must stay within the classical baseline plus
+   sha256.SHA256 (the SHA-256 function), and must NOT touch any of the
+   6 hash-game axioms -- the correspondence is unconditional. *)
 Require Import Sec.wots.model_bridge.
 Print Assumptions Sec.wots.model_bridge.pubkey_gen_modelE.
 Print Assumptions Sec.wots.model_bridge.find_counter_modelE.

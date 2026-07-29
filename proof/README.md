@@ -36,7 +36,7 @@ anchored to `Model.wots`, and it is the surface a reviewer checks to trust that
 the two proofs are about the *same* scheme:
 
 - **VST refinement**: `vst/contract/radrs.v` (the flat "under-construction" ADRS the C mutates in place, refining the dependent `Model.address.adrs`) plus the funspecs written over `Model.wots`; the `semax_body` proofs relate each `shrincs_wots_*` C function to that model.
-- **Security**: `ssprove/addressing.v` (the exact tweak encoding of the model's ADRS), `ssprove/bridge.v` (the digit / chain / counter equivalences to `Model.wots`), `ssprove/axioms.v` (the concrete SHA-256 instantiation of the abstract tweakable hashes and the 6 hash-game axioms, THE trust-surface file), and `ssprove/wots/model_bridge.v` (the end-to-end games↔`Model.wots` correspondence: pubkey, counter, signing, verification).
+- **Security**: `ssprove/addressing.v` (the exact tweak encoding of the model's ADRS), `ssprove/bridge.v` (the digit / chain / counter equivalences to `Model.wots`), `ssprove/axioms.v` (the concrete SHA-256 instantiation of the abstract tweakable hashes and the 6 hash-game axioms, THE trust-surface file), and `ssprove/wots/model_bridge.v` (the end-to-end games↔model correspondence: pubkey, counter, signing, verification). The last two are anchored on `Model.shrincs`, the port of the normative Python spec; the proofs still route through `Model.wots` via `Model.theory.shrincs`'s reconciliation lemmas, which machine-check that the two models compute the same WOTS+C.
 
 Each tree's own `README.md` carries a "What to verify by hand" checklist for its side.
 
@@ -98,6 +98,31 @@ them. Each is a *deliberate* state of the tree, not an oversight.
   two are a permutation of each other). Neither is needed for the FXMSS EU-CMA
   headline, which is stated over the games; both are needed before the FXMSS
   tree can be anchored to the C the way the native tree is.
+- **Audit gate 4 pins axiom STATEMENTS, not the definitions they name.** Gate
+  4 hashes each axiom's printed statement, which mentions
+  `F_sha256`/`T_sf_sha256`/`PRF_sha256`/`H_grind0_sha256` (and the game
+  families) by NAME. A definition's BODY is therefore outside the digest's
+  reach: re-pointing one of those four at a different — but propositionally
+  equal — hash construction leaves every digest unchanged. This is deliberate
+  (the alternative, hashing the delta-expanded statement, would churn on every
+  unrelated refactor below the axioms), but it means a body edit under an
+  allowlisted name is NOT caught by the gate. The convention that fills the gap
+  is in `ssprove/axioms.v`: every such body carries a comment citing, BY NAME,
+  the lemma in `model/theory/shrincs.v` that proves it equal to what it
+  replaced. Reviewing those four comments is the manual step gate 4 cannot do.
+- **The WOTS+C verifier's length gate lives one level up.**
+  `Sec.wots.model_bridge.verify_modelE` (the games↔port verification
+  correspondence) carries two side conditions the games layer does not:
+  `size sig = chain_count` and `c < c_max`. They are real. The port's
+  `wots_c_pubkey_from_sig` takes a FLAT byte string and recovers chain `i` by
+  slicing `[2 + 16i, 2 + 16(i+1))`, so a short signature silently clips rather
+  than being rejected, and a counter above `2^16` is truncated by `to_bytes`
+  rather than being rejected. shrincs.py checks both OUTSIDE the function — the
+  MIN/MAX/mod-16 signature-length gates in `shrincs_verify`, and the two-byte
+  counter field — so the spec is safe as written, but the WOTS+C layer is not
+  self-guarding. Worth surfacing upstream alongside the depth-0 `leaf_select`
+  bug below: an implementation that reuses `wots_c_pubkey_from_sig` without
+  `shrincs_verify`'s gates would inherit the clipping.
 - **Upstream spec bug (to be reported).** `shrincs.py:1245-1249`: at depth 0 the
   UXMSS `leaf_select` returns `(1, 254)` instead of `None`. The two
   formalizations deliberately disagree here: `Model.fxmss.fxmss_leaf_select`

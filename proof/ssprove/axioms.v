@@ -9,8 +9,9 @@
     Connects the abstract, unconditionally-proved headline theorem
     (Sec.instantiation's [shrincs_wots_secure_shrincs], itself built on
     Sec.theorem's [shrincs_wots_secure]) to the CONCRETE
-    hash construction from [Model.wots] (truncated SHA-256, pk_seed ||
-    zeros(48) || ADRS || M), yielding [shrincs_wots_secure_sha256]: an
+    hash construction from [Model.shrincs], the port of the normative
+    Python spec (truncated SHA-256, pk_seed || zeros(48) || ADRS || M),
+    yielding [shrincs_wots_secure_sha256]: an
     unconditional bound on WOTS+C-with-real-SHA256's one-time forgery
     advantage in terms of 6 named hardness-assumption constants.
 
@@ -20,7 +21,7 @@
     (16-byte hash values) and [M_shrincs := 'fin (2^256)] (the 32-byte
     grinding message) as bare mathcomp ordinals -- SSProve's [chFin n]
     IS ['I_n], transparently (confirmed: [instantiation.v]'s own
-    [n0_shrincs] is built as a bare [Ordinal]).  [Model.wots]'s hash
+    [n0_shrincs] is built as a bare [Ordinal]).  [Model.shrincs]'s hash
     functions live over [Model.sha256.block = list Model.byte.byte]
     instead, with no length invariant in the TYPE (lengths are proven
     facts, e.g. [Model.theory.wots.H_grind_length]).  The encoding
@@ -35,12 +36,12 @@
       instead of needing a second, independent Z-side bridge.
     - [decode16]/[decode32]: [decode_block] at [N_shrincs]/[M_shrincs]'s own
       ordinal value -- used to turn a games-layer hash VALUE into a
-      [Model.wots]-shaped argument.
-    - [encode16]: the reverse direction (a [Model.wots] hash OUTPUT
+      [Model.shrincs]-shaped argument.
+    - [encode16]: the reverse direction (a [Model.shrincs] hash OUTPUT
       back into [N_shrincs]), made TOTAL over every [block] (not just
       16-byte ones) by clipping/zero-padding to exactly 16 bytes
       first ([block16_norm]) -- harmless in practice, since every
-      value [encode16] is ever applied to (a call to [Model.wots.F] /
+      value [encode16] is ever applied to (a call to [Model.shrincs.F] /
       [T_sf] / [PRF] / [H_grind]) already has length exactly 16 by
       construction, so the normalization is a no-op there.
     - [encode16_decode16]: the CRITICAL soundness property --
@@ -66,24 +67,27 @@
     ** The concrete hash instantiation
 
     [F_sha256]/[T_sf_sha256]/[PRF_sha256]/[H_grind0_sha256] wrap
-    [Model.wots.F]/[T_sf]/[PRF]/[H_grind] through [decode16]/[decode32]
-    on the way in and [encode16] on the way out; [T_sf_sha256]
-    additionally flattens its [seq N_shrincs] argument into one [block]
-    with [flatten], matching [Model.wots]'s own
-    [T_sf pk_seed pk_adrs (concat (chain_tips ...))] convention.
+    [Model.shrincs.F]/[T_sf]/[PRF]/[H_grind] -- the ported spec's own
+    tweaked hashes, over the 22-byte WIRE ADRS
+    ([Model.address.adrs_bytes]) -- through [decode16]/[decode32] on the
+    way in and [encode16] on the way out; [T_sf_sha256] additionally
+    flattens its [seq N_shrincs] argument into one [block] with
+    [flatten], matching the spec's own
+    [T_sf pk_seed ADRS (concat wots_pk)] convention.
     [H_grind0_sha256] keeps its output as an [N_shrincs] ordinal rather
     than projecting to [nat] -- [instantiation.v]'s own
     [H_grind_shrincs := nat_of_ord \o H_grind0] does that projection, and
     at THIS instantiation [nat_of_ord (H_grind0_sha256 pp a (m, c))]
     is exactly [Model.math.encoding]'s [be_num (nat_bytes
-    (Model.wots.H_grind ...))] -- i.e. [scheme.v]'s abstract nat-digest
+    (Model.shrincs.H_grind ...))] -- i.e. [scheme.v]'s abstract nat-digest
     [H_grind] reads the concrete SHA-256 grinding output as a
     big-endian number, matching
     [Sec.bridge.digest_of_bridge]/[good_counter_bridge]'s own
     [Model.math.encoding.be_num] reading.  (The digit orders are now
     ALIGNED: the games' [scheme.digest_of] reads MSB-first ([rev
     (digits_w ...)]), the same
-    order as [Model.wots.base_2b], so the earlier MSB/LSB re-indexing
+    order as [Model.shrincs.base_2b] at [b = 4], so the earlier MSB/LSB
+    re-indexing
     caveat is gone -- [Sec.wots.model_bridge.digest_of_modelE] proves the
     games digest EQUALS the model digest on the nose, and the whole
     games<->model correspondence is discharged there, not merely up to a
@@ -151,7 +155,7 @@ Require Import Sec.wots.theorem.
 From mathcomp Require Import reals.
 Require Import Sec.wots.instantiation.
 From Sec Require Import bridge.
-From Model Require wots byte address.
+From Model Require wots byte address shrincs.
 (* See header IMPORT DISCIPLINE: BinInt (Import) + Znat (plain
    Require) keep Z literals/infix notation without shadowing
    mathcomp's nat "^". *)
@@ -270,23 +274,46 @@ Qed.
 
     All four are anchor-free: the WOTS+C address type at the shrincs
     numbers ([address.adrs chain_count_shrincs w_shrincs.-1]) is
-    convertible to [Model.wots]'s own [adrs = address.adrs 32 15]. *)
+    convertible to [Model.wots]'s own [adrs = address.adrs 32 15].
+
+    The four hashes are [Model.shrincs]'s -- the transcription of the
+    normative Python spec (model/PORTING.md) -- applied to the ADRS's
+    22-byte WIRE form ([Model.address.adrs_bytes]), which is what the
+    spec's own tweaked hashes take.  Each was previously spelled with
+    [Model.wots]'s dependent-address hash of the same name; the two are
+    PROPOSITIONALLY EQUAL, each by one named lemma in
+    model/theory/shrincs.v, cited at its site below.  The four axiom
+    statements further down mention these names, never their bodies, so
+    the change is statement-neutral (audit gate 4's digests are
+    unchanged) as well as meaning-neutral. *)
 
 Definition F_sha256 (pp : PP_shrincs)
     (a : address.adrs chain_count_shrincs w_shrincs.-1) (x : N_shrincs) : N_shrincs :=
-  encode16 (wots.F (decode16 pp) a (decode16 x)).
+  (* body change justified by F_shrincs (model/theory/shrincs.v);
+     propositionally equal to the previous definition *)
+  encode16 (shrincs.F (decode16 pp) (address.adrs_bytes a) (decode16 x)).
 
 Definition T_sf_sha256 (pp : PP_shrincs)
     (a : address.adrs chain_count_shrincs w_shrincs.-1) (xs : seq N_shrincs) : N_shrincs :=
-  encode16 (wots.T_sf (decode16 pp) a (flatten (map decode16 xs))).
+  (* body change justified by T_sf_shrincs (model/theory/shrincs.v);
+     propositionally equal to the previous definition *)
+  encode16 (shrincs.T_sf (decode16 pp) (address.adrs_bytes a)
+              (flatten (map decode16 xs))).
 
 Definition PRF_sha256 (pp : PP_shrincs)
     (a : address.adrs chain_count_shrincs w_shrincs.-1) (k : K_shrincs) : N_shrincs :=
-  encode16 (wots.PRF (decode16 pp) a (decode16 k)).
+  (* body change justified by PRF_shrincs (model/theory/shrincs.v);
+     propositionally equal to the previous definition -- note the port
+     keeps the spec's [PRF pk_seed sk_seed ADRS] argument order, where
+     [Model.wots] took the address second *)
+  encode16 (shrincs.PRF (decode16 pp) (decode16 k) (address.adrs_bytes a)).
 
 Definition H_grind0_sha256 (pp : PP_shrincs)
     (a : address.adrs chain_count_shrincs w_shrincs.-1) (mc : M_shrincs * nat) : N_shrincs :=
-  encode16 (wots.H_grind (decode16 pp) a (decode32 mc.1) (Z.of_nat mc.2)).
+  (* body change justified by H_grind_shrincs (model/theory/shrincs.v);
+     propositionally equal to the previous definition *)
+  encode16 (shrincs.H_grind (decode16 pp) (address.adrs_bytes a)
+              (decode32 mc.1) (Z.of_nat mc.2)).
 
 (* ------------------------------------------------------------------ *)
 (** ** The concrete parameter record
@@ -399,7 +426,7 @@ Section HashAssumptions.
 Context (zstar istar : nat).
 
 (** THE payoff: WOTS+C over truncated-SHA256 (pk_seed || zeros(48) ||
-    ADRS || M, [Model.wots]'s construction) is one-time
+    ADRS || M, the ported spec's construction) is one-time
     known-message-secure, unconditionally, at a bound built from the
     6 axioms above. *)
 Theorem shrincs_wots_secure_sha256

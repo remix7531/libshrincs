@@ -49,7 +49,11 @@
     height (shrincs.py :60).  This is the same [wc_sha256] hash family
     the native WOTS+C tree's headline theorem is instantiated against,
     so the FXMSS leaves ARE the WOTS+C instances [Sec.wots.model_bridge]
-    already bridged.
+    already bridged.  Those are now stated over [Model.shrincs] (the
+    spec port); the FXMSS TREE layer here is still [Model.fxmss], so
+    [leaf_pkE] crosses back through [Model.theory.shrincs]'s
+    [pubkey_gen_shrincs].  Re-anchoring the tree layer waits on a port
+    of [Model.fxmss] itself.
 
     ** Out of scope, and why
 
@@ -80,8 +84,13 @@ From Sec Require addressing.
 Require Import Sec.wots.instantiation.
 Require Import Sec.axioms.
 Require Import Sec.wots.model_bridge.
-From Model Require fxmss address fin sha256 wots.
+From Model Require fxmss address fin sha256 wots shrincs.
 Require Model.theory.fxmss.
+(* [Sec.wots.model_bridge]'s WOTS+C correspondences are stated over
+   [Model.shrincs] (the port of the normative Python spec); this file's
+   FXMSS layer is still [Model.fxmss], so the anchor step below crosses
+   back with the reconciliation lemma [pubkey_gen_shrincs]. *)
+Require Model.theory.shrincs.
 (* See header IMPORT DISCIPLINE. *)
 From Stdlib Require Import BinInt Lia.
 From Stdlib Require Znat.
@@ -262,6 +271,7 @@ have -> : shrincs_fxmss_wots_public_key PP_shrincs N_shrincs F_sha256 T_sf_sha25
             (Sec.wots.hop.prf.derive_sk (wc_sha256 (h_sf - nd)%nat i) K_shrincs
                PRF_sha256 pp ks) by [].
 rewrite pubkey_gen_modelE /Model.fxmss.fxmss_anchor.
+rewrite -Model.theory.shrincs.pubkey_gen_shrincs.
 by rewrite (A0_anchorE nd i Hi).
 Qed.
 
