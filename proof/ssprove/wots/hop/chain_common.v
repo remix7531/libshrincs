@@ -54,11 +54,8 @@ Qed.
 Section ChainCommon.
 
 (** The WOTS+C parameter record (see Sec.wots.params), as in
-    Sec.wots.games, plus the per-file hash-domain inhabitant [n0] for
-    the pre-commitment PCHECK gadget of [R_chain_pre] (header;
-    data-only side condition). *)
+    Sec.wots.games. *)
 Context (P : wc_params).
-Context (n0 : wcp_N P).
 
 (* ------------------------------------------------------------------ *)
 (** ** Pure layer: the re-tagging into encoded tweaks

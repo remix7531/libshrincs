@@ -28,7 +28,6 @@ Import GRing.Theory Num.Theory Order.POrderTheory.
 Section ThmChainPRE.
 
 Context (P : wc_params).
-Context (n0 : wcp_N P).
 Context (A : nom_package).
 (* [Adv_perfect_l/r] resolve the adversary's [ValidPackage] by typeclass
    inference; it must be in scope here as it was in the Theorem section. *)
@@ -37,10 +36,10 @@ Context (VA : ValidPackage (loc A) (I_KOTS (shrincs_wots_scheme P)) A_export A).
 (** [G_post_chain ~ G_forge_uniformchains false] is the chain-preimage reduction's perfect hop. *)
 Lemma cpre_hop_eq :
   Adv (intermediates.G_post_chain P) (G_forge_uniformchains P false) A
-    = AdvOf (SMPRE_game (thf_chain P) (coll_chain P) (wcp_chain_count P)) (A ∘ R_chain_pre P n0).
+    = AdvOf (SMPRE_game (thf_chain P) (coll_chain P) (wcp_chain_count P)) (A ∘ R_chain_pre P).
 Proof.
-rewrite (Adv_perfect_l (R_chain_pre_real P n0)).
-rewrite (Adv_perfect_r (R_chain_pre_ideal P n0)).
+rewrite (Adv_perfect_l (R_chain_pre_real P)).
+rewrite (Adv_perfect_r (R_chain_pre_ideal P)).
 by rewrite Adv_reduction.
 Qed.
 

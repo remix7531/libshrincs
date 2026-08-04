@@ -60,12 +60,11 @@ Definition KOTS_game (b : bool) : game I_KOTS :=
       end
     } ;
     [ KFORGE ] : { Msg S × Sig S ~> 'bool } '(m, s) {
+      (* Both games enforce the same call order: KFORGE before COMMIT
+         aborts because no public key has been stored. *)
+      pk ← getSome kots_pk_loc ;;
+      log ← get kots_log_loc ;;
       if b then
-        (* [getSome] is [#assert (isSome _)]: calling KFORGE before
-           COMMIT aborts, contributing 0 to the advantage — the
-           adversary gains nothing by querying early. *)
-        pk ← getSome kots_pk_loc ;;
-        log ← get kots_log_loc ;;
         (* win  <=>  the signature verifies AND the forged message was
            never signed (the one-time forgery condition). *)
         ret (verify S pk m s && (m \notin log))
@@ -103,9 +102,10 @@ Proof.
       end
     } ;
     [ KFORGE ] : { Msg S × Sig S ~> 'bool } '(m, s) {
+      (* Keep the protocol-state checks outside the game-bit branch. *)
+      pk ← getSome kots_pk_loc ;;
+      log ← get kots_log_loc ;;
       if b then
-        pk ← getSome kots_pk_loc ;;
-        log ← get kots_log_loc ;;
         ret (verify S pk m s && (m \notin log))
       else
         ret false

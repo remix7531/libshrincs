@@ -70,9 +70,10 @@ Definition EUCMA_game (b : bool) : game I_EUCMA :=
       end
     } ;
     [ FORGE ] : { Msg S × Sig S ~> 'bool } '(m, s) {
+      (* Both games require SETUP before a forgery query. *)
+      pk ← getSome eucma_pk_loc ;;
+      log ← get eucma_log_loc ;;
       if b then
-        pk ← getSome eucma_pk_loc ;;
-        log ← get eucma_log_loc ;;
         ret (verify S pk m s && (m \notin log))
       else
         ret false

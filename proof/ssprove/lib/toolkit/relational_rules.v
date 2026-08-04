@@ -219,9 +219,8 @@ eapply rsame_head_alt; first exact hc.
 Qed.
 
 (** A failing program is related to any bind whose head fails (the
-    composite has null semantics).  Used for pre-commitment KFORGE
-    gadgets where one side aborts (a [getSome] assert) and the other
-    aborts inside a linked oracle's phase assert (under a continuation).
+    composite has null semantics).  Used when one side aborts directly
+    and the other aborts at the head of a linked computation.
     Same semantic proof as SSProve's [r_fail]. *)
 Lemma r_fail_bind_rhs {A B C : choice_type} (k : B -> raw_code C)
     (pre : precond) (post : postcond A C) :

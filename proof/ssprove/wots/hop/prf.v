@@ -201,9 +201,9 @@ Definition G_forge_keyed (b : bool) : game (I_KOTS (shrincs_wots_scheme P)) :=
            Some (sign_chains P pp (derive_sk pp k) (digest_of P pp m c), c))
     } ;
     [ KFORGE ] : { Msg (shrincs_wots_scheme P) × Sig (shrincs_wots_scheme P) ~> 'bool } '(m, s) {
+      pk ← getSome (forge_pk_loc P) ;;
+      log ← get (forge_log_loc P) ;;
       if b then
-        pk ← getSome (forge_pk_loc P) ;;
-        log ← get (forge_log_loc P) ;;
         ret (shrincs_wots_verify P pk.1 pk.2 m s && (m \notin log))
       else
         ret false
@@ -236,9 +236,9 @@ Definition R_prf (b : bool) : package (I_PRF khf_prf) (I_KOTS (shrincs_wots_sche
       ret ((pp, shrincs_wots_pubkey P pp xs), Some (sign_chains P pp xs (digest_of P pp m c), c))
     } ;
     [ KFORGE ] : { Msg (shrincs_wots_scheme P) × Sig (shrincs_wots_scheme P) ~> 'bool } '(mst, sgst) {
+      pk ← getSome r_prf_pk_loc ;;
+      log ← get r_prf_log_loc ;;
       if b then
-        pk ← getSome r_prf_pk_loc ;;
-        log ← get r_prf_log_loc ;;
         ret (shrincs_wots_verify P pk.1 pk.2 mst sgst && (mst \notin log))
       else
         ret false
@@ -457,24 +457,22 @@ simplify_eq_rel arg.
   + move=> kk; exact: r_prf_tail.
 - (* KFORGE: local on both sides *)
   destruct arg as [mst sgst].
-  case: b => /=.
-  + (* real KOTS bit: mirror the stored key/log *)
-    sync_pko.
-    rewrite code_link_assertD.
-    eapply r_assertD; first by [].
-    move=> e0 e1.
-    case: pko e0 e1 => [pk|] e0 e1; last by discriminate e0.
-    simpl.
-    sync_eq lg lg'.
-      { move=> s0 s1 [[[[hinv _] _] hrem0] hrem1].
-        case/kinvE: hinv => _ [_ e2 _ _].
-        rewrite /rem_inv /= in hrem0 hrem1.
-        by rewrite -hrem0 -hrem1. }
-    move=> e; subst lg'.
-    apply r_ret => s0 s1 hpre; split=> //.
+  simpl.
+  sync_pko.
+  rewrite code_link_assertD.
+  eapply r_assertD; first by [].
+  move=> e0 e1.
+  case: pko e0 e1 => [pk|] e0 e1; last by discriminate e0.
+  simpl.
+  sync_eq lg lg'.
+    { move=> s0 s1 [[[[hinv _] _] hrem0] hrem1].
+      case/kinvE: hinv => _ [_ e2 _ _].
+      rewrite /rem_inv /= in hrem0 hrem1.
+      by rewrite -hrem0 -hrem1. }
+  move=> e; subst lg'.
+  case: b => /=;
+    apply r_ret => s0 s1 hpre; split=> //;
     by case: hpre => [[[[hinv _] _] _] _].
-  + (* ideal KOTS bit: both answer false *)
-    by apply r_ret => s0 s1 hpre; split.
 Qed.
 
 (* ------------------------------------------------------------------ *)
@@ -519,22 +517,22 @@ simplify_eq_rel arg.
   + move=> xs hxs; exact: r_prf_tail.
 - (* KFORGE: identical to the real-side case (the PRF bit is spent) *)
   destruct arg as [mst sgst].
-  case: b => /=.
-  + sync_pko.
-    rewrite code_link_assertD.
-    eapply r_assertD; first by [].
-    move=> e0 e1.
-    case: pko e0 e1 => [pk|] e0 e1; last by discriminate e0.
-    simpl.
-    sync_eq lg lg'.
-      { move=> s0 s1 [[[[hinv _] _] hrem0] hrem1].
-        case/kinvE: hinv => _ [_ e2 _ _].
-        rewrite /rem_inv /= in hrem0 hrem1.
-        by rewrite -hrem0 -hrem1. }
-    move=> e; subst lg'.
-    apply r_ret => s0 s1 hpre; split=> //.
+  simpl.
+  sync_pko.
+  rewrite code_link_assertD.
+  eapply r_assertD; first by [].
+  move=> e0 e1.
+  case: pko e0 e1 => [pk|] e0 e1; last by discriminate e0.
+  simpl.
+  sync_eq lg lg'.
+    { move=> s0 s1 [[[[hinv _] _] hrem0] hrem1].
+      case/kinvE: hinv => _ [_ e2 _ _].
+      rewrite /rem_inv /= in hrem0 hrem1.
+      by rewrite -hrem0 -hrem1. }
+  move=> e; subst lg'.
+  case: b => /=;
+    apply r_ret => s0 s1 hpre; split=> //;
     by case: hpre => [[[[hinv _] _] _] _].
-  + by apply r_ret => s0 s1 hpre; split.
 Qed.
 
 End PrfHop.

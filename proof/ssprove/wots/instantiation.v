@@ -75,7 +75,7 @@ Definition dM_shrincs : dist M_shrincs :=
 Lemma two_pow_pos (k : nat) : (0 < 2 ^ k)%N.
 Proof. by rewrite expn_gt0. Qed.
 
-(** Hash-domain inhabitant (the SM-PRE gadget's data inhabitant). *)
+(** Hash-domain inhabitant used as a default value in sequence lemmas. *)
 Definition n0_shrincs : N_shrincs := Ordinal (two_pow_pos 128).
 
 (* ------------------------------------------------------------------ *)
@@ -169,14 +169,14 @@ Theorem shrincs_wots_secure_shrincs
                 (tcr_budget chain_count_shrincs w_shrincs))
              (A ∘ R_chain_tcr P_shrincs)
      + AdvOf (SMPRE_game (thf_chain P_shrincs) (coll_chain P_shrincs) chain_count_shrincs)
-             (A ∘ R_chain_pre P_shrincs n0_shrincs)
+             (A ∘ R_chain_pre P_shrincs)
      + \sum_(0 <= s < w_shrincs.-2)
           AdvOf (SMUD_game (thf_chain P_shrincs) (coll_chain P_shrincs) chain_count_shrincs)
                 (A ∘ R_ud P_shrincs false s)
      + AdvOf (PRF_game (khf_prf P_shrincs K_shrincs PRF_shrincs dK_shrincs) chain_count_shrincs)
              (A ∘ R_prf P_shrincs K_shrincs PRF_shrincs dK_shrincs false).
 Proof.
-exact: (shrincs_wots_secure P_shrincs n0_shrincs K_shrincs PRF_shrincs dK_shrincs
+exact: (shrincs_wots_secure P_shrincs K_shrincs PRF_shrincs dK_shrincs
           shrincs_Hrange A VA).
 Qed.
 

@@ -33,12 +33,8 @@ Import PackageNotation.
 Section ChainTCR.
 
 (** Same section context as Sec.games minus the dummy message
-    sampler [dM] (only [thf_grind] needs it).  The hash-domain inhabitant
-    [n0] is UNUSED in this (SM-TCR) half — it is carried only to keep
-    the section context identical to [Sec.hop.chain_pre], whose
-    [R_chain_pre] uses it for the pre-commitment PCHECK gadget. *)
+    sampler [dM] (only [thf_grind] needs it). *)
 Context (P : wc_params).
-Context (n0 : wcp_N P).
 
 (** Library-game pins at this file's SM-TCR instance ([thf_chain P] /
     [coll_chain P]) and its oracle locations. *)
@@ -263,9 +259,12 @@ simplify_linking.
 reflexivity.
 Qed.
 
-(** Ideal-side CHECK answers false unconditionally. *)
+(** Ideal-side CHECK enforces the reveal phase and then answers false. *)
 Lemma resolve_ct_ck_false (j : nat) (x : th_M (thf_chain P)) :
-  resolve (SMT false) ct_cko (j, x) = ret false.
+  resolve (SMT false) ct_cko (j, x) =
+  (revealed ← get trev_loc ;;
+   #assert revealed ;;
+   ret false).
 Proof.
 simplify_linking.
 reflexivity.
@@ -1039,6 +1038,15 @@ simplify_eq_rel arg.
          ++ (* ChainColl: ideal CHECK answers false = G_post_chain's null *)
             simpl.
             rewrite (resolve_ct_ck_false j u).
+            eapply (r_get_bind_rhs trev_loc true).
+              { move=> s0 s1 [[[[[[hinv h1] _] _] _] _] _].
+                case/ct_invE: hinv => _ [_ _ _ hmatch].
+                rewrite /rem_inv /= in h1.
+                rewrite h1 in hmatch.
+                by case: hmatch => mm [cc [uss [_ _ _ _ [_ _ hrv]]]]. }
+            cbv beta.
+            eapply r_bind_assertD_rhs; first by [].
+            move=> _.
             ct_ret_inv.
 Qed.
 

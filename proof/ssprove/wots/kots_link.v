@@ -129,7 +129,6 @@ simplify_eq_rel arg.
 - (* KFORGE: read the mirrored (pk, log); both sides verify the same
      [shrincs_wots_verify] (the log-couple is invariant index 0) *)
   destruct arg as [mst sgst].
-  destruct b; last by apply r_ret.
   eapply r_get_remember_lhs => pko.
   eapply r_get_remember_rhs => pko'.
   ssprove_rem_rel 1%N => e. subst pko'.
@@ -138,7 +137,7 @@ simplify_eq_rel arg.
   eapply r_get_remember_rhs => log'.
   ssprove_rem_rel 0%N => e'. subst log'.
   ssprove_forget_all.
-  by apply r_ret.
+  case: b => /=; by apply r_ret.
 Qed.
 
 (* ------------------------------------------------------------------ *)
@@ -190,7 +189,6 @@ simplify_eq_rel arg.
 - (* KFORGE: read the mirrored (pk, log); both sides verify the same
      [shrincs_wots_verify] (the log-couple is invariant index 0) *)
   destruct arg as [mst sgst].
-  destruct b; last by apply r_ret.
   eapply r_get_remember_lhs => pko.
   eapply r_get_remember_rhs => pko'.
   ssprove_rem_rel 1%N => e. subst pko'.
@@ -199,7 +197,7 @@ simplify_eq_rel arg.
   eapply r_get_remember_rhs => log'.
   ssprove_rem_rel 0%N => e'. subst log'.
   ssprove_forget_all.
-  by apply r_ret.
+  case: b => /=; by apply r_ret.
 Qed.
 
 End kots_link.
