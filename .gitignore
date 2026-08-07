@@ -15,7 +15,11 @@ build/
 result
 result-*
 rocq_mcp_cache_*.v
-docs/
+docs/*
+!docs/SSPROVE_SECURITY_REVIEW.bbl
+!docs/SSPROVE_SECURITY_REVIEW.bib
+!docs/SSPROVE_SECURITY_REVIEW.pdf
+!docs/SSPROVE_SECURITY_REVIEW.tex
 proof/assumptions/model.out
 proof/assumptions/model.found
 proof/assumptions/ssprove.out

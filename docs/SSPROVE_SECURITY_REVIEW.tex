@@ -1,0 +1,1102 @@
+\documentclass[11pt,a4paper]{article}
+
+% ============================================================
+% Packages
+% ============================================================
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage[margin=2.5cm]{geometry}
+
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{mathtools}
+\usepackage{xspace}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{float}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta}
+
+\usepackage[colorlinks=true,linkcolor=blue!55!black,citecolor=green!45!black,urlcolor=blue!55!black]{hyperref}
+\usepackage[capitalize,nameinlink]{cleveref}
+
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+% ============================================================
+% Theorem environments
+% ============================================================
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{claim}[theorem]{Claim}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{remark}[theorem]{Remark}
+
+% ============================================================
+% Rocq listing style
+% ============================================================
+\definecolor{coqkw}{rgb}{0.30,0.10,0.55}
+\definecolor{coqcom}{rgb}{0.30,0.45,0.30}
+\definecolor{coqstr}{rgb}{0.55,0.20,0.10}
+\lstdefinelanguage{Coq}{
+  morekeywords={Axiom,Definition,Lemma,Theorem,Corollary,Record,Inductive,
+    Fixpoint,Variant,Context,Variable,Parameter,Notation,Proof,Qed,Defined,
+    forall,fun,match,with,end,let,in,if,then,else,Module,Section,End,Import,
+    Require,From,bool,nat,package,game,perfect,return,as,of,Type,Prop},
+  sensitive=true,
+  morecomment=[s]{(*}{*)},
+  morestring=[b]",
+}
+\lstset{
+  language=Coq,
+  basicstyle=\ttfamily\footnotesize,
+  keywordstyle=\color{coqkw}\bfseries,
+  commentstyle=\color{coqcom}\itshape,
+  stringstyle=\color{coqstr},
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  breaklines=true,
+  breakatwhitespace=true,
+  xleftmargin=1em,
+  frame=single,
+  rulecolor=\color{black!15},
+  numbers=left,
+  numberstyle=\tiny\color{black!45},
+  numbersep=6pt,
+  literate=
+    {≈}{{$\approx$}}1 {∘}{{$\circ$}}1 {≤}{{$\leq$}}1 {≥}{{$\geq$}}1
+    {→}{{$\rightarrow$}}1 {←}{{$\leftarrow$}}1
+    {⦃}{{$\{\!|$}}1 {⦄}{{$|\!\}$}}1 {∑}{{$\sum$}}1
+    {×}{{$\times$}}1 {∈}{{$\in$}}1 {⊢}{{$\vdash$}}1
+    {∐}{{$\sqcup$}}1 {α}{{$\alpha$}}1 {λ}{{$\lambda$}}1
+    {⋊}{{$\rtimes$}}1 {∗}{{$*$}}1 {∀}{{$\forall$}}1,
+}
+\DeclareRobustCommand{\coq}[1]{\texttt{\detokenize{#1}}}
+
+% ============================================================
+% Notation
+% ============================================================
+\newcommand{\SSProve}{\textsf{SSProve}\xspace}
+\newcommand{\Rocq}{\textsf{Rocq}\xspace}
+\newcommand{\WOTSC}{\textsf{WOTS+C}\xspace}
+\newcommand{\Adv}{\mathsf{Adv}}
+\newcommand{\AdvOf}{\mathsf{AdvOf}}
+\newcommand{\A}{\mathcal{A}}
+\newcommand{\B}{\mathcal{B}}
+\newcommand{\PKseed}{\ensuremath{\mathsf{PKseed}}\xspace}
+\newcommand{\SKseed}{\ensuremath{\mathsf{SKseed}}\xspace}
+\newcommand{\prf}{\textsc{prf}\xspace}
+\newcommand{\smud}{\textsc{sm-ud}\xspace}
+\newcommand{\smtcr}{\textsc{sm-tcr}\xspace}
+\newcommand{\smpre}{\textsc{sm-pre}\xspace}
+\newcommand{\stcrp}{\textsc{s-tcr-p}\xspace}
+\newcommand{\epsprf}{\varepsilon_{\mathsf{prf}}}
+\newcommand{\epsud}{\varepsilon_{\mathsf{ud}}}
+\newcommand{\epsgr}{\varepsilon_{\mathsf{grind}}}
+\newcommand{\epstpk}{\varepsilon_{\mathsf{tcr,pk}}}
+\newcommand{\epstch}{\varepsilon_{\mathsf{tcr,chain}}}
+\newcommand{\epspre}{\varepsilon_{\mathsf{pre}}}
+\newcommand{\pathcode}[1]{\path{#1}}
+
+\title{\textbf{Reviewing the Machine-Checked Security Proof of \WOTSC}\\[4pt]
+       {\large A Guide for Cryptographers}}
+\author{}
+\date{7 August 2026\\[2pt]
+      \small Reviewed commit \texttt{be8d966660973f1367f8d3cc66886472649e59e3}}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+This guide explains how to review the machine-checked \WOTSC security proof formalized in \Rocq using \SSProve, a Rocq library for game-based cryptographic proofs.
+For each adversary in the formal \WOTSC experiment, the theorem constructs adversaries against six assumption games and bounds the original advantage by the sum of their advantages.
+The proved experiment fixes the signed digest before the adversary sees the public key.
+This known-message notion is sufficient when the security proof of a larger hash-based signature scheme fixes the internal digest before invoking the \WOTSC result.
+Rocq checks the reduction, while a final corollary substitutes assumed upper bounds for the six game advantages.
+The guide explains how to inspect the experiment, reduction, assumption games, and unproved dependencies.
+It also compares the formal games with published QROM bounds: using those bounds requires game-correspondence and resource arguments outside the checked proof, and the tight bound relevant to the length-preserving preimage game is conjectural.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\section{What the theorem proves}
+\label{sec:claim}
+
+The formal proof establishes a reduction from forging a \WOTSC signature to breaking one of six precisely defined security games for the functions used by \WOTSC.
+This section states that result without relying on Rocq or \SSProve syntax.
+
+\subsection{The \WOTSC signature scheme}
+
+\WOTSC signs a digest by revealing intermediate values from a set of one-way hash chains.
+Each chain begins at a secret value and ends after a fixed number of calls to the chain hash.
+Key generation derives the secret chain starts from \(\SKseed\), advances every chain to its endpoint, and compresses all endpoints into one value.
+The public key consists of that compressed value and the public seed \(\PKseed\) used to domain-separate the hash calls.
+
+Before choosing positions in the chains, the signer combines the digest with a counter and hashes the pair.
+The hash output determines one position in each chain.
+The signer tries counters in increasing order until the sum of these positions equals the value required by \WOTSC, or stops when it reaches the counter limit \(\mathsf{cap}\).
+A signature contains the value at each selected chain position and the counter that selected those positions.
+The Rocq files call this bounded counter search \emph{grinding}.
+
+The verifier derives the same positions from the digest and counter.
+It advances every signature value from its selected position to the end of its chain, compresses the resulting endpoints, and compares the result with the public key.
+The security proof concerns these key-generation, signing, and verification algorithms.
+
+\subsection{The attack experiment}
+
+The theorem analyzes the following interaction.
+
+\begin{enumerate}[leftmargin=1.6em,itemsep=2pt]
+\item The adversary chooses a digest \(m\) to be signed.
+\item The challenger generates a fresh \WOTSC key pair, signs \(m\), and gives the public key and signature to the adversary.
+\item The adversary submits candidate pairs \((m^\star,\sigma^\star)\).
+\item A candidate is a forgery if \(m^\star\neq m\) and verification accepts \(\sigma^\star\) for \(m^\star\).
+\end{enumerate}
+
+The digest \(m\) is therefore fixed before the adversary sees the public key.
+The Rocq files call this a one-time known-message experiment.
+It is not standard one-time EUF-CMA, in which the adversary sees the public key before choosing its signing query.
+This known-message notion is sufficient when \WOTSC is used inside a larger hash-based signature scheme whose security proof fixes the internal digest before invoking the \WOTSC theorem.
+The exact treatment of repeated candidate submissions and signing failure is part of the formal game reviewed in \cref{sec:notion}.
+
+\subsection{The proved reduction}
+
+For each adversary in the formal experiment, the proof constructs adversaries against six games: one for secret-key derivation, one for the distribution of internal chain values, one for the digest-and-counter hash, two target-collision games, and one preimage game.
+In the following display, \(\mathsf{KOTS\_vc}\) names the attack experiment just described, and \(\AdvOf(\mathcal{G},\A)\) denotes the advantage assigned to adversary \(\A\) by game \(\mathcal{G}\).
+\Cref{sec:ssprove-adv} gives the exact \SSProve definition of this advantage.
+Writing the six assumption bounds as \(\varepsilon\)-terms, the theorem gives the following inequality:
+\begin{equation}
+\label{eq:security-bound}
+  \AdvOf(\mathsf{KOTS\_vc},\A)
+  \leq 2\epsprf+2(w-2)\epsud+\epsgr+\epstpk+\epstch+\epspre.
+\end{equation}
+Here \(\epsprf\) bounds the key-derivation game, \(\epsud\) bounds the chain-value undetectability game, and \(\epsgr\) bounds the digest-and-counter collision game.
+The remaining terms bound target collisions in public-key compression, target collisions in the chain hash, and preimages of chain-hash outputs.
+
+The theorem is pointwise: for a particular adversary \(\A\), each term on the right is the advantage of a specific adversary constructed from \(\A\).
+\Cref{sec:reduction} shows the exact Rocq statement and the constructed adversaries.
+
+\section{Scope and limitations}
+\label{sec:limits}
+
+The reduction in \cref{sec:claim} is machine checked, but several broader security claims require arguments that are not present in the Rocq theorem.
+This section collects those limitations in one place.
+Later sections refer back to this section when a line of code determines one of them.
+
+\begin{table}[H]
+\centering
+\caption{Claims that require an argument beyond the checked reduction.}
+\label{tab:limits}
+\small
+\begin{tabular}{@{}L{0.29\textwidth}L{0.63\textwidth}@{}}
+\toprule
+Broader claim & What is missing \\
+\midrule
+Time-bounded concrete security & \SSProve does not assign a cost to the adversary or the constructed reductions, and the six concrete axioms quantify over every package satisfying \coq{ValidPackage}. This predicate checks interfaces and memory use but does not impose a running-time bound. \\
+Quantum or QROM security & The games and reductions have classical semantics, not quantum or QROM semantics. \\
+Use of published QROM bounds & No checked theorem relates the formal games to the published experiments, so their bounds cannot be substituted directly. In addition, the tight published bound relevant to the length-preserving \smpre game depends on a conjectured multi-target decisional second-preimage bound. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Published analyses can supply numerical bounds after a separate argument relates their experiments and resource bounds to the formal games reviewed here.
+The attack experiment also aborts when the bounded counter search fails.
+This is part of the proved security notion rather than a gap in the reduction, but a claim about an experiment that reveals signing failure would require a separate failure analysis.
+
+
+\section{Trusted computing base, assumptions, and review obligations}
+\label{sec:trust}
+
+A reviewer must separate three questions that are easy to conflate.
+First, did Rocq verify that the theorem follows from the formal definitions and listed assumptions?
+Second, does the formal attack experiment express the intended security notion?
+Third, do the assumption games match the properties for which external bounds are available?
+
+The \emph{trusted computing base} (TCB) comprises the components that must behave correctly for Rocq's acceptance of a proof to be meaningful.
+The Rocq kernel checks the completed proof, so this result relies on the kernel and on the software and hardware that execute it.
+The Rocq kernel also checks the \SSProve and MathComp lemmas used by the proof.
+Their definitions determine the meaning of packages, distributions, and advantages used in the theorem.
+
+When Rocq checks a theorem, it also checks the proofs of the lemmas used by that theorem.
+Following these uses transitively eventually reaches constants that were declared without proofs, such as an \coq{Axiom} or an imported admitted lemma.
+This guide calls such a constant an \emph{unproved dependency} of the theorem.
+The command \coq{Print Assumptions} lists these dependencies.
+
+The unproved dependencies of the abstract reduction include proof irrelevance, choice, propositional and functional extensionality, axioms for real numbers, and an admitted double-series interchange lemma from an upstream real-analysis library.
+A separate concrete corollary additionally depends on six cryptographic assumptions declared in \pathcode{proof/ssprove/axioms.v}.
+
+The command \coq{make audit} rebuilds the proofs, rejects unfinished proofs such as \coq{Admitted}, checks that assumptions are declared only in the designated assumption files, and runs \coq{Print Assumptions} for the principal theorems.
+It fails if these theorems acquire an unproved dependency outside the project's recorded set.
+Passing the audit does not show that a cryptographic assumption is true, that the attack experiment expresses the intended security notion, or that a published bound applies to a formal game.
+\Cref{sec:review-start} explains how to run this check.
+
+\section{Check the proof with Rocq}
+\label{sec:review-start}
+
+All code line numbers in this guide refer to the commit printed on the title page.
+From the repository root, enter the \SSProve development shell and run the proof target:
+
+\begin{verbatim}
+nix develop .#ssprove
+make ssprove-prove
+\end{verbatim}
+
+The target succeeds only if the Rocq kernel accepts the proof files and their dependencies.
+Then run the dependency audit:
+
+\begin{verbatim}
+make audit
+\end{verbatim}
+
+The final report combines the dependencies of several audited theorems.
+It includes the six cryptographic assumptions because the concrete corollary uses them.
+The individual \coq{Print Assumptions} queries are listed in \pathcode{proof/assumptions/ssprove.v}; the query for the abstract reduction should report only the classical dependencies described in \cref{sec:trust}.
+
+\section{How to read the Rocq and SSProve files}
+\label{sec:rocq-code}
+
+This section introduces the Rocq and \SSProve notation needed to read the theorem and game definitions.
+\Rocq is a proof assistant: its kernel checks that a theorem follows from the definitions, hypotheses, and unproved assumptions on which it depends.
+\SSProve is a Rocq library for game-based cryptographic proofs.
+It provides a language for probabilistic programs with oracles and private state, together with definitions of their semantics and distinguishing advantage.
+In this proof, the attack experiment, assumption games, adversaries, and reductions are \SSProve programs, and Rocq checks the proofs about those programs.
+The reviewer does not need to read the proof scripts or repeat the proof step by step.
+The later sections follow the security statement from left to right: the attack experiment, the abstract reduction, the assumption games, and the unproved assumptions.
+
+\subsection{The Rocq declarations used in this guide}
+
+Every Rocq expression has a type.
+A \coq{Definition} names an expression, and a \coq{Record} declares a type with named fields.
+A \coq{Lemma} or \coq{Theorem} states a proposition followed by a proof that the kernel checks.
+An \coq{Axiom} or \coq{Parameter} declares a constant without a definition or proof.
+The command \coq{Print name} displays a declaration after Rocq has filled in omitted arguments, while \coq{Print Assumptions name} displays the unproved constants on which it depends.
+
+A theorem has the following shape:
+
+\begin{lstlisting}[numbers=none]
+Theorem name (x : T) (H : P x) : Q x.
+Proof.
+  (* proof script *)
+Qed.
+\end{lstlisting}
+
+The binder \coq{(x : T)} introduces a parameter \coq{x} of type \coq{T}, and \coq{(H : P x)} introduces a named hypothesis.
+The declaration says that \(Q(x)\) holds for every \(x\) of type \(T\) satisfying hypothesis \(P(x)\).
+The reviewer reads the declaration through the conclusion after the colon and may skip the commands between \coq{Proof} and \coq{Qed}.
+The keyword \coq{Admitted} can close a theorem without a proof; such a theorem appears as an unproved dependency.
+
+A \coq{Section} groups declarations, and each \coq{Context} variable used by a theorem becomes a universally quantified theorem parameter when the section closes.
+For example, a theorem written under \coq{Context (P : wc_params)} is a theorem for every parameter record \coq{P}, not a theorem for one implicit global instance.
+Rocq can fill in arguments and type conversions that do not appear in the file, so the output of \coq{Print} is authoritative when the written declaration is ambiguous.
+
+Rocq distinguishes propositions from Boolean values.
+The type \coq{Prop} is used for propositions in theorem statements, while \coq{bool} contains the executable values \coq{true} and \coq{false}.
+Game code uses Boolean comparisons, while theorem statements use propositions such as real-number inequalities.
+
+{\small
+\begin{longtable}{@{}L{0.32\textwidth}L{0.60\textwidth}@{}}
+\caption{The Rocq and MathComp notation used in later listings.}
+\label{tab:rocq-notation}\\
+\toprule
+Notation & Meaning \\
+\midrule
+\endfirsthead
+\toprule
+Notation & Meaning \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\coq{fun x => e} & The anonymous function that maps \(x\) to expression \(e\). \\
+\coq{let x := e in k} & Bind the deterministic value of \(e\) to \(x\) while evaluating \(k\). \\
+\coq{match r with ... end} & Inspect the constructor of \(r\) and execute the corresponding branch. \\
+\coq{option T} & The type of an optional \(T\) value. \\
+\coq{Some x} & An optional value that contains \(x\). \\
+\coq{None} & An optional value that contains no value. \\
+\coq{X * Y} & Rocq's type for a pair whose components have types \(X\) and \(Y\). \\
+\coq{(x, y)} & A pair containing \(x\) and \(y\). \\
+\(\coq{X}\mathbin{\times}\coq{Y}\) & \SSProve's type for a pair whose components have types \(X\) and \(Y\). \\
+\coq{'(x, y)} & A pattern that binds the two components of a pair to \(x\) and \(y\). \\
+\coq{x.1} & The first component of pair \(x\). \\
+\coq{x.2} & The second component of pair \(x\). \\
+\(\coq{X}\mathbin{\sqcup}\coq{Y}\) & A disjoint-union type whose values contain either an \(X\) or a \(Y\). \\
+\coq{inl x} & A disjoint-union value containing \(x\) from the left-hand type. \\
+\coq{inr y} & A disjoint-union value containing \(y\) from the right-hand type. \\
+\texttt{\{| f := e; ... |\}} & Construct a record by assigning a value to each named field. \\
+\coq{[::]} & The empty sequence. \\
+\coq{x :: xs} & The sequence obtained by prepending \(x\) to \(xs\). \\
+\coq{rcons xs x} & The sequence obtained by appending \(x\) to \(xs\). \\
+\coq{n.-2} & Natural-number subtraction truncated at zero. \\
+\texttt{\textbackslash sum\_(0 <= s < n) e} & The finite sum of expression \(e\) over natural numbers \(s\) from zero through \(n-1\). \\
+\coq{forall x, P} & Universal quantification: proposition \coq{P} holds for every value \coq{x}. \\
+\coq{X -> Y} & The type of functions from \(X\) to \(Y\). \\
+\coq{P -> Q} & When \(P\) and \(Q\) are propositions, the same notation is logical implication. \\
+\texttt{(x < y)\%N} & Compare the natural numbers \(x\) and \(y\). \\
+\texttt{(x == y)\%B} & Test \(x\) and \(y\) for equality and return a Boolean. \\
+\end{longtable}
+}
+
+These constructs are enough to read the definitions and theorem statements in the rest of the guide.
+Proof scripts contain many more tactics and library lemmas, but their meaning is not needed to audit the cryptographic statement.
+
+\subsection{Probabilistic programs and oracle packages}
+\label{sec:ssprove-semantics}
+
+\SSProve represents a cryptographic game as a probabilistic program with oracles and private state~\cite{SSProve,SSProveJournal}.
+It represents the adversary as another probabilistic program whose oracle calls are connected to the game.
+The composition \(\A\circ G\) means that adversary \(\A\) runs with its imported oracles supplied by game \(G\).
+
+An interface is a finite set of typed oracle identifiers.
+The declaration \coq{[ O ] : { X ~> Y }} means that oracle \coq{O} accepts an input in \coq{X} and returns a value in \coq{Y}.
+A \emph{package} implements its exported oracles, may call imported oracles, and owns typed private memory locations.
+Both games and adversaries are packages.
+
+A randomized computation returning a value of type \coq{T} has type \coq{dist T}.
+The notations \coq{'bool}, \coq{'nat}, \coq{'list T}, and \coq{'option T} are the corresponding \SSProve datatypes.
+
+\begin{table}[H]
+\centering
+\caption{The \SSProve program notation used in the game listings.}
+\label{tab:notation}
+\small
+\begin{tabular}{@{}L{0.32\textwidth}L{0.60\textwidth}@{}}
+\toprule
+Notation & Operational meaning \\
+\midrule
+\texttt{x }\(\leftarrow\)\texttt{ d ;; k} & Run computation \(d\), bind its result to \(x\), and continue with \(k\). \\
+\coq{ret x} & Return \(x\) without another randomized step. \\
+\texttt{\{code c\}} & Use probabilistic computation \(c\) as the value of a record field. \\
+\coq{mkloc n x} & Define a typed private-memory location with numeric name \(n\) and initial value \(x\). \\
+\texttt{[package [fmap l1; ...]; ...]} & Define a package whose private state contains the listed memory locations. \\
+\texttt{x }\(\leftarrow\)\texttt{ get l ;; k} & Read private location \(l\), bind its current value to \(x\), and continue with \(k\). \\
+\texttt{\#put l := x ;; k} & Write \(x\) to private location \(l\) and continue with \(k\). \\
+\texttt{\#assert b ;; k} & Continue with \(k\) if \(b=\coq{true}\), and abort otherwise. \\
+\coq{fail} & Abort the current execution without returning a result. \\
+\coq{getSome l} & Read optional location \(l\), return its contained value, or abort if it contains \coq{None}. \\
+\coq{x == y} & Test \(x\) and \(y\) for equality and return a Boolean. \\
+\coq{x != y} & Test \(x\) and \(y\) for inequality and return a Boolean. \\
+\coq{~~ b} & Compute Boolean negation. \\
+\coq{b1 && b2} & Compute Boolean conjunction. \\
+\coq{setm m k v} & Update finite map \(m\) by associating key \(k\) with value \(v\). \\
+\coq{getm m k} & Return the value associated with key \(k\) in finite map \(m\). \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The following excerpt illustrates how these forms compose in an oracle:
+
+\begin{lstlisting}[numbers=none]
+[ KFORGE ] : { Msg S × Sig S ~> 'bool } '(m, s) {
+  pk ← getSome kots_pk_loc ;;
+  log ← get kots_log_loc ;;
+  if b then
+    ret (verify S pk m s && (m \notin log))
+  else
+    ret false
+}
+\end{lstlisting}
+
+The header declares an oracle named \coq{KFORGE} that accepts a digest-signature pair and returns a Boolean.
+The pattern \coq{'(m, s)} names the two components of the input.
+The first two commands read the stored public key and signed-digest log; \coq{getSome} aborts if no public key has been stored.
+
+The aborting operations in the table require special care.
+\SSProve uses subprobability distributions, so an aborted execution loses its probability mass instead of returning a failure value.
+The remaining distribution is not normalized by conditioning on executions that continue.
+This semantics explains the signing-failure limitation in \cref{sec:limits}.
+
+\subsection{Real and ideal games}
+
+The files express each security experiment as two games with the same interface.
+In the forgery experiment, the real game checks the candidate and the ideal game rejects it; later sections state the corresponding difference for each assumption game.
+Each pair is written as one definition indexed by a Boolean \coq{b}, where \coq{true} selects the real game and \coq{false} selects the ideal game.
+
+This real-and-ideal presentation is \SSProve's way of expressing the advantage used by the reduction.
+The later review must still check that the two games differ only where the intended security event is scored.
+If an assertion or state lookup occurs in only one branch, an invalid oracle sequence may distinguish the games without producing a cryptographic forgery.
+
+\subsection{Advantage and the \coq{ValidPackage} condition}
+\label{sec:ssprove-adv}
+
+\SSProve defines advantage as follows:
+
+\begin{lstlisting}[numbers=none,mathescape=true,caption={The elaborated \SSProve advantage definition.},label={lst:adv}]
+Definition Adv (G G' A : nom_package) : R :=
+  locked `|distr.mu (Pr' (A $\circ$ G)) true
+          - distr.mu (Pr' (A $\circ$ G')) true|.
+Notation AdvOf GG A := (Adv (GG true) (GG false) A).
+\end{lstlisting}
+
+The expression \(\mathsf{Pr}'(\A\circ G)\) is the output distribution of adversary \(\A\) running with game \(G\), and \coq{distr.mu ... true} is the probability assigned to output \coq{true}.
+Thus \(\Adv(G,G',\A)\) is the absolute difference between the probabilities that \(\A\) outputs \coq{true} in the two games.
+The \coq{locked} wrapper controls when Rocq unfolds the definition during a proof but does not change its value.
+The notation \(\AdvOf(\mathcal{G},\A)\) specializes this definition to a Boolean-indexed pair \(\mathcal{G}(\mathsf{true})\) and \(\mathcal{G}(\mathsf{false})\).
+
+The Rocq type \coq{nom_package} is \SSProve's representation of a package whose oracles and memory locations have names.
+The predicate \coq{ValidPackage} checks that such a package has the declared interfaces and uses its memory legally.
+It does not restrict the order in which the adversary calls oracles, and it does not impose a running-time bound.
+
+\section{Review the exact security notion}
+\label{sec:notion}
+
+The left side of the theorem is the advantage of an adversary against \coq{KOTS_vc_game} from \pathcode{proof/ssprove/lib/sig/kots.v}.
+The interface fixes what the adversary may ask, and the two oracle bodies fix the order of events and the forgery condition.
+
+\subsection{Interface and private state}
+
+\Cref{lst:kots-interface} declares two oracles.
+
+\lstinputlisting[
+  caption={The two-oracle interface used by the \WOTSC theorem.},
+  label={lst:kots-interface},
+  firstline=35,lastline=45,firstnumber=35
+]{../proof/ssprove/lib/sig/kots.v}
+
+The \coq{COMMIT} input contains a scheme parameter and the digest to sign.
+For the \WOTSC instance, the scheme parameter has type \coq{unit}, so the digest is the only input value chosen by the adversary.
+The output contains the public key and an optional signature.
+Because the public key is an output rather than an input, the adversary must supply the digest before learning the public key.
+
+The \coq{KFORGE} oracle accepts a candidate digest and signature and returns a Boolean.
+The package stores a public key and a sequence of signed digests in two private memory locations.
+The expression \coq{mkloc 115 None} defines the public-key location, with its type fixed by the annotation \coq{option (Pk S)} and its initial value set to \coq{None}.
+Similarly, \coq{mkloc 116 [::]} defines the signed-digest log with an initially empty sequence.
+The numbers 115 and 116 are unique location names and have no cryptographic meaning.
+
+\lstinputlisting[
+  caption={The complete \coq{KOTS_vc_game} definition.},
+  label={lst:kots-game},
+  firstline=88,lastline=119,firstnumber=88
+]{../proof/ssprove/lib/sig/kots.v}
+
+\subsection{The \coq{COMMIT} oracle}
+
+Lines 92 and 93 require the public-key location to be empty.
+Once a \coq{COMMIT} call succeeds, another call aborts at this assertion.
+Line 94 generates a fresh key pair, and line 95 signs the input digest \(m\).
+
+If signing succeeds, lines 98 to 100 store the public key, record \(m\), and return \((pk,\coq{Some}\;\sigma)\).
+If signing fails, line 101 aborts without returning a value or changing either location.
+Thus the optional-signature component of the return type is always \coq{Some} in any execution that continues.
+As explained in \cref{sec:limits}, the abort does not reveal a signing-failure result to the adversary.
+
+\subsection{The \coq{KFORGE} oracle}
+
+Lines 106 to 107 retrieve the stored public key and signed-digest log before examining the game bit \(b\).
+A call to \coq{KFORGE} before a successful \coq{COMMIT} therefore aborts at the same point in both games.
+This placement prevents an out-of-order call from distinguishing the games.
+
+When \(b=\mathsf{true}\), lines 108 and 109 return
+\[
+  \mathsf{Verify}(pk,m^\star,\sigma^\star)\land(m^\star\notin[m]).
+\]
+The log contains only \(m\), so the second conjunct is equivalent to \(m^\star\neq m\).
+This branch returns \coq{true} exactly when \(\sigma^\star\) verifies for a digest different from the signed digest.
+
+When \(b=\mathsf{false}\), line 111 returns \coq{false} after the same state lookups.
+The two games therefore differ only in the reply to a candidate submitted after a successful commitment.
+If the adversary submits one candidate and outputs the oracle's reply, its advantage equals the probability that signing succeeds and that candidate is a valid forgery.
+This probability is not conditioned on signing success: an execution that aborts during signing produces no final output.
+
+The interface also permits several \coq{KFORGE} calls, so the adversary may test several candidates.
+This does not provide access to a secret verification procedure because the verification algorithm and public key are already public.
+The usual experiment in which the adversary returns one forgery is the special case with one \coq{KFORGE} call.
+
+\section{Review the abstract reduction theorem}
+\label{sec:reduction}
+
+The main theorem in \pathcode{proof/ssprove/wots/theorem.v} bounds the attack experiment by advantages in the assumption games.
+Each term on the right is the advantage of a specific package that the reduction constructs from the original adversary.
+\prf stands for \emph{pseudorandom function}.
+In \smud, \smtcr, and \smpre, the prefix \emph{SM} stands for \emph{single-function, multi-target}; \emph{UD}, \emph{TCR}, and \emph{PRE} stand for \emph{undetectability}, \emph{target-collision resistance}, and \emph{preimage resistance}.
+In \stcrp, \emph{S} stands for \emph{special}, \emph{TCR} for \emph{target-collision resistance}, and the final \emph{P} for the output-predicate parameter.
+
+\lstinputlisting[
+  caption={The abstract \WOTSC security reduction.},
+  label={lst:abstract-theorem},
+  firstline=286,lastline=302,firstnumber=286
+]{../proof/ssprove/wots/theorem.v}
+
+\subsection{Read the theorem inputs and the left-hand side}
+
+The names \(P\), \(K\), \coq{PRF}, and \coq{dK} are declared earlier in the file by four \coq{Context} commands.
+As explained in \cref{sec:rocq-code}, Rocq adds these section parameters as universal quantifiers when the section closes.
+They represent the \WOTSC parameter record, the secret-seed type, the key-derivation function, and the secret-seed sampler.
+Write \(\ell=\coq{wcp_chain_count P}\) for the number of chains and \(w=\coq{wcp_w P}\) for the base used to encode a digest as chain positions.
+The hypothesis \coq{Hrange} requires every digest-and-counter hash output to lie between zero and \(w^\ell-1\).
+The exponent \(w^\ell\) is the number of length-\(\ell\) strings of base-\(w\) digits, so this condition makes the conversion from a hash output to such a string injective.
+A separate Rocq lemma proves \coq{Hrange} for the parameters used by the final theorem.
+
+Lines 288 and 289 quantify over an adversary package \(\A\).
+The hypothesis \coq{VA} states that \(\A\) satisfies the structural \coq{ValidPackage} check described in \cref{sec:ssprove-adv}.
+The expression \coq{loc A} denotes the package's private memory locations, and \coq{A_export} is the fixed interface through which it returns its final Boolean output.
+The expression \coq{I_KOTS (shrincs_wots_scheme P)} is the \coq{COMMIT}/\coq{KFORGE} interface reviewed in \cref{sec:notion}.
+
+Line 290 is the left-hand side of the inequality.
+The record \coq{shrincs_wots_keyed P K PRF dK} supplies the key-generation, signing, and verification algorithms, with chain starts derived using \coq{PRF} and a secret seed sampled from \coq{dK}.
+The constructor \coq{KOTS_vc_game} places those algorithms in the attack experiment from \cref{sec:notion}.
+Thus line 290 is \(\A\)'s advantage in that experiment.
+
+\subsection{Read the assumption terms}
+
+Every term on lines 291 to 302 has the form \(\AdvOf(G,\A\circ R)\).
+Here \(G\) is an assumption game and \(R\) is a reduction package defined in the proof.
+The composed package \(\A\circ R\) attacks \(G\): \(R\) presents the \WOTSC oracles expected by \(\A\), while answering those calls through the oracles provided by \(G\).
+Each \(R\) is an explicit Rocq definition, so the theorem identifies the reduction used for every assumption term.
+
+In lines 292 and 293, \coq{s} is the summation index satisfying \(0\leq s<w-2\) and identifies one step between neighboring chain-value hybrids.
+At step \coq{s}, the \smud game moves the hidden random value from position \coq{s} to position \coq{s + 1} in each chain whose corresponding base-\(w\) digest digit is at least \coq{s + 2}; all other chains remain unchanged.
+The \coq{true} argument to \coq{R_ud} says that the simulated \coq{KFORGE} oracle checks candidate forgeries.
+It does not select one side of the \smud game: \coq{AdvOf} compares both sides of that game.
+The second \smud sum on lines 300 and 301 uses \coq{false} because its simulated \coq{KFORGE} oracle always rejects candidates.
+
+The game constructors take records and parameter values that select the challenged function and configure the experiment.
+\Cref{tab:theorem-names} gives the meaning of each such name in the order in which it first appears in the theorem.
+The next section defines the corresponding experiments and their winning conditions.
+
+{\small
+\begin{longtable}{@{}L{0.32\textwidth}L{0.60\textwidth}@{}}
+\caption{Names used to instantiate the assumption games in \cref{lst:abstract-theorem}.}
+\label{tab:theorem-names}\\
+\toprule
+Name & Meaning in the theorem \\
+\midrule
+\endfirsthead
+\toprule
+Name & Meaning in the theorem \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\coq{khf_prf P K PRF dK} & The keyed function that derives one chain start from the secret seed, together with its input and output types and samplers. \\
+\coq{wcp_chain_count P} & The number of hash chains, used here as the number of distinct \prf inputs or as the number of targets. \\
+\coq{thf_chain P} & The chain hash, packaged with the types and samplers required by the tweakable-hash games. \\
+\coq{coll_chain P} & Access to public-key compression and the digest-and-counter hash while the chain hash is being challenged. \\
+\coq{wcp_w P} & The base used to convert a digest into chain positions. \\
+\coq{(wcp_w P).-2} & The exclusive upper bound on \coq{s}, giving \(w-2\) neighboring hybrid steps. \\
+\coq{thf_grind P} & The digest-and-counter hash, packaged for a tweakable-hash game. \\
+\coq{coll_grind P} & Access to the chain hash and public-key compression while the digest-and-counter hash is being challenged. \\
+\coq{wcp_M P} & The type of the digest signed by the scheme. \\
+\coq{grind_enc P} & The encoding of a digest and counter as an input to the digest-and-counter hash. \\
+\coq{grind_prp P} & The predicate that accepts a hash output when its base-\(w\) digits have the required sum. \\
+\coq{wcp_c_max P} & The exclusive upper bound in the signer's counter search. \\
+\coq{1} & A target budget of one for the digest-and-counter and public-key-compression games. \\
+\coq{thf_pkcompress P} & The public-key-compression function, packaged for a tweakable-hash game. \\
+\coq{coll_pkcompress P} & Access to the chain hash and digest-and-counter hash while public-key compression is being challenged. \\
+\coq{tcr_budget (wcp_chain_count P) (wcp_w P)} & An upper bound on the target pairs recorded by the chain-collision reduction; its definition is \(\mathit{chain\_count}+\mathit{chain\_count}\cdot w\). \\
+\end{longtable}
+}
+
+The budget is \coq{wcp_chain_count P} in the \prf, \smud, and \smpre games; it is one in the \stcrp and public-key-compression games; and it is \coq{tcr_budget (wcp_chain_count P) (wcp_w P)} in the chain-collision game.
+In the \prf game, this value bounds distinct oracle inputs.
+In the tweakable-hash games, it bounds calls that create challenge targets.
+It does not bound all evaluations of the public hash functions; \cref{sec:games} explains the available oracles and their query rules.
+
+The table below separates the six cryptographic tasks on the right-hand side.
+The \prf and \smud rows each account for more than one term because the proof uses those games at more than one hybrid transition.
+
+\begin{table}[H]
+\centering
+\caption{The security task in each assumption-game instance.}
+\label{tab:bound}
+\small
+\begin{tabular}{@{}L{0.22\textwidth}L{0.18\textwidth}L{0.52\textwidth}@{}}
+\toprule
+Game instance & Reduction & Security task \\
+\midrule
+\prf for key derivation & \coq{R_prf} & Distinguish chain starts derived using one secret seed from independently sampled chain starts. \\
+\smud for the chain hash & \coq{R_ud} & Distinguish the hash of a hidden random chain value from an independent random chain value. \\
+\stcrp for the digest-and-counter hash & \coq{R_grind} & Given the hash output selected by the signer's counter search, find a different digest and a counter with the same output. \\
+\smtcr for public-key compression & \coq{R_compress} & Given the compression of one endpoint vector, find a different endpoint vector with the same compressed value. \\
+\smtcr for the chain hash & \coq{R_chain_tcr} & Given one chain-hash input and output, find a different input with the same output at the same chain position. \\
+\smpre for the chain hash & \coq{R_chain_pre} & Given the chain-hash output of a hidden random input, find any input with that output at the same chain position. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Review the exact assumption games}
+\label{sec:games}
+
+The abstract theorem reduces forgery to the exact games defined in \pathcode{proof/ssprove/lib/games/}.
+A cryptographic review must establish whether those games match the assumptions used by an external security analysis.
+These expanded names are mnemonic; the oracle definitions determine the assumptions.
+For that comparison, each subsection below first states the assumption as a mathematical experiment and explains its cryptographic purpose.
+It then compares that experiment with the corresponding \SSProve game.
+
+\subsection{The hash functions supplied to the games}
+
+The games are generic over the hash function being challenged.
+The records in \cref{lst:hash-records} supply the function's types, evaluation function, and the distributions from which the game samples keys, inputs, or outputs.
+
+\lstinputlisting[
+  caption={The hash-function records used to instantiate every assumption game.},
+  label={lst:hash-records},
+  firstline=69,lastline=99,firstnumber=69
+]{../proof/ssprove/lib/games/thf.v}
+
+The record \coq{khf} describes the keyed function used to derive chain starts.
+Its fields specify a key type, an input type, an output type, the evaluation function, and samplers for keys and outputs.
+
+The record \coq{thf} describes a tweakable hash \(H(P,t,x)\).
+The value \(P\) is the public parameter, the tweak \(t\) is an encoded address, and \(x\) is the hash input.
+The fields \coq{th_dPP}, \coq{th_dM}, and \coq{th_dN} specify how a game samples a public parameter, a hidden input, and an output for the ideal game.
+The record itself imposes no security property on \coq{th_eval}.
+
+A reduction that attacks one tweakable hash must still simulate the other hash functions used by the signature scheme.
+Those functions share the same public parameter, which remains hidden while the reduction creates its targets.
+The record \coq{thf_coll} therefore supplies a \emph{collection oracle} that evaluates the other functions under the game's public parameter.
+The security-relevant choices are therefore the challenged evaluation function, the samplers used by its game, and the other functions available through the collection oracle.
+
+\lstinputlisting[
+  caption={The three functions supplied to the tweakable-hash games.},
+  label={lst:hash-instances},
+  firstline=145,lastline=160,firstnumber=145
+]{../proof/ssprove/wots/games.v}
+
+All three \coq{th_eval} definitions convert the game's encoded tweak to the structured address expected by the corresponding \WOTSC function using \coq{decode_tweak_core}.
+The equalities proved on lines 231 to 240 of the same file show that, for every structured address \coq{a}, evaluation at \coq{encode_tweak P a} is exactly \coq{wcp_F}, \coq{wcp_T_sf}, or \coq{wcp_H_grind} at \coq{a}.
+These equalities establish that the generic game records challenge the intended functions at the intended addresses.
+
+\Cref{tab:hash-instances} separates the fields that affect the games from fields present only because every \coq{thf} record has the same shape.
+
+\begin{table}[H]
+\centering
+\caption{Security-relevant fields of the three tweakable-hash instances.}
+\label{tab:hash-instances}
+\small
+\begin{tabular}{@{}L{0.20\textwidth}L{0.29\textwidth}L{0.43\textwidth}@{}}
+\toprule
+Instance & Challenged function & Samplers used by its games \\
+\midrule
+\coq{thf_chain} & The chain hash \(F(P,t,x)\). & \coq{th_dPP} uses \coq{wcc_dPP H}; \coq{th_dM} and \coq{th_dN} independently sample chain values using \coq{wcc_dN H}. \\
+\coq{thf_pkcompress} & Public-key compression \(T_{\mathsf{sf}}(P,t,xs)\). & Only \coq{dPP} is used by the instantiated \smtcr game; its input and ideal-output samplers are unused. \\
+\coq{thf_grind} & The digest-and-counter hash \(H_{\mathsf{grind}}(P,t,(m,c))\). & Only \coq{dPP} is used by the instantiated \stcrp game; its input and ideal-output samplers are unused. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+For \coq{thf_chain}, lines 146 to 148 set both the input and output type to a chain value and instantiate \coq{th_eval} with the chain hash.
+The assignments \coq{th_dM := wcc_dN H} and \coq{th_dN := wcc_dN H} make the hidden input and ideal output independent samples from the same chain-value distribution.
+The \smud game uses both samplers, while the \smpre game uses \coq{th_dM} to sample its hidden preimage.
+
+For public-key compression, lines 151 to 153 use a list of chain values as the input and a single chain value as the output.
+For the digest-and-counter hash, lines 156 to 160 use a digest-counter pair as the input and a natural number as the output.
+The empty-list sampler in the compression record and the samplers that return \((m,0)\) and zero in the digest-and-counter record are placeholders required by the generic record type.
+The compression output sampler is also unused.
+None of these samplers affects the stated theorem because the corresponding \smtcr and \stcrp games never call them.
+
+The collection definitions on lines 162 to 184 contain mostly type routing.
+Their cryptographic content is the mapping in \cref{tab:collections}.
+
+\begin{table}[H]
+\centering
+\caption{Functions available through each collection oracle.}
+\label{tab:collections}
+\small
+\begin{tabular}{@{}L{0.25\textwidth}L{0.25\textwidth}L{0.42\textwidth}@{}}
+\toprule
+Challenged function & Collection & Functions available to the reduction \\
+\midrule
+Chain hash & \coq{coll_chain} & Public-key compression and the digest-and-counter hash. \\
+Public-key compression & \coq{coll_pkcompress} & The chain hash and the digest-and-counter hash. \\
+Digest-and-counter hash & \coq{coll_grind} & The chain hash and public-key compression. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Every function in a collection uses the same public parameter \(P\) as the challenged function.
+No collection exposes the challenged function itself.
+The \coq{inl} and \coq{inr} branches in the source only select which of the two companion functions to call.
+
+The \stcrp game also needs the encoding of its digest-counter input and the predicate used by the counter search.
+
+\lstinputlisting[
+  caption={The input encoding and acceptance predicate for the digest-and-counter game.},
+  label={lst:grind-instance},
+  firstline=186,lastline=192,firstnumber=186
+]{../proof/ssprove/wots/games.v}
+
+The encoding \coq{grind_enc_core} is simply the pair \((m,c)\).
+The predicate \coq{grind_prp_core} converts the hash output to \(\ell\) base-\(w\) digits and accepts exactly when those digits are valid and have the required sum.
+These are the same encoding and acceptance condition used by the signer's counter search.
+
+\subsection{The protocol shared by the tweakable-hash games}
+
+Let
+\[
+  H : \mathcal P\times\mathcal T\times\mathcal M\longrightarrow\mathcal N
+\]
+be a tweakable hash function with samplers \(D_P\), \(D_M\), and \(D_N\) for public parameters, hidden inputs, and ideal outputs.
+In this section, a \emph{target} is one hash challenge associated with a tweak \(t\) and created before the adversary learns \(P\).
+It does not refer to a \WOTSC public key or forged digest.
+The challenge value is later distinguished, collided with, or inverted, depending on the assumption.
+\Cref{tab:targets} states exactly what one target contains in each game.
+
+\begin{table}[H]
+\centering
+\caption{Meaning of one target in each tweakable-hash game.}
+\label{tab:targets}
+\small
+\begin{tabular}{@{}L{0.16\textwidth}L{0.76\textwidth}@{}}
+\toprule
+Game & Target created before \(P\) is revealed \\
+\midrule
+\smud & The adversary supplies a fresh tweak \(t\). The game returns either \(H(P,t,x)\) for a hidden \(x\leftarrow D_M\), or an independent \(y\leftarrow D_N\). \\
+\smtcr & The adversary supplies a fresh tweak \(t\) and an input \(m\). The game returns \(H(P,t,m)\) and records \((t,m)\). \\
+\stcrp & The adversary supplies a fresh tweak \(t\) and a digest \(m\). The game selects the first acceptable counter \(c\), returns \((H(P,t,\mathsf{enc}(m,c)),c)\), and records \((t,m,c)\). \\
+\smpre & The adversary supplies a fresh tweak \(t\). The game samples and records a hidden input \(x\leftarrow D_M\), then returns \(H(P,t,x)\). \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The qualifier \emph{single-function, multi-target} describes the common experiment used by the four tweakable-hash assumptions.
+One public parameter \(P\leftarrow D_P\) is shared by at most \(p\) targets, and every target uses a distinct tweak.
+
+Before the public parameter is revealed, the adversary may create targets through the game's target oracle.
+The target oracle rejects calls after the reveal, calls beyond the target budget \(p\), and repeated tweaks.
+The reveal oracle then returns the same public parameter used for every target and prevents any further target queries.
+This implements a two-stage adversary \(\A=(\A_1,\A_2)\): \(\A_1\) creates the targets without knowing \(P\), and \(\A_2\) receives \(P\) and the state retained by \(\A_1\).
+In the three search games, a later check names one of these targets by its index and tests a candidate against the recorded data.
+The \smud game instead asks the adversary to distinguish the returned target values from independent samples.
+
+Every game samples its public parameter at most once and stores it for later calls.
+Lazy sampling changes when the value is drawn, but all oracles in one execution use the same value.
+The collection oracle is available before and after the reveal and also uses this value.
+We write \(\mathcal C_P\) for this oracle in the mathematical definitions below.
+It evaluates the companion hash functions that share \(P\), but it does not evaluate the challenged function \(H\).
+
+The target, reveal, and phase checks occur before any branch on the game bit.
+An invalid call therefore aborts in both games at the same point.
+This placement matters under the subprobability semantics from \cref{sec:ssprove-semantics}: an assertion present on only one side could create a distinguishing signal unrelated to the intended collision or preimage event.
+
+The pen-and-paper search experiments let \(\A_2\) output one candidate and define a predicate \(W\) that decides whether it wins.
+The \SSProve games expose \(W\) as a \coq{CHECK} oracle: the real game returns \(W\), while the ideal game returns \coq{false}.
+A package may call \coq{CHECK} more than once, but after the reveal \(W\) can be computed from \(P\), the selected target's call and reply, and the submitted candidate.
+The package can therefore select one candidate for which the same predicate holds.
+This correspondence concerns the experiment's outputs only; a concrete cost analysis must also count the hash evaluations used to test candidates.
+
+The target budget \(p\) counts target-oracle calls only.
+The collection oracle has no query bound, and after the reveal an adversary can evaluate the public challenged function locally.
+Consequently, \(p\) is not a bound on the adversary's total number of hash evaluations.
+Any external concrete analysis that uses a total hash-query bound must account separately for these evaluations and for those performed by the reduction.
+
+\subsection{The PRF game}
+
+Let \(F:\mathcal K\times\mathcal M\to\mathcal N\) be a keyed function.
+Its standard PRF advantage for an adversary making at most \(q\) queries is
+\begin{equation}
+\label{eq:prf-definition}
+  \Adv^{\mathsf{PRF}}_{F,q}(\A)
+  =
+  \left|
+    \Pr_{k\leftarrow D_K}\!\left[\A^{F(k,\cdot)}=1\right]
+    -
+    \Pr_{G\leftarrow\mathsf{Func}(\mathcal M,\mathcal N)}\!\left[\A^{G(\cdot)}=1\right]
+  \right|,
+\end{equation}
+where \(G\) is a uniformly sampled function from \(\mathcal M\) to \(\mathcal N\).
+
+\paragraph{Intuition.}
+The adversary must distinguish evaluations under one unknown key from the outputs of a random function.
+In the \WOTSC reduction, the unknown key is \(\SKseed\), each input identifies one chain, and each output is the secret value at the start of that chain.
+The assumption justifies replacing all derived chain starts with independent random values.
+
+\lstinputlisting[
+  caption={The complete \prf game used for secret-seed key derivation.},
+  label={lst:prf-game},
+  firstline=48,lastline=77,firstnumber=48
+]{../proof/ssprove/lib/games/prf.v}
+
+\paragraph{Correspondence with the \SSProve game.}
+The game exports one oracle, \coq{FQUERY}.
+Lines 56 to 62 limit the interaction to \(q\) distinct inputs and record each input before the game branches.
+The location \coq{prf_k_loc} in the real branch stores only the secret key; it does not store input-output pairs.
+Lines 64 to 72 sample this key on the first query, reuse it for every later query, and return \(F(k,m)\).
+The list read on line 56 records the queried inputs solely to enforce the distinct-input condition on line 58.
+
+Lines 73 to 75 sample a fresh output from \coq{kh_dN} for every accepted ideal query.
+Every accepted query has a new input, so this is lazy sampling of a random function at previously undefined points.
+For two distinct inputs \(m_1\) and \(m_2\), a uniformly random function assigns independent uniform values to \(m_1\) and \(m_2\); those values may still coincide.
+When \coq{kh_dN} is the uniform sampler on \(\mathcal N\), the ideal branch has exactly this distribution.
+A repeated input is rejected on line 58 before either branch executes, so it cannot reveal the difference between the branches.
+Without this assertion, querying the same input twice and comparing the replies would distinguish the two branches exactly as described.
+
+Equation~\eqref{eq:prf-definition} normally permits repeated inputs and requires the random function to answer them consistently.
+An adversary for the standard experiment can cache each first reply itself and answer a repeated query from that cache.
+This transformation preserves its transcript because both \(F(k,\cdot)\) and a sampled random function return the same value when queried twice at the same input.
+The distinct-input restriction in \coq{PRF_game} is therefore equivalent for this purpose.
+The external bound must nevertheless use the same key, input, and output distributions and must cover the number of distinct inputs shown in the theorem.
+
+\subsection{The SM-UD game}
+
+For \(b\in\{0,1\}\), define the target oracle
+\[
+  \mathcal O^{\mathsf{UD}}_{P,b}(t)=
+  \begin{cases}
+    H(P,t,x), & b=0,\quad x\leftarrow D_M,\\
+    y,        & b=1,\quad y\leftarrow D_N.
+  \end{cases}
+\]
+An \smud adversary creates at most \(p\) targets under distinct tweaks while \(P\) is hidden, receives \(P\), and guesses which oracle it received.
+Its advantage is
+\begin{equation}
+\label{eq:smud-definition}
+  \Adv^{\mathsf{SMUD}}_{H,p}(\A)
+  =
+  \left|
+    \Pr\!\left[\A^{\mathcal O^{\mathsf{UD}}_{P,0},\mathcal C_P}=1\right]
+    -
+    \Pr\!\left[\A^{\mathcal O^{\mathsf{UD}}_{P,1},\mathcal C_P}=1\right]
+  \right|.
+\end{equation}
+Each probability samples \(P\leftarrow D_P\) and includes the two-stage protocol described above.
+
+\paragraph{Intuition.}
+The hash of a hidden random input should look like a fresh random output, even after the public parameter is revealed.
+In the \WOTSC proof, this property lets a hybrid replace unrevealed chain values with random values without giving the forger a detectable signal.
+Distinct tweaks keep the targets in separate hash domains.
+
+\lstinputlisting[
+  caption={The complete single-function multi-target undetectability game.},
+  label={lst:smud-game},
+  firstline=54,lastline=113,firstnumber=54
+]{../proof/ssprove/lib/games/smud.v}
+
+\paragraph{Correspondence with the \SSProve game.}
+The oracle \coq{UQUERY} accepts a tweak before the public parameter is revealed.
+Lines 64 to 74 enforce the phase, target budget, and distinct-tweak conditions.
+In the real game, lines 76 to 85 sample the public parameter once, sample a hidden input, and return its hash under the chosen tweak.
+In the ideal game, lines 86 to 88 return an independent output from \coq{th_dN}.
+The oracle \coq{UGETPP} reveals the public parameter, and \coq{UCOLLQ} evaluates the companion functions under that same parameter.
+
+These clauses implement \eqref{eq:smud-definition} directly.
+An external bound must use the same hidden-input and ideal-output distributions and must include the collection access shown here.
+
+\subsection{The SM-TCR game}
+
+For each target query \((t_i,m_i)\), the challenger records the pair and returns
+\[
+  y_i=H(P,t_i,m_i).
+\]
+The adversary makes at most \(p\) such queries under distinct tweaks before learning \(P\).
+After receiving \(P\), it outputs \((j,m^\star)\) and wins if
+\begin{equation}
+\label{eq:smtcr-definition}
+  m^\star\ne m_j
+  \quad\land\quad
+  H(P,t_j,m^\star)=H(P,t_j,m_j).
+\end{equation}
+The adversary has access to \(\mathcal C_P\) throughout the experiment.
+
+\paragraph{Intuition.}
+The adversary commits to each target input before it learns the public parameter that selects the hash function.
+It must then find a different input with the same output under the target's original tweak.
+This is the target-collision, or universal one-way, analogue of collision resistance; the first input is fixed before the hash function becomes known.
+
+\lstinputlisting[
+  caption={The complete single-function multi-target target-collision game.},
+  label={lst:smtcr-game},
+  firstline=51,lastline=124,firstnumber=51
+]{../proof/ssprove/lib/games/smtcr.v}
+
+\paragraph{Correspondence with the \SSProve game.}
+Before the reveal, \coq{TQUERY} accepts a tweak and an input, records both, and returns their hash output.
+After the reveal, \coq{CHECK} accepts a target index and a replacement input.
+Lines 96 to 108 return \coq{true} exactly when the index exists, the replacement input differs from the recorded input, and both inputs hash to the same output under the recorded tweak.
+
+The theorem uses this game twice.
+In the public-key-compression instance, an input is a vector of chain endpoints, and a successful candidate is a different vector with the same compressed value.
+In the chain-hash instance, an input is one chain value, and a successful candidate is a different value with the same hash output at a recorded chain tweak.
+The theorem statement supplies a separate target budget for each instance.
+
+The oracle order and winning condition are exactly those of \eqref{eq:smtcr-definition}.
+An external target-collision bound must also include the appropriate companion collection for each instance.
+
+\subsection{The S-TCR-P game}
+
+The \stcrp game adds a counter search and an acceptance predicate to the target-collision experiment above.
+Let \(\mathsf{enc}:\mathcal M_0\times\mathbb N\to\mathcal M\) encode a digest and counter, and let \(\mathsf{Prop}:\mathcal N\to\{0,1\}\).
+On a target query \((t_i,m_i)\), the challenger computes
+\[
+  c_i=\min\left\{c\in\mathbb N:\mathsf{Prop}\bigl(H(P,t_i,\mathsf{enc}(m_i,c))\bigr)=1\right\}.
+\]
+The definition presumes that this set is nonempty.
+The challenger records \((t_i,m_i,c_i)\) and returns
+\[
+  \left(H(P,t_i,\mathsf{enc}(m_i,c_i)),c_i\right).
+\]
+After \(P\) is revealed, the adversary outputs \((j,m^\star,c^\star)\) and wins if
+\begin{equation}
+\label{eq:stcrp-definition}
+  m^\star\ne m_j
+  \quad\land\quad
+  H(P,t_j,\mathsf{enc}(m_j,c_j))
+  =H(P,t_j,\mathsf{enc}(m^\star,c^\star)).
+\end{equation}
+The target queries use distinct tweaks and are limited to \(p\).
+
+\paragraph{Intuition.}
+This is target-collision resistance for a hash input selected by the signer's counter search.
+The target digest is fixed before \(P\) is known, but its counter depends on \(P\) because the challenger chooses the first acceptable hash output.
+The adversary must replace the digest while preserving the recorded output under the same tweak.
+
+\lstinputlisting[
+  caption={The complete predicate-constrained target-collision game.},
+  label={lst:stcrp-game},
+  firstline=71,lastline=158,firstnumber=71
+]{../proof/ssprove/lib/games/stcrp.v}
+
+\paragraph{Correspondence with the \SSProve game.}
+The oracle \coq{SQUERY} searches counters in increasing order, starting at zero and stopping before \(\mathsf{cap}\).
+It selects the first counter whose hash output satisfies \coq{prp}.
+If the search succeeds, the oracle records the tweak, base digest, and selected counter and returns the hash output and counter.
+If no counter succeeds, lines 102 to 110 abort.
+
+After \coq{SGETPP} reveals the public parameter, \coq{SCHECK} accepts an index, a replacement digest, and a replacement counter.
+Lines 129 to 142 return \coq{true} exactly when the index names a recorded target, the replacement digest differs from the target digest, and the two encoded digest-counter pairs have the same hash output under the target tweak.
+The replacement counter has type \coq{nat} and is not required to be below \(\mathsf{cap}\).
+Allowing any natural-number replacement counter gives the adversary at least as many choices as a game that restricts the counter to the signer's range.
+
+The \WOTSC reduction uses one target and instantiates \coq{enc}, \coq{prp}, and \coq{cap} with the signer's encoding, acceptance predicate, and counter bound.
+The pen-and-paper definition searches all natural-number counters, whereas \coq{SQUERY} searches only below \(\mathsf{cap}\) and aborts if that finite search fails.
+On executions where the bounded search succeeds, both experiments select the same counter.
+The abort removes the remaining executions from both branches of the \SSProve game, so it cannot increase the distinguishing advantage.
+An external bound for the unbounded experiment can therefore cover the bounded experiment if it also covers the unrestricted replacement counter and the collection oracle.
+
+\subsection{The SM-PRE game}
+
+For each target query on a tweak \(t_i\), the challenger samples \(x_i\leftarrow D_M\), keeps \(x_i\) hidden, and returns
+\[
+  y_i=H(P,t_i,x_i).
+\]
+The adversary makes at most \(p\) such queries under distinct tweaks before learning \(P\).
+After receiving \(P\), it outputs \((j,m^\star)\) and wins if
+\begin{equation}
+\label{eq:smpre-definition}
+  H(P,t_j,m^\star)=y_j.
+\end{equation}
+The adversary has access to \(\mathcal C_P\) throughout the experiment.
+
+\paragraph{Intuition.}
+The adversary sees the hash of a random hidden chain value and must find any preimage after the public parameter is revealed.
+Unlike second-preimage resistance, this experiment does not require \(m^\star\ne x_j\) because the target input was never given to the adversary.
+In the \WOTSC proof, this property covers a forgery that moves backward through a hash chain to a hidden value.
+
+\lstinputlisting[
+  caption={The complete single-function multi-target preimage game.},
+  label={lst:smpre-game},
+  firstline=53,lastline=127,firstnumber=53
+]{../proof/ssprove/lib/games/smpre.v}
+
+\paragraph{Correspondence with the \SSProve game.}
+Before the reveal, \coq{PQUERY} accepts a tweak, samples an input from \coq{th_dM}, records the input without revealing it, and returns its hash output.
+After the reveal, \coq{PCHECK} accepts a target index and a candidate input.
+Lines 99 to 111 return \coq{true} exactly when the candidate hashes to the recorded output under the recorded tweak.
+The game does not require the candidate to differ from the hidden input because the adversary was never given that input.
+
+These clauses implement \eqref{eq:smpre-definition} directly.
+An external preimage bound must use the same hidden-input distribution and include the collection access.
+
+\subsection{What the published generic bounds provide}
+\label{sec:generic-bounds}
+
+H\"ulsing and Kudinov collect the generic bounds in the quantum random-oracle model (QROM) relevant to the games above~\cite[Table~1]{HulsingKudinov2022}.
+Their parameter \(q\) counts quantum queries to the modeled function, \(p\) counts classical target-oracle queries, and \(n\) is the output length.
+
+\begin{table}[H]
+\centering
+\small
+\caption{Published QROM bounds relevant to the formal games.}
+\label{tab:published-bounds}
+\begin{tabular}{L{2.0cm}L{6.1cm}L{6.5cm}}
+\toprule
+Formal game & Published bound & Status \\
+\midrule
+\prf
+  & \(\Adv^{\mathsf{PRF}}\leq 12q/\sqrt{2^n}\)
+  & Proved for a random keyed-function family by H\"ulsing and Kudinov, Lemma~2~\cite{HulsingKudinov2022}. \\
+\smud
+  & \(\Adv^{\mathsf{SM\text{-}UD}}\leq 12q/\sqrt{2^n}\)
+  & Proved for the standalone game by H\"ulsing and Kudinov, Lemma~4~\cite{HulsingKudinov2022}. \\
+\smtcr
+  & \(\operatorname{Succ}^{\mathsf{SM\text{-}TCR}}\leq 8(2q+1)^2/2^n\)
+  & Proved for the simple quantum-random-oracle construction by Bernstein et al., Theorem~11~\cite{BernsteinEtAl2019Sphincs}; the underlying generic second-preimage analysis appears in H\"ulsing, Rijneveld, and Song~\cite{HulsingRijneveldSong2016}. \\
+\smpre
+  & \(\operatorname{Succ}^{\mathsf{SM\text{-}PRE}}\leq O((q+1)^2/2^n)\)
+  & The tight multi-target bound for a length-preserving function depends on a conjectured multi-target decisional second-preimage bound; an unconditional reduction loses a factor \(p\)~\cite{BernsteinHulsing2019DSPR,HulsingKudinov2022}. \\
+\stcrp
+  & \(\operatorname{Succ}^{\mathsf{S\text{-}TCR\text{-}P}}\leq \dfrac{32(q+1/2)^2}{2^n}+\dfrac{16q^2}{|\mathcal P|}\)
+  & The paper calls the fixed-digit-sum instance \(\mathsf{S\text{-}TCR}(+C)\) and proves the displayed bound for that instance~\cite{hulsing2023sphincs+}. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The cited papers use advantage for the two distinguishing experiments and success probability for the three collision or preimage experiments.
+The notation in the table follows that distinction.
+
+The cited papers prefix the \smud, \smtcr, and \smpre names with \(\mathsf{W}\) to denote the target-before-reveal order already specified above.
+
+The table does not provide values for the six formal \(\varepsilon\)-terms because the published and formal models differ in several respects.
+The published bounds are oracle-model statements.
+In particular, the simple-construction \smtcr theorem does not give the first-stage adversary direct access to the underlying random oracle~\cite[Theorem~11]{BernsteinEtAl2019Sphincs}.
+In the concrete formal instances, the hash maps are ordinary Rocq functions that an adversary package may use in its local computations on known inputs.
+The formal model does not count these local evaluations.
+An instantiation therefore needs an oracle simulation and a cost model that accounts for both exported oracle calls and local hash evaluations.
+
+The formal \smud, \smtcr, and \smpre games also include collection oracles.
+Definition~7 of H\"ulsing and Kudinov gives the first-stage adversary a collection oracle under the same hidden public parameter, but it requires the challenge tweaks and collection-query tweaks to be disjoint~\cite{HulsingKudinov2022}.
+The formal games do not enforce this disjointness, permit collection queries in both stages, and do not bound their number.
+H\"ulsing and Kudinov conjecture that their standalone generic bounds remain unchanged for collections; they do not prove that extension.
+
+The formal chain hash has another mismatch: it maps an \(n\)-bit input to an \(n\)-bit output.
+The direct multi-target preimage theorem of H\"ulsing, Rijneveld, and Song instead assumes a compressing function whose input length is \(cn\) for a constant \(c>1\), together with \(p=o(2^n)\)~\cite{HulsingRijneveldSong2016}.
+For length-preserving functions, H\"ulsing and Kudinov derive \smpre from \smtcr and single-function multi-target decisional second-preimage resistance (\(\mathsf{SM\text{-}DSPR}\)).
+Bernstein and H\"ulsing bound the one-target random-function DSPR advantage by \(32q^2/2^n\) and give a reduction to multiple targets that loses a factor equal to the number of targets~\cite[Theorems~30 and~33]{BernsteinHulsing2019DSPR}.
+The target-independent multi-target DSPR bound used to obtain the tight \(O((q+1)^2/2^n)\) preimage bound remains a conjecture~\cite{BernsteinEtAl2019Sphincs,HulsingKudinov2022}.
+
+The published \stcrp bound does not apply directly to the formal game.
+This mismatch does not give a known attack against the formal game.
+It means that a separate argument is needed before the published bound can be used for \(\epsgr\).
+
+The formal target oracle selects the least acceptable counter below a finite cap and aborts if no such counter exists.
+The published experiment assumes that an acceptable natural-number counter exists, and its generic analysis uses an unbounded search.
+The bounded search matches the function analyzed by the formal proof, so replacing it with the paper's unbounded search would make the formal game less faithful.
+A correspondence proof should instead relate collision success in the bounded game to collision success in the published experiment.
+
+The formal interface also exposes \coq{SCOLLQ}, which evaluates the chain hash or public-key-compression hash under the hidden public parameter.
+The published \stcrp experiment has no collection oracle.
+This extra oracle makes the formal assumption stronger, but the grinding reduction \coq{R_grind} never calls it.
+Removing \coq{SCOLLQ} from the \stcrp interface would therefore weaken the assumption without changing that reduction.
+
+Finally, the formal interface permits repeated \coq{SCHECK} calls, whereas the paper's second-stage adversary returns one candidate.
+After the public parameter is known, the adversary can evaluate the collision predicate itself.
+A correspondence proof can use one successful candidate, but its QROM query count must include the evaluations used to find that candidate.
+
+Using the published bound for \(\epsgr\) therefore requires this game-correspondence argument and a model relating the formal hash functions to the random tweakable hash analyzed in the paper.
+
+The table identifies the relevant external results but does not justify substituting their bounds for the six \(\varepsilon\)-terms.
+Its \(q\) counts function or random-oracle queries.
+The formal games bound only the number of target queries and place no cost semantics on the adversary or the reduction.
+The cited quantum bounds also apply to classical adversaries that obey the same query limit, but they do not add quantum or QROM semantics to the \SSProve development.
+Instantiating the formal axioms requires the missing experiment correspondences and resource analysis.
+
+\section{Conclusion}
+
+The Rocq kernel checks a classical reduction from any \coq{ValidPackage} adversary in the known-message \WOTSC experiment to the six assumption-game adversaries constructed by the proof.
+It also checks the advantage inequality in \cref{lst:abstract-theorem}.
+
+The checked reduction is not yet a concrete QROM security theorem.
+The formal proof has no resource semantics, and no checked argument connects all six formal games to the cited QROM experiments.
+The tight published bound relevant to the length-preserving \smpre game is conjectural, and the formal \stcrp game differs from the published experiment as described in \cref{sec:generic-bounds}.
+
+\bibliographystyle{alpha}
+\bibliography{SSPROVE_SECURITY_REVIEW}
+
+\end{document}

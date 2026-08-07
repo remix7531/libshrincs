@@ -1,0 +1,51 @@
+\newcommand{\etalchar}[1]{$^{#1}$}
+\begin{thebibliography}{HRM{\etalchar{+}}23}
+
+\bibitem[AHR{\etalchar{+}}21]{SSProve}
+Carmine Abate, Philipp~G. Haselwarter, Exequiel Rivas, Antoine~Van Muylder,
+  Th{\'e}o Winterhalter, C{\u{a}}t{\u{a}}lin Hri{\c{t}}cu, Kenji Maillard, and
+  B{\'a}s Spitters.
+\newblock {SSProve}: A foundational framework for modular cryptographic proofs
+  in {Coq}.
+\newblock In {\em IEEE Computer Security Foundations Symposium}, 2021.
+
+\bibitem[BH19]{BernsteinHulsing2019DSPR}
+Daniel~J. Bernstein and Andreas H{\"u}lsing.
+\newblock Decisional second-preimage resistance: When does {SPR} imply {PRE}?
+\newblock In {\em Advances in Cryptology -- ASIACRYPT 2019}, volume 11923 of
+  {\em Lecture Notes in Computer Science}, pages 33--62. Springer, 2019.
+
+\bibitem[BHK{\etalchar{+}}19]{BernsteinEtAl2019Sphincs}
+Daniel~J. Bernstein, Andreas H{\"u}lsing, Stefan K{\"o}lbl, Ruben Niederhagen,
+  Joost Rijneveld, and Peter Schwabe.
+\newblock The {SPHINCS+} signature framework.
+\newblock In {\em Proceedings of the 2019 ACM SIGSAC Conference on Computer and
+  Communications Security}, pages 2129--2146. ACM, 2019.
+
+\bibitem[HK22]{HulsingKudinov2022}
+Andreas H{\"u}lsing and Mikhail Kudinov.
+\newblock Recovering the tight security proof of {SPHINCS+}.
+\newblock In {\em Advances in Cryptology -- ASIACRYPT 2022}, pages 3--33.
+  Springer, 2022.
+
+\bibitem[HKRY23]{hulsing2023sphincs+}
+Andreas H{\"u}lsing, Mikhail Kudinov, Eyal Ronen, and Eylon Yogev.
+\newblock {SPHINCS+ C}: compressing {SPHINCS+} with (almost) no cost.
+\newblock In {\em 2023 IEEE Symposium on Security and Privacy (SP)}, pages
+  1435--1453. IEEE, 2023.
+
+\bibitem[HRM{\etalchar{+}}23]{SSProveJournal}
+Philipp~G. Haselwarter, Exequiel Rivas, Antoine~Van Muylder, Th{\'e}o
+  Winterhalter, Carmine Abate, Nikolaj Sidorenco, C{\u{a}}t{\u{a}}lin
+  Hri{\c{t}}cu, Kenji Maillard, and B{\'a}s Spitters.
+\newblock {SSProve}: A foundational framework for modular cryptographic proofs
+  in {Coq}.
+\newblock {\em ACM Transactions on Programming Languages and Systems}, 2023.
+
+\bibitem[HRS16]{HulsingRijneveldSong2016}
+Andreas H{\"u}lsing, Joost Rijneveld, and Fang Song.
+\newblock Mitigating multi-target attacks in hash-based signatures.
+\newblock In {\em Public-Key Cryptography -- PKC 2016}, volume 9614 of {\em
+  Lecture Notes in Computer Science}, pages 387--416. Springer, 2016.
+
+\end{thebibliography}
