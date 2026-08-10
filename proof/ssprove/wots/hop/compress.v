@@ -339,12 +339,9 @@ simplify_linking.
 reflexivity.
 Qed.
 
-(** Ideal-side CHECK enforces the reveal phase and then answers false. *)
+(** Ideal-side CHECK answers false unconditionally. *)
 Lemma resolve_ck_false (j : nat) (xs : th_M (thf_pkcompress P)) :
-  resolve (SMB false) cp_cko (j, xs) =
-  (revealed ← get rev_loc' ;;
-   #assert revealed ;;
-   ret false).
+  resolve (SMB false) cp_cko (j, xs) = ret false.
 Proof.
 simplify_linking.
 reflexivity.
@@ -1040,15 +1037,6 @@ simplify_eq_rel arg.
          simpl.
          rewrite (resolve_ck_false 0
                    (complete_ends P pk.1 (digest_of P pk.1 mst sgst.2) sgst.1)).
-         eapply (r_get_bind_rhs rev_loc' true).
-           { move=> s0 s1 [[[[[[hinv h1] _] _] _] _] _].
-             case/cp_invE: hinv => _ [_ _ _ hmatch].
-             rewrite /rem_inv /= in h1.
-             rewrite h1 in hmatch.
-             by case: hmatch => mm [cc [sgg [_ _ _ _ [_ hrv]]]]. }
-         cbv beta.
-         eapply r_bind_assertD_rhs; first by [].
-         move=> _.
          cp_ret_leaf.
 Qed.
 

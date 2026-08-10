@@ -153,9 +153,9 @@ Definition HGw (s : nat) (b : bool) : game (I_KOTS (shrincs_wots_scheme P)) :=
            Some (roots_map (wcp_PP P) (wcp_N P) (Fw P) pp s 0 d xs, c))
     } ;
     [ KFORGE ] : { Msg (shrincs_wots_scheme P) × Sig (shrincs_wots_scheme P) ~> 'bool } '(m, sg) {
-      pk ← getSome ud_hybrid_pk_loc ;;
-      log ← get ud_hybrid_log_loc ;;
       if b then
+        pk ← getSome ud_hybrid_pk_loc ;;
+        log ← get ud_hybrid_log_loc ;;
         ret ((shrincs_wots_verify P) pk.1 pk.2 m sg && (m \notin log))
       else
         ret false
@@ -204,11 +204,12 @@ simplify_eq_rel arg.
   { ssprove_invariant. }
   by apply r_ret.
 - destruct arg as [m sg].
+  destruct b; last by apply r_ret.
   ud_remember_rel pko 2%N.
   ssprove_sync => hpko.
   ud_remember_rel log 1%N.
   ssprove_forget_all.
-  case: b => /=; by apply r_ret.
+  by apply r_ret.
 Qed.
 
 Lemma G_forge_uniformchains_Hww (b : bool) :
@@ -240,11 +241,12 @@ simplify_eq_rel arg.
   { ssprove_invariant. }
   by apply r_ret.
 - destruct arg as [m sg].
+  destruct b; last by apply r_ret.
   ud_remember_rel pko 2%N.
   ssprove_sync => hpko.
   ud_remember_rel log 1%N.
   ssprove_forget_all.
-  case: b => /=; by apply r_ret.
+  by apply r_ret.
 Qed.
 
 (* ------------------------------------------------------------------ *)
@@ -344,9 +346,9 @@ Proof.
            Some (rud_sig (wcp_PP P) (wcp_N P) (Fw P) pp s 0 d ys, c))
     } ;
     [ KFORGE ] : { Msg (shrincs_wots_scheme P) × Sig (shrincs_wots_scheme P) ~> 'bool } '(m, sg) {
-      pk ← getSome r_ud_pk_loc ;;
-      log ← get r_ud_log_loc ;;
       if b then
+        pk ← getSome r_ud_pk_loc ;;
+        log ← get r_ud_log_loc ;;
         ret ((shrincs_wots_verify P) pk.1 pk.2 m sg && (m \notin log))
       else
         ret false
@@ -741,14 +743,17 @@ simplify_eq_rel arg.
             get_set_heap_eq.
     by [].
 - destruct arg as [m sg].
-  ssprove_code_simpl; simpl.
-  ud_remember_rel pko 5%N.
-  rewrite code_link_assertD.
-  ssprove_sync => hpko.
-  simpl.
-  ud_remember_rel log 4%N.
-  ssprove_forget_all.
-  case: b => /=; by apply r_ret.
+  destruct b.
+  + ssprove_code_simpl; simpl.
+    ud_remember_rel pko 5%N.
+    rewrite code_link_assertD.
+    ssprove_sync => hpko.
+    simpl.
+    ud_remember_rel log 4%N.
+    ssprove_forget_all.
+    by apply r_ret.
+  + ssprove_code_simpl; simpl.
+    by apply r_ret.
 Qed.
 
 Lemma Rw_ideal_perfect (b : bool) (s : nat) (hsw : (s < (wcp_w P).-1)%nat) :
@@ -847,14 +852,17 @@ simplify_eq_rel arg.
             get_set_heap_eq.
     by [].
 - destruct arg as [m sg].
-  ssprove_code_simpl; simpl.
-  ud_remember_rel pko 5%N.
-  rewrite code_link_assertD.
-  ssprove_sync => hpko.
-  simpl.
-  ud_remember_rel log 4%N.
-  ssprove_forget_all.
-  case: b => /=; by apply r_ret.
+  destruct b.
+  + ssprove_code_simpl; simpl.
+    ud_remember_rel pko 5%N.
+    rewrite code_link_assertD.
+    ssprove_sync => hpko.
+    simpl.
+    ud_remember_rel log 4%N.
+    ssprove_forget_all.
+    by apply r_ret.
+  + ssprove_code_simpl; simpl.
+    by apply r_ret.
 Qed.
 
 (* ------------------------------------------------------------------ *)

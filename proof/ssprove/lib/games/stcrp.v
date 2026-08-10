@@ -123,9 +123,9 @@ Definition STCRP_game (b : bool) : game I_STCRP :=
       ret pp
     } ;
     [ SCHECK ] : { 'nat × (Mb × 'nat) ~> 'bool } '(j, (m, ctr)) {
-      revealed ← get stcr_rev_loc ;;
-      #assert revealed ;;
       if b then
+        revealed ← get stcr_rev_loc ;;
+        #assert revealed ;;
         tgts ← get stcr_tgts_loc ;;
         match getm tgts j with
         | Some (t0, (m0, i0)) =>

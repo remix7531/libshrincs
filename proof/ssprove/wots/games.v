@@ -334,9 +334,9 @@ Definition G_forge_sampledkey (b : bool) : game (I_KOTS (shrincs_wots_scheme P))
       ret ((pp, shrincs_wots_pubkey P pp xs), Some (sign_chains P pp xs (digest_of P pp m c), c))
     } ;
     [ KFORGE ] : { Msg (shrincs_wots_scheme P) × Sig (shrincs_wots_scheme P) ~> 'bool } '(m, s) {
-      pk ← getSome forge_pk_loc ;;
-      log ← get forge_log_loc ;;
       if b then
+        pk ← getSome forge_pk_loc ;;
+        log ← get forge_log_loc ;;
         ret (shrincs_wots_verify P pk.1 pk.2 m s && (m \notin log))
       else
         ret false
@@ -375,9 +375,9 @@ Definition G_forge_uniformchains (b : bool) : game (I_KOTS (shrincs_wots_scheme 
       ret ((pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp (digest_of P pp m c) sg)), Some (sg, c))
     } ;
     [ KFORGE ] : { Msg (shrincs_wots_scheme P) × Sig (shrincs_wots_scheme P) ~> 'bool } '(m, s) {
-      pk ← getSome forge_pk_loc ;;
-      log ← get forge_log_loc ;;
       if b then
+        pk ← getSome forge_pk_loc ;;
+        log ← get forge_log_loc ;;
         ret (shrincs_wots_verify P pk.1 pk.2 m s && (m \notin log))
       else
         ret false

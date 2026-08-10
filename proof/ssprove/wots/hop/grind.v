@@ -227,12 +227,9 @@ Proof.
 by simplify_linking.
 Qed.
 
-(** Ideal-side SCHECK enforces the reveal phase and then answers false. *)
+(** Ideal-side SCHECK answers false unconditionally. *)
 Lemma resolve_gck_false (j : nat) (mc : wcp_M P) (ctr : nat) :
-  resolve (STB false) gcko (j, (mc, ctr)) =
-  (revealed ← get rev_loc' ;;
-   #assert revealed ;;
-   ret false).
+  resolve (STB false) gcko (j, (mc, ctr)) = ret false.
 Proof.
 by simplify_linking.
 Qed.
@@ -730,15 +727,6 @@ simplify_eq_rel arg.
     * (* GRIND: ideal SCHECK answers false = G_post_grind's null *)
       simpl.
       rewrite (resolve_gck_false 0 mst sgst.2).
-      eapply (r_get_rhs_known rev_loc' true).
-        { move=> s0 s1 [[[[[[hinv h1] _] _] _] _] _].
-          case/grind_invE: hinv => _ [_ _ _ hmatch].
-          rewrite /rem_inv /= in h1.
-          rewrite h1 in hmatch.
-          case: hmatch => mm [cc [sgg [_ _ _ _ [_ hrev]]]].
-          exact: hrev. }
-      cbv beta iota.
-      simpl.
       apply r_ret => s0 s1 hpre; split=> //.
       by case: hpre => [[[[[[hinv _] _] _] _] _] _].
 Qed.

@@ -93,9 +93,9 @@ Definition SMPRE_game (b : bool) : game I_SMPRE :=
       ret pp
     } ;
     [ PCHECK ] : { 'nat × th_M T ~> 'bool } '(j, m) {
-      revealed ← get pre_rev_loc ;;
-      #assert revealed ;;
       if b then
+        revealed ← get pre_rev_loc ;;
+        #assert revealed ;;
         tgts ← get pre_tgts_loc ;;
         match getm tgts j with
         | Some (t0, x0) =>

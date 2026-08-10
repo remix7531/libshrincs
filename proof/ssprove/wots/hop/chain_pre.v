@@ -8,7 +8,8 @@
 
     The SM-PRE(F) chain hop, [G_post_chain -> G_forge_uniformchains-ideal]: the reduction
     [R_chain_pre] routes G_post_chain's residual chain-meet case to an SM-PRE(F)
-    PCHECK and is perfect on both sides of the SM-PRE pair
+    PCHECK (with the pre-commitment PCHECK gadget on the hash-domain
+    inhabitant [n0]) and is perfect on both sides of the SM-PRE pair
     ([R_chain_pre_real], [R_chain_pre_ideal]).  The shared chain substrate lives
     in [Sec.hop.chain_common]; this file is the SM-PRE half built
     over that substrate (with the shared [simpl never] directives
@@ -33,8 +34,11 @@ Import PackageNotation.
 Section ChainPRE.
 
 (** The WOTS+C parameter record (see Sec.wots.params), as in
-    Sec.wots.games. *)
+    Sec.wots.games, plus the hash-domain inhabitant [n0] for the
+    pre-commitment PCHECK gadget of [R_chain_pre] (header; data-only
+    side condition). *)
 Context (P : wc_params).
+Context (n0 : wcp_N P).
 
 (** The SM-PRE game pair at this instance (a library-game pin) and the
     SM-PRE reduction's own location pins (library locations at the
@@ -147,7 +151,8 @@ Definition r_chain_pre_log_loc := mkloc 361 ([::] : seq (Msg (shrincs_wots_schem
 Definition r_chain_pre_sig_loc := mkloc 362 (None : option (Sig (shrincs_wots_scheme P))).
 
 (** THE reduction: plays [I_KOTS (shrincs_wots_scheme P)] using the SM-PRE
-    oracles.  See the header for the PCOLLQ pin in COMMIT. *)
+    oracles.  See the header for the PCOLLQ pin in COMMIT and the
+    pre-commitment PCHECK gadget (the [n0] side condition) in KFORGE. *)
 Definition R_chain_pre : package (I_SMPRE (thf_chain P) (coll_chain P)) (I_KOTS (shrincs_wots_scheme P)) :=
   [package [fmap r_chain_pre_pk_loc ; r_chain_pre_log_loc ; r_chain_pre_sig_loc ] ;
     [ COMMIT ] : { SParam (shrincs_wots_scheme P) × Msg (shrincs_wots_scheme P) ~> Pk (shrincs_wots_scheme P) × 'option (Sig (shrincs_wots_scheme P)) } '(sp, m) {
@@ -166,32 +171,40 @@ Definition R_chain_pre : package (I_SMPRE (thf_chain P) (coll_chain P)) (I_KOTS 
       ret ((pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp d sgs)), Some (sgs, c))
     } ;
     [ KFORGE ] : { Msg (shrincs_wots_scheme P) × Sig (shrincs_wots_scheme P) ~> 'bool } '(mst, sgst) {
-      pk ← getSome r_chain_pre_pk_loc ;;
-      log ← get r_chain_pre_log_loc ;;
-      sgo ← get r_chain_pre_sig_loc ;;
-      match log, sgo with
-      | m :: _, Some sgc =>
-          if shrincs_wots_verify P pk.1 pk.2 mst sgst && (mst \notin log)
-          then
-            if digest_of P pk.1 mst sgst.2 == digest_of P pk.1 m sgc.2
-            then ret false
-            else
-              if complete_ends P pk.1 (digest_of P pk.1 mst sgst.2) sgst.1
-                 != complete_ends P pk.1 (digest_of P pk.1 m sgc.2) sgc.1
-              then ret false
-              else
-                match wtcr_dec P pk.1 (digest_of P pk.1 m sgc.2)
-                        (digest_of P pk.1 mst sgst.2) sgc.1 sgst.1 with
-                | Some _ => ret false
-                | None =>
-                    match wpre_dec P pk.1 (digest_of P pk.1 m sgc.2)
+      pko ← get r_chain_pre_pk_loc ;;
+      match pko with
+      | None =>
+          (* pre-commitment gadget: real PCHECK fails on the phase
+             assert (mirroring G_post_chain's getSome), ideal PCHECK returns
+             false (mirroring G_forge_uniformchains-ideal) *)
+          opr pr_cko (0, n0) (λ ans, ret ans)
+      | Some pk =>
+          log ← get r_chain_pre_log_loc ;;
+          sgo ← get r_chain_pre_sig_loc ;;
+          match log, sgo with
+          | m :: _, Some sgc =>
+              if shrincs_wots_verify P pk.1 pk.2 mst sgst && (mst \notin log)
+              then
+                if digest_of P pk.1 mst sgst.2 == digest_of P pk.1 m sgc.2
+                then ret false
+                else
+                  if complete_ends P pk.1 (digest_of P pk.1 mst sgst.2) sgst.1
+                     != complete_ends P pk.1 (digest_of P pk.1 m sgc.2) sgc.1
+                  then ret false
+                  else
+                    match wtcr_dec P pk.1 (digest_of P pk.1 m sgc.2)
                             (digest_of P pk.1 mst sgst.2) sgc.1 sgst.1 with
-                    | Some jx => opr pr_cko jx (λ ans, ret ans)
-                    | None => ret true
+                    | Some _ => ret false
+                    | None =>
+                        match wpre_dec P pk.1 (digest_of P pk.1 m sgc.2)
+                                (digest_of P pk.1 mst sgst.2) sgc.1 sgst.1 with
+                        | Some jx => opr pr_cko jx (λ ans, ret ans)
+                        | None => ret true
+                        end
                     end
-                end
-          else ret false
-      | _, _ => ret false
+              else ret false
+          | _, _ => ret false
+          end
       end
     }
   ].
@@ -265,12 +278,9 @@ simplify_linking.
 reflexivity.
 Qed.
 
-(** Ideal-side PCHECK enforces the reveal phase and then answers false. *)
+(** Ideal-side PCHECK answers false unconditionally. *)
 Lemma resolve_pr_ck_false (j : nat) (x : th_M (thf_chain P)) :
-  resolve (SMP false) pr_cko (j, x) =
-  (revealed ← get prev_loc ;;
-   #assert revealed ;;
-   ret false).
+  resolve (SMP false) pr_cko (j, x) = ret false.
 Proof.
 simplify_linking.
 reflexivity.
@@ -707,12 +717,21 @@ simplify_eq_rel arg.
       rewrite /rem_inv /= in hrem0 hrem1.
       by rewrite -hrem0 -hrem1. }
   move=> e; subst pko'.
-  rewrite code_link_assertD.
-  eapply r_assertD; first by [].
-  move=> e0 e1.
-  case: pko e0 e1 => [pk|] e0 e1; last by discriminate e0.
-  simpl.
-  (* committed: mirror G_post_chain *)
+  case: pko => [pk|]; last first.
+  + (* pre-commitment: G_post_chain fails on the getSome assert, R fails
+       inside the real PCHECK's phase assert (the gadget) *)
+    simpl.
+    rewrite (resolve_pr_ck 0 n0).
+    eapply (r_get_bind_rhs prev_loc false).
+      { move=> s0 s1 [[hinv hrem0] hrem1].
+        case/pr_invE: hinv => _ hRP.
+        rewrite /rem_inv /= in hrem0 hrem1.
+        case: hRP => _ _ _; rewrite hrem0 => -[_ _ _ _ [_ hrv]].
+        exact: hrv. }
+    cbv beta.
+    exact: r_fail_bind_rhs.
+  + (* committed: mirror G_post_chain *)
+    simpl.
     sync_eq lg lg'.
       { move=> s0 s1 [[[[hinv _] _] hrem0] hrem1].
         case/pr_invE: hinv => _ [_ e2 _ _].
@@ -902,39 +921,30 @@ simplify_eq_rel arg.
   apply: r_pr_tail => //.
   - exact: (find_counter_good P pp m c E).
   - by rewrite hus (size_digest_of P).
-- (* KFORGE *)
+- (* KFORGE: lhs is [ret false]; everything on the rhs is one-sided *)
   destruct arg as [mst sgst].
   simpl.
-  sync_eq pko pko'.
-    { move=> s0 s1 [[hinv hrem0] hrem1].
-      case/pr_invE: hinv => _ [e1 _ _ _].
-      rewrite /rem_inv /= in hrem0 hrem1.
-      by rewrite -hrem0 -hrem1. }
-  move=> e; subst pko'.
-  rewrite code_link_assertD.
-  eapply r_assertD; first by [].
-  move=> e0 e1.
-  case: pko e0 e1 => [pk|] e0 e1; last by discriminate e0.
-  simpl.
-  sync_eq lg lg'.
-    { move=> s0 s1 [[[[hinv _] _] hrem0] hrem1].
-      case/pr_invE: hinv => _ [_ e2 _ _].
-      rewrite /rem_inv /= in hrem0 hrem1.
-      by rewrite -hrem0 -hrem1. }
-  move=> e; subst lg'.
-  eapply r_get_remember_rhs => sgov.
+  eapply r_get_remember_rhs => pko'.
+  case: pko' => [pk|]; last first.
+  + (* pre-commitment: ideal PCHECK answers false *)
+    simpl.
+    rewrite (resolve_pr_ck_false 0 n0).
+    apply r_ret => s0 s1 hpre; split=> //; pr_take_inv hpre.
+  + simpl.
+    eapply r_get_remember_rhs => lg'.
+    eapply r_get_remember_rhs => sgov.
     eapply (r_fact (exists (m : wcp_M P) (c : nat) (us : seq (wcp_N P)),
-              [/\ lg = [:: m],
+              [/\ lg' = [:: m],
                   sgov = Some (wsigs P pk.1 0 (digest_of P pk.1 m c) us, c),
                   size us = wcp_chain_count P & good_counter P pk.1 m c])).
-      { move=> s0 s1 [[[[[hinv h1] h2] h3] h4] h5].
-        case/pr_invE: hinv => _ [epk elog esig hmatch].
-        rewrite /rem_inv /= in h1 h2 h3 h4 h5.
-        rewrite h1 in hmatch.
+      { move=> s0 s1 [[[hinv h1] h2] h3].
+        case/pr_invE: hinv => _ [e1 e2 e3 hmatch].
+        rewrite /rem_inv /= in h1 h2 h3.
+        rewrite -e1 h1 in hmatch.
         case: hmatch => mm [cc [uss [hA hB _ [husz hgood] _]]].
         exists mm, cc, uss; split=> //.
-        - by rewrite -h3.
-        - by rewrite -h5 esig hB. }
+        - by rewrite -h2 e2.
+        - by rewrite -h3 e3. }
     move=> [m [c [us [hlg hsgov husz hgood]]]].
     rewrite hlg hsgov /=.
     case E0: (shrincs_wots_verify P pk.1 pk.2 mst sgst && (mst \notin [:: m]));
@@ -973,16 +983,6 @@ simplify_eq_rel arg.
                       G_forge_uniformchains-ideal *)
                    simpl.
                    rewrite (resolve_pr_ck_false j x).
-                   eapply (r_get_bind_rhs prev_loc true).
-                     { move=> s0 s1 [[[[[hinv h1] _] _] _] _].
-                       case/pr_invE: hinv => _ [_ _ _ hmatch].
-                       rewrite /rem_inv /= in h1.
-                       rewrite h1 in hmatch.
-                       by case: hmatch
-                         => mm [cc [uss [_ _ _ _ [_ _ hrv]]]]. }
-                   cbv beta.
-                   eapply r_bind_assertD_rhs; first by [].
-                   move=> _.
                    apply r_ret => s0 s1 hpre; split=> //; pr_take_inv hpre.
 Qed.
 

@@ -90,9 +90,9 @@ Definition SMTCR_game (b : bool) : game I_SMTCR :=
       ret pp
     } ;
     [ CHECK ] : { 'nat × th_M T ~> 'bool } '(j, m) {
-      revealed ← get tcr_rev_loc ;;
-      #assert revealed ;;
       if b then
+        revealed ← get tcr_rev_loc ;;
+        #assert revealed ;;
         tgts ← get tcr_tgts_loc ;;
         match getm tgts j with
         | Some (t0, m0) =>
