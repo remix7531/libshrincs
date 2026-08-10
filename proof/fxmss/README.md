@@ -47,11 +47,17 @@ paper game and reduction names retain their notation.
 From the repository root:
 
 ```sh
-make ssprove-prove
-make prove
+make fxmss-prove   # builds just this tree, no clightgen / no VST tree
+make prove         # all four trees (model + ssprove + fxmss + vst)
 make audit
 ```
 
+`ssprove-prove` builds only the native `ssprove/` tree; this tree has its own
+`fxmss-prove` target so it can be checked on its own.
+
 `proof/assumptions/fxmss.v` prints the assumptions of
-`shrincs_fxmss_secure`. The audit checks that cone against the existing
-SSProve baseline and adds no FXMSS-specific allowlist entry.
+`shrincs_fxmss_secure`. The audit diffs that cone against its OWN `[fxmss]`
+section of `proof/assumptions/allowed.txt` — the classical SSProve baseline
+and nothing else (no `sha256.SHA256`, no `eps_*`, no `sha256_*_secure`) — not
+against `[ssprove]`'s wider section, so FXMSS cannot silently acquire one of
+ssprove's hash-game entries and stay green.

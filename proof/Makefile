@@ -28,12 +28,16 @@ else
 endif
 
 # The proof trees' .vo targets, derived from _RocqProject so they never drift
-# out of sync with the file listing.  FXMSS uses SSProve and is therefore
-# built by the public ssprove-prove target.
+# out of sync with the file listing.  Each of the three native/abstract
+# proof trees gets its own scope -- ssprove-prove builds ONLY ssprove/ (the
+# native WOTS+C tree that anchors to the VST-verified C via model_bridge.v),
+# fxmss-prove builds ONLY fxmss/ (the abstract, C-unconnected EU-CMA tree).
+# `make prove` / `make audit` still build all trees together.
 VST_VOFILES     := $(shell grep -E '^$(VST_DIR)/.*\.v$$' _RocqProject | sed 's/\.v$$/.vo/')
-SSPROVE_VOFILES := $(shell grep -E '^($(SSPROVE_DIR)|$(FXMSS_DIR))/.*\.v$$' _RocqProject | sed 's/\.v$$/.vo/')
+SSPROVE_VOFILES := $(shell grep -E '^$(SSPROVE_DIR)/.*\.v$$' _RocqProject | sed 's/\.v$$/.vo/')
+FXMSS_VOFILES   := $(shell grep -E '^$(FXMSS_DIR)/.*\.v$$' _RocqProject | sed 's/\.v$$/.vo/')
 
-.PHONY: extract vst-prove ssprove-prove prove audit clean
+.PHONY: extract vst-prove ssprove-prove fxmss-prove prove audit clean
 
 # ----- VST / Rocq -----------------------------------------------------------
 # Clight ASTs land in vst/clight/ so _RocqProject finds them.
@@ -69,6 +73,27 @@ ssprove-prove: Makefile.coq
 	@$(MAKE) -j $(NPROC) --no-print-directory -f Makefile.coq $(SSPROVE_VOFILES)
 	@$(SUCCESS) "SSProve Verification Succeeded"
 
+# NOTE: ssprove-prove above builds ONLY ssprove/ -- fxmss/ has its own
+# fxmss-prove target below (P8/G4 baseline: ssprove-prove is the native
+# WOTS+C tree's cold build time, and must not silently include fxmss).
+
+# fxmss-prove builds ONLY the fxmss tree (plus its model/ssprove
+# dependencies) through its own generated Makefile.fxmss.coq, instead of
+# the shared Makefile.coq -- whose regeneration rule always depends on the
+# clightgen-produced clight/*.v files. fxmss doesn't Require anything under
+# Vst, so _RocqProject.fxmss drops vst/'s file listing and -Q mapping
+# before handing off to `rocq makefile`, keeping this path clightgen- and
+# VST-free for a quick fxmss-only check.
+_RocqProject.fxmss: _RocqProject
+	@grep -vE '^(vst/.*\.v$$|-Q vst Vst$$)' _RocqProject > $@
+
+Makefile.fxmss.coq: _RocqProject.fxmss
+	@rocq makefile -f _RocqProject.fxmss -o Makefile.fxmss.coq
+
+fxmss-prove: Makefile.fxmss.coq
+	@$(MAKE) -j $(NPROC) --no-print-directory -f Makefile.fxmss.coq $(FXMSS_VOFILES)
+	@$(SUCCESS) "FXMSS Verification Succeeded"
+
 prove: Makefile.coq extract
 	@$(MAKE) -j $(NPROC) --no-print-directory -f Makefile.coq
 	@$(SUCCESS) "All Verifications Succeeded"
@@ -89,9 +114,9 @@ prove: Makefile.coq extract
 # in either tree Requires it, so a from-scratch `make audit` would
 # otherwise fail check.sh's model-side coqc step (and its model gate 0)
 # unless a prior `make prove` (full build) had left the .vo behind.
-audit: vst-prove ssprove-prove
+audit: vst-prove ssprove-prove fxmss-prove
 	@$(MAKE) -j $(NPROC) --no-print-directory -f Makefile.coq model/correct/wots.vo
-	@$(BANNER) "combined honesty gate (model + ssprove + vst)"
+	@$(BANNER) "combined honesty gate (model + ssprove + fxmss + vst)"
 	@bash $(AUDIT_DIR)/check.sh
 	@$(SUCCESS) "Audit: all proofs green, trust surface unchanged"
 
@@ -101,5 +126,9 @@ clean:
 	@if [ -e Makefile.coq ]; then \
 	    $(MAKE) --no-print-directory -f Makefile.coq cleanall; \
 	fi
-	@rm -f Makefile.coq Makefile.coq.conf \
+	@if [ -e Makefile.fxmss.coq ]; then \
+	    $(MAKE) --no-print-directory -f Makefile.fxmss.coq cleanall; \
+	fi
+	@rm -f Makefile.coq Makefile.coq.conf Makefile.fxmss.coq Makefile.fxmss.coq.conf \
+	       _RocqProject.fxmss \
 	       $(VST_DIR)/clight/wots.v $(VST_DIR)/clight/thash.v $(VST_DIR)/clight/sha256.v

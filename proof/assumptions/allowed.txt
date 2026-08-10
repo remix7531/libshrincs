@@ -1,17 +1,23 @@
 # proof/assumptions/allowed.txt
 #
-# ONE allowlist, all three proof trees. assumptions/check.sh's gate 3
+# ONE allowlist, all four proof trees. assumptions/check.sh's gate 3
 # (Print Assumptions cone diff) extracts one section per tree -- [model]
-# for assumptions/model.v, [ssprove] for assumptions/ssprove.v, [vst] for
-# assumptions/vst.v -- and diffs the compiled probe's actual axiom cone
-# against that section only.
+# for assumptions/model.v, [ssprove] for assumptions/ssprove.v, [fxmss] for
+# assumptions/fxmss.v, [vst] for assumptions/vst.v -- and diffs the
+# compiled probe's actual axiom cone against that section only.
+#
+# [fxmss] is its own section, NOT a re-check against [ssprove]: it holds
+# only the classical baseline (the same 7 entries as [ssprove] minus the
+# SHA-256 anchor and the 6 eps_*/sha256_*_secure hash-game entries), so
+# FXMSS silently acquiring one of those would fail gate 3 instead of
+# passing by riding on ssprove's wider baseline.
 #
 # Format: blank lines and `#` comments (whole-line, or trailing after a
 # name) are ignored when extracting names, so every entry below carries a
 # one-line provenance note; check.sh's TRUST SURFACE table sources those
 # notes directly from here. Do not reorder/rename the
-# `[model]`/`[ssprove]`/`[vst]` section headers -- check.sh looks for
-# those literal lines.
+# `[model]`/`[ssprove]`/`[fxmss]`/`[vst]` section headers -- check.sh looks
+# for those literal lines.
 
 [model]
 # --- the shared trust root: the model is a Stdlib-only development whose
@@ -33,20 +39,37 @@ functional_extensionality_dep              # Coq stdlib's functional extensional
 realsum.__admitted__interchange_psum       # mathcomp-analysis's admitted double-psum interchange lemma (library gap, not ours)
 # --- the SHA-256 function itself (inherited from the model tree) ---
 sha256.SHA256                              # the SHA-256 function itself (model/sha256.v)
-# --- the 6 real-valued advantage-bound Parameters (ssprove/hash_assumptions.v) ---
+# --- the 6 real-valued advantage-bound Parameters (ssprove/axioms.v) ---
 eps_prf                                    # PRF advantage bound
 eps_smud                                   # SM-UD advantage bound
 eps_stcrp                                  # STCRP advantage bound
 eps_tcr_pk                                 # SM-TCR advantage bound at the pk-compression hash
 eps_tcr_chain                              # SM-TCR advantage bound at the chain hash
 eps_pre                                    # SM-PRE advantage bound
-# --- the 6 named hash-game security assumptions (ssprove/hash_assumptions.v) ---
+# --- the 6 named hash-game security assumptions (ssprove/axioms.v) ---
 sha256_prf_secure                          # truncated-SHA256 is eps_prf-secure as a PRF
 sha256_smud_secure                         # truncated-SHA256 is eps_smud-secure (SM-UD)
 sha256_stcrp_secure                        # truncated-SHA256 is eps_stcrp-secure (STCRP)
 sha256_tcr_pk_secure                       # truncated-SHA256 is eps_tcr_pk-secure (SM-TCR @ pk-compression hash)
 sha256_tcr_chain_secure                    # truncated-SHA256 is eps_tcr_chain-secure (SM-TCR @ chain hash)
 sha256_pre_secure                          # truncated-SHA256 is eps_pre-secure (SM-PRE)
+
+[fxmss]
+# --- classical baseline ONLY (the same library axioms as [ssprove]'s
+#     baseline above -- FXMSS shares the SSProve/mathcomp-analysis stack).
+#     Deliberately excludes sha256.SHA256, every eps_*, and every
+#     sha256_*_secure: shrincs_fxmss_secure is proved without ANY of the
+#     6 hash-game axioms or the SHA-256 anchor, each hash assumption
+#     staying an explicit advantage term instead (see fxmss/README.md and
+#     assumptions/fxmss.v). If FXMSS's cone ever needs one of those, that
+#     is a real finding, not a reason to widen this section. ---
+R                                          # mathcomp-analysis abstract real-number carrier (reals.Real.type)
+SPropBase.ax_proof_irrel                   # SSProve's strict-Prop proof-irrelevance axiom
+boolp.constructive_indefinite_description  # classical choice, via mathcomp-analysis's boolp
+boolp.functional_extensionality_dep        # dependent functional extensionality (boolp)
+boolp.propositional_extensionality         # propositional extensionality (boolp)
+functional_extensionality_dep              # Coq stdlib's functional extensionality (separate copy from boolp's)
+realsum.__admitted__interchange_psum       # mathcomp-analysis's admitted double-psum interchange lemma (library gap, not ours)
 
 [vst]
 # --- CompCert / Flocq / VST classical-logic baseline (inherited from the

@@ -7,10 +7,12 @@
 #   make test         C library + self-consistency / tamper tests + SHA-256 KATs
 #   make extract      run clightgen (C -> Clight AST) for vst-prove
 #   make vst-prove    VST / Rocq proofs (implies extract)
-#   make ssprove-prove  SSProve / Rocq WOTS+C and FXMSS security proofs
+#   make ssprove-prove  SSProve / Rocq native WOTS+C one-time-security proof
+#   make fxmss-prove  SSProve / Rocq abstract FXMSS EU-CMA proof (no VST/clightgen)
 #   make prove        all proof trees
-#   make audit        vst-prove + ssprove-prove + the combined honesty gate
-#                      (assumptions/check.sh: per-tree gates + trust-surface report)
+#   make audit        vst-prove + ssprove-prove + fxmss-prove + the combined
+#                      honesty gate (assumptions/check.sh: per-tree gates +
+#                      trust-surface report)
 #   make check        full CI gate: static + sanitizers + CompCert + ctgrind +
 #                      extract + prove + audit
 #   make check-ct     ctgrind: constant-time check on shrincs_wots_pubkey_gen + shrincs_wots_sign
@@ -24,9 +26,10 @@
 #   CFLAGS=...      override compiler flags
 #
 # The Rocq/VST/SSProve proof build lives entirely under proof/ (see
-# proof/Makefile); the extract/vst-prove/ssprove-prove/prove/audit targets
-# below just route `make -C proof <target>` so the targets listed above
-# behave identically whether invoked from here or from proof/ directly.
+# proof/Makefile); the extract/vst-prove/ssprove-prove/fxmss-prove/prove/
+# audit targets below just route `make -C proof <target>` so the targets
+# listed above behave identically whether invoked from here or from proof/
+# directly.
 # ============================================================================
 
 # ----- Configuration --------------------------------------------------------
@@ -103,7 +106,7 @@ endif
 
 # ----- Top-level targets ----------------------------------------------------
 
-.PHONY: all lib test extract vst-prove ssprove-prove prove audit clean gen-vectors \
+.PHONY: all lib test extract vst-prove ssprove-prove fxmss-prove prove audit clean gen-vectors \
         check-asan check-msan check-ccomp \
         check-ct check-ct-gcc check-ct-clang check-ct-ccomp \
         check check-no-prove check-tidy check-fanalyzer format check-format \
@@ -133,10 +136,13 @@ vst-prove:
 ssprove-prove:
 	@$(MAKE) --no-print-directory -C proof ssprove-prove
 
+fxmss-prove:
+	@$(MAKE) --no-print-directory -C proof fxmss-prove
+
 prove:
 	@$(MAKE) --no-print-directory -C proof prove
 
-# `make audit` is the combined honesty gate for both proof trees; see
+# `make audit` is the combined honesty gate for all proof trees; see
 # proof/Makefile's `audit` target for the full recipe and its rationale.
 audit:
 	@$(MAKE) --no-print-directory -C proof audit

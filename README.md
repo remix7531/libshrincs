@@ -13,12 +13,24 @@ An additional abstract proof in **`proof/fxmss/`** establishes EU-CMA security
 of the multi-leaf FXMSS construction.  It is compiled and audited here, but is
 not yet an end-to-end refinement of the C or `Model.wots`.
 
+**Which headline theorem is backed by the verified C, and which isn't:** the
+WOTS+C headline theorems (`shrincs_wots_secure*` in
+[`proof/ssprove/wots/theorem.v`](proof/ssprove/wots/theorem.v),
+[`instantiation.v`](proof/ssprove/wots/instantiation.v), and
+[`axioms.v`](proof/ssprove/axioms.v)) are connected to the C: SSProve's
+`model_bridge.v` proves the games compute the same thing as `Model.wots`, and
+`proof/vst/` proves the C in `src/` implements that same `Model.wots` — so the
+security bound transfers to the C. `shrincs_fxmss_secure` in
+[`proof/fxmss/shrincs/fxmss/theorem.v`](proof/fxmss/shrincs/fxmss/theorem.v) is
+**paper-level only**: it is not connected to the C or to `Model.wots` in any
+way.
+
 ## Build & verify
 
 ```sh
 nix develop      # toolchains; or .#vst / .#ssprove individually
 make test        # C self-consistency / tamper tests + SHA-256 KATs
-make prove       # both proof trees
+make prove       # all proof trees (vst + ssprove + fxmss)
 make audit       # proofs + the honesty gate; ends with the TRUST SURFACE table
 make check       # everything: static analysis, sanitizers, CompCert, ctgrind, proofs
 ```

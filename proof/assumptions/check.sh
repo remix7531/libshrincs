@@ -9,22 +9,26 @@
 #   1. proof gaps      -- no Admitted / admit. / give_up. in the tree.
 #   2. assumption confinement -- every Axiom/Parameter/Conjecture/Hypothesis
 #      declaration lives in the tree's one allowlisted file (model -> machine.v
-#      + sha256.v + the address.v Hpb hypothesis; ssprove -> axioms.v; vst ->
+#      + sha256.v + the address.v Hpb hypothesis; ssprove -> axioms.v; fxmss ->
+#      none, no assumption declaration is permitted anywhere in the tree; vst ->
 #      gprog.v).  Catches a smuggled assumption by SOURCE TEXT even if unused.
 #      A confinement check, not exact-name: a new assumption inside an allowed
 #      file is caught by gate 3 iff an audited theorem uses it.
 #   3. Print Assumptions cone diff -- compile the tree's assumptions/<tree>.v
-#      probe with coqc, extract the axiom names, diff against the tree's
+#      probe with coqc, extract the axiom names, diff against the tree's OWN
 #      section of allowed.txt.  This is the real cone check; gate 2 is the belt
-#      for the declared-but-unused case no dependency tool can see.
+#      for the declared-but-unused case no dependency tool can see.  Each tree
+#      is diffed against its own section -- fxmss is NOT re-checked against
+#      ssprove's wider baseline, so it cannot silently acquire ssprove's
+#      eps_*/sha256_*_secure entries and stay green.
 #
 # KNOWN TRAP: gate 3 strips "Fetching opaque proofs from disk" stderr lines
 # before parsing (VST/CompCert print them cold; they are NOT axioms) -- do not
 # remove that grep -v.  That is why gate 3 shells to coqc, not rocq-mcp.
 #
 # On success prints the TRUST SURFACE table (every gate-3 assumption + one-line
-# provenance).  allowed.txt is INI-sectioned ([model]/[ssprove]/[vst]); `#`
-# comments and trailing provenance notes are ignored.
+# provenance).  allowed.txt is INI-sectioned ([model]/[ssprove]/[fxmss]/[vst]);
+# `#` comments and trailing provenance notes are ignored.
 
 set -uo pipefail
 cd "$(dirname "$0")/.."   # assumptions/ -> proof/
@@ -32,6 +36,13 @@ cd "$(dirname "$0")/.."   # assumptions/ -> proof/
 ASSUMPTIONS_DIR=assumptions
 ALLOWLIST="$ASSUMPTIONS_DIR/allowed.txt"
 fail=0
+
+# Every coqc -Q load-path mapping this project uses, derived mechanically
+# from _RocqProject so gate 3 can never go stale again (a hand-maintained
+# copy previously kept a `-Q fxmss/examples HBS.Examples` entry for a
+# directory that no longer exists). A tree not using one of these mappings
+# just ignores the extra, unused logical path.
+QFLAGS=$(grep -E '^-Q ' _RocqProject | tr '\n' ' ')
 
 # Assumption-declaration keywords for gate 2: global assumptions
 # (Axiom/Axioms/Conjecture/Parameter/Parameters) and section Hypothesis, with
@@ -136,9 +147,11 @@ gate2_vst() {
 
 # Gate 3: compile the tree's Print Assumptions probe, extract the axiom names
 # (stripping the opaque-proof-fetch log first -- see the header KNOWN TRAP), and
-# diff against the tree's allowed.txt section.
-#   tree -- probe/tree name; qflags -- coqc load paths; allow_section --
-#   optional allowlist section when a tree shares another tree's baseline.
+# diff against the tree's OWN allowed.txt section (every tree gets one; none
+# currently needs to borrow another tree's).
+#   tree -- probe/tree name, also the default allowlist section name;
+#   qflags -- coqc load paths; allow_section -- override when a tree's
+#   section is named differently from the tree itself.
 gate3_assumptions() {
   local tree="$1" qflags="$2" allow_section="${3:-$1}"
   local probe="$ASSUMPTIONS_DIR/$tree.v"
@@ -160,7 +173,10 @@ gate3_assumptions() {
 
   if [ -s "$ASSUMPTIONS_DIR/$tree.found" ]; then
     local found_for_diff="$ASSUMPTIONS_DIR/$tree.found"
-    if [ "$tree" = fxmss ] && [ "$allow_section" = ssprove ]; then
+    if [ "$tree" = fxmss ]; then
+      # fxmss.v doesn't pull in the same short-name imports ssprove.v does,
+      # so coqc prints these two classical entries fully qualified; fold
+      # them back to the spellings used everywhere else before diffing.
       found_for_diff="$ASSUMPTIONS_DIR/$tree.normalized"
       sed \
         -e 's/^Axioms\.R$/R/' \
@@ -249,36 +265,34 @@ print_trust_surface() {
   echo "================================================================================"
 }
 
-# Run all three trees (model first -- the shared trust root). Quiet on success:
+# Run all four trees (model first -- the shared trust root). Quiet on success:
 # one line per tree; gates speak only when they FAIL.
 tree_fail=0
 gate0_build_freshness model || tree_fail=1
 gate1_proof_gaps model || tree_fail=1
 gate2_model || tree_fail=1
-gate3_assumptions model "-Q model Model -Q assumptions Assumptions" || tree_fail=1
+gate3_assumptions model "$QFLAGS" || tree_fail=1
 [ "$tree_fail" = 0 ] && echo "model    gates 0-3 green" || fail=1
 
 tree_fail=0
 gate0_build_freshness ssprove || tree_fail=1
 gate1_proof_gaps ssprove "$ASSUMPTIONS_DIR" || tree_fail=1
 gate2_ssprove || tree_fail=1
-gate3_assumptions ssprove "-Q model Model -Q ssprove Sec -Q assumptions Assumptions" || tree_fail=1
+gate3_assumptions ssprove "$QFLAGS" || tree_fail=1
 [ "$tree_fail" = 0 ] && echo "ssprove  gates 0-3 green" || fail=1
 
 tree_fail=0
 gate0_build_freshness fxmss || tree_fail=1
 gate1_proof_gaps fxmss || tree_fail=1
 gate2_confined fxmss 'a^' fxmss || tree_fail=1
-gate3_assumptions fxmss \
-  "-Q model Model -Q ssprove Sec -Q fxmss/hbs HBS -Q fxmss/examples HBS.Examples -Q fxmss/shrincs SHRINCS -Q assumptions Assumptions" \
-  ssprove || tree_fail=1
+gate3_assumptions fxmss "$QFLAGS" || tree_fail=1
 [ "$tree_fail" = 0 ] && echo "fxmss    gates 0-3 green" || fail=1
 
 tree_fail=0
 gate0_build_freshness vst || tree_fail=1
 gate1_proof_gaps vst || tree_fail=1
 gate2_vst || tree_fail=1
-gate3_assumptions vst "-Q model Model -Q vst Vst -Q assumptions Assumptions" || tree_fail=1
+gate3_assumptions vst "$QFLAGS" || tree_fail=1
 [ "$tree_fail" = 0 ] && echo "vst      gates 0-3 green" || fail=1
 
 if [ "$fail" = 0 ]; then
