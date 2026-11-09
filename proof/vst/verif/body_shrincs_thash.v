@@ -182,7 +182,7 @@ Proof.
 
   (* ===== [sha256(hash, buf, 86+msglen)] over the assembled preimage ===== *)
   rewrite (split2_data_at_Tarray_app (86+msglen) 598 Tsh tuchar (block_to_vals Preim) R4 v_buf HpreLen HR4').
-  forward_call (v_hash, v_buf, 86 + msglen, Preim, Tsh, Tsh).
+  forward_call sha256_block_spec_sub (v_hash, v_buf, 86 + msglen, Preim, Tsh, Tsh).
   { cancel. }
   { split; [rewrite <- block_to_vals_length; exact HpreLen | unfold sha256_max_input_len; lia]. }
 

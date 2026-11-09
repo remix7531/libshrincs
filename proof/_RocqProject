@@ -29,13 +29,15 @@ model/correct/wots.v
 vst/clight/sha256.v
 vst/clight/wots.v
 vst/clight/thash.v
+
+# The canonical SHA-256 specification and its verified C implementation.
 model/bytes.v
-model/sha256_spec.v
 vst/base.v
 vst/settings.v
 vst/repr/seqlist.v
 vst/repr/words.v
 vst/repr/int32.v
+model/sha256_spec.v
 vst/sha256/clone.v
 vst/sha256/sync.v
 vst/sha256/bridge.v
@@ -47,6 +49,9 @@ vst/sha256/verif/store_be32.v
 vst/sha256/verif/parse.v
 vst/sha256/verif/compress_words.v
 vst/sha256/verif/compress_blocks.v
+vst/sha256/verif/sha256.v
+vst/sha256/vsu.v
+vst/sha256/correct.v
 vst/model/wots.v
 vst/theory/pure.v
 vst/contract/radrs.v

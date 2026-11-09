@@ -12,7 +12,8 @@
     [tarray tuchar] into pieces for a call and puts it back, and the
     funspec notations built on all of it.
 
-    [w256] carries a complete SHA-256 digest. *)
+    [w256] carries the complete SHA-256 digest. The model-side bridge
+    in [Vst.contract.trusted] connects that word to model byte lists. *)
 
 From Vst Require Export base.
 From Vst.repr Require Export seqlist.

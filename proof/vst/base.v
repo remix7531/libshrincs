@@ -4,12 +4,28 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Vst.base: shared VST imports and composite environment.
+(** * Vst.base: the root of the VST tier
 
-    Floyd must be imported before the MathComp surface because their
-    notations otherwise clash. All three Clight programs have the same
-    empty composite environment. Contracts share the instance built
-    from the WOTS+C program. *)
+    THE FILE EVERY OTHER vst/ FILE IMPORTS FIRST, and the reason it
+    must be first is the import-order trap: floyd's notations and the
+    mathcomp surface clash unless floyd arrives first, so anything
+    needing both Imports this file before [mathcomp]. It carries the
+    three things that have to be established before any of that:
+    floyd itself, the [compspecs] the whole tier elaborates against,
+    and the name-hygiene note explaining what the merged stack shadows.
+
+    ONE THING THIS FILE IS NOT: free of [wots.c]. It Exports
+    Vst.clight.wots, because [CompSpecs] has to be built from some
+    program and all three Clight programs (sha256.c, thash.c, wots.c)
+    have the same empty composite environment:
+    Vst.sha256.vsu's [compspecs_agree] says so by [reflexivity].
+    The SHA-256 proofs and [Vst.contract.repr] both export this
+    instance, so contracts and callers use the same constant.
+
+    [Vst.repr] supplies the
+    mathcomp-seq to stdlib-list dictionary in [repr.seqlist], the
+    32-byte word codec, the [tarray tuchar] surgery and the funspec
+    notations in [repr.words]. *)
 
 From VST Require Export floyd.proofauto.
 From Vst Require Export clight.wots.

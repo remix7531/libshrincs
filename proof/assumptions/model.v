@@ -13,8 +13,10 @@
     model gate 3 compiles this file, extracts the axiom names, and diffs
     them against the `[model]` section of assumptions/allowed.txt --
     which is EMPTY. The model assumes nothing: every [Print Assumptions]
-    below prints "Closed under the global context". SHA-256 is a
-    definition over the FIPS 180-4 transcription in model/sha256.v.
+    below prints "Closed under the global context". SHA-256 used to be
+    the one exception ([Parameter SHA256]); it is a Definition over the
+    FIPS 180-4 transcription now (model/sha256.v), so not even
+    the hash is assumed, let alone a classical axiom.
 
     The model tree is the shared trust ROOT: both the ssprove security
     proof and the vst C-refinement proof state their claims against it,

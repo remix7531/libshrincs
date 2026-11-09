@@ -35,7 +35,8 @@
     identical and [reflexivity] is immediate. The order of the
     sections is the dependency order of the specification.
 
-    [sync_sha256] pins the private hash to the canonical definition. *)
+    [Vst.sha256.correct] and [Vst.contract.trusted] use
+    [sync_sha256] to restate the C contract over the canonical hash. *)
 
 Require Model.sha256_spec.
 From Vst.sha256 Require clone.

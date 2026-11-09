@@ -6,33 +6,41 @@
 
 (** * verif.all_bodies: the LINKING SURROGATE aggregate theorem.
 
-    [Gprog] (contract/gprog.v) bundles 18 funspecs sourced from THREE
+    [Gprog] (contract/gprog.v) bundles 29 funspecs sourced from THREE
     separately-clightgen'd translation units: [src/wots.c]
     (clight/wots.v -- 15 internal functions: the 4 libc shims, the 7
     WOTS+C-specific step functions, and the 4 public entry points), the
     shared tweakable-hash TU [src/thash.c] (clight/thash.v -- 2 functions,
     [shrincs_adrs_put32]/[shrincs_thash]), and [src/sha256.c]
-    (clight/sha256.v -- 1 function, [shrincs_sha256], deliberately NOT
-    proved: [body_sha256] is the one [Axiom], in contract/gprog.v).  Each
-    of the 17 non-axiomatized funspecs is discharged by its own
-    [semax_body Vprog Gprog f_<fn> <fn>_spec] lemma, one per
-    [proof/vst/verif/body_*.v] file.
+    (clight/sha256.v -- all 12, i.e. [Gprog_sha] verbatim).  18 of them
+    are discharged by their own [semax_body Vprog Gprog f_<fn> <fn>_spec]
+    lemma. The WOTS+C, libc and tweakable-hash lemmas live in
+    [proof/vst/verif/body_*.v]. [contract/gprog.v] proves [body_sha256]
+    from [Vst.sha256.verif.sha256]'s body proof by context subsumption.
 
-    This file conjoins all 18 into ONE theorem, [all_bodies], so a single
+    THE OTHER 11 are [src/sha256.c]'s [static] helpers. They are in
+    [Gprog] only because [body_sha256]'s subsumption step needs the
+    context it was proved in to survive, and no [forward_call] in this
+    directory can reach them (the C makes them [static]; see
+    [Vst.sha256.vsu]'s [sha256_public_idents]).  Their body
+    proofs live in [Vst.sha256.verif] and are packaged by
+    [Vst.sha256.vsu]. The VST audit probes that component separately
+    to cover the helper body proofs as well as the aggregate below.
+
+    This file conjoins the 18 into ONE theorem, [all_bodies], so a single
     [Print Assumptions all_bodies] (see proof/assumptions/vst.v)
-    audits the WHOLE proved surface in one probe instead of 17 separate
+    audits these bodies in one probe instead of 18 separate
     ones that could silently miss a body if the verif/ directory listing
     ever drifts from [_RocqProject] or [Gprog].  [gprog_covered] is the
     tie-back that makes such drift compile-time-visible: it proves
-    [map fst Gprog] is EXACTLY these 18 idents, in this order, by
+    [map fst Gprog] is EXACTLY these 29 idents, in this order, by
     [reflexivity] -- so a funspec added to (or removed from) [Gprog]
     without a matching change here fails the build, rather than silently
     shrinking what the audit gate covers.
 
-    TU note (verified, not papered over): [Vprog]/[Gprog] are built in
-    contract/public.v over [clight.wots]'s composite environment
-    ([CompSpecs]/[Vprog] via [make_compspecs prog]/[mk_varspecs prog] with
-    [prog] = [clight.wots.prog]).  The two thash-TU body lemmas
+    [Vprog] in [contract.public] and [CompSpecs] in [Vst.base] are
+    built from [clight.wots.prog]. [contract.gprog] supplies the
+    shared [Gprog]. The two thash-TU body lemmas
     ([body_shrincs_thash], [body_shrincs_adrs_put32]) state their
     [semax_body] against that SAME [Vprog]/[Gprog] but need [clight.thash]
     imported (below) for their [f_shrincs_thash]/[f_shrincs_adrs_put32]
@@ -59,17 +67,17 @@
     [shrincs_memset] / [shrincs_sha256] (also cross-TU) as External
     functions.  A plain [semax_prog] over any ONE TU's Clight AST would
     have to re-axiomatize every cross-TU callee's funspec as an assumed
-    "External" spec -- silently reintroducing exactly the trust surface
-    this repo has kept down to just [SHA256] + [body_sha256] (see
-    contract/trusted.v's header).  The enumeration aggregate below is a
-    deliberate substitute for that missing link step: every conjunct is
-    an already-proved [semax_body] (or the one named axiom), so
-    [all_bodies] adds no new trust -- it just packages the existing 17
-    Qed's (+ 1 axiom) into one theorem for the audit gate to probe. *)
+    "External" spec -- reintroducing a trust surface this repo no longer
+    has at all (the last two anchors, [Parameter SHA256] and
+    [Axiom body_sha256], are both gone: see contract/trusted.v's header).
+    The enumeration aggregate below is a deliberate substitute for that
+    missing link step: every conjunct is an already-proved [semax_body],
+    so [all_bodies] adds no new trust -- it just packages the existing
+    18 Qed's into one theorem for the audit gate to probe. *)
 
 From VST Require Import floyd.proofauto.
 From Vst Require Import contract.gprog contract.lemmas.
-From Vst Require Import clight.thash.
+From Vst.clight Require Import thash.
 
 From Vst Require Import verif.body_shrincs_memset.
 From Vst Require Import verif.body_shrincs_memcpy.
@@ -90,12 +98,16 @@ From Vst Require Import verif.body_shrincs_wots_pubkey_from_sig.
 From Vst Require Import verif.body_shrincs_wots_verify.
 
 (* ================================================================= *)
-(** ** Completeness: [Gprog] has exactly these 18 idents, in this order.
+(** ** Completeness: [Gprog] has exactly these 29 idents, in this order.
     A funspec silently added to (or dropped from) [Gprog] without a
     matching edit here breaks this [reflexivity] -- so the audit gate
-    below can never silently shrink. *)
+    below can never silently shrink. The first twelve are [Gprog_sha],
+    [src/sha256.c]'s own bundle; the eleven [static] ones among them are
+    unreachable from [src/wots.c] (see this file's header). *)
 Lemma gprog_covered : map fst Gprog =
-  [ _shrincs_sha256;
+  [ _Ch; _Maj; _Sigma0; _Sigma1; _sigma0; _sigma1;
+    _load_be32; _store_be32; _sha256_parse;
+    _sha256_compress_words; _sha256_compress_blocks; _shrincs_sha256;
     _shrincs_memset; _shrincs_memcpy; _shrincs_ct_memcmp; _shrincs_panic;
     _shrincs_adrs_put32; _shrincs_thash;
     _shrincs_wots_t_sf; _shrincs_wots_h_grind; _shrincs_wots_derive_sk;
@@ -109,10 +121,11 @@ Proof. reflexivity. Qed.
 (** ** The aggregate: all 18 conjuncts, grouped by translation unit
     (mirroring [Gprog]'s own [Gprog_libc]/[Gprog_thash]/[Gprog_wots]
     partition in contract/gprog.v). Every conjunct is discharged by
-    [exact] on an already-[Qed]'d lemma (or the one named [Axiom]) --
-    this theorem proves nothing new. *)
+    [exact] on an already-[Qed]'d lemma -- this theorem proves nothing
+    new. *)
 Theorem all_bodies :
-  (* src/sha256.c -- axiomatized, not proved here (contract/gprog.v). *)
+  (* src/sha256.c -- the sha256 unit's body proof, re-based on this
+     proof context by contract/gprog.v's [body_sha256]. *)
   semax_body Vprog Gprog f_shrincs_sha256 sha256_spec /\
   (* src/wots.c -- libc shims. *)
   semax_body Vprog Gprog f_shrincs_memset shrincs_memset_spec /\

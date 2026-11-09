@@ -4,11 +4,43 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Model.sha256_spec: SHA-256, FIPS 180-4.
+(** * Model.sha256_spec: SHA-256, FIPS 180-4
 
-    Definitions follow the standard's section order. Known-answer
-    tests pin the byte results. The exported C contract uses this
-    canonical definition. *)
+    Read against FIPS 180-4 in its section order:
+
+      SS 3   notation and word operations
+      SS 4   the six logical functions and the constants K
+      SS 5   padding, parsing, the initial hash value
+      SS 6   the schedule, the compression, SHA-256 itself
+
+    Every definition carries its equation number and the standard's
+    own sentence sits immediately above it, so the Rocq reads as the
+    continuation of the prose.
+
+    WHAT IS AND IS NOT HERE. Definitions, the one lemma that discharges
+    the only place this development specialises the standard
+    ([padbits_spec]), and known-answer tests. Nothing else. Every
+    derived fact the machine-checked proofs need -- sizes, prefix
+    forms of the schedule and the round fold, the single-block
+    shortcut -- lives in Vst.sha256.clone and NOT here, so
+    that this file stays a document.
+
+    [Vst.sha256.clone] keeps a private copy for derived proof facts.
+    [Vst.sha256.sync] checks each definition against this file in the
+    kernel. The known-answer tests therefore pin both spellings.
+
+    ONE EXPORTED FUNCTION. SS 6 below ends with [sha256], FIPS 180-4 in
+    full: no preprocessing shortcuts, so no length-field special case
+    to worry about. src/sha256.c exports exactly this one.
+
+    [Model.sha256] wraps these bytes for the shared model. The
+    hash-game assumptions in [Sec.axioms] concern that concrete hash.
+
+    SCOPE TRAPS, all three silent, all three documented at length in
+    Model.bytes: [Z] arrives via [BinInt] and never [ZArith]; nat
+    annotations are [%nat] and never [%N]; hex literals need [Z_scope]
+    opened BY NAME, because in this import context [%Z] is mathcomp's
+    [int_scope]. *)
 
 (* floyd FIRST -- the import-order trap this repository documents: the
    two notation stacks clash unless floyd is established before the
@@ -504,8 +536,18 @@ Local Close Scope sha_scope.
     -- the formal counterpart of the [restrict] in include/sha256.h,
     which CompCert drops during elaboration.
 
-    No [gv : globals] or resource for round constants appears in the
-    contract. It is a function of the input bytes. *)
+    NOTHING ELSE IS IN THEM. No [gv : globals] and no resource for the
+    round constants: K and H^(0) are function locals in the C precisely
+    so that this contract is a function of its bytes alone. See
+    Vst.sha256.tables.
+
+    THAT src/sha256.c SATISFIES IT is Vst.sha256.correct, whose
+    [sha256_c_correct] packages the twelve semax_body proofs of
+    Vst.sha256.verif as one verified component exporting exactly
+    this one. It cannot be stated here: it needs the component, the
+    component is proved against Vst.sha256.clone, and the gate
+    tying the clone to this file (Vst.sha256.sync) is itself
+    downstream of this file. *)
 
 Local Open Scope Z_scope.
 Local Open Scope logic.

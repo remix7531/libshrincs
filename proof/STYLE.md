@@ -236,9 +236,16 @@ comment. Generated files (`vst/clight/`) are exempt.
   SSProve + MathComp + Equations surface plus the project settings), then
   the rest of `Sec.lib.*`, then `Sec.*`, then bare `mathcomp` extras, then
   `From Model Require Import math.chain math.encoding`.
-- Except for the byte representation and SHA interfaces, a `Model` file must never `Require` anything from `Vst`, `Sec`, `VST`,
-  `compcert`, or the SSProve/MathComp surface. `machine.v` is a
-  self-contained clone precisely so this boundary holds.
+- Except for the interfaces listed below, a `Model` file must never
+  `Require` anything from `Vst`, `Sec`, `VST`, `compcert`, or the
+  SSProve/MathComp surface. `machine.v` is a self-contained clone
+  precisely so this boundary holds.
+- **Carve-out: byte representations and SHA-256.** `model/bytes.v`
+  imports the MathComp word library and SSProve's word carrier to
+  connect the proof stacks' byte representations. `model/sha256_spec.v`
+  includes the FIPS definition and its exported C contract, so it
+  imports VST through `Vst.repr.words`. `model/sha256.v` wraps that
+  definition for the shared model.
 - **Carve-out: `math/`.** `Model.math.*` (`chain.v`, `encoding.v`) is the
   MathComp island: it opens `From mathcomp Require Import boot
   order` and follows ssreflect idiom (`seq`, boolean reflection, `Set
@@ -250,12 +257,8 @@ comment. Generated files (`vst/clight/`) are exempt.
   `math/` files to be named in `CamelCase`, matching the MathComp
   ecosystem's own file-naming convention; that half of the rule is now
   **dead** — `math/` files are `snake_case` like the rest of the repo, per
-  "Repo-wide file & directory naming" above.) The byte representation
-  atlas in `model/bytes.v` also imports the MathComp word library and
-  SSProve word carrier. Other model files keep the boundary above.
-- `model/sha256_spec.v` includes the FIPS definition and C contract and
-  imports VST through `Vst.repr.words`. `model/sha256.v` wraps that
-  definition for the shared model.
+  "Repo-wide file & directory naming" above.) The remaining model files
+  (`address.v`, `wots.v`, ...) keep the import boundary stated above.
 
 ## Honesty / audit constraints
 
@@ -271,21 +274,16 @@ gate fails on these:
 2. **No proof gaps** — no `Admitted.`, `admit.`, `give_up.` anywhere in the
    tree's scope (Model → `model/`; Sec → `ssprove/` + `assumptions/`; Vst →
    `vst/`).
-3. **No smuggled assumptions** — every top-level `Axiom`, `Parameter`, and
-   section `Hypothesis`/`Conjecture` in a tree's scope is checked by source
-   text against a hard-coded expected set: Model allows exactly `Axiom
-   wordsize_not_zero` and `Parameter wordsize` (the two `machine.v`
-   module-type fields), and the discharged `Hpb` bound in `address.v`;
-   Sec allows exactly the 6 named hash-game axioms (PRF, SM-UD, STCRP,
-   SM-TCR@pk, SM-TCR@chain, SM-PRE) plus their `eps_*` advantage-bound
-   `Parameter`s, confined to `ssprove/axioms.v`; Vst allows
-   exactly `Axiom body_sha256` (the trusted SHA-256 C funspec). Zero section
-   `Hypothesis`/`Conjecture` anywhere in any tree (a `Context`/`Variable`
-   discharged at `Qed`, e.g. Sec's `fin_fin.v` bound, is not an assumption
-   and is not flagged). A theorem must not take an advantage bound or the
-   existence of a reduction as a premise — every reduction is *constructed*;
-   the only admissible hypotheses are data side conditions (e.g. `Hrange`)
-   and, in Sec, adversary-validity (`ValidPackage`).
+3. **No smuggled assumptions**: source text confines declarations to the
+   allowed files. Model permits the `machine.v` module-type fields and
+   the discharged `Hpb` hypothesis in `address.v`. Sec permits the six
+   named hash-game axioms and their `eps_*` parameters in
+   `ssprove/axioms.v`. Vst permits no assumption declarations. The probe
+   checks the actual assumption cone, including declarations in allowed
+   files. A theorem must not take an advantage bound or the existence of
+   a reduction as a premise. Every reduction is constructed. The only
+   admissible hypotheses are data side conditions and, in Sec,
+   adversary validity through `ValidPackage`.
 4. **Closed axiom base** — `Print Assumptions` on each tree's milestone
    theorems (via the `Assumptions` probes `assumptions/model.v`,
    `assumptions/ssprove.v`, `assumptions/vst.v`) must stay within that
@@ -303,7 +301,8 @@ the intended claim.
 
 # Model
 
-Model files are ordinary Gallina + `lia`/`induction`/`cbn`/stdlib rewrites
+Except for the representation and SHA interfaces listed above, Model
+files are ordinary Gallina + `lia`/`induction`/`cbn`/stdlib rewrites
 (no ssreflect idiom, no VST tactics). One tactic per line; `by (...)` for
 1-3 tactic leaves; `{ }` blocks with `-`/`+`/`*` bullets for branching.
 

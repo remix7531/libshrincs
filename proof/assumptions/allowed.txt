@@ -48,5 +48,3 @@ ClassicalDedekindReals.sig_not_dec                      # classical decidability
 Classical_Prop.classic                                  # excluded middle (Coq stdlib Classical)
 Ensembles.Extensionality_Ensembles                      # set extensionality (Coq stdlib Ensembles)
 FunctionalExtensionality.functional_extensionality_dep  # dependent functional extensionality (Coq stdlib)
-# The C entry point remains a trusted body.
-gprog.body_sha256                          # trusted SHA-256 C body in vst/contract/gprog.v

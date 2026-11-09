@@ -20,8 +20,10 @@ Rocq 9.2 + CompCert.
   existential — the C code is deterministic there, so the spec says so;
   `sign` keeps an existential since its residual genuinely depends on the
   ground counter found by grinding.
-- Zero `Admitted.`. SHA-256 is defined in the shared model. The trusted
-  C body is `Axiom body_sha256` in `contract/gprog.v`.
+- SHA-256 is defined in `proof/model/sha256_spec.v`. The proofs under
+  `proof/vst/sha256/` establish that `src/sha256.c` implements it.
+- Zero `Admitted.`. The VST audit checks the classical library baseline,
+  including the complete SHA-256 component proof.
 
 Scope: functional correctness, not EU-CMA. One-time use is a caller
 obligation.
@@ -47,7 +49,7 @@ byte-for-byte — pk, sig, counter, digits, and an `H_grind` intermediate.
 Run from the repo root (`libshrincs/`):
 
 ```
-nix develop         # shared proof toolchain
+nix develop         # devshell with CompCert, VST, SSProve and rocq-mcp-evolve
 make                # build the C library (build/libwots.a) only
 make test           # self-consistency + tamper suite + SHA-256 KATs/CAVS
 make extract        # clightgen: C -> Clight AST for vst-prove
@@ -68,6 +70,8 @@ test/wots/                 wots.c, gen_vectors.py, vectors/
 test/sha256/                sha256.c, vectors/
 test/ctgrind/                ctgrind.c
 proof/vst/                 model/, contract/, verif/, clight/
+proof/vst/sha256/          SHA-256 contracts, body proofs, verified component
+proof/model/sha256_spec.v  FIPS 180-4 definition and known-answer tests
 ```
 
 ## Side channels

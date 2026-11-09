@@ -262,7 +262,7 @@ Proof.
   clear Hcnt Hstruct Heq HlX1 HlZ2 HlX3 HlX4 HlZ5 Z2 Z5 U.
 
   (* ===== Stage 9: sha256(hash, buf, sizeof buf) ===== *)
-  forward_call (v_hash, v_buf, 112,
+  forward_call sha256_block_spec_sub (v_hash, v_buf, 112,
                 pk_seed ++ zeros 48 ++ firstn 10 (adrs_bytes a)
                 ++ msg ++ zeros 4 ++ to_byte counter 2,
                 Tsh, Tsh).

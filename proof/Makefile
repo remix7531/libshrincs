@@ -49,7 +49,7 @@ $(VST_DIR)/clight/thash.v: ../src/thash.c ../include/thash.h ../include/sha256.h
 	@mkdir -p $(@D)
 	clightgen -normalize -I../src -I../include -Wp,-w -o $@ ../src/thash.c
 
-$(VST_DIR)/clight/sha256.v: ../src/sha256.c ../include/sha256.h ../include/util.h
+$(VST_DIR)/clight/sha256.v: ../src/sha256.c ../include/sha256.h
 	@mkdir -p $(@D)
 	clightgen -normalize -I../src -I../include -Wp,-w -o $@ $<
 

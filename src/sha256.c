@@ -9,9 +9,9 @@
  * the same transcription. Section references in the comments are to
  * FIPS 180-4.
  *
- * The structure follows the FIPS definition in
- * proof/model/sha256_spec.v. The logical functions and byte moves
- * remain separate so each C step has a corresponding equation.
+ * proof/vst/sha256/verif/ proves each function against the FIPS
+ * definition in proof/model/sha256_spec.v. proof/vst/sha256/vsu.v
+ * packages the proofs as a Verified Software Unit with no imports.
  *
  * WHAT IS DELIBERATELY NOT HERE, and why
  *
