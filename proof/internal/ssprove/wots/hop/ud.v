@@ -99,12 +99,12 @@ Local Ltac ud_remember_rel x n :=
     Sec.wots.analysis. *)
 
 Lemma wsignE pp (xs : seq (wcp_N P)) (ds : seq nat) :
-  Sec.lib.chain.core.sign_digits (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (Fw P) pp xs ds
+  Shrincs.internal.ssprove.lib.chain.core.sign_digits (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (Fw P) pp xs ds
   = (sign_chains P) pp xs ds.
 Proof. by []. Qed.
 
 Lemma wpk_ofE pp (xs : seq (wcp_N P)) :
-  (wcp_T_sf P) pp (pk_adrs P) (Sec.lib.chain.core.chain_ends (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (Fw P) pp xs)
+  (wcp_T_sf P) pp (pk_adrs P) (Shrincs.internal.ssprove.lib.chain.core.chain_ends (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (Fw P) pp xs)
   = (shrincs_wots_pubkey P) pp xs.
 Proof. by []. Qed.
 

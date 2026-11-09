@@ -248,7 +248,7 @@ Qed.
 #[local] Arguments th_eval : simpl never.
 #[local] Arguments grind_prp : simpl never.
 #[local] Arguments grind_enc : simpl never.
-#[local] Arguments Sec.wots.params.decode_tweak : simpl never.
+#[local] Arguments Shrincs.internal.ssprove.wots.params.decode_tweak : simpl never.
 
 (** The SQUERY answer decodes to the signed digit vector (the [thf_grind]
     tweak evaluates the scheme's H_grind at the canonical address, by

@@ -32,7 +32,7 @@ From VST.floyd Require Import VSU.
 Set Bullet Behavior "Strict Subproofs".
 
 (** The reviewer's spelling of the interface. *)
-Module Spec := Model.sha256_spec.
+Module Spec := Shrincs.sha256.
 
 (** The component's Exports slot, read at Model.sha256_spec's definition.
     [sync_sha256] is the whole content: the two files' funspecs are

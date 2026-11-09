@@ -102,5 +102,5 @@ Qed.
 Lemma body_sha256 : semax_body Vprog Gprog f_shrincs_sha256 sha256_spec.
 Proof.
 apply (semax_body_subsumption _ Vprog_sha Vprog Gprog_sha Gprog _ _
-         Vst.sha256.verif.sha256.body_sha256 tycontext_sub_sha256).
+         Shrincs.internal.vst.sha256.verif.sha256.body_sha256 tycontext_sub_sha256).
 Qed.

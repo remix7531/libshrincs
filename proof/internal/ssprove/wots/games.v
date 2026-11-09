@@ -296,7 +296,7 @@ Definition Fw (pp : wcp_PP P) (i : nat) (p : nat) (_ : (p < wcp_w P)%N) (x : wcp
     the chain library's [chainf] at [Fw]); stated once so consumers
     can rewrite instead of relying on conversion. *)
 Lemma chainf_Fw pp i :
-  Sec.lib.chain.core.chainf (wcp_PP P) (wcp_N P) (wcp_w P) Fw pp i = chainf P pp i.
+  Shrincs.internal.ssprove.lib.chain.core.chainf (wcp_PP P) (wcp_N P) (wcp_w P) Fw pp i = chainf P pp i.
 Proof. by []. Qed.
 
 (* ------------------------------------------------------------------ *)

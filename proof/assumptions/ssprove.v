@@ -44,37 +44,37 @@ Print Assumptions Adv_triangle.
 (* Pure spec-contract bridge (Sec.bridge): Model.wots's byte
    nibble-splitting vs this repo's LSB-first digits_w. *)
 Require Import Shrincs.internal.ssprove.bridge.
-Print Assumptions Sec.bridge.base_2b_digits_w.
-Print Assumptions Sec.bridge.digest_of_bridge.
+Print Assumptions Shrincs.internal.ssprove.bridge.base_2b_digits_w.
+Print Assumptions Shrincs.internal.ssprove.bridge.digest_of_bridge.
 
 (* The headline result: one-time (known-message) security of keyed
    WOTS+C (chain starts PRF-derived), and its ideal-key stepping
    theorem. *)
 Require Import Shrincs.internal.ssprove.wots.theorem.
-Print Assumptions Sec.wots.theorem.shrincs_wots_secure.
-Print Assumptions Sec.wots.theorem.shrincs_wots_secure_ideal_sk.
+Print Assumptions Shrincs.internal.ssprove.wots.theorem.shrincs_wots_secure.
+Print Assumptions Shrincs.internal.ssprove.wots.theorem.shrincs_wots_secure_ideal_sk.
 
 (* The same two headlines, restated over the STANDARD known-message
    valid-commit notion KOTS_vc_game (Sec.lib.sig.kots), via the
    unconditional perfect links in Sec.wots.kots_link -- must depend on
    exactly the same axiom cone as the two probes above. *)
-Print Assumptions Sec.wots.theorem.shrincs_wots_secure_kots.
-Print Assumptions Sec.wots.theorem.shrincs_wots_secure_kots_ideal_sk.
+Print Assumptions Shrincs.internal.ssprove.wots.theorem.shrincs_wots_secure_kots.
+Print Assumptions Shrincs.internal.ssprove.wots.theorem.shrincs_wots_secure_kots_ideal_sk.
 
 (* The headline at the spec's parameters (w = 16, chain_count = 32,
    constant_sum = 240, c_max = 2^16, 16-byte values): the side
    conditions are discharged, so the bound is non-vacuous. *)
 Require Import Shrincs.internal.ssprove.wots.instantiation.
-Print Assumptions Sec.wots.instantiation.shrincs_wots_secure_shrincs.
+Print Assumptions Shrincs.internal.ssprove.wots.instantiation.shrincs_wots_secure_shrincs.
 
 (* The concrete truncated-SHA256 construction, unconditional modulo
    the 6 named hash-game axioms (Sec.axioms). *)
 Require Import Shrincs.internal.ssprove.axioms.
-Print Assumptions Sec.axioms.shrincs_wots_secure_sha256.
+Print Assumptions Shrincs.internal.ssprove.axioms.shrincs_wots_secure_sha256.
 
 (* Same corollary, over KOTS_vc_game -- must depend on exactly the
    classical baseline plus the same 6 named hash-game axioms. *)
-Print Assumptions Sec.axioms.shrincs_wots_secure_kots_sha256.
+Print Assumptions Shrincs.internal.ssprove.axioms.shrincs_wots_secure_kots_sha256.
 
 (* The games<->model machine link (Sec.wots.model_bridge): the headline
    functional-correspondence lemmas -- keyed pubkey, grinding counter,
@@ -85,7 +85,7 @@ Print Assumptions Sec.axioms.shrincs_wots_secure_kots_sha256.
    plus sha256.SHA256 (the SHA-256 function), and must NOT touch any of
    the 6 hash-game axioms -- the correspondence is unconditional. *)
 Require Import Shrincs.internal.ssprove.wots.model_bridge.
-Print Assumptions Sec.wots.model_bridge.pubkey_gen_modelE.
-Print Assumptions Sec.wots.model_bridge.find_counter_modelE.
-Print Assumptions Sec.wots.model_bridge.verify_modelE.
-Print Assumptions Sec.wots.model_bridge.sign_modelE.
+Print Assumptions Shrincs.internal.ssprove.wots.model_bridge.pubkey_gen_modelE.
+Print Assumptions Shrincs.internal.ssprove.wots.model_bridge.find_counter_modelE.
+Print Assumptions Shrincs.internal.ssprove.wots.model_bridge.verify_modelE.
+Print Assumptions Shrincs.internal.ssprove.wots.model_bridge.sign_modelE.

@@ -243,7 +243,7 @@ Lemma verify_from_ends pp (mstar ds : seq nat) (ystar sg : seq (wcp_N P)) :
     (ends_from_sig (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (Fw P) pp ds sg) mstar ystar.
 Proof.
 move=> hvm hys heq.
-rewrite /Sec.lib.chain.core.verify_sig hvm hys /=.
+rewrite /Shrincs.internal.ssprove.lib.chain.core.verify_sig hvm hys /=.
 rewrite -heq /ends_from_sig.
 exact: all_check_refl.
 Qed.

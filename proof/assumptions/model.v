@@ -41,4 +41,4 @@ Print Assumptions encoding.checksum_exists_lt. (* checksum domination (proves EC
    accepts any signature [shrincs_wots_sign] produces against the matching
    [shrincs_wots_pubkey_gen]. Depends on nothing but the model itself --
    no VST, no CompCert, no classical axioms expected here. *)
-Print Assumptions Model.correct.wots.wots_correct.
+Print Assumptions Shrincs.internal.common.correct.wots.wots_correct.

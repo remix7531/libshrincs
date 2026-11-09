@@ -263,7 +263,7 @@ Local Abbreviation prf_qs_loc' := (prf_qs_loc khf_prf).
 #[local] Arguments shrincs_wots_pubkey : simpl never.
 #[local] Arguments derive_sk : simpl never.
 #[local] Arguments kh_eval : simpl never.
-#[local] Arguments Sec.wots.params.decode_tweak : simpl never.
+#[local] Arguments Shrincs.internal.ssprove.wots.params.decode_tweak : simpl never.
 
 (* ------------------------------------------------------------------ *)
 (** ** The invariant (header)

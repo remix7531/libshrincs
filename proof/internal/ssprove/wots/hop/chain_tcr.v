@@ -283,7 +283,7 @@ Qed.
 #[local] Arguments th_eval : simpl never.
 #[local] Arguments tc_eval : simpl never.
 #[local] Arguments grind_prp : simpl never.
-#[local] Arguments Sec.wots.params.decode_tweak : simpl never.
+#[local] Arguments Shrincs.internal.ssprove.wots.params.decode_tweak : simpl never.
 #[local] Arguments intermediates.cp_pick : simpl never.
 #[local] Arguments tcr_decision : simpl never.
 #[local] Arguments pre_decision : simpl never.

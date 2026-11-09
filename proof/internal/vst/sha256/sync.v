@@ -44,8 +44,8 @@ From Shrincs.internal.vst.sha256 Require clone.
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
 
-Module M := Vst.sha256.clone.
-Module S := Model.sha256_spec.
+Module M := Shrincs.internal.vst.sha256.clone.
+Module S := Shrincs.sha256.
 
 (* ================================================================= *)
 (** ** SS 3: word operations *)

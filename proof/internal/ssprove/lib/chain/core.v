@@ -272,13 +272,13 @@ Proof. by []. Qed.
 
 (** In range, [chainc] IS the dependent fold. *)
 Lemma chaincE pp i x s n (H : (s + n <= w)%N) :
-  chainc pp i x s n = @Model.math.chain.chain N w (chainf pp i) x s n H.
+  chainc pp i x s n = @Shrincs.internal.common.math.chain.chain N w (chainf pp i) x s n H.
 Proof.
 elim: n s x H => [|n IH] s x H.
-- by rewrite (@Model.math.chain.chain0 N w (chainf pp i) x s H).
-- have Hf : (s < w)%N := @Model.math.chain.chain_hd_lt w s n H.
-  have Ht : (s.+1 + n <= w)%N := @Model.math.chain.chain_tl_le w s n H.
-  rewrite (@Model.math.chain.chainSr N w (chainf pp i) x s n H Hf Ht).
+- by rewrite (@Shrincs.internal.common.math.chain.chain0 N w (chainf pp i) x s H).
+- have Hf : (s < w)%N := @Shrincs.internal.common.math.chain.chain_hd_lt w s n H.
+  have Ht : (s.+1 + n <= w)%N := @Shrincs.internal.common.math.chain.chain_tl_le w s n H.
+  rewrite (@Shrincs.internal.common.math.chain.chainSr N w (chainf pp i) x s n H Hf Ht).
   rewrite (chainf_Fc pp i s x Hf).
   exact: (IH s.+1 (Fc pp (i, s) x) Ht).
 Qed.
@@ -314,33 +314,33 @@ Qed.
 (** TOTAL forged/honest walk (mirror of [Model.math.chain.chain_search]
     with the total step). *)
 Fixpoint chain_searchc (pp : PP) (i : nat) (u v : N) (k n : nat) {struct n}
-    : @Model.math.chain.ccase N :=
+    : @Shrincs.internal.common.math.chain.ccase N :=
   if n is n'.+1 then
-    (if u == v then @Model.math.chain.ChainMeet N
-     else if Fc pp (i, k) u == Fc pp (i, k) v then @Model.math.chain.ChainColl N k u v
+    (if u == v then @Shrincs.internal.common.math.chain.ChainMeet N
+     else if Fc pp (i, k) u == Fc pp (i, k) v then @Shrincs.internal.common.math.chain.ChainColl N k u v
      else chain_searchc pp i (Fc pp (i, k) u) (Fc pp (i, k) v) k.+1 n')
-  else @Model.math.chain.ChainMeet N.
+  else @Shrincs.internal.common.math.chain.ChainMeet N.
 
 Lemma chain_searchcE pp i u v k n (H : (k + n <= w)%N) :
   chain_searchc pp i u v k n
-  = @Model.math.chain.chain_search N w (chainf pp i) u v k n H.
+  = @Shrincs.internal.common.math.chain.chain_search N w (chainf pp i) u v k n H.
 Proof.
 elim: n u v k H => [//|n IH] u v k H /=.
-rewrite (chainf_Fc pp i k u (@Model.math.chain.chain_hd_lt w k n H)).
-rewrite (chainf_Fc pp i k v (@Model.math.chain.chain_hd_lt w k n H)).
+rewrite (chainf_Fc pp i k u (@Shrincs.internal.common.math.chain.chain_hd_lt w k n H)).
+rewrite (chainf_Fc pp i k v (@Shrincs.internal.common.math.chain.chain_hd_lt w k n H)).
 case: ifP => // _.
 by case: ifP => // _.
 Qed.
 
 (** TOTAL forgery classifier (mirror of [Model.math.chain.chain_extract]). *)
 Definition chain_extractc (pp : PP) (i : nat) (y : N) (j : nat) (z : N) (i' e : nat)
-    : @Model.math.chain.ccase N :=
+    : @Shrincs.internal.common.math.chain.ccase N :=
   chain_searchc pp i (chainc pp i y j (i' - j)) z i' (e - i').
 
 Lemma chain_extractcE pp i y j z i' e
     (Hij : (j + (i' - j) <= w)%N) (Hie : (i' + (e - i') <= w)%N) :
   chain_extractc pp i y j z i' e
-  = @Model.math.chain.chain_extract N w (chainf pp i) y j z i' e Hij Hie.
+  = @Shrincs.internal.common.math.chain.chain_extract N w (chainf pp i) y j z i' e Hij Hie.
 Proof.
 rewrite /chain_extractc.
 rewrite (chaincE pp i y j (i' - j) Hij).
@@ -543,11 +543,11 @@ have Hie : (d + (w.-1 - d) <= w)%N by rewrite (subnKC hie).
 have Hej : (dstar + (w.-1 - dstar) <= w)%N by rewrite (subnKC (leq_trans hji hie)).
 rewrite (chaincE pp i sigstar dstar (w.-1 - dstar) Hej)
         (chaincE pp i sigi d (w.-1 - d) Hie) in heq.
-have hspec := @Model.math.chain.chain_extractP N w (chainf pp i)
+have hspec := @Shrincs.internal.common.math.chain.chain_extractP N w (chainf pp i)
                 sigstar dstar sigi d w.-1 Hij Hie Hej hji hie heq.
 rewrite (chain_extractcE pp i sigstar dstar sigi d w.-1 Hij Hie).
-move: hspec; rewrite /Model.math.chain.chain_extract_ok.
-case: (Model.math.chain.chain_extract _ _ _ _ _) => [k u v|].
+move: hspec; rewrite /Shrincs.internal.common.math.chain.chain_extract_ok.
+case: (Shrincs.internal.common.math.chain.chain_extract _ _ _ _ _) => [k u v|].
 - move=> [hk _ hv hne hcol]; split => //.
   + have hik : (d <= k)%N by case/andP: hk.
     have hkw : (k < w.-1)%N by case/andP: hk.

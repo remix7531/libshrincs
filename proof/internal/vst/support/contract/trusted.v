@@ -69,17 +69,17 @@ Open Scope Z_scope.
     [out]. Not restated here -- it IS the sha256 unit's exported
     contract, so there is exactly one funspec for [shrincs_sha256] in
     the repository and no second description of it to keep in sync. *)
-Definition sha256_spec : ident * funspec := Vst.sha256.contract.spec_sha256.
+Definition sha256_spec : ident * funspec := Shrincs.internal.vst.sha256.contract.spec_sha256.
 
 (** ... and it is the reviewer-facing one, by [reflexivity] once the
     clone's hash name is rewritten to the canonical one. Same content
     as [Vst.sha256.correct]'s [sha256_ASI_canonical], restated
     here because THIS is the funspec [Gprog] hands to every caller. *)
-Lemma sha256_spec_canonical : sha256_spec = Model.sha256_spec.spec_sha256.
+Lemma sha256_spec_canonical : sha256_spec = Shrincs.sha256.spec_sha256.
 Proof.
-unfold sha256_spec, Vst.sha256.contract.spec_sha256,
-       Model.sha256_spec.spec_sha256.
-rewrite Vst.sha256.sync.sync_sha256.
+unfold sha256_spec, Shrincs.internal.vst.sha256.contract.spec_sha256,
+       Shrincs.sha256.spec_sha256.
+rewrite Shrincs.internal.vst.sha256.sync.sync_sha256.
 reflexivity.
 Qed.
 
@@ -115,9 +115,9 @@ Qed.
     injective on in-range byte lists of the right length, and
     [Model.sha256] proves the digest is one. *)
 Lemma bytes_of_sha256 (msg : list Z) :
-  bytes_of_word U256 (Model.sha256_spec.sha256 msg) = Model.sha256_spec.sha256_bytes msg.
+  bytes_of_word U256 (Shrincs.sha256.sha256 msg) = Shrincs.sha256.sha256_bytes msg.
 Proof.
-unfold Model.sha256_spec.sha256, Model.sha256_spec.digest_of.
+unfold Shrincs.sha256.sha256, Shrincs.sha256.digest_of.
 apply bytes_of_word_of_bytes.
 - rewrite size_sha256_bytes. reflexivity.
 - exact (sha256_bytes_range msg).
@@ -129,7 +129,7 @@ Qed.
     one the model's header calls never-actually-truncating. *)
 Lemma word_to_vals_sha256 (b : block) :
   Zlength b <= sha256_max_input_len ->
-  word_to_vals (Model.sha256_spec.sha256 (List.map Byte.unsigned (block_bytes b)))
+  word_to_vals (Shrincs.sha256.sha256 (List.map Byte.unsigned (block_bytes b)))
   = block_to_vals (sha256' b).
 Proof.
 intros Hb.
@@ -184,7 +184,7 @@ split.
      [sha256'] of the same bytes *)
   intros rho'.
   apply andp_left2.
-  rewrite Vst.sha256.sync.sync_sha256.
+  rewrite Shrincs.internal.vst.sha256.sync.sync_sha256.
   rewrite word_to_vals_sha256 by lia.
   cancel.
 - (* SHA-256's own 2^61-byte domain sits inside the contract's bound *)

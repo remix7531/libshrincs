@@ -287,10 +287,10 @@ Qed.
     MSB-first, [rev (digits_w ...)], as is [Model.wots] via
     [digest_of_bridge]), so this is a plain equality. *)
 Lemma digest_of_modelE (pp : PP_shrincs) (m : M_shrincs) (c : nat) :
-  Sec.wots.scheme.digest_of P pp m c
+  Shrincs.internal.ssprove.wots.scheme.digest_of P pp m c
   = wots.digest_of (decode16 pp) A0 (decode32 m) (Z.of_nat c).
 Proof.
-by rewrite /Sec.wots.scheme.digest_of digest_of_bridge Hgrind_natE.
+by rewrite /Shrincs.internal.ssprove.wots.scheme.digest_of digest_of_bridge Hgrind_natE.
 Qed.
 
 (** T2: the games grinding predicate equals the model's.  ([wf_digits]
@@ -298,10 +298,10 @@ Qed.
     difference between [scheme.digest_of] and [good_counter_bridge]'s
     un-[rev]'d [digits_w].) *)
 Lemma good_counter_modelE (pp : PP_shrincs) (m : M_shrincs) (c : nat) :
-  Sec.wots.scheme.good_counter P pp m c
+  Shrincs.internal.ssprove.wots.scheme.good_counter P pp m c
   = wots.good_counter (decode16 pp) A0 (decode32 m) (Z.of_nat c).
 Proof.
-rewrite good_counter_bridge /Sec.wots.scheme.good_counter /Sec.wots.scheme.valid_digest.
+rewrite good_counter_bridge /Shrincs.internal.ssprove.wots.scheme.good_counter /Shrincs.internal.ssprove.wots.scheme.valid_digest.
 by rewrite !digest_of_modelE !digest_of_bridge /wf_digits all_rev sumn_rev.
 Qed.
 
@@ -311,19 +311,19 @@ Qed.
     [Z.of_nat] and casing the head predicate through [good_counter_modelE]. *)
 Lemma find_from_seq (pp : PP_shrincs) (m : M_shrincs) (fuel start : nat) :
   wots.find_from (decode16 pp) A0 (decode32 m) fuel (Z.of_nat start)
-  = omap Z.of_nat (ohead [seq c <- iota start fuel | Sec.wots.scheme.good_counter P pp m c]).
+  = omap Z.of_nat (ohead [seq c <- iota start fuel | Shrincs.internal.ssprove.wots.scheme.good_counter P pp m c]).
 Proof.
 elim: fuel start => [|f IH] start; first by [].
 rewrite find_fromS.
 have -> : (Z.of_nat start + 1)%Z = Z.of_nat start.+1 by rewrite Znat.Nat2Z.inj_succ; lia.
 rewrite IH.
-have -> : [seq c <- iota start f.+1 | Sec.wots.scheme.good_counter P pp m c]
-        = if Sec.wots.scheme.good_counter P pp m start
-          then start :: [seq c <- iota start.+1 f | Sec.wots.scheme.good_counter P pp m c]
-          else [seq c <- iota start.+1 f | Sec.wots.scheme.good_counter P pp m c]
+have -> : [seq c <- iota start f.+1 | Shrincs.internal.ssprove.wots.scheme.good_counter P pp m c]
+        = if Shrincs.internal.ssprove.wots.scheme.good_counter P pp m start
+          then start :: [seq c <- iota start.+1 f | Shrincs.internal.ssprove.wots.scheme.good_counter P pp m c]
+          else [seq c <- iota start.+1 f | Shrincs.internal.ssprove.wots.scheme.good_counter P pp m c]
   by [].
 rewrite -(good_counter_modelE pp m start).
-by case: (Sec.wots.scheme.good_counter P pp m start).
+by case: (Shrincs.internal.ssprove.wots.scheme.good_counter P pp m start).
 Qed.
 
 (** The whole grinding search corresponds: the model's [find_counter]
@@ -332,10 +332,10 @@ Qed.
     [omap Z.of_nat]. *)
 Lemma find_counter_modelE (pp : PP_shrincs) (m : M_shrincs) :
   wots.find_counter (decode16 pp) A0 (decode32 m)
-  = omap Z.of_nat (Sec.wots.scheme.find_counter P pp m).
+  = omap Z.of_nat (Shrincs.internal.ssprove.wots.scheme.find_counter P pp m).
 Proof.
 rewrite /wots.find_counter -[0%Z]/(Z.of_nat 0%nat) find_from_seq.
-by rewrite /Sec.wots.scheme.find_counter c_max_natE.
+by rewrite /Shrincs.internal.ssprove.wots.scheme.find_counter c_max_natE.
 Qed.
 
 (* ---------------------------------------------------------------- *)
@@ -401,7 +401,7 @@ Lemma chainc_chain_iterE (pp : PP_shrincs) (x : N_shrincs) (i st n : nat)
     (hp : (0 < wots.w_pred)%coq_nat)
     (ci : fin.fin (Z.of_nat wots.len)) (Hci : fin.fin_val ci = Z.of_nat i)
     (Hb : ((st + n)%coq_nat <= wots.w_pred)%coq_nat) :
-  chainc PP_shrincs N_shrincs w_shrincs (Sec.wots.scheme.chainf P) pp i x st n
+  chainc PP_shrincs N_shrincs w_shrincs (Shrincs.internal.ssprove.wots.scheme.chainf P) pp i x st n
   = encode16 (wots.shrincs_wots_chain_iter (decode16 x) st n (decode16 pp)
                 (address.shrincs_wots_hash_adrs hp A0 ci) Hb).
 Proof.
@@ -409,13 +409,13 @@ elim: n Hb => [|n IH] Hb.
 - (* 0 steps: both folds are the identity; close the dictionary. *)
   by rewrite chainc_0 /= encode16_decode16.
 - (* end-peel both sides; the model's outermost step is at [st + n]. *)
-  rewrite (chainc_rcons PP_shrincs N_shrincs w_shrincs (Sec.wots.scheme.chainf P) pp i x st n) /=.
+  rewrite (chainc_rcons PP_shrincs N_shrincs w_shrincs (Shrincs.internal.ssprove.wots.scheme.chainf P) pp i x st n) /=.
   (* the peeled position is in range: [st + n < w_pred < w] *)
   have Hb' : ((st + n).+1 <= wots.w_pred)%nat by rewrite -addnS; apply/leP.
   have Hlt : ((st + n)%nat < w_shrincs)%nat
     := ltn_trans Hb' (isT : (wots.w_pred < w_shrincs)%nat).
-  rewrite (FcE PP_shrincs N_shrincs w_shrincs (Sec.wots.scheme.chainf P) pp i (st + n)%nat _ Hlt).
-  rewrite /Sec.wots.scheme.chainf (IH (wots.chain_iter_rec_le st n Hb)).
+  rewrite (FcE PP_shrincs N_shrincs w_shrincs (Shrincs.internal.ssprove.wots.scheme.chainf P) pp i (st + n)%nat _ Hlt).
+  rewrite /Shrincs.internal.ssprove.wots.scheme.chainf (IH (wots.chain_iter_rec_le st n Hb)).
   have hlen : length (wots.shrincs_wots_chain_iter (decode16 x) st n (decode16 pp)
                         (address.shrincs_wots_hash_adrs hp A0 ci)
                         (wots.chain_iter_rec_le st n Hb)) = 16%nat
@@ -514,8 +514,8 @@ Qed.
     the games supply, decode elementwise to the model's [sign_chains]
     (which recomputes the SAME digest internally -- aligned via T1). *)
 Lemma sign_chains_modelE (pp : PP_shrincs) (k : K_shrincs) (m : M_shrincs) (c : nat) :
-  map decode16 (Sec.wots.scheme.sign_chains P pp (derive_sk P K_shrincs PRF_sha256 pp k)
-                  (Sec.wots.scheme.digest_of P pp m c))
+  map decode16 (Shrincs.internal.ssprove.wots.scheme.sign_chains P pp (derive_sk P K_shrincs PRF_sha256 pp k)
+                  (Shrincs.internal.ssprove.wots.scheme.digest_of P pp m c))
   = wots.sign_chains (decode32 m) (decode16 k) (decode16 pp) A0 (Z.of_nat c).
 Proof.
 rewrite digest_of_modelE.
@@ -524,7 +524,7 @@ set xs := derive_sk P K_shrincs PRF_sha256 pp k.
 have hxs : size xs = chain_count_shrincs by rewrite /xs size_derive_sk.
 have hdD : size D = chain_count_shrincs.
   by rewrite /D -digest_of_modelE size_digest_of.
-have hsz : size (Sec.wots.scheme.sign_chains P pp xs D) = chain_count_shrincs
+have hsz : size (Shrincs.internal.ssprove.wots.scheme.sign_chains P pp xs D) = chain_count_shrincs
   := size_sign_chains_l P pp xs D hxs hdD.
 have hszm : size (wots.sign_chains (decode32 m) (decode16 k) (decode16 pp) A0 (Z.of_nat c)) = chain_count_shrincs.
   by rewrite size_lengthE /wots.sign_chains iteration.length_for_idx_dep.
@@ -533,7 +533,7 @@ apply: (@eq_from_nth _ (decode16 n0_shrincs)).
 move=> j; rewrite size_map hsz => Hj.
 have HjP : (j < wots.len)%coq_nat by apply/ltP.
 rewrite (nth_map n0_shrincs); first by rewrite hsz.
-rewrite /Sec.wots.scheme.sign_chains (nth_map ((0%nat, n0_shrincs), 0%nat)).
+rewrite /Shrincs.internal.ssprove.wots.scheme.sign_chains (nth_map ((0%nat, n0_shrincs), 0%nat)).
   by rewrite !size_zip size_iota hxs hdD !minnn.
 rewrite nth_zip; first by rewrite size_zip size_iota hxs hdD minnn.
 rewrite nth_zip; first by rewrite size_iota hxs.
@@ -565,14 +565,14 @@ Qed.
     supplied at the games' [digest_of] and aligned by T1. *)
 Lemma complete_ends_modelE (pp : PP_shrincs) (m : M_shrincs) (c : nat) (ys : seq N_shrincs) :
   size ys = chain_count_shrincs ->
-  map decode16 (Sec.wots.scheme.complete_ends P pp (Sec.wots.scheme.digest_of P pp m c) ys)
+  map decode16 (Shrincs.internal.ssprove.wots.scheme.complete_ends P pp (Shrincs.internal.ssprove.wots.scheme.digest_of P pp m c) ys)
   = wots.complete_ends (decode32 m) (map decode16 ys) (Z.of_nat c) (decode16 pp) A0.
 Proof.
 move=> hys.
 rewrite digest_of_modelE.
 set D := wots.digest_of (decode16 pp) A0 (decode32 m) (Z.of_nat c).
 have hdD : size D = chain_count_shrincs by rewrite /D -digest_of_modelE size_digest_of.
-have hsz : size (Sec.wots.scheme.complete_ends P pp D ys) = chain_count_shrincs.
+have hsz : size (Shrincs.internal.ssprove.wots.scheme.complete_ends P pp D ys) = chain_count_shrincs.
   by rewrite size_complete_ends hdD hys !minnn.
 have hszm : size (wots.complete_ends (decode32 m) (map decode16 ys) (Z.of_nat c) (decode16 pp) A0) = chain_count_shrincs.
   by rewrite size_lengthE /wots.complete_ends iteration.length_for_idx_dep.
@@ -581,7 +581,7 @@ apply: (@eq_from_nth _ (decode16 n0_shrincs)).
 move=> j; rewrite size_map hsz => Hj.
 have HjP : (j < wots.len)%coq_nat by apply/ltP.
 rewrite (nth_map n0_shrincs); first by rewrite hsz.
-rewrite /Sec.wots.scheme.complete_ends (nth_map (0%nat, (0%nat, n0_shrincs))).
+rewrite /Shrincs.internal.ssprove.wots.scheme.complete_ends (nth_map (0%nat, (0%nat, n0_shrincs))).
   by rewrite size_zip size_iota size_zip hdD hys !minnn.
 rewrite nth_zip; first by rewrite size_iota size_zip hdD hys minnn.
 rewrite nth_zip; first by rewrite hdD hys.
@@ -614,18 +614,18 @@ Qed.
 Lemma verify_modelE (pp : PP_shrincs) (root : N_shrincs) (m : M_shrincs)
     (sig : seq N_shrincs) (c : nat) :
   size sig = chain_count_shrincs ->
-  Sec.wots.scheme.shrincs_wots_verify P pp root m (sig, c)
+  Shrincs.internal.ssprove.wots.scheme.shrincs_wots_verify P pp root m (sig, c)
   = wots.shrincs_wots_verify (decode16 root) (map decode16 sig) (decode32 m) (Z.of_nat c) (decode16 pp) A0.
 Proof.
 move=> hsig.
-rewrite /Sec.wots.scheme.shrincs_wots_verify.
+rewrite /Shrincs.internal.ssprove.wots.scheme.shrincs_wots_verify.
 cbn [fst snd].
 rewrite /wots.shrincs_wots_verify.
 have hcc : wcp_chain_count P = chain_count_shrincs by [].
 rewrite hcc hsig eqxx andTb.
 congr andb.
   exact: (good_counter_modelE pp m c).
-have hTsf : wcp_T_sf P pp (pk_adrs P) (Sec.wots.scheme.complete_ends P pp (Sec.wots.scheme.digest_of P pp m c) sig)
+have hTsf : wcp_T_sf P pp (pk_adrs P) (Shrincs.internal.ssprove.wots.scheme.complete_ends P pp (Shrincs.internal.ssprove.wots.scheme.digest_of P pp m c) sig)
           = encode16 (wots.shrincs_wots_pubkey_from_sig (decode32 m) (map decode16 sig) (Z.of_nat c) (decode16 pp) A0).
   have -> : wcp_T_sf P = T_sf_sha256 by [].
   rewrite /T_sf_sha256 /wots.shrincs_wots_pubkey_from_sig pk_adrsE.
@@ -652,10 +652,10 @@ Qed.
 Lemma sign_modelE (pp : PP_shrincs) (k : K_shrincs) (m : M_shrincs) :
   wots.shrincs_wots_sign (decode32 m) (decode16 k) (decode16 pp) A0
   = omap (fun sgc => (map decode16 sgc.1, Z.of_nat sgc.2))
-         (Sec.wots.scheme.shrincs_wots_sign P pp (derive_sk P K_shrincs PRF_sha256 pp k) m).
+         (Shrincs.internal.ssprove.wots.scheme.shrincs_wots_sign P pp (derive_sk P K_shrincs PRF_sha256 pp k) m).
 Proof.
-rewrite /wots.shrincs_wots_sign /Sec.wots.scheme.shrincs_wots_sign find_counter_modelE.
-case E: (Sec.wots.scheme.find_counter P pp m) => [c|]; last by [].
+rewrite /wots.shrincs_wots_sign /Shrincs.internal.ssprove.wots.scheme.shrincs_wots_sign find_counter_modelE.
+case E: (Shrincs.internal.ssprove.wots.scheme.find_counter P pp m) => [c|]; last by [].
 cbn [Option.map].
 congr Some; congr pair.
 by rewrite (sign_chains_modelE pp k m c).
@@ -664,7 +664,7 @@ Qed.
 (** Grinding-failure corollary: when the games' bounded search finds no
     good counter, both signers refuse. *)
 Lemma sign_None_modelE (pp : PP_shrincs) (k : K_shrincs) (m : M_shrincs) :
-  Sec.wots.scheme.shrincs_wots_sign P pp (derive_sk P K_shrincs PRF_sha256 pp k) m = None ->
+  Shrincs.internal.ssprove.wots.scheme.shrincs_wots_sign P pp (derive_sk P K_shrincs PRF_sha256 pp k) m = None ->
   wots.shrincs_wots_sign (decode32 m) (decode16 k) (decode16 pp) A0 = None.
 Proof. by move=> hN; rewrite sign_modelE hN. Qed.
 
