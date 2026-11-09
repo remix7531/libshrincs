@@ -119,7 +119,10 @@ static int run_sha256_cavs(const char *path, int *out)
                 break;
             }
             uint8_t got[32];
-            shrincs_sha256(got, msg, cur_len);
+            /* msg is still NULL before the first realloc; the Len = 0
+               vectors never trigger one, and shrincs_sha256 requires a
+               real pointer even at inlen == 0. */
+            shrincs_sha256(got, cur_len ? msg : (const uint8_t *)"", cur_len);
             if (memcmp(got, expected, 32) != 0) {
                 rc = -1;
                 break;

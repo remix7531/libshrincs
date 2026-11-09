@@ -24,9 +24,9 @@ int shrincs_ct_memcmp(const uint8_t *a, const uint8_t *b, size_t n);
 /* Trap on contract violation. Triggered by SHRINCS_ASSERT; does not return. Uses __builtin_trap
    (defined-behavior abort on GCC, Clang and CompCert) with a trailing infinite loop as a
    fallback if the compiler ever fails to mark it noreturn. Unreachable from VST-proven code:
-   the only SHRINCS_ASSERT sites are in sha256.c, whose body is axiomatized (body_sha256),
-   not proved against; shrincs_panic's own funspec carries PROP(False), so no proven body
-   can reach a call to it. */
+   shrincs_panic's own funspec carries PROP(False), so no proven body can reach a call to it.
+   No SHRINCS_ASSERT site currently exists in src/. This mechanism is kept in place for
+   future call sites. */
 void shrincs_panic(void);
 
 #ifndef SHRINCS_CHECKS
