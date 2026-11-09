@@ -7,9 +7,9 @@
 #   0. build freshness -- every tree/*.v in _RocqProject has an up-to-date .vo.
 #   1. proof gaps      -- no Admitted / admit. / give_up. in the tree.
 #   2. assumption confinement -- every Axiom/Parameter/Conjecture/Hypothesis
-#      declaration lives in the tree's one allowlisted file (model -> machine.v
-#      + sha256.v + the address.v Hpb hypothesis; ssprove -> axioms.v; vst ->
-#      gprog.v).  Catches a smuggled assumption by SOURCE TEXT even if unused.
+#      declaration lives in an allowlisted file (model -> machine.v and the
+#      discharged address.v Hpb hypothesis; ssprove -> axioms.v; vst -> gprog.v).
+#      Catches a smuggled assumption by SOURCE TEXT even if unused.
 #      A confinement check, not exact-name: a new assumption inside an allowed
 #      file is caught by gate 3 iff an audited theorem uses it.
 #   3. Print Assumptions cone diff -- compile the tree's assumptions/<tree>.v
@@ -117,7 +117,7 @@ gate2_confined() {
 
 gate2_model() {
   gate2_confined model \
-    'model/(machine|sha256)\.v:|model/address\.v:.*Hypothesis Hpb' \
+    'model/machine\.v:|model/address\.v:.*Hypothesis Hpb' \
     model
 }
 
@@ -233,21 +233,21 @@ tree_fail=0
 gate0_build_freshness model || tree_fail=1
 gate1_proof_gaps model || tree_fail=1
 gate2_model || tree_fail=1
-gate3_assumptions model "-Q model Model -Q assumptions Assumptions" || tree_fail=1
+gate3_assumptions model "-Q model Model -Q vst Vst -Q ssprove Sec -Q assumptions Assumptions" || tree_fail=1
 [ "$tree_fail" = 0 ] && echo "model    gates 0-3 green" || fail=1
 
 tree_fail=0
 gate0_build_freshness ssprove || tree_fail=1
 gate1_proof_gaps ssprove "$ASSUMPTIONS_DIR" || tree_fail=1
 gate2_ssprove || tree_fail=1
-gate3_assumptions ssprove "-Q model Model -Q ssprove Sec -Q assumptions Assumptions" || tree_fail=1
+gate3_assumptions ssprove "-Q model Model -Q vst Vst -Q ssprove Sec -Q assumptions Assumptions" || tree_fail=1
 [ "$tree_fail" = 0 ] && echo "ssprove  gates 0-3 green" || fail=1
 
 tree_fail=0
 gate0_build_freshness vst || tree_fail=1
 gate1_proof_gaps vst || tree_fail=1
 gate2_vst || tree_fail=1
-gate3_assumptions vst "-Q model Model -Q vst Vst -Q assumptions Assumptions" || tree_fail=1
+gate3_assumptions vst "-Q model Model -Q vst Vst -Q ssprove Sec -Q assumptions Assumptions" || tree_fail=1
 [ "$tree_fail" = 0 ] && echo "vst      gates 0-3 green" || fail=1
 
 if [ "$fail" = 0 ]; then

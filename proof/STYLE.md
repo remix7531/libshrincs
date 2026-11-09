@@ -236,7 +236,7 @@ comment. Generated files (`vst/clight/`) are exempt.
   SSProve + MathComp + Equations surface plus the project settings), then
   the rest of `Sec.lib.*`, then `Sec.*`, then bare `mathcomp` extras, then
   `From Model Require Import math.chain math.encoding`.
-- Except for `model/bytes.v`, a `Model` file must never `Require` anything from `Vst`, `Sec`, `VST`,
+- Except for the byte representation and SHA interfaces, a `Model` file must never `Require` anything from `Vst`, `Sec`, `VST`,
   `compcert`, or the SSProve/MathComp surface. `machine.v` is a
   self-contained clone precisely so this boundary holds.
 - **Carve-out: `math/`.** `Model.math.*` (`chain.v`, `encoding.v`) is the
@@ -253,6 +253,9 @@ comment. Generated files (`vst/clight/`) are exempt.
   "Repo-wide file & directory naming" above.) The byte representation
   atlas in `model/bytes.v` also imports the MathComp word library and
   SSProve word carrier. Other model files keep the boundary above.
+- `model/sha256_spec.v` includes the FIPS definition and C contract and
+  imports VST through `Vst.repr.words`. `model/sha256.v` wraps that
+  definition for the shared model.
 
 ## Honesty / audit constraints
 
@@ -271,8 +274,8 @@ gate fails on these:
 3. **No smuggled assumptions** — every top-level `Axiom`, `Parameter`, and
    section `Hypothesis`/`Conjecture` in a tree's scope is checked by source
    text against a hard-coded expected set: Model allows exactly `Axiom
-   wordsize_not_zero`, `Parameter SHA256`, `Parameter wordsize` (the one
-   real trust anchor, SHA-256, plus the two `machine.v` module-type fields);
+   wordsize_not_zero` and `Parameter wordsize` (the two `machine.v`
+   module-type fields), and the discharged `Hpb` bound in `address.v`;
    Sec allows exactly the 6 named hash-game axioms (PRF, SM-UD, STCRP,
    SM-TCR@pk, SM-TCR@chain, SM-PRE) plus their `eps_*` advantage-bound
    `Parameter`s, confined to `ssprove/axioms.v`; Vst allows

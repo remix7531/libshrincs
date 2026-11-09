@@ -20,9 +20,8 @@ Rocq 9.2 + CompCert.
   existential — the C code is deterministic there, so the spec says so;
   `sign` keeps an existential since its residual genuinely depends on the
   ground counter found by grinding.
-- Zero `Admitted.`. Trusted base: two SHA-256 assumptions — `Parameter SHA256`
-  (the abstract hash in the shared model) and `Axiom body_sha256` (the C `sha256`
-  function meets its funspec).
+- Zero `Admitted.`. SHA-256 is defined in the shared model. The trusted
+  C body is `Axiom body_sha256` in `contract/gprog.v`.
 
 Scope: functional correctness, not EU-CMA. One-time use is a caller
 obligation.

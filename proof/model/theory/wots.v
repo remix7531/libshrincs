@@ -36,6 +36,15 @@ Qed.
 Lemma length_sha256' : forall input, length (sha256' input) = 32%nat.
 Proof. intros. unfold sha256'. apply length_SHA256_out. Qed.
 
+(** The model hash agrees with the specification whenever clipping
+    preserves its input. *)
+Lemma sha256'_eq : forall input,
+  Z.of_nat (length input) <= sha256_max_input_len -> sha256' input = sha256_out input.
+Proof.
+  intros input Hlen. unfold sha256'.
+  rewrite to_list_SHA256, BList.to_list_clip by exact Hlen. reflexivity.
+Qed.
+
 Lemma H_grind_length : forall pk_seed A M counter,
   length (H_grind pk_seed A M counter) = n.
 Proof.

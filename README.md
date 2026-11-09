@@ -19,7 +19,9 @@ make audit       # proofs + the honesty gate; ends with the TRUST SURFACE table
 make check       # everything: static analysis, sanitizers, CompCert, ctgrind, proofs
 ```
 
-`make audit` is the claim of this repository: no admitted goals, and every assumption both proofs rest on enumerated in one table, namely the SHA-256 function itself, its trusted C funspec, and 6 named hash-game axioms (declared in [`proof/ssprove/axioms.v`](proof/ssprove/axioms.v), allowlisted in [`proof/assumptions/allowed.txt`](proof/assumptions/allowed.txt)).
+`make audit` checks for admitted goals and enumerates the assumptions of both proofs, including the trusted SHA-256 C body, six named hash-game axioms in [`proof/ssprove/axioms.v`](proof/ssprove/axioms.v), and the inherited library baselines in [`proof/assumptions/allowed.txt`](proof/assumptions/allowed.txt).
+
+SHA-256 is defined by the FIPS 180-4 transcription in `proof/model/sha256_spec.v`.
 
 ## Layout
 

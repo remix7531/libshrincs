@@ -10,23 +10,18 @@
     this repo -- they are assumed correct by construction.  Currently
     exactly one entry:
 
-    - [sha256_spec]: the only cryptographic primitive.  [model.sha256.SHA256]
-      is a [Parameter] and [body_sha256] is an [Axiom] in [contract.gprog]
-      by design, since [src/sha256.c] is a direct FIPS 180-4 port verified
-      elsewhere.
+    - [sha256_spec]: the contract of the cryptographic primitive.
+      [model.sha256.SHA256] is defined, while [body_sha256] is an
+      [Axiom] in [contract.gprog].
 
     The in-tree libc alternatives ([shrincs_memcpy], [shrincs_memset],
     [shrincs_ct_memcmp], [shrincs_panic]) are NOT trusted -- their funspecs
     live in [contract.helpers] and their bodies are proved in
     [proof/vst/verif].
 
-    When auditing: the trusted FUNSPECS are exactly this file; the two
-    trust anchors themselves are [Parameter SHA256] (proof/model/sha256.v)
-    and [Axiom body_sha256] (contract/gprog.v -- its statement mentions
-    [Gprog], so it must live where [Gprog] is defined).  `make audit`
-    checks that those two (plus machine.v's Module-Type fields, which are
-    discharged at instantiation) are the only Axiom/Parameter lines in
-    the vst + model trees. *)
+    The remaining trust anchor is [Axiom body_sha256] in
+    [contract/gprog.v]. The audit also permits machine.v's module-type
+    fields and address.v's discharged bound hypothesis. *)
 
 From VST Require Export floyd.proofauto.
 From Vst Require Export clight.sha256 contract.public.

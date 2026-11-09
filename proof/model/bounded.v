@@ -87,6 +87,15 @@ Definition clip {A : Type} (max : Z) (hmax : (0 <= max)%Z) (l : list A) : t A ma
        (proj1 (Nat2Z.inj_le _ _) (length_firstn_le (Z.to_nat max) l))
        max (Z2Nat.id max hmax)).
 
+(** Clipping preserves any list that already fits the bound. *)
+Lemma to_list_clip {A : Type} (max : Z) (hmax : (0 <= max)%Z) (l : list A) :
+  (Z.of_nat (length l) <= max)%Z -> to_list (clip max hmax l) = l.
+Proof.
+  intros Hl. cbn [clip of to_list].
+  apply firstn_all2, Nat2Z.inj_le.
+  rewrite Z2Nat.id by exact hmax. exact Hl.
+Qed.
+
 End BList.
 
 (* ================================================================= *)

@@ -11,12 +11,10 @@
     combinatorial core (chain extraction, target-sum/checksum encoding)
     that both proof trees' reductions rest on.  assumptions/check.sh's
     model gate 3 compiles this file, extracts the axiom names, and diffs
-    them against the `[model]` section of
-    assumptions/allowed.txt: the build fails if any theorem
-    here depends on an axiom outside that frozen baseline (expected: only
-    [sha256.SHA256] -- the model is a Stdlib-only development
-    parameterized by the SHA-256 function, so no classical axioms should
-    appear).
+    them against the `[model]` section of assumptions/allowed.txt --
+    which is EMPTY. The model assumes nothing: every [Print Assumptions]
+    below prints "Closed under the global context". SHA-256 is a
+    definition over the FIPS 180-4 transcription in model/sha256.v.
 
     The model tree is the shared trust ROOT: both the ssprove security
     proof and the vst C-refinement proof state their claims against it,
