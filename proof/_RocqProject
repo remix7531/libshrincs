@@ -45,6 +45,8 @@ vst/sha256/verif/logical.v
 vst/sha256/verif/load_be32.v
 vst/sha256/verif/store_be32.v
 vst/sha256/verif/parse.v
+vst/sha256/verif/compress_words.v
+vst/sha256/verif/compress_blocks.v
 vst/model/wots.v
 vst/theory/pure.v
 vst/contract/radrs.v
