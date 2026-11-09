@@ -17,13 +17,16 @@
     [make_compspecs clight.wots.prog], so this file still depends on the
     WOTS+C Clight program -- but NOT on any funspec. A fully scheme-neutral
     thash contract would need [src/thash.c]'s own clightgen'd program and
-    its own [CompSpecs]; that is a separate, larger step. *)
+    its own [CompSpecs]; that is a separate, larger step.
+
+    [CompSpecs] comes from [Vst.base]. The SHA-256 contract and its
+    callers must elaborate [data_at] against the same instance. *)
 
 From VST Require Export floyd.proofauto.
-From Vst Require Export model.wots clight.wots contract.radrs.
+From Vst Require Export base.
+From Vst Require Export model.wots contract.radrs.
+From Vst.clight Require Export wots.
 From Model Require Import theory.address.
-
-#[export] Instance CompSpecs : compspecs. make_compspecs prog. Defined.
 
 Open Scope Z_scope.
 

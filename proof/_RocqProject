@@ -29,6 +29,11 @@ model/correct/wots.v
 vst/clight/sha256.v
 vst/clight/wots.v
 vst/clight/thash.v
+model/bytes.v
+vst/base.v
+vst/settings.v
+vst/repr/seqlist.v
+vst/repr/words.v
 vst/model/wots.v
 vst/theory/pure.v
 vst/contract/radrs.v

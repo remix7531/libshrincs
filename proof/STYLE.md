@@ -236,7 +236,7 @@ comment. Generated files (`vst/clight/`) are exempt.
   SSProve + MathComp + Equations surface plus the project settings), then
   the rest of `Sec.lib.*`, then `Sec.*`, then bare `mathcomp` extras, then
   `From Model Require Import math.chain math.encoding`.
-- A `Model` file must never `Require` anything from `Vst`, `Sec`, `VST`,
+- Except for `model/bytes.v`, a `Model` file must never `Require` anything from `Vst`, `Sec`, `VST`,
   `compcert`, or the SSProve/MathComp surface. `machine.v` is a
   self-contained clone precisely so this boundary holds.
 - **Carve-out: `math/`.** `Model.math.*` (`chain.v`, `encoding.v`) is the
@@ -250,9 +250,9 @@ comment. Generated files (`vst/clight/`) are exempt.
   `math/` files to be named in `CamelCase`, matching the MathComp
   ecosystem's own file-naming convention; that half of the rule is now
   **dead** — `math/` files are `snake_case` like the rest of the repo, per
-  "Repo-wide file & directory naming" above.) This is the ONLY place under
-  `Model` allowed to reach toward the MathComp surface; every other model
-  file (`address.v`, `wots.v`, ...) stays Stdlib-only per the bullet above.
+  "Repo-wide file & directory naming" above.) The byte representation
+  atlas in `model/bytes.v` also imports the MathComp word library and
+  SSProve word carrier. Other model files keep the boundary above.
 
 ## Honesty / audit constraints
 
