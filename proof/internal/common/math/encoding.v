@@ -4,7 +4,7 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Model.math.encoding
+(** * Shrincs.internal.common.math.encoding
 
     Base-w message encodings for Winternitz-type one-time signatures:
     digit decomposition, the WOTS+/WOTS-TW checksum, and the

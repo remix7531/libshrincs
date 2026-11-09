@@ -4,13 +4,13 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.wots.hop.compress
+(** * Shrincs.internal.ssprove.wots.hop.compress
 
     The SM-TCR(T_sf) compression hop of the WOTS+C one-time
     security proof: the SECOND split of the forgery analysis, nulling
     the pk-compression-collision case (case 2 / COMPRESS of
     [analysis.shrincs_wots_forgery_classify]) between [G_post_grind]
-    (Sec.hop.grind) and [G_post_compress].  Delivered:
+    (Shrincs.internal.ssprove.hop.grind) and [G_post_compress].  Delivered:
 
       [R_compress_real  : perfect (I_KOTS WC) G_post_grind
                             (R_compress ∘ SMTCR_game thf_pkcompress coll_pkcompress 1 true)]
@@ -25,7 +25,7 @@
     coincide, so within the verified branch the single boolean
     discriminant [forged completed ends != honest completed ends]
     captures exactly the classifier's second disjunct); the next hop
-    (Sec.hop.chain_tcr, chain collisions) continues from [G_post_compress].
+    (Shrincs.internal.ssprove.hop.chain_tcr, chain collisions) continues from [G_post_compress].
     Hence
     [Adv G_post_grind G_post_compress <= AdvOf (SMTCR_game thf_pkcompress coll_pkcompress 1) (A ∘ R_compress)] by
     the standard reduction steps at the consumer.
@@ -103,7 +103,7 @@ Import PackageNotation.
 
 Section CompressHop.
 
-(** The WOTS+C parameter record (see Sec.wots.params). *)
+(** The WOTS+C parameter record (see Shrincs.internal.ssprove.wots.params). *)
 Context (P : wc_params).
 
 Local Abbreviation SMB b := (SMTCR_game (thf_pkcompress P) (coll_pkcompress P) 1 b).
@@ -121,7 +121,7 @@ Local Abbreviation rev_loc' := tcr_rev_loc.
     answer list: [cp_pick] returns the first (counter, digest value)
     whose decoded digits satisfy the digit-sum predicate —
     [find_counter]'s search, re-rooted at the oracle answers ([cp_pick_map]).
-    [cp_pick]/[cp_pick_map] live in [Sec.hop.intermediates] (shared
+    [cp_pick]/[cp_pick_map] live in [Shrincs.internal.ssprove.hop.intermediates] (shared
     with the chain hops). *)
 
 (* ------------------------------------------------------------------ *)
@@ -264,7 +264,7 @@ Definition R_compress :
 (* ------------------------------------------------------------------ *)
 (** ** G_post_compress: G_post_grind with ALSO the COMPRESS case nulled
 
-    Defined in [Sec.hop.intermediates] (shared so the hops type-check
+    Defined in [Shrincs.internal.ssprove.hop.intermediates] (shared so the hops type-check
     in parallel). *)
 
 (* ------------------------------------------------------------------ *)
@@ -405,12 +405,12 @@ Qed.
 
 (** [digestE]/[wendsE] (oracle-answer = [digest_of]; length-chain_count walk's
     completed ends = verifier's [complete_ends]) live in
-    [Sec.hop.intermediates]. *)
+    [Shrincs.internal.ssprove.hop.intermediates]. *)
 
 (* ------------------------------------------------------------------ *)
 (** ** The invariant (header)
 
-    Follows the hop-invariant template (see [Sec.hop.grind]); the
+    Follows the hop-invariant template (see [Shrincs.internal.ssprove.hop.grind]); the
     Some-branch delta here adds [pk.2 = T_sf pk.1 pk_adrs (...)] and the
     single ends target. *)
 

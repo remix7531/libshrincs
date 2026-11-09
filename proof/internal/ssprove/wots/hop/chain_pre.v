@@ -4,13 +4,13 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.wots.hop.chain_pre
+(** * Shrincs.internal.ssprove.wots.hop.chain_pre
 
     The SM-PRE(F) chain hop, [G_post_chain -> G_forge_uniformchains-ideal]: the reduction
     [R_chain_pre] routes G_post_chain's residual chain-meet case to an SM-PRE(F)
     PCHECK and is perfect on both sides of the SM-PRE pair
     ([R_chain_pre_real], [R_chain_pre_ideal]).  The shared chain substrate lives
-    in [Sec.hop.chain_common]; this file is the SM-PRE half built
+    in [Shrincs.internal.ssprove.hop.chain_common]; this file is the SM-PRE half built
     over that substrate (with the shared [simpl never] directives
     re-declared locally, ahead of the proofs). *)
 
@@ -31,8 +31,8 @@ Import PackageNotation.
 #[local] Open Scope sep_scope.
 Section ChainPRE.
 
-(** The WOTS+C parameter record (see Sec.wots.params), as in
-    Sec.wots.games. *)
+(** The WOTS+C parameter record (see Shrincs.internal.ssprove.wots.params), as in
+    Shrincs.internal.ssprove.wots.games. *)
 Context (P : wc_params).
 
 (** The SM-PRE game pair at this instance (a library-game pin) and the
@@ -278,7 +278,7 @@ Qed.
 (* ------------------------------------------------------------------ *)
 (** *** The invariant (header)
 
-    Follows the hop-invariant template (see [Sec.hop.grind]); the
+    Follows the hop-invariant template (see [Shrincs.internal.ssprove.hop.grind]); the
     Some-branch delta here stores the per-chain pre-query list
     [qmap_from 0 [seq wq q | q <- pre_queries ...]]. *)
 

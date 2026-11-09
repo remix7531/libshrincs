@@ -4,11 +4,11 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.wots.bound.chain_tcr
+(** * Shrincs.internal.ssprove.wots.bound.chain_tcr
 
     The chain target-collision game-hop equality, peeled out of
-    [Sec.theorem] for parallel type-checking (see
-    [Sec.bound.grind]).
+    [Shrincs.internal.ssprove.theorem] for parallel type-checking (see
+    [Shrincs.internal.ssprove.bound.grind]).
 
     States that the [G_post_compress -> G_post_chain] advantage equals the SM-TCR
     advantage of the chain-TCR reduction [R_chain_tcr] (ChainHop's

@@ -4,7 +4,7 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.lib.toolkit.hop_tactics
+(** * Shrincs.internal.ssprove.lib.toolkit.hop_tactics
 
     Small proof-shaping tactics shared by the WOTS+C relational hop
     proofs (Grind / Compress / ChainTCR / ChainPRE).  They only

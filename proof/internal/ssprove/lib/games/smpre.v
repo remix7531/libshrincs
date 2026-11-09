@@ -4,10 +4,10 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.lib.games.smpre
+(** * Shrincs.internal.ssprove.lib.games.smpre
 
     Single-function Multi-target Preimage Resistance, as a
-    real/ideal game pair (see Sec.lib.games.thf for the convention).
+    real/ideal game pair (see Shrincs.internal.ssprove.lib.games.thf for the convention).
 
     Experiment structure: a first stage queries, up to [p]
     times with DISTINCT tweaks, an oracle Th(P,T,x_i) where the

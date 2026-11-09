@@ -4,11 +4,11 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.wots.kots_link
+(** * Shrincs.internal.ssprove.wots.kots_link
 
     The KOTS linking theorem: the two WOTS+C valid-commit known-message
     games are, PERFECTLY and unconditionally, the generic valid-commit
-    KOTS game [KOTS_vc_game] (Sec.lib.sig.kots) instantiated at the two
+    KOTS game [KOTS_vc_game] (Shrincs.internal.ssprove.lib.sig.kots) instantiated at the two
     WOTS+C schemes.
 
       [G_forge_keyed_KOTS_vc      : G_forge_keyed      ~  KOTS_vc_game (shrincs_wots_keyed ...)]
@@ -21,14 +21,14 @@
     scheme's [keygen]/[sign] and carry an extra signature location
     ([forge_sig_loc], unread by KFORGE) that [KOTS_vc_game] omits.
 
-    ** Proof shape (template: Sec.wots.hop.ud's endpoint hops)
+    ** Proof shape (template: Shrincs.internal.ssprove.wots.hop.ud's endpoint hops)
 
     A cross-identifier [heap_ignore ⋊ couple_cross] invariant relates
     the game's [forge_*] locations (ids 300/301/302) to the KOTS
     locations (ids 115/116); [forge_sig_loc] is ignored (no KOTS
     counterpart).  COMMIT syncs the freshness gate and couples the
     PKseed sample, then CASE-SPLITS on [find_counter pp m] — the sign
-    refusal pivot (Sec.wots.scheme): on [Some] both sides commit the
+    refusal pivot (Shrincs.internal.ssprove.wots.scheme): on [Some] both sides commit the
     same (pk, log) and return the same signature (the game's [#assert]
     is the scheme's non-refusal); on [None] the game aborts outright
     while the KOTS side samples its key/chain starts and then fails on
@@ -50,17 +50,17 @@ Import PackageNotation.
 
 Section kots_link.
 
-(** The WOTS+C parameter record [P] (Sec.wots.params), plus the keyed
+(** The WOTS+C parameter record [P] (Shrincs.internal.ssprove.wots.params), plus the keyed
     derivation data (the SKseed space [K], the derivation [PRF] and the
     SKseed sampler [dK]) that the keyed lemma additionally binds, as in
-    Sec.wots.hop.prf. *)
+    Shrincs.internal.ssprove.wots.hop.prf. *)
 Context (P : wc_params).
 Context (K : choice_type).
 Context (PRF : wcp_PP P -> wc_adrs P -> K -> wcp_N P).
 Context (dK : dist K).
 
 (* Keep the scheme functions folded under [simpl] (the known
-   simpl-unrolling trap; the block mirrors Sec.wots.hop.prf). *)
+   simpl-unrolling trap; the block mirrors Shrincs.internal.ssprove.wots.hop.prf). *)
 #[local] Arguments find_counter : simpl never.
 #[local] Arguments shrincs_wots_verify : simpl never.
 #[local] Arguments sign_chains : simpl never.
@@ -103,7 +103,7 @@ simplify_eq_rel arg.
   (* couple the PKseed sample *)
   eapply r_scheme_bind; [exact _|].
   move=> pp.
-  (* the sign-refusal pivot (Sec.wots.scheme.find_counter) *)
+  (* the sign-refusal pivot (Shrincs.internal.ssprove.wots.scheme.find_counter) *)
   case E: (find_counter P pp m) => [c|].
   + (* Some c: both sides commit the same (pk, log) and issue the same signature *)
     simpl.
@@ -166,7 +166,7 @@ simplify_eq_rel arg.
   (* couple the PKseed sample *)
   eapply r_scheme_bind; [exact _|].
   move=> pp.
-  (* the sign-refusal pivot (Sec.wots.scheme.find_counter) *)
+  (* the sign-refusal pivot (Shrincs.internal.ssprove.wots.scheme.find_counter) *)
   case E: (find_counter P pp m) => [c|].
   + (* Some c: both sides commit the same (pk, log) and issue the same signature *)
     simpl.

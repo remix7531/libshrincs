@@ -4,27 +4,27 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.bridge
+(** * Shrincs.internal.ssprove.bridge
 
     Pure equivalences between the shared canonical model
-    (Model.wots/Model.address/Model.byte, Stdlib vocabulary, Z-valued,
-    MSB-first digits) and this repo's math layer (Model.math.chain /
-    Model.math.encoding, mathcomp vocabulary, LSB-first digits).
-    MathComp-only; no SSProve (the Model.math audit boundary).
+    (Shrincs.internal.common.wots/Shrincs.internal.common.address/Shrincs.internal.common.byte, Stdlib vocabulary, Z-valued,
+    MSB-first digits) and this repo's math layer (Shrincs.internal.common.math.chain /
+    Shrincs.internal.common.math.encoding, mathcomp vocabulary, LSB-first digits).
+    MathComp-only; no SSProve (the Shrincs.internal.common.math audit boundary).
 
     Contents:
     - Stdlib <-> mathcomp glue (take/sum/eqb);
-    - a [byte]-as-[eqType] instance (needed for [Model.math.chain.chain],
+    - a [byte]-as-[eqType] instance (needed for [Shrincs.internal.common.math.chain.chain],
       and reusable groundwork for the byte-level instantiation:
-      [Model.wots]'s [block] needs an eqType before it can be given
+      [Shrincs.internal.common.wots]'s [block] needs an eqType before it can be given
       the richer choice_type/Countable/Finite structure that step
       needs);
-    - [nibbles_bridge]/[base_2b_cons]/[base_2b_digits_w]: [Model.wots]'s
+    - [nibbles_bridge]/[base_2b_cons]/[base_2b_digits_w]: [Shrincs.internal.common.wots]'s
       nibble-splitting [base_2b] (fixed at 4-bit groups, MSB-first)
       equals the REVERSED base-16 decomposition of the big-endian byte
       value read off the same bytes -- the [rev] is the
       MSB-first/LSB-first flip;
-    - [digest_of_bridge]/[good_counter_bridge]: [Model.wots]'s
+    - [digest_of_bridge]/[good_counter_bridge]: [Shrincs.internal.common.wots]'s
       [digest_of]/[good_counter] (over the concrete byte-valued
       [H_grind]) equal the [digits_w]/[wf_digits]/[sumn] shapes a
       games-layer nat-digest [H_grind] Context would need to match.
@@ -44,24 +44,24 @@
     the games layer's [scheme.digest_of] reads MSB-first
     ([rev (digits_w ...)]), so digit i pairs with chain i on both
     sides -- no relabeling.
-    [Sec.wots.model_bridge.digest_of_modelE] proves the games digest
+    [Shrincs.internal.ssprove.wots.model_bridge.digest_of_modelE] proves the games digest
     EQUALS the model digest ([digest_of_bridge] below is exactly the
     lemma it consumes for this), rather than up to a flip.
 
     THE BYTE-LEVEL INSTANTIATION (done in axioms.v): that
-    file picks concrete choice_types for [Model.wots.block] (16-byte
+    file picks concrete choice_types for [Shrincs.internal.common.wots.block] (16-byte
     strings) and the message digest ([instantiation.v]'s ['fin
     (2^128)]/['fin (2^256)] ordinals), encodes/decodes between them
-    and [Model.wots]'s byte blocks using the [be_num]/[digits_w]
-    machinery in [Model.math.encoding], and instantiates
+    and [Shrincs.internal.common.wots]'s byte blocks using the [be_num]/[digits_w]
+    machinery in [Shrincs.internal.common.math.encoding], and instantiates
     [games.v]/[Hop/prf.v]'s abstract
-    [F]/[T_sf]/[H_grind]/[PRF] Contexts with [Model.wots.F]/[T_sf]/
+    [F]/[T_sf]/[H_grind]/[PRF] Contexts with [Shrincs.internal.common.wots.F]/[T_sf]/
     [H_grind]/[PRF] composed with that encoding -- composed with 6
     named hash-hardness axioms, this yields the unconditional
     [shrincs_wots_secure_sha256]. No separate address serialization
-    step is needed: [Model.wots]'s hash functions already take an
+    step is needed: [Shrincs.internal.common.wots]'s hash functions already take an
     [adrs] value directly and serialize it internally (see
-    [Model.wots.H_grind]'s use of [Model.address.adrs_bytes]). *)
+    [Shrincs.internal.common.wots.H_grind]'s use of [Shrincs.internal.common.address.adrs_bytes]). *)
 
 From mathcomp Require Import boot order.
 From Shrincs.internal.common Require Import math.chain math.encoding.
@@ -91,8 +91,8 @@ Proof. by elim: a b => [|a IH] [|b] //=. Qed.
 (* ------------------------------------------------------------------ *)
 (** ** [byte] as an [eqType]
 
-    Needed for [Model.math.chain.chain] (its step function's domain,
-    here [Model.sha256.block = list byte], must be an [eqType]); also
+    Needed for [Shrincs.internal.common.math.chain.chain] (its step function's domain,
+    here [Shrincs.internal.common.sha256.block = list byte], must be an [eqType]); also
     reusable groundwork for axioms.v's choice_type encoding
     (an eqType is a prerequisite of the richer structures that step
     needs).  Load-bearing HERE too: [mapP] in [base_2b_digits_w] below
@@ -119,7 +119,7 @@ Definition nat_bytes (X : seq byte.byte) : seq nat :=
 (* ------------------------------------------------------------------ *)
 (** ** The single-byte nibble extraction
 
-    [Model.wots.base_2b]'s per-byte nibble computation
+    [Shrincs.internal.common.wots.base_2b]'s per-byte nibble computation
     ([Z.to_nat (b / 16)], [Z.to_nat (b mod 16)]) equals plain nat
     division/modulo on the [Z.to_nat]-projected byte -- direct from
     [byte]'s [[0, 256)] bound, no bit-level detour needed. *)
@@ -154,7 +154,7 @@ Lemma base_2b_cons (b : byte.byte) (X : seq byte.byte) (m : nat) :
 Proof. by rewrite /wots.base_2b -plusE /=. Qed.
 
 (* ------------------------------------------------------------------ *)
-(** ** THE digit bridge: [Model.wots]'s nibble-split bytes = the
+(** ** THE digit bridge: [Shrincs.internal.common.wots]'s nibble-split bytes = the
        reversed base-16 decomposition of their big-endian value *)
 
 Lemma base_2b_digits_w (X : seq byte.byte) :
@@ -189,7 +189,7 @@ elim: X => [|b X IH].
 Qed.
 
 (* ------------------------------------------------------------------ *)
-(** ** The digest bridge: [Model.wots.digest_of]/[good_counter] at the
+(** ** The digest bridge: [Shrincs.internal.common.wots.digest_of]/[good_counter] at the
        [digits_w]/[wf_digits]/[sumn] shapes *)
 
 Lemma digest_of_bridge (pk_seed : sha256.block) (ADRS : address.adrs wots.len wots.w_pred) (M : sha256.block) (c : Z) :

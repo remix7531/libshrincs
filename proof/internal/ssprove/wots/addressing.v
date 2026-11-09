@@ -4,16 +4,16 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.wots.addressing
+(** * Shrincs.internal.ssprove.wots.addressing
 
-    The WOTS+C-specific tweak layer, split off [Sec.addressing] (the
+    The WOTS+C-specific tweak layer, split off [Shrincs.internal.ssprove.addressing] (the
     scheme-neutral address core: the flat coproduct [adrs_sum]/[Finite]
     instance, the exact tweak space [adrs_sf_ch] with its
     [encode_adrs]/[decode_adrs] bijection, and the anchor smart
     constructor [anchor_adrs] -- see that file's header for why the
     split runs there).  Everything in THIS file is specific to WOTS+C's
     chains and grinding, so a future scheme (the FXMSS hypertree) can
-    import [Sec.addressing] alone and build its own tweaks without
+    import [Shrincs.internal.ssprove.addressing] alone and build its own tweaks without
     pulling this file in.
 
     ** Exact [nat -> fin] placement at the SSProve boundary
@@ -83,8 +83,8 @@ Proof. move/ltP: Hi => Hi; move: HccZ; lia. Qed.
 Local Abbreviation adrs_sf := (address.adrs chain_count pos_bound).
 
 (** The core file's per-(chain_count,w) specializations, brought back
-    into unqualified scope (the idiom every [Sec.wots.*] consumer of
-    [Sec.addressing] already uses -- see e.g. [Sec.wots.scheme]). *)
+    into unqualified scope (the idiom every [Shrincs.internal.ssprove.wots.*] consumer of
+    [Shrincs.internal.ssprove.addressing] already uses -- see e.g. [Shrincs.internal.ssprove.wots.scheme]). *)
 Local Abbreviation adrs_sf_ch := (addressing.adrs_sf_ch chain_count w).
 Local Abbreviation encode_adrs := (addressing.encode_adrs chain_count w).
 Local Abbreviation decode_adrs := (addressing.decode_adrs chain_count w).
@@ -99,7 +99,7 @@ Definition chain_fin (i : nat) (Hi : (i < chain_count)%nat) : fin (Z.of_nat chai
 (* ------------------------------------------------------------------ *)
 (** ** The WOTS+C smart constructors, built from the anchor
 
-    [Sec.addressing.anchor_adrs] gives any carrier holding the
+    [Shrincs.internal.ssprove.addressing.anchor_adrs] gives any carrier holding the
     [(zstar, istar)] anchor; the WOTS+C sibling addresses of one
     instance (grind / chain / pk / prf) are derived by typing that
     anchor and, for the chain address, placing the chain index and
@@ -141,7 +141,7 @@ Qed.
     level): both fields are placed EXACTLY (recovered [Z] values
     [Z.of_nat i] / [Z.of_nat pos], no clamp), so injectivity is
     unconditional -- the range proofs are the builder arguments.
-    Consumed by [chain_tweak_inj] and by [Sec.analysis]. *)
+    Consumed by [chain_tweak_inj] and by [Shrincs.internal.ssprove.analysis]. *)
 Lemma shrincs_wots_chain_adrs_inj
     {t Htag Hidx i pos Hi Hpos i' pos' Hi' Hpos'} :
   shrincs_wots_chain_adrs t Htag Hidx i pos Hi Hpos

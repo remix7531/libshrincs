@@ -4,15 +4,15 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.lib.chain.core
+(** * Shrincs.internal.ssprove.lib.chain.core
 
     The generic Winternitz-style chain-signature layer, generic over a
     tweakable hash [F].  This file is the MERGE of the former
-    Sec.lib.chain.{Scheme, Sample, Forgery, Decision} — kept as one
+    Shrincs.internal.ssprove.lib.chain.{Scheme, Sample, Forgery, Decision} — kept as one
     compilation unit (four [Section]s below) so the genuinely-serial
     content chain pays the SSProve load floor ONCE instead of four
     times.  The file opens with the generic seq/fmap/tweak helpers
-    merged in from the former [Sec.lib.toolkit.QSeq] ([qnth], [qmap_from],
+    merged in from the former [Shrincs.internal.ssprove.lib.toolkit.QSeq] ([qnth], [qmap_from],
     [tweak_lt]); they live here rather than under [Toolkit] only so the
     merge keeps them on the right side of the load floor — a layering
     compromise for build time.  Then come the four former-[Chain.*]
@@ -25,7 +25,7 @@
       - [ChainDecisionTCR] / [ChainDecisionPRE] : the computable
                           SM-TCR / SM-PRE forgery classifiers.
 
-    DEPENDENT-FOLD BRIDGE.  [Model.math.chain] is now width-bounded: its
+    DEPENDENT-FOLD BRIDGE.  [Shrincs.internal.common.math.chain] is now width-bounded: its
     step [f : forall p, (p < w)%N -> A -> A] RECEIVES the in-range proof
     and the fold [chain x s n] is a FUNCTION of a bound proof
     [(s + n <= w)%N].  The abstract step of THIS layer is re-typed to
@@ -37,12 +37,12 @@
     [map]/boolean/[flatten] contexts with no bound in scope, we expose a
     TOTAL step [Fc] (guards the position, else identity) and a TOTAL
     fold [chainc] (structural [Fixpoint] over [Fc]).  On every in-range
-    input these agree with [Model.math.chain]'s dependent [f]/[chain]
+    input these agree with [Shrincs.internal.common.math.chain]'s dependent [f]/[chain]
     ([FcE], [chaincE]); the composition algebra [chainc_cat] /
     [chainc_split] / [chainc_rcons] holds UNCONDITIONALLY (the fold is
     total), so all the public definitions keep their exact statement
     shapes and the value/forgery lemmas gain only [_ <= w] / [_ < w]
-    side conditions where they invoke [Model.math.chain]'s [*P] specs.
+    side conditions where they invoke [Shrincs.internal.common.math.chain]'s [*P] specs.
     [chain_searchc] / [chain_extractc] are the analogous total mirrors of
     [chain_search] / [chain_extract], with bridges [chain_searchcE] /
     [chain_extractcE].  This keeps the step [F']'s in-range proof live at
@@ -57,7 +57,7 @@ From Shrincs.internal.common Require Import math.chain math.encoding.
 Import PackageNotation.
 #[local] Open Scope package_scope.
 
-(* ===== merged Sec.lib.toolkit.QSeq (generic seq/fmap/tweak helpers) ===== *)
+(* ===== merged Shrincs.internal.ssprove.lib.toolkit.QSeq (generic seq/fmap/tweak helpers) ===== *)
 
 
 (* ------------------------------------------------------------------ *)
@@ -202,7 +202,7 @@ Lemma ohead_mem {T : eqType} {s : seq T} {x : T} : ohead s = Some x -> x \in s.
 Proof. by case: s => //= a s [<-]; rewrite in_cons eqxx. Qed.
 
 
-(* ================= merged Sec.lib.chain.* ================= *)
+(* ================= merged Shrincs.internal.ssprove.lib.chain.* ================= *)
 
 (** All the [F]-using content is one [Section] so the four former
     [Chain.*] layers share the width-bounded step [F'] and the total
@@ -220,7 +220,7 @@ Context (PP N : choice_type).
 Context (l w tsum : nat).
 
 (** Position-tweaked hash: applying at position [p] SUPPLIES the proof
-    [p < w] (the [Model.math.chain] dependent-step convention), so a
+    [p < w] (the [Shrincs.internal.common.math.chain] dependent-step convention), so a
     consumer builds an exact [fin] position with no clamp. *)
 Context (F' : PP -> nat -> forall p : nat, (p < w)%N -> N -> N).
 
@@ -228,9 +228,9 @@ Context (F' : PP -> nat -> forall p : nat, (p < w)%N -> N -> N).
 Context (dN : dist N).
 
 (* ================================================================== *)
-(** ** Dependent-fold bridge: total wrappers over [Model.math.chain] *)
+(** ** Dependent-fold bridge: total wrappers over [Shrincs.internal.common.math.chain] *)
 
-(** The dependent chain step of chain [i] fed to [Model.math.chain]. *)
+(** The dependent chain step of chain [i] fed to [Shrincs.internal.common.math.chain]. *)
 Definition chainf (pp : PP) (i : nat) : forall p : nat, (p < w)%N -> N -> N :=
   fun p H x => F' pp i p H x.
 
@@ -311,7 +311,7 @@ rewrite (chainc_shift pp i x s n.+1) IH (chainc_shift pp i x s n).
 by rewrite addSnnS.
 Qed.
 
-(** TOTAL forged/honest walk (mirror of [Model.math.chain.chain_search]
+(** TOTAL forged/honest walk (mirror of [Shrincs.internal.common.math.chain.chain_search]
     with the total step). *)
 Fixpoint chain_searchc (pp : PP) (i : nat) (u v : N) (k n : nat) {struct n}
     : @Shrincs.internal.common.math.chain.ccase N :=
@@ -332,7 +332,7 @@ case: ifP => // _.
 by case: ifP => // _.
 Qed.
 
-(** TOTAL forgery classifier (mirror of [Model.math.chain.chain_extract]). *)
+(** TOTAL forgery classifier (mirror of [Shrincs.internal.common.math.chain.chain_extract]). *)
 Definition chain_extractc (pp : PP) (i : nat) (y : N) (j : nat) (z : N) (i' e : nat)
     : @Shrincs.internal.common.math.chain.ccase N :=
   chain_searchc pp i (chainc pp i y j (i' - j)) z i' (e - i').
@@ -347,7 +347,7 @@ rewrite (chaincE pp i y j (i' - j) Hij).
 by rewrite (chain_searchcE pp i _ z i' (e - i') Hie).
 Qed.
 
-(* ================= former Sec.lib.chain.scheme ================= *)
+(* ================= former Shrincs.internal.ssprove.lib.chain.scheme ================= *)
 
 (* ------------------------------------------------------------------ *)
 (** ** Pure scheme functions *)
@@ -437,7 +437,7 @@ rewrite /chain_ends /sign_digits -hxs.
 by apply: all_chain_checks; rewrite ?hm ?hxs.
 Qed.
 
-(* ================= former Sec.lib.chain.Sample ================= *)
+(* ================= former Shrincs.internal.ssprove.lib.chain.Sample ================= *)
 
 Fixpoint sample_sig_roots (pp : PP) (i : nat) (m : seq nat) :
     raw_code (chList N) :=
@@ -467,7 +467,7 @@ Definition ends_from_sig (pp : PP) (m : seq nat) (sg : seq N) : seq N :=
   [seq chainc pp q.1 q.2.2 q.2.1 (w.-1 - q.2.1)
   | q <- zip (iota 0 l) (zip m sg)].
 
-(* ================= former Sec.lib.chain.Forgery ================= *)
+(* ================= former Shrincs.internal.ssprove.lib.chain.Forgery ================= *)
 
 (* ------------------------------------------------------------------ *)
 (** *** Digit-vector selectors *)
@@ -840,7 +840,7 @@ have /allP/(_ t ht) := tcr_tweaks_from_range pp 0 m sigs.
 by rewrite add0n hm => /andP[h1 h2]; split.
 Qed.
 
-(* ================= former Sec.lib.chain.Decision (TCR) ================= *)
+(* ================= former Shrincs.internal.ssprove.lib.chain.Decision (TCR) ================= *)
 
 (* ================================================================== *)
 (** ** TCR decision and committed-query bookkeeping *)
@@ -1076,7 +1076,7 @@ exists (i, k), v; split.
 - exact: hcol.
 Qed.
 
-(* ================= former Sec.lib.chain.Decision (PRE) ================= *)
+(* ================= former Shrincs.internal.ssprove.lib.chain.Decision (PRE) ================= *)
 
 (* ================================================================== *)
 (** ** PRE decision and committed-query bookkeeping *)

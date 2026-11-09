@@ -11,7 +11,7 @@
     equational lemmas, and [sign_inv] -- kept separate from the model
     itself: [model.wots] is "what WOTS+C computes," this file is "why
     the computation has property X." Consumed by both the VST tree
-    (model/correct/wots.v, the shrincs_wots_grind_to_constant_sum body
+    (internal/common/correct/wots.v, the shrincs_wots_grind_to_constant_sum body
     proof) and the SSProve tree's model bridge. *)
 
 From Stdlib Require Import List ZArith Lia.

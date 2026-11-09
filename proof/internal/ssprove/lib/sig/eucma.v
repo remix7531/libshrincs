@@ -4,21 +4,21 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.lib.sig.eucma
+(** * Shrincs.internal.ssprove.lib.sig.eucma
 
     Adaptive existential-unforgeability-under-chosen-message-attack
     (EU-CMA) game pair for a [sig_scheme]: the adversary is handed a
     signing ORACLE it may query on messages of its choice -- each query
-    evolving the single stateful secret key, per [Sec.lib.sig.scheme]'s
+    evolving the single stateful secret key, per [Shrincs.internal.ssprove.lib.sig.scheme]'s
     key-update signing -- then must FORGE a valid signature on a message
     it never submitted.
 
-    Contrast [Sec.lib.sig.kots] (one-time, known-message), where the
+    Contrast [Shrincs.internal.ssprove.lib.sig.kots] (one-time, known-message), where the
     single signed message is fixed at key creation.  This is the general
     adaptive notion the SHRINCS tower's tree layers consume; the WOTS+C
     leaf itself is proved in the weaker KOTS experiment.
 
-    Real/ideal convention as in [Sec.lib.games.thf] and KOTS: ideal
+    Real/ideal convention as in [Shrincs.internal.ssprove.lib.games.thf] and KOTS: ideal
     FORGE returns false; the EU-CMA success of A is
     [AdvOf (EUCMA_game S) A]. *)
 

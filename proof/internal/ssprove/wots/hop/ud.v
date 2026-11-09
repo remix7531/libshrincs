@@ -4,19 +4,19 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.wots.hop.ud
+(** * Shrincs.internal.ssprove.wots.hop.ud
 
     The SM-UD hybrid telescope of the WOTS+C one-time security proof,
     step "UD hybrids (G_forge_sampledkey -> G_forge_uniformchains)": relating [G_forge_sampledkey] (chains rooted at
     position 0) to [G_forge_uniformchains] (chains re-rooted at the digits of the
     grinded digest) through the hybrid games [Hw s].
 
-    Built on the generic SM-UD chain layer [Sec.lib.chain.ud], whose pure
+    Built on the generic SM-UD chain layer [Shrincs.internal.ssprove.lib.chain.ud], whose pure
     layer ([roots_map]/[rud_sig]/[uq_real_map]/[sig_map] and their
     identities), sampler couplings ([r_sample_seq_size],
     [r_sample_sig_roots]) and relational mini-rules ([r_get_rhs_pin],
     [r_put_rhs_pre], [heap_ignore_set_l/rhs]) apply at the
-    address-wrapped chain hash [Fw] (the Sec.games bridge):
+    address-wrapped chain hash [Fw] (the Shrincs.internal.ssprove.games bridge):
     [Fw pp (i, k) x = F pp (chain_adrs i k) x], so all of them line up
     with shrincs_wots_scheme's [chainf]/[complete_ends] by conversion.
 
@@ -75,8 +75,8 @@ Import PackageNotation.
 
 Section WOTSCUDHop.
 
-(** The WOTS+C parameter record [P] (Sec.wots.params); the same
-    section context as Sec.wots.games. *)
+(** The WOTS+C parameter record [P] (Shrincs.internal.ssprove.wots.params); the same
+    section context as Shrincs.internal.ssprove.wots.games. *)
 Context (P : wc_params).
 
 (** Relational proof shorthand (twelve call sites below): remember the paired
@@ -96,7 +96,7 @@ Local Ltac ud_remember_rel x n :=
     projections iota-reduce); stated once so the endpoint proofs can
     rewrite instead of relying on implicit conversion.  [wcendsE]
     (shrincs_wots_scheme [complete_ends] = [ends_from_sig] at [FW]) is consumed from
-    Sec.wots.analysis. *)
+    Shrincs.internal.ssprove.wots.analysis. *)
 
 Lemma wsignE pp (xs : seq (wcp_N P)) (ds : seq nat) :
   Shrincs.internal.ssprove.lib.chain.core.sign_digits (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wcp_w P) (Fw P) pp xs ds
@@ -116,7 +116,7 @@ Proof. by []. Qed.
     the answer list: [grind_pick] returns the first (counter, digest
     value) whose decoded digits satisfy the digit-sum predicate —
     [find_counter]'s search, re-rooted at the oracle answers
-    ([grind_pick_map]).  These are exactly [Sec.hop.intermediates]'s
+    ([grind_pick_map]).  These are exactly [Shrincs.internal.ssprove.hop.intermediates]'s
     shared [cp_pick]/[cp_pick_map] (same picker the Compress and chain
     hops use); re-abbreviated here under this section's context. *)
 
@@ -131,7 +131,7 @@ Definition ud_hybrid_sig_loc := mkloc 312 (None : option (Sig (shrincs_wots_sche
 (** Per chain [i] with digit [d_i := nth 0 d i] of the grinded
     digest, [Hw s] samples ONE hidden uniform root at position
     [minn s d_i.-1] and reveals the signature value chained up to
-    [d_i] ([roots_map] (Sec.lib.chain.ud) at [FW]); the pk is the
+    [d_i] ([roots_map] (Shrincs.internal.ssprove.lib.chain.ud) at [FW]); the pk is the
     T_sf compression of the completed ends, the stored signature
     carries the grinding counter (as in G_forge_sampledkey/G_forge_uniformchains). *)
 Definition HGw (s : nat) (b : bool) : game (I_KOTS (shrincs_wots_scheme P)) :=

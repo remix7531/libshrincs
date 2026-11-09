@@ -12,7 +12,7 @@
     build time rather than taste: each of these bodies is a single
     [return] statement and its proof is four lines, while the fixed
     cost of any verif/ file is one load of the floyd + mathcomp +
-    SSProve stack. Six files would pay that load six times over
+    SSProve stack. Six files would pay that load cost six times over
     for twenty-four lines of proof. What the one-per-file rule buys is
     build PARALLELISM, and that is worth its fixed cost only where a
     file's own checking time dominates its load time -- which is
@@ -20,7 +20,7 @@
 
     WHAT THESE PROVE. That the C's bit expressions are the equations
     of FIPS 180-4 SS 4.1.2 -- (4.2) through (4.7), one lemma each.
-    They are also the first real use of Vst.sha256.bridge,
+    They are also the first real use of Shrincs.internal.vst.sha256.bridge,
     and they are its justification: each proof is [forward], then
     [entailer!], then a rewrite chain that pushes [w32_of_int] through
     the CompCert expression to the leaves, where [w32_of_intK] cancels

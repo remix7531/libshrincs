@@ -13,7 +13,7 @@
     [p[i] = (uint8_t)(x >> k)] into a [tarray tuchar] makes [forward]
     DIVERGE -- a Rocq [Timeout], not a failure -- once [k >= 24],
     because value evaluation [simpl]-unfolds [Int.Z_mod_modulus] and
-    [Z.shiftr] and the term explodes. Vst.settings sets the
+    [Z.shiftr] and the term explodes. Shrincs.internal.vst.support.settings sets the
     two [Arguments ... : simpl never] that prevent it and is imported
     below for exactly that reason. store_be32's first line is
     p[0] = x >> 24, so it fires immediately.
@@ -57,8 +57,7 @@ Local Open Scope Z_scope.
 (* ================================================================= *)
 (** ** The byte-extraction arithmetic
 
-    Pure [Z]/[Int] facts, no separation logic. Hoist candidates for a
-    later refactor pass into Vst.sha256. *)
+    Pure [Z] and [Int] facts used by the byte stores. *)
 
 (** clightgen emits the [(uint8_t)] cast twice -- once for the
     assignment's implicit conversion and once for the explicit cast --

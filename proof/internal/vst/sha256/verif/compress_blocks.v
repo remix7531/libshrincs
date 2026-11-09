@@ -25,7 +25,7 @@
 
     The one piece of real work per iteration is handing
     [sha256_parse] the 64 bytes at offset [64*i] of the caller's
-    array: Vst.base's [tuchar_split3_bytes] there and back. That
+    array: Shrincs.internal.vst.support.base's [tuchar_split3_bytes] there and back. That
     is the only place in the file where the input's block structure is
     taken apart, which is the point of having this function at all.
 
@@ -65,7 +65,7 @@ Local Open Scope Z_scope.
 
     [parse_blocks] indexes the message with mathcomp's [take] and
     [drop]; a [data_at] over the same bytes is cut with VST's
-    [sublist]. Vst.base's seq/list bridges are that dictionary;
+    [sublist]. Shrincs.internal.vst.support.base's seq/list bridges are that dictionary;
     this is the one instance of it the file needs. *)
 
 (** The i-th block of the message, as the two sides name it: VST's

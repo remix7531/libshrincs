@@ -17,8 +17,8 @@
     This is the shared, Stdlib-only ground-truth model for WOTS+C: the
     VST tree bridges its C-refinement proof to it directly, and the
     SSProve tree's headline theorem is instantiated against it (see
-    proof/ssprove/axioms.v and theorem.v's PRF-keyed
-    instantiation). Its address handling comes from [Model.address]
+    proof/internal/ssprove/axioms.v and theorem.v's PRF-keyed
+    instantiation). Its address handling comes from [Shrincs.internal.common.address]
     (the full shrincs-bip ADRS space) rather than a WOTS+C-only local
     record.
 
@@ -33,7 +33,7 @@
     matching [F]/[T_sf]/[H_grind] and the SSProve tree's own hash
     [Context] convention, rather than the spec's literal
     [PRF(pk_seed, sk_seed, ADRS)] (ADRS last) -- see
-    [proof/ssprove/wots/hop/prf.v]'s header, which documents the spec's
+    [proof/internal/ssprove/wots/hop/prf.v]'s header, which documents the spec's
     order as "a byte-level instantiation detail."
 
     The top-level algorithms ([shrincs_wots_pubkey_gen], [shrincs_wots_sign],
@@ -57,7 +57,7 @@ Definition len   : nat := 32.   (** chain count (= number of digits) *)
 (** [w - 1] as a [nat] (chain-step count). *)
 Definition w_pred : nat := 15.
 
-(** WOTS+C instantiates [Model.address]'s parametric ADRS at
+(** WOTS+C instantiates [Shrincs.internal.common.address]'s parametric ADRS at
     [chain_count = len] and [pos_bound = w_pred].  This notation keeps
     every [adrs] type mention in this file resolving to the fully
     applied [address.adrs len w_pred] (the parameters are otherwise
@@ -80,7 +80,7 @@ Definition pk_bytes  : Z := Z.of_nat n.               (* 16 = single T_sf hash *
 Definition sig_bytes : Z := 2 + Z.of_nat (len * n).   (* 514 = 2-byte counter ++ chains *)
 
 (* ================================================================= *)
-(** ** [block]: a byte string ([Model.sha256]'s), [zero_block]/
+(** ** [block]: a byte string ([Shrincs.internal.common.sha256]'s), [zero_block]/
     [trunc16]/[zeros] specialized to WOTS+C's width [n = 16]. *)
 
 Definition zero_block : block := repeat zero_byte n.
@@ -89,7 +89,7 @@ Definition zero_block : block := repeat zero_byte n.
 (* ================================================================= *)
 (** ** The tweakable hashes.
 
-    [SHA256] ([Model.sha256]) outputs [hash_bytes = 32] bytes; the
+    [SHA256] ([Shrincs.internal.common.sha256]) outputs [hash_bytes = 32] bytes; the
     tweakable hashes truncate to [n = 16]. *)
 
 Definition zeros (k : nat) : block := repeat zero_byte k.
@@ -100,7 +100,7 @@ Definition trunc16 (b : block) : block := firstn n b.
     pieces (well under [sha256_max_input_len]), so callers keep
     passing plain [list byte] instead of threading a length invariant
     through the whole model; [BList.clip] never actually truncates
-    anything a real call here produces (see [Model.sha256]'s header
+    anything a real call here produces (see [Shrincs.internal.common.sha256]'s header
     comment). *)
 Definition sha256' (input : block) : block :=
   Vec.to_list (SHA256 (BList.clip sha256_max_input_len ltac:(unfold sha256_max_input_len; lia) input)).
@@ -152,7 +152,7 @@ Proof. lia. Qed.
 (** [shrincs_wots_chain_iter X i s pk_seed ADRS Hs]: iterate the
     tweakable hash [F] on [X] for [s] steps, with the ADRS position
     field set to [i], [i+1], ..., [i+s-1] in turn (via
-    [Model.address.set_hash_pos]).  The ADRS must already carry the
+    [Shrincs.internal.common.address.set_hash_pos]).  The ADRS must already carry the
     WOTS+C chain type / index; only the position varies.  The step
     bound [Hs : i + s <= w_pred] is threaded so every position field is
     a real [fin 15] -- no clamp, exactly reachable-states.  It is

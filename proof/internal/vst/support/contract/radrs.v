@@ -6,7 +6,7 @@
 
 (** * contract.radrs: the flat "under-construction" ADRS for the C refinement.
 
-    [Model.address.adrs] is a dependent union: illegal field/type
+    [Shrincs.internal.common.address.adrs] is a dependent union: illegal field/type
     combinations are unrepresentable.  That is exactly right for the
     model and the security proof, but the C builds an ADRS by MUTATING a
     22-byte buffer in place -- prefill the anchor, write the type byte,
@@ -18,7 +18,7 @@
     per wire slot, no bounds, so every partial byte state is
     representable.  It is used ONLY inside the VST body proofs, as the
     intermediate under-construction value; the funspec pre/post
-    conditions still speak the union ([Model.address.adrs]) via
+    conditions still speak the union ([Shrincs.internal.common.address.adrs]) via
     [adrs_bytes].  The two are bridged by:
 
     - [adrs_to_raw] : the wire-field view of a union address, and
@@ -39,7 +39,7 @@ From Shrincs.internal.common Require Import byte fin address wots.
 Import ListNotations.
 Open Scope Z_scope.
 
-(** WOTS+C instantiates [Model.address]'s parametric ADRS at
+(** WOTS+C instantiates [Shrincs.internal.common.address]'s parametric ADRS at
     [chain_count = len] and [pos_bound = w_pred]; this notation keeps
     every bare [adrs] type mention resolving to the fully-applied
     [address.adrs len w_pred]. *)
@@ -67,7 +67,7 @@ Definition rset_payload_c (r : radrs) (v : Z) : radrs :=
   mk_radrs (rtag r) (ridx r) (rtype r) (rpa r) (rpb r) v.
 
 (** Serialize a wire view to its 22 bytes (same concatenation shape as
-    [Model.address.adrs_bytes]). *)
+    [Shrincs.internal.common.address.adrs_bytes]). *)
 Definition radrs_bytes (r : radrs) : list byte :=
   to_byte (rtag r)  1 ++
   to_byte (ridx r)  8 ++

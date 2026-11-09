@@ -9,8 +9,8 @@
  * the same transcription. Section references in the comments are to
  * FIPS 180-4.
  *
- * proof/vst/sha256/verif/ proves each function against the FIPS
- * definition in proof/model/sha256_spec.v. proof/vst/sha256/vsu.v
+ * proof/internal/vst/sha256/verif/ proves each function against the FIPS
+ * definition in proof/sha256.v. proof/internal/vst/sha256/vsu.v
  * packages the proofs as a Verified Software Unit with no imports.
  *
  * WHAT IS DELIBERATELY NOT HERE, and why
@@ -89,7 +89,7 @@
  *
  * ROTR is spelled the way SS 3.2 (4) defines it -- a shift, a shift
  * and an OR -- and not via a rotate intrinsic, so that the C and the
- * Rocq definition (Model.sha256_spec.ROTR) are the same expression.
+ * Rocq definition (Shrincs.sha256.ROTR) are the same expression.
  *
  * ROTR and SHR are macros whose expressions match the named
  * definitions in the model, and one bridge lemma each relates the

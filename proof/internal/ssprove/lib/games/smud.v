@@ -4,7 +4,7 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.lib.games.smud
+(** * Shrincs.internal.ssprove.lib.games.smud
 
     Single-function Multi-target Undetectability.
 
@@ -16,7 +16,7 @@
     CHECK oracle here; the game pair [SMUD_game] IS the paper's pair
     of experiments, and [AdvOf (SMUD_game T C p) A] coincides with
     the paper's Adv^{UD}_{Th,p}(A) (no real/ideal check-oracle
-    convention needed, cf. Sec.lib.games.thf).
+    convention needed, cf. Shrincs.internal.ssprove.lib.games.thf).
 
     Experiment structure (paper): a first stage queries the oracle on
     up to [p] DISTINCT tweaks, without seeing P; the second stage

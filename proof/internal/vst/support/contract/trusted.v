@@ -13,12 +13,12 @@
     it. Both are gone:
 
     - [sha256_spec] IS the sha256 translation unit's own contract,
-      [Vst.sha256.contract.spec_sha256] -- the one
-      [Vst.sha256.vsu]'s verified component exports and
-      [Vst.sha256.verif.sha256] proves the C body against.
+      [Shrincs.internal.vst.sha256.contract.spec_sha256] -- the one
+      [Shrincs.internal.vst.sha256.vsu]'s verified component exports and
+      [Shrincs.internal.vst.sha256.verif.sha256] proves the C body against.
       [sha256_spec_canonical] then says, by the kernel, that it is the
-      SAME TERM as the reviewer-facing [Model.sha256_spec.spec_sha256]
-      (the same statement [Vst.sha256.correct] makes about the
+      SAME TERM as the reviewer-facing [Shrincs.sha256.spec_sha256]
+      (the same statement [Shrincs.internal.vst.sha256.correct] makes about the
       component's Exports slot), so what [Gprog] promises about
       [shrincs_sha256] is FIPS 180-4 as transcribed in the file a
       reviewer reads.
@@ -37,7 +37,7 @@
 
     The in-tree libc alternatives ([shrincs_memcpy], [shrincs_memset],
     [shrincs_ct_memcmp], [shrincs_panic]) have their funspecs in
-    [contract.helpers] and their bodies proved in [proof/vst/verif].
+    [contract.helpers] and their bodies proved in [proof/internal/vst].
 
     When auditing: `make audit` checks that the model + vst trees
     declare no [Axiom]/[Parameter] at all (beyond [machine.v]'s
@@ -73,7 +73,7 @@ Definition sha256_spec : ident * funspec := Shrincs.internal.vst.sha256.contract
 
 (** ... and it is the reviewer-facing one, by [reflexivity] once the
     clone's hash name is rewritten to the canonical one. Same content
-    as [Vst.sha256.correct]'s [sha256_ASI_canonical], restated
+    as [Shrincs.internal.vst.sha256.correct]'s [sha256_ASI_canonical], restated
     here because THIS is the funspec [Gprog] hands to every caller. *)
 Lemma sha256_spec_canonical : sha256_spec = Shrincs.sha256.spec_sha256.
 Proof.
@@ -113,7 +113,7 @@ Qed.
 
 (** The digest word, back to its thirty-two bytes: [word_of_bytes] is
     injective on in-range byte lists of the right length, and
-    [Model.sha256] proves the digest is one. *)
+    [Shrincs.internal.common.sha256] proves the digest is one. *)
 Lemma bytes_of_sha256 (msg : list Z) :
   bytes_of_word U256 (Shrincs.sha256.sha256 msg) = Shrincs.sha256.sha256_bytes msg.
 Proof.

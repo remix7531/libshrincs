@@ -4,10 +4,10 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.lib.games.thf
+(** * Shrincs.internal.ssprove.lib.games.thf
 
     Abstract (tweakable) hash functions as data, and the conventions
-    shared by all assumption games in Sec.lib.games.*.
+    shared by all assumption games in Shrincs.internal.ssprove.lib.games.*.
 
     ** Real/ideal convention for search games
 
@@ -40,7 +40,7 @@
 
     ** Lazy public-parameter sampling (AUDIT NOTE)
 
-    Every game in Sec.lib.games.* samples its public parameter [th_dPP T]
+    Every game in Shrincs.internal.ssprove.lib.games.* samples its public parameter [th_dPP T]
     EXACTLY ONCE, LAZILY, and SHARES it across all oracles, via the
     identical idiom (in each oracle that needs [pp]):
 
@@ -68,7 +68,7 @@ Import PackageNotation.
 
 (** A tweakable hash function with the samplers its games need.
     [th_eval] is a pure abstract function: assumptions about it are
-    exactly the game pairs of Sec.lib.games.*, nothing else. *)
+    exactly the game pairs of Shrincs.internal.ssprove.lib.games.*, nothing else. *)
 Record thf := {
   th_PP : choice_type ;            (* public parameter (PKseed)      *)
   th_T  : choice_type ;            (* tweak (encoded address)        *)

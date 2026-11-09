@@ -9,7 +9,7 @@
     SS 3.1 (2): the four bytes at [p] read as one big-endian 32-bit
     word. Together with store_be32 this is the only place in
     src/sha256.c where byte order is decided, and the funspec states
-    it against the shared [word_of_bytes] codec in [Model.bytes].
+    it against the shared [word_of_bytes] codec in [Shrincs.internal.common.bytes].
 
     THE SHAPE. Four loads, one [return], and then a single arithmetic
     identity: CompCert's shift-or tower and [word_of_bytes]' [foldl]
@@ -132,7 +132,7 @@ change (Znth 2 (Vubyte b0 :: Vubyte b1 :: Vubyte b2 :: Vubyte b3 :: nil))
 change (Znth 3 (Vubyte b0 :: Vubyte b1 :: Vubyte b2 :: Vubyte b3 :: nil))
   with (Vubyte b3).
 (* the C's [sem_or]/[sem_shift_ii]/[sem_cast_i2i] on concrete [Vint]s;
-   Vst.settings is what keeps this from diverging *)
+   Shrincs.internal.vst.support.settings is what keeps this from diverging *)
 simpl.
 f_equal.
 apply int_be32_word_of_bytes.

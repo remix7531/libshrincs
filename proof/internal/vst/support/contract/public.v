@@ -17,7 +17,7 @@ Definition Vprog : varspecs. mk_varspecs prog. Defined.
 
 Open Scope Z_scope.
 
-(** WOTS+C instantiates [Model.address]'s parametric ADRS at
+(** WOTS+C instantiates [Shrincs.internal.common.address]'s parametric ADRS at
     [chain_count = len] and [pos_bound = w_pred]; this notation keeps
     every bare [adrs] type mention resolving to [address.adrs len w_pred]. *)
 Local Abbreviation adrs := (address.adrs len w_pred).
@@ -107,8 +107,8 @@ Lemma w_pred_eq           : w_pred           = 15%nat. Proof. reflexivity. Qed.
 (* ================================================================= *)
 (** ** The C-refinement chain-index totalizer.
 
-    [Model.address]'s WOTS+C constructors ([shrincs_wots_hash_adrs] /
-    [shrincs_wots_prf_adrs]) and [Model.wots.shrincs_wots_derive_sk] now
+    [Shrincs.internal.common.address]'s WOTS+C constructors ([shrincs_wots_hash_adrs] /
+    [shrincs_wots_prf_adrs]) and [Shrincs.internal.common.wots.shrincs_wots_derive_sk] now
     take a bound-carrying [fin 32] chain index directly (the exact
     reachable-states model).  The C step functions carry the chain index
     as a plain [nat]/[Z] word with the bound only in the funspec [PROP],
@@ -116,7 +116,7 @@ Lemma w_pred_eq           : w_pred           = 15%nat. Proof. reflexivity. Qed.
     total [nat -> fin 32] inverse used at this C-refinement boundary --
     value-preserving whenever the index is in range (which every WOTS+C
     caller guarantees: chain index [< chain_count = 32]), saturating to 0
-    otherwise.  It is the VST-side sibling of [Sec.addressing.chain_of_nat]
+    otherwise.  It is the VST-side sibling of [Shrincs.internal.ssprove.addressing.chain_of_nat]
     (the SSProve fold's totalizer); the pure model itself stays clamp-free.
 
     Value-faithfulness ([to_chain32_val] / [to_chain32_id]) is all the
@@ -181,7 +181,7 @@ Proof.
 Qed.
 
 (** The C-refinement totalizer for the DEPENDENT chain iterate.
-    [Model.wots.shrincs_wots_chain_iter] is a dependent [Fixpoint] taking a
+    [Shrincs.internal.common.wots.shrincs_wots_chain_iter] is a dependent [Fixpoint] taking a
     final [start + steps <= w_pred] proof; a VST funspec POST cannot see
     the [PROP]-level bound (WITH binders are not a dependent telescope in
     this VST), so the POST is written with this total wrapper instead.  It

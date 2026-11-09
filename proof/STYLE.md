@@ -2,18 +2,18 @@
 
 This is the **one** style guide for all three proof trees under `proof/`:
 
-- **`Model`** (`proof/model/`) — the framework-neutral core (L0-L3): the
+- **`Model`** (`proof/internal/common/`) — the framework-neutral core (L0-L3): the
   cloned machine integers (`machine.v`), the bounded vectors / lists
   (`bounded.v`), the byte alphabet (`byte.v`), the address record
   (`address.v`), the abstract SHA-256 interface (`sha256.v`), the WOTS+C
   construction (`wots.v`), and the shared pure-math (`math/`). It depends on
   **neither** framework: no CompCert/VST, no SSProve. Both `Vst` and `Sec`
   consume it; nothing here may reach up into them.
-- **`Sec`** (`proof/ssprove/`) — the SSProve/MathComp security proof (Rocq +
+- **`Sec`** (`proof/internal/ssprove/`) — the SSProve/MathComp security proof (Rocq +
   ssreflect, state-separating proofs) that WOTS+C is one-time
   known-message unforgeable.
-- **`Vst`** (`proof/vst/`) — the VST/CompCert functional-correctness proof
-  that `src/wots.c` implements `Model.wots`.
+- **`Vst`** (`proof/internal/vst/`) — the VST/CompCert functional-correctness proof
+  that `src/wots.c` implements `Shrincs.internal.common.wots`.
 - **`Assumptions`** (`proof/assumptions/`) — the cross-cutting
   `Print Assumptions` probes (`model.v`, `ssprove.v`, `vst.v`) that back the
   honesty gate below; not a proof tree of its own, but it shares the same
@@ -27,14 +27,14 @@ proof organization.
 
 Every directory and file under every proof tree is `snake_case`
 (`contract/helpers_wots.v`, `wots/hop/chain_tcr.v`, `lib/chain/core.v`,
-`model/math/chain.v`). The **logical/module roots** stay capitalized —
+`internal/common/math/chain.v`). The **logical/module roots** stay capitalized —
 `Model`, `Sec`, `Vst`, `Assumptions` — because those are the `-Q` load-path
 names registered in `proof/_RocqProject` (`-Q model Model`, `-Q ssprove Sec`,
 `-Q vst Vst`, `-Q assumptions Assumptions`), not directory names on disk; the
 physical directories they map from (`model/`, `ssprove/`, `vst/`,
 `assumptions/`) are themselves lowercase. Every other segment of a module
-path is the snake_case file/directory name unchanged (`Sec.wots.hop`,
-`Vst.contract.gprog`, `Model.math.chain`).
+path is the snake_case file/directory name unchanged (`Shrincs.internal.ssprove.wots.hop`,
+`Shrincs.internal.vst.support.contract.gprog`, `Shrincs.internal.common.math.chain`).
 
 This is uniform now — there is no per-tree exception left. (Earlier
 revisions of this rule had `Sec` files in `CamelCase` and carved `model/math/`
@@ -88,7 +88,7 @@ name in all three trees.
   `shrincs_wots_hash_adrs`, `shrincs_wots_prf_adrs`, ...). The scheme record is
   `shrincs_wots_scheme`.
 - Generic, scheme-agnostic machinery (the hash-based-signature library slice in
-  `Sec.lib.*`, the pure math in `Model.math.*`, the machine integers) does NOT
+  `Shrincs.internal.ssprove.lib.*`, the pure math in `Shrincs.internal.common.math.*`, the machine integers) does NOT
   take the prefix — it is reusable across the SHRINCS family, so it stays named
   by what it is (`chain_cat`, `Word.repr`, `digits_w`), not by WOTS+C.
 
@@ -200,7 +200,7 @@ subject to trimming for brevity.
 Every hand-written file opens with the same 5-line MIT block the C
 sources carry (`src/`, `include/`) — it is the file PREFIX: line 1 of
 the file, then exactly one blank line, then the file-header doc
-comment. Generated files (`vst/clight/`) are exempt.
+comment. Generated files (`clight/`) are exempt.
 
 ```coq
 (* SPDX-License-Identifier: MIT
@@ -231,22 +231,22 @@ comment. Generated files (`vst/clight/`) are exempt.
 - Group imports by origin, with a blank line between groups: the base
   library first (`From Stdlib Require Import ...` / the SSProve prelude),
   then the project's own trees, then anything else. In Model:
-  `From Stdlib Require Import ...` then `From Model Require Import ...`.
-  In Sec: `From Sec.lib Require Import prelude` first (it brings the whole
+  `From Stdlib Require Import ...` then `From Shrincs.internal.common Require Import ...`.
+  In Sec: `From Shrincs.internal.ssprove.lib Require Import prelude` first (it brings the whole
   SSProve + MathComp + Equations surface plus the project settings), then
-  the rest of `Sec.lib.*`, then `Sec.*`, then bare `mathcomp` extras, then
-  `From Model Require Import math.chain math.encoding`.
+  the rest of `Shrincs.internal.ssprove.lib.*`, then `Shrincs.internal.ssprove.*`, then bare `mathcomp` extras, then
+  `From Shrincs.internal.common Require Import math.chain math.encoding`.
 - Except for the interfaces listed below, a `Model` file must never
   `Require` anything from `Vst`, `Sec`, `VST`, `compcert`, or the
   SSProve/MathComp surface. `machine.v` is a self-contained clone
   precisely so this boundary holds.
-- **Carve-out: byte representations and SHA-256.** `model/bytes.v`
+- **Carve-out: byte representations and SHA-256.** `internal/common/bytes.v`
   imports the MathComp word library and SSProve's word carrier to
-  connect the proof stacks' byte representations. `model/sha256_spec.v`
+  connect the proof stacks' byte representations. `sha256.v`
   includes the FIPS definition and its exported C contract, so it
-  imports VST through `Vst.repr.words`. `model/sha256.v` wraps that
+  imports VST through `Shrincs.internal.vst.support.repr.words`. `internal/common/sha256.v` wraps that
   definition for the shared model.
-- **Carve-out: `math/`.** `Model.math.*` (`chain.v`, `encoding.v`) is the
+- **Carve-out: `math/`.** `Shrincs.internal.common.math.*` (`chain.v`, `encoding.v`) is the
   MathComp island: it opens `From mathcomp Require Import boot
   order` and follows ssreflect idiom (`seq`, boolean reflection, `Set
   Implicit Arguments`) instead of the plain-Gallina style the rest of
@@ -278,7 +278,7 @@ gate fails on these:
    allowed files. Model permits the `machine.v` module-type fields and
    the discharged `Hpb` hypothesis in `address.v`. Sec permits the six
    named hash-game axioms and their `eps_*` parameters in
-   `ssprove/axioms.v`. Vst permits no assumption declarations. The probe
+   `internal/ssprove/axioms.v`. Vst permits no assumption declarations. The probe
    checks the actual assumption cone, including declarations in allowed
    files. A theorem must not take an advantage bound or the existence of
    a reduction as a premise. Every reduction is constructed. The only
@@ -376,7 +376,7 @@ top of **SSProve** (state-separating proofs).
   `ud_hybrid_`, `r_ud_`, `r_grind_`, `r_compress_`, `r_chain_tcr_`,
   `r_chain_pre_`, `r_prf_`). Match these names when extending the tree.
 - **Parameters travel as one record.** Files take a single
-  `Context (P : wc_params)` (`Sec.wots.params`); scheme and game constants are
+  `Context (P : wc_params)` (`Shrincs.internal.ssprove.wots.params`); scheme and game constants are
   plain definitions applied to `P` (`digest_of P`, `shrincs_wots_scheme P`,
   `wsigs P`, ...), never per-file `Local Abbreviation` pins of parameter-applied
   constants. Hop-LOCAL proof abbreviations (invariant shapes, `r_*_tail`-style
@@ -391,7 +391,7 @@ these are the exact per-tree numbers/examples):
 1. **File header** — `(** * Logical.Module.Name` followed by a prose paragraph
    stating what the file proves and how it fits the proof:
    ```coq
-   (** * Sec.hop.ChainTCR
+   (** * Shrincs.internal.ssprove.hop.ChainTCR
 
        The SM-TCR(F) chain hop ... *)
    ```
@@ -418,7 +418,7 @@ these are the exact per-tree numbers/examples):
 - Relational proofs go through the project's relational rule lemmas
   (`r_put_lhs`/`r_put_rhs`, `r_get_rhs_known`, `r_ret`, `r_reflexivity_alt`, ...).
   When you need a new such rule, state it as a **generic** lemma in
-  `Sec.lib.toolkit.relational_rules` rather than a one-off inside a hop — keep all
+  `Shrincs.internal.ssprove.lib.toolkit.relational_rules` rather than a one-off inside a hop — keep all
   hops drawing from one shared set.
 - Invariants are `heap_ignore <locs>` refined with `rel_app`/`couple_*`; define the
   location set and the invariant once per package and reuse the helper update
@@ -429,14 +429,14 @@ these are the exact per-tree numbers/examples):
 
 ## Reuse over duplication
 
-The generic, hash-parameterized chain machinery lives in `Sec.lib.Chain.*`
+The generic, hash-parameterized chain machinery lives in `Shrincs.internal.ssprove.lib.Chain.*`
 (scheme functions, root sampling, forgery analysis, the SM-TCR/SM-PRE decision
 layer, the SM-UD maps); the WOTS+C hops *instantiate* it at the address-wrapped
 chain hash `Fw` rather than re-deriving it. When a lemma/definition is generic
 over the tweak/address transformer (pure `qnth`/`fmap` bookkeeping, per-chain
-induction skeletons), put it in `Sec.lib.Chain.*` and instantiate it in the hop,
+induction skeletons), put it in `Shrincs.internal.ssprove.lib.Chain.*` and instantiate it in the hop,
 so the hop's obligation shrinks to "instantiate + discharge the wrapper". A new
-generic relational rule goes in `Sec.lib.toolkit.relational_rules`, not a one-off
+generic relational rule goes in `Shrincs.internal.ssprove.lib.toolkit.relational_rules`, not a one-off
 inside a hop. Factor a repeated tactic block into a named lemma or a small
 `Ltac`/`Notation` only once the same shape has appeared 3+ times; below that
 threshold, prefer repetition.

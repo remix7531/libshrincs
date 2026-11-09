@@ -14,9 +14,9 @@ recorded in `proof/assumptions/allowed.txt`. The concrete corollary over real SH
 hash-hardness axioms, by design. It is a self-contained proof-of-concept: a generic
 hash-based-signature library (`lib/`), the WOTS+C scheme and proof (under `wots/`,
 including `wots/hop/`/`wots/bound/`), `bridge.v`, which bridges this tree's
-math layer directly to the shared `Model.wots` (also used by the VST proof, at
-`proof/model/wots.v`), and `wots/model_bridge.v`, which uses that bridge to prove the
-games scheme's public key / signing / verification agree with `Model.wots` end to end
+math layer directly to the shared `Shrincs.internal.common.wots` (also used by the VST proof, at
+`proof/internal/common/wots.v`), and `wots/model_bridge.v`, which uses that bridge to prove the
+games scheme's public key / signing / verification agree with `Shrincs.internal.common.wots` end to end
 at the concrete SHA-256 instantiation. Naming was originally
 chosen to track the shrincs-bip specification's `wots_c_*` algorithm names
 and `chain_count`/`constant_sum` parameters; after libshrincs's multi-scheme
@@ -111,16 +111,16 @@ entire human review surface:
    `shrincs_wots_pubkey_gen`/`shrincs_wots_sign`/`shrincs_wots_verify` (PRF key derivation, grinding,
    chains, public-key compression) and the address structure faithfully define
    WOTS+C? This is the artifact's specification of the scheme; the pure contract it
-   is bridged against is the shared [`Model.wots`](../model/wots.v) (also used by the
+   is bridged against is the shared [`Shrincs.internal.common.wots`](../common/wots.v) (also used by the
    VST proof), with the digit/chain/counter equivalences proved in
    [`bridge.v`](bridge.v). The games↔model correspondence is now proved
    **end-to-end** in [`wots/model_bridge.v`](wots/model_bridge.v): at the concrete
    truncated-SHA256 instantiation, the games scheme computes the same thing as the
-   ground-truth `Model.wots`, discharged as plain equalities through the
+   ground-truth `Shrincs.internal.common.wots`, discharged as plain equalities through the
    `encode16`/`decode16` dictionary — the four headliners are `pubkey_gen_modelE`
    (keyed public key), `find_counter_modelE` (grinding search), `verify_modelE`
    (boolean verification) and `sign_modelE` (partial signing).
-   `scheme.digest_of` reads MSB-first, matching `Model.wots.base_2b`, so
+   `scheme.digest_of` reads MSB-first, matching `Shrincs.internal.common.wots.base_2b`, so
    `model_bridge.digest_of_modelE` proves the two digit vectors *equal* (no
    `[i ↔ chain_count-1-i]` relabeling).
 4. **The statement** — [`theorem.v`](wots/theorem.v): quantified over
@@ -134,7 +134,7 @@ entire human review surface:
    via the unconditional link in `kots_link.v` — read whichever form matches the
    notion you trust.
 5. **The trusted base** —
-   [`assumptions/allowed.txt`](../assumptions/allowed.txt): the inherited
+   [`assumptions/allowed.txt`](../../assumptions/allowed.txt): the inherited
    library baseline, plus (only for the concrete
    `shrincs_wots_secure_sha256` corollary) 6 named hash-hardness axioms in
    [`axioms.v`](axioms.v) — PRF, SM-UD, STCRP, SM-TCR at the
@@ -176,24 +176,24 @@ and every source has an up-to-date `.vo`.
 
 ## Layout
 
-The WOTS+C scheme and proof live under `wots/` (so they take the `Sec.wots.*`
-logical namespace, leaving the top-level `Sec.*` namespace free for future
+The WOTS+C scheme and proof live under `wots/` (so they take the `Shrincs.internal.ssprove.wots.*`
+logical namespace, leaving the top-level `Shrincs.internal.ssprove.*` namespace free for future
 schemes); the shared substrate — `addressing.v`, `bridge.v`, `lib/` — stays at the
 top level. Everything sits under a single Rocq logical root declared in the
 `proof/_RocqProject`: `Sec` (this whole directory — the scheme + proof, the
 `bridge.v` model bridge, and the `lib/` generic substrate). The neutral model lives
-under the `Model` root, and the cross-cutting assumption probes under `Assumptions`
-(`proof/assumptions/`, one level up).
+under `Shrincs.internal.common`, and the cross-cutting assumption probes under
+`proof/assumptions/`.
 
 - **`bridge.v`** — the proved equivalences between the shared
-  [`Model.wots`](../model/wots.v) (also used by the VST proof) and this repo's math
+  [`Shrincs.internal.common.wots`](../common/wots.v) (also used by the VST proof) and this repo's math
   layer (MSB-first bit-group digits vs LSB-first `digits_w`, the counter search, the
   chain recursion), plus (in `axioms.v`) the
   instantiation to concrete SHA-256. `wots/model_bridge.v` then consumes these
-  equivalences to prove the full games↔`Model.wots` correspondence (pubkey, counter,
+  equivalences to prove the full games↔`Shrincs.internal.common.wots` correspondence (pubkey, counter,
   signing, verification) at that instantiation. The big-endian byte-encoding lemmas
   it builds on (`be_num`, `digits_w_split`) live in the shared
-  [`Model.math.encoding`](../model/math/encoding.v).
+  [`Shrincs.internal.common.math.encoding`](../common/math/encoding.v).
 - **`lib/`** — hash-based signatures in SSProve: `prelude.v` (shared imports), the
   assumption games (`games/`, including `prf_derive.v`, the generic PRF-derived-keys
   loop machinery factored out of the WOTS+C PRF hop — instantiated at
@@ -203,18 +203,16 @@ under the `Model` root, and the cross-cutting assumption probes under `Assumptio
   functions, root sampling, forgery analysis, the SM-TCR/SM-PRE decision layer, the
   SM-UD sampling maps) — all parameterized by an abstract tweakable hash. The
   shared combinatorial core (digit/checksum combinatorics) lives outside this tree,
-  in `Model.math` (`proof/model/math/`).
+  in `Shrincs.internal.common.math` (`proof/internal/common/math/`).
 - **`wots/`** — the WOTS+C scheme (`scheme.v`; the shared `addressing.v` stays at
   the top level), its game scaffolding (`games.v`, `analysis.v`), one reduction per
   assumption (`wots/hop/`: `Grind`, `Compress`, the chain halves `ChainTCR`/`ChainPRE`
   over their shared `ChainCommon`, `UD`, and the key-derivation hop `Prf` with the
   keyed game `G_forge_keyed`), the per-hop advantage bounds (`wots/bound/`), the
   assembling `theorem.v`, the spec-parameter corollary (`instantiation.v`), the
-  concrete SHA-256 connection (`axioms.v`), the games↔`Model.wots`
+  concrete SHA-256 connection (`axioms.v`), the games↔`Shrincs.internal.common.wots`
   correspondence (`model_bridge.v`), and the link to the standard KOTS notion
-  (`kots_link.v`) — all under the `Sec.wots.*` namespace.
-
-42 source files, ~13,050 lines. SSProve is the only external Rocq dependency.
+  (`kots_link.v`) — all under the `Shrincs.internal.ssprove.wots.*` namespace.
 
 ## Scope
 
@@ -231,5 +229,5 @@ under the `Model` root, and the cross-cutting assumption probes under `Assumptio
 - **Abstract, with a concrete SHA-256 corollary.** The headline theorems are proved
   over abstract tweakable-hash families; [`axioms.v`](axioms.v)
   instantiates them with the spec's real truncated-SHA-256 construction (via
-  [`Model.wots`](../model/wots.v)), yielding `shrincs_wots_secure_sha256`: an
+  [`Shrincs.internal.common.wots`](../common/wots.v)), yielding `shrincs_wots_secure_sha256`: an
   unconditional bound modulo 6 named hash-hardness axioms.

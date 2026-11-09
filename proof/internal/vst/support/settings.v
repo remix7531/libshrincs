@@ -4,7 +4,7 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Vst.settings: the settings every sha256 body proof needs
+(** * Shrincs.internal.vst.support.settings: the settings every sha256 body proof needs
 
     Small, and load-bearing. Everything here exists because a
     [forward] misbehaves without it.

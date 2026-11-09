@@ -4,7 +4,7 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.wots.games
+(** * Shrincs.internal.ssprove.wots.games
 
     Game-instance scaffolding for the WOTS+C one-time security proof:
     the [thf] / [thf_coll] instances for the three tweakable hash
@@ -17,13 +17,13 @@
     known-message game pair specialized to the WOTS+C scheme operations
     (grinding, pk compression, concrete stateful addresses); the SM-UD
     re-rooting machinery ([sample_sig_roots]) comes from the chain
-    library (Sec.lib.chain) at the address-wrapped chain hash [Fw].
+    library (Shrincs.internal.ssprove.lib.chain) at the address-wrapped chain hash [Fw].
 
     ** The thf instances (documented th_* choices)
 
     All three instances share th_PP := PP (PKseed) and
     th_T := [wc_adrs_ch P], the encoded stateful address space of
-    Sec.addressing (thf tweaks must be a [choice_type]; the
+    Shrincs.internal.ssprove.addressing (thf tweaks must be a [choice_type]; the
     scheme's structured [wc_adrs P] addresses enter via [encode_tweak],
     and [th_eval] decodes with the proven-cancelling [decode_tweak] —
     the junk branch on non-canonical tuples is dead code, see
@@ -38,7 +38,7 @@
     - [thf_grind] (grinding hash H_grind):   th_M := M × 'nat (message,
             counter — STCRP's [enc m c := (m, c)]), th_N := 'nat (the
             digest as a [nat], parsed base-w downstream, exactly as in
-            Sec.wots.scheme); only S-TCR(Prop) is assumed on H_grind,
+            Shrincs.internal.ssprove.wots.scheme); only S-TCR(Prop) is assumed on H_grind,
             which never samples th_M/th_N, so both samplers are
             dummies (th_dM needs SOME inhabitant of M, whence the
             record field [wcp_dM] — data only, never used by the
@@ -74,7 +74,7 @@
 
     ** G_forge_sampledkey / G_forge_uniformchains (the valid-commit game pair)
 
-    [G_forge_sampledkey] is the known-message game (Sec.lib.sig.kots) for the
+    [G_forge_sampledkey] is the known-message game (Shrincs.internal.ssprove.lib.sig.kots) for the
     shrincs_wots_scheme scheme, flattened into one self-contained package, in the
     VALID-COMMIT variant: COMMIT [#assert]s grinding success
     ([isSome (find_counter ...)]) right after sampling PKseed, so a
@@ -83,11 +83,11 @@
     refusal-branch forgeries would need targets at EVERY position
     with no consumer — and the tree layer only ever signs grindable
     digests by construction.  This is the VALID-COMMIT variant
-    [KOTS_vc_game shrincs_wots_scheme] (Sec.lib.sig.kots), not the
+    [KOTS_vc_game shrincs_wots_scheme] (Shrincs.internal.ssprove.lib.sig.kots), not the
     plain [KOTS_game]; the correspondence between this flat game (and
-    its keyed sibling [G_forge_keyed], Sec.wots.hop.prf) and
+    its keyed sibling [G_forge_keyed], Shrincs.internal.ssprove.wots.hop.prf) and
     [KOTS_vc_game] is now MACHINE-CHECKED, unconditionally and
-    perfectly, in Sec.wots.kots_link — no longer a merely-documented
+    perfectly, in Shrincs.internal.ssprove.wots.kots_link — no longer a merely-documented
     deviation.
 
     COMMIT also stores the issued signature (chain values + counter)
@@ -195,7 +195,7 @@ End WOTSCGamesCore.
 
 Section WOTSCGames.
 
-(** The WOTS+C parameter record (see Sec.wots.params). *)
+(** The WOTS+C parameter record (see Shrincs.internal.ssprove.wots.params). *)
 Context (P : wc_params).
 
 (* ------------------------------------------------------------------ *)
@@ -253,7 +253,7 @@ Definition coll_grind : thf_coll thf_grind := coll_grind_core (wc_core_of P).
 (* ------------------------------------------------------------------ *)
 (** ** The STCRP instantiation for H_grind
 
-    Sec.lib.games.stcrp is parameterized by (Mb, enc, prp, cap); the
+    Shrincs.internal.ssprove.lib.games.stcrp is parameterized by (Mb, enc, prp, cap); the
     grinding instance is Mb := M, enc := pairing with the counter,
     prp := the digit-sum predicate on the decoded digest, cap :=
     c_max (the bounded-search deviation documented in stcrp.v matches
@@ -292,7 +292,7 @@ Qed.
 Definition Fw (pp : wcp_PP P) (i : nat) (p : nat) (_ : (p < wcp_w P)%N) (x : wcp_N P) : wcp_N P :=
   wcp_F P pp (chain_adrs P i p) x.
 
-(** [Fw]'s chain steps are the scheme's ([chainf] of Sec.wots.scheme ==
+(** [Fw]'s chain steps are the scheme's ([chainf] of Shrincs.internal.ssprove.wots.scheme ==
     the chain library's [chainf] at [Fw]); stated once so consumers
     can rewrite instead of relying on conversion. *)
 Lemma chainf_Fw pp i :

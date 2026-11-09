@@ -4,15 +4,15 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.wots.hop.chain_tcr
+(** * Shrincs.internal.ssprove.wots.hop.chain_tcr
 
     The SM-TCR(F) chain hop, [G_post_compress -> G_post_chain]: the reduction [R_chain_tcr]
     routes G_post_compress's KFORGE chain-collision case to an SM-TCR(F) CHECK and
     is perfect on both sides of the SM-TCR pair ([R_chain_tcr_real],
     [R_chain_tcr_ideal]).  The shared chain substrate (context, tweak
     notations, the forgery bridge lemmas) lives in
-    [Sec.hop.chain_common], and the shared intermediate games
-    (including the endpoint [G_post_chain]) in [Sec.hop.intermediates]; this
+    [Shrincs.internal.ssprove.hop.chain_common], and the shared intermediate games
+    (including the endpoint [G_post_chain]) in [Shrincs.internal.ssprove.hop.intermediates]; this
     file is the SM-TCR half built over that substrate. *)
 
 From mathcomp.experimental_reals Require Import distr.
@@ -32,7 +32,7 @@ Import PackageNotation.
 #[local] Open Scope sep_scope.
 Section ChainTCR.
 
-(** Same section context as Sec.games minus the dummy message
+(** Same section context as Shrincs.internal.ssprove.games minus the dummy message
     sampler [dM] (only [thf_grind] needs it). *)
 Context (P : wc_params).
 
@@ -68,7 +68,7 @@ Definition ct_gpo : opsig := (GETPP, ('unit, th_PP (thf_chain P))).
 Definition ct_cko : opsig := (CHECK, ('nat × th_M (thf_chain P), 'bool)).
 
 (** The grinding loop: one COLLQ (H_grind member, [inr]) per counter;
-    returns the answer list ([cp_grind] of Sec.hop.compress at
+    returns the answer list ([cp_grind] of Shrincs.internal.ssprove.hop.compress at
     [coll_chain]). *)
 Fixpoint ct_grind (m : (wcp_M P)) (cs : seq nat) : raw_code (chList 'nat) :=
   match cs with
@@ -288,14 +288,14 @@ Qed.
 #[local] Arguments tcr_decision : simpl never.
 #[local] Arguments pre_decision : simpl never.
 
-(** Conversion bridge ([Sec.hop.chain_common.ct_collq_H_E]): the COLLQ
+(** Conversion bridge ([Shrincs.internal.ssprove.hop.chain_common.ct_collq_H_E]): the COLLQ
     answer at the grinding address, post-processed by the loop's
     [inr]-projection, IS the scheme's H_grind output. *)
 
 (* ------------------------------------------------------------------ *)
 (** *** The invariant (header)
 
-    Follows the hop-invariant template (see [Sec.hop.grind]); the
+    Follows the hop-invariant template (see [Shrincs.internal.ssprove.hop.grind]); the
     Some-branch delta here stores the per-chain committed query list
     [qmap_from 0 [seq wq q | q <- commit_queries ...]]. *)
 

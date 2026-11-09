@@ -4,7 +4,7 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.lib.toolkit.relational_rules
+(** * Shrincs.internal.ssprove.lib.toolkit.relational_rules
 
     Generic one-sided / semantic relational program-logic rules used by
     the WOTS+C block inductions.
@@ -248,7 +248,7 @@ Qed.
     collapses the goal to [r_fail_bind_rhs] ([bind fail k] has null
     semantics).  The scheme generalization of SSProve's single-command
     [r_cmd_fail]; used for the sign-refusal COMMIT branch of the
-    KOTS<->WOTS+C link (Sec.wots.kots_link), where the game side aborts
+    KOTS<->WOTS+C link (Shrincs.internal.ssprove.wots.kots_link), where the game side aborts
     outright and the keyed side samples its key/chain starts before
     the refused sign fails. *)
 Lemma r_fail_scheme_rhs {A B C : choice_type} (c : raw_code B)

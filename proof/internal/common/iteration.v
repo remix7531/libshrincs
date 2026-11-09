@@ -4,7 +4,7 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Model.iteration: list-comprehension helpers for scheme models.
+(** * Shrincs.internal.common.iteration: list-comprehension helpers for scheme models.
 
     Defines the two pieces used by [model.wots] (and any future scheme
     model) to read like RFC-8391-style pseudocode:

@@ -42,7 +42,7 @@
     SCOPE TRAP, and the reason every list below carries an explicit
     [%list]. With mathcomp's seq_scope on top of the stack a bare [++]
     is mathcomp's [cat], not [List.app] -- the two are different
-    constants, Vst.base's [catE] is the bridge, and floyd's
+    constants, Shrincs.internal.vst.support.base's [catE] is the bridge, and floyd's
     [list_solve] only knows [app]. [pad] is built with [cat]; every
     loop invariant is built with [app]. *)
 
@@ -73,7 +73,7 @@ Local Open Scope Z_scope.
     [tarray tuchar] holds [byte]s. These two say the round trip is the
     identity on the ranges the padding produces. The seq/list spelling
     bridges the proof also needs ([catE], [repeatE], [take_firstn],
-    [sublist_take_drop], ...) are Vst.base's. *)
+    [sublist_take_drop], ...) are Shrincs.internal.vst.support.base's. *)
 
 Lemma map_Vubyte_repr (l : seq Z) :
   List.map (fun z : Z => Vubyte (Byte.repr z)) l = List.map Vubyte (List.map Byte.repr l).
@@ -557,7 +557,7 @@ Qed.
 
     Every callee below takes a [tarray tuchar 4] or a [tarray tuchar
     (64 * n)] and this proof owns whole buffers, so each call is
-    bracketed by a cut and a join. Vst.base's [tuchar_split] is
+    bracketed by a cut and a join. Shrincs.internal.vst.support.base's [tuchar_split] is
     the one [split2_data_at_Tarray_tuchar] behind all of them, and
     [field_compatible_array_smaller0] is what lets it be applied again
     to a piece; what is left here is the reassembly in the shapes this

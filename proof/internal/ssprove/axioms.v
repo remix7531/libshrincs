@@ -4,12 +4,12 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.axioms
+(** * Shrincs.internal.ssprove.axioms
 
     Connects the abstract, unconditionally-proved headline theorem
-    (Sec.instantiation's [shrincs_wots_secure_shrincs], itself built on
-    Sec.theorem's [shrincs_wots_secure]) to the CONCRETE
-    hash construction from [Model.wots] (truncated SHA-256, pk_seed ||
+    (Shrincs.internal.ssprove.instantiation's [shrincs_wots_secure_shrincs], itself built on
+    Shrincs.internal.ssprove.theorem's [shrincs_wots_secure]) to the CONCRETE
+    hash construction from [Shrincs.internal.common.wots] (truncated SHA-256, pk_seed ||
     zeros(48) || ADRS || M), yielding [shrincs_wots_secure_sha256]: an
     unconditional bound on WOTS+C-with-real-SHA256's one-time forgery
     advantage in terms of 6 named hardness-assumption constants.
@@ -20,27 +20,27 @@
     (16-byte hash values) and [M_shrincs := 'fin (2^256)] (the 32-byte
     grinding message) as bare mathcomp ordinals -- SSProve's [chFin n]
     IS ['I_n], transparently (confirmed: [instantiation.v]'s own
-    [n0_shrincs] is built as a bare [Ordinal]).  [Model.wots]'s hash
-    functions live over [Model.sha256.block = list Model.byte.byte]
+    [n0_shrincs] is built as a bare [Ordinal]).  [Shrincs.internal.common.wots]'s hash
+    functions live over [Shrincs.internal.common.sha256.block = list Shrincs.internal.common.byte.byte]
     instead, with no length invariant in the TYPE (lengths are proven
-    facts, e.g. [Model.theory.wots.H_grind_length]).  The encoding
+    facts, e.g. [Shrincs.internal.common.theory.wots.H_grind_length]).  The encoding
     bridges these:
 
     - [decode_block bits n]: the [bits]-byte big-endian rendering of
-      [n < 256 ^ bits], built directly from [Model.math.encoding]'s
+      [n < 256 ^ bits], built directly from [Shrincs.internal.common.math.encoding]'s
       already-proved [be_num]/[digits_w] machinery rather than
-      [Model.address.to_byte], since staying in [digits_w] vocabulary
+      [Shrincs.internal.common.address.to_byte], since staying in [digits_w] vocabulary
       throughout makes the round-trip ([encode16_decode16] below) a
-      direct corollary of [Model.math.encoding.be_num_rev_digits]
+      direct corollary of [Shrincs.internal.common.math.encoding.be_num_rev_digits]
       instead of needing a second, independent Z-side bridge.
     - [decode16]/[decode32]: [decode_block] at [N_shrincs]/[M_shrincs]'s own
       ordinal value -- used to turn a games-layer hash VALUE into a
-      [Model.wots]-shaped argument.
-    - [encode16]: the reverse direction (a [Model.wots] hash OUTPUT
+      [Shrincs.internal.common.wots]-shaped argument.
+    - [encode16]: the reverse direction (a [Shrincs.internal.common.wots] hash OUTPUT
       back into [N_shrincs]), made TOTAL over every [block] (not just
       16-byte ones) by clipping/zero-padding to exactly 16 bytes
       first ([block16_norm]) -- harmless in practice, since every
-      value [encode16] is ever applied to (a call to [Model.wots.F] /
+      value [encode16] is ever applied to (a call to [Shrincs.internal.common.wots.F] /
       [T_sf] / [PRF] / [H_grind]) already has length exactly 16 by
       construction, so the normalization is a no-op there.
     - [encode16_decode16]: the CRITICAL soundness property --
@@ -52,7 +52,7 @@
       not needed: nothing here reconstructs an arbitrary [block] from
       its own encoding.)
 
-    IMPORT DISCIPLINE (see Sec.bridge's header for the full
+    IMPORT DISCIPLINE (see Shrincs.internal.ssprove.bridge's header for the full
     explanation): [BinInt] stays a plain [Import] (Z literals/infix
     notation) and [Znat] a plain [Require] (qualified [Znat.Z2Nat.foo]
     access) -- `Require Import ZArith`/`Require Import Znat` both
@@ -66,25 +66,25 @@
     ** The concrete hash instantiation
 
     [F_sha256]/[T_sf_sha256]/[PRF_sha256]/[H_grind0_sha256] wrap
-    [Model.wots.F]/[T_sf]/[PRF]/[H_grind] through [decode16]/[decode32]
+    [Shrincs.internal.common.wots.F]/[T_sf]/[PRF]/[H_grind] through [decode16]/[decode32]
     on the way in and [encode16] on the way out; [T_sf_sha256]
     additionally flattens its [seq N_shrincs] argument into one [block]
-    with [flatten], matching [Model.wots]'s own
+    with [flatten], matching [Shrincs.internal.common.wots]'s own
     [T_sf pk_seed pk_adrs (concat (chain_tips ...))] convention.
     [H_grind0_sha256] keeps its output as an [N_shrincs] ordinal rather
     than projecting to [nat] -- [instantiation.v]'s own
     [H_grind_shrincs := nat_of_ord \o H_grind0] does that projection, and
     at THIS instantiation [nat_of_ord (H_grind0_sha256 pp a (m, c))]
-    is exactly [Model.math.encoding]'s [be_num (nat_bytes
-    (Model.wots.H_grind ...))] -- i.e. [scheme.v]'s abstract nat-digest
+    is exactly [Shrincs.internal.common.math.encoding]'s [be_num (nat_bytes
+    (Shrincs.internal.common.wots.H_grind ...))] -- i.e. [scheme.v]'s abstract nat-digest
     [H_grind] reads the concrete SHA-256 grinding output as a
     big-endian number, matching
-    [Sec.bridge.digest_of_bridge]/[good_counter_bridge]'s own
-    [Model.math.encoding.be_num] reading.  (The digit orders are now
+    [Shrincs.internal.ssprove.bridge.digest_of_bridge]/[good_counter_bridge]'s own
+    [Shrincs.internal.common.math.encoding.be_num] reading.  (The digit orders are now
     ALIGNED: the games' [scheme.digest_of] reads MSB-first ([rev
     (digits_w ...)]), the same
-    order as [Model.wots.base_2b], so the earlier MSB/LSB re-indexing
-    caveat is gone -- [Sec.wots.model_bridge.digest_of_modelE] proves the
+    order as [Shrincs.internal.common.wots.base_2b], so the earlier MSB/LSB re-indexing
+    caveat is gone -- [Shrincs.internal.ssprove.wots.model_bridge.digest_of_modelE] proves the
     games digest EQUALS the model digest on the nose, and the whole
     games<->model correspondence is discharged there, not merely up to a
     relabeling.)
@@ -111,10 +111,10 @@
     only for packages that honestly implement the game's adversary
     interface -- strictly WEAKER than an unconditional bound over every
     [nom_package B] (each application pays a one-line discharge,
-    [valid_adv_link] in Sec.lib.prelude, from the reduction's own
+    [valid_adv_link] in Shrincs.internal.ssprove.lib.prelude, from the reduction's own
     bundled validity).  Mirrors how the VST tree already axiomatizes
     SHA-256's own properties ([SHA256], [body_sha256] in
-    proof/vst/contract/gprog.v) rather than proving them -- this is the
+    proof/internal/vst/support/contract/gprog.v) rather than proving them -- this is the
     SSProve tree's analogous, now-visible expansion of trust surface
     (previously zero axioms; see proof/assumptions/check.sh gate 2,
     updated alongside this file).
@@ -235,7 +235,7 @@ rewrite size_map hsz pow256_16 in h1.
 exact: h1.
 Qed.
 
-(** The reverse direction: any [Model.wots] hash output, normalized to
+(** The reverse direction: any [Shrincs.internal.common.wots] hash output, normalized to
     exactly 16 bytes (a no-op on every value this file actually
     applies it to), read as an [N_shrincs] ordinal. *)
 Definition encode16 (X : sha256.block) : N_shrincs.
@@ -270,7 +270,7 @@ Qed.
 
     All four are anchor-free: the WOTS+C address type at the shrincs
     numbers ([address.adrs chain_count_shrincs w_shrincs.-1]) is
-    convertible to [Model.wots]'s own [adrs = address.adrs 32 15]. *)
+    convertible to [Shrincs.internal.common.wots]'s own [adrs = address.adrs 32 15]. *)
 
 Definition F_sha256 (pp : PP_shrincs)
     (a : address.adrs chain_count_shrincs w_shrincs.-1) (x : N_shrincs) : N_shrincs :=
@@ -335,13 +335,13 @@ Proof. reflexivity. Qed.
 (** ** The 6 hash-game assumptions
 
     Stated over the anchor-free core instances ([*_core] of
-    Sec.wots.games / Sec.wots.hop.prf at [wc_sha256_core]): the anchor
+    Shrincs.internal.ssprove.wots.games / Shrincs.internal.ssprove.wots.hop.prf at [wc_sha256_core]): the anchor
     is PROVABLY absent from every assumption statement.  Each is also
     SCOPED to valid adversaries -- the [VB] premise asks the bound only
     for packages that honestly implement the game's adversary
     interface, a strictly weaker assumption than an unconditional
     bound; the theorem below pays the discharge at every application
-    site via [valid_adv_link] (Sec.lib.prelude). *)
+    site via [valid_adv_link] (Shrincs.internal.ssprove.lib.prelude). *)
 
 Parameter eps_prf eps_smud eps_stcrp eps_tcr_pk eps_tcr_chain eps_pre : R.
 
@@ -394,12 +394,12 @@ Axiom sha256_pre_secure : forall (B : nom_package)
 
 Section HashAssumptions.
 
-(** The instance anchor (any leaf position; see Sec.wots.scheme). *)
+(** The instance anchor (any leaf position; see Shrincs.internal.ssprove.wots.scheme). *)
 Context (zstar istar : nat) (zstar_range : (zstar < 256)%nat).
 Context (istar_range : anchor_idx_bound istar).
 
 (** THE payoff: WOTS+C over truncated-SHA256 (pk_seed || zeros(48) ||
-    ADRS || M, [Model.wots]'s construction) is one-time
+    ADRS || M, [Shrincs.internal.common.wots]'s construction) is one-time
     known-message-secure, unconditionally, at a bound built from the
     6 axioms above. *)
 Theorem shrincs_wots_secure_sha256
@@ -431,13 +431,13 @@ apply: lerD; first apply: lerD; first apply: lerD; first apply: lerD;
 Qed.
 
 (** [shrincs_wots_secure_sha256] restated over the STANDARD known-message
-    valid-commit experiment [KOTS_vc_game] (Sec.lib.sig.kots): the same
+    valid-commit experiment [KOTS_vc_game] (Shrincs.internal.ssprove.lib.sig.kots): the same
     unconditional bound, modulo the same 6 named hash-hardness axioms,
     on A's forgery advantage against [KOTS_vc_game (shrincs_wots_keyed
     (wc_sha256 zstar istar zstar_range istar_range) K_shrincs PRF_sha256
     dK_shrincs)] rather than the bespoke [G_forge_keyed] -- the two are
     PERFECTLY, unconditionally, the same game
-    ([Sec.wots.kots_link.G_forge_keyed_KOTS_vc]), so [AdvOf_perfect]
+    ([Shrincs.internal.ssprove.wots.kots_link.G_forge_keyed_KOTS_vc]), so [AdvOf_perfect]
     carries the bound over unchanged. This is the referee-facing
     surface: [KOTS_vc_game], [shrincs_wots_keyed], [wc_sha256] and the
     6 [eps_*] constants. *)

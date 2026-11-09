@@ -71,7 +71,7 @@ Proof. intros a; destruct a; reflexivity. Qed.
     (both hold at the spec numbers 32 / 15).  Every stateless field
     bound is a literal below [2 ^ 32], so those arms need no side
     condition.  The [to_byte] / byte serialization facts here are the
-    model-side counterparts of [Vst.theory.pure]'s (the model may not
+    model-side counterparts of [Shrincs.internal.vst.support.theory.pure]'s (the model may not
     import the VST tree). *)
 
 (** [to_byte x y] is a [y]-byte string. *)

@@ -8,7 +8,7 @@
 
     [Print Assumptions] for the vst-side proved surface: the 4 public API
     body proofs and the aggregate [all_bodies]
-    (proof/vst/verif/all_bodies.v) that conjoins all 18 [semax_body]
+    (proof/internal/vst/all_bodies.v) that conjoins all 18 [semax_body]
     facts -- all 18 PROVED, [body_sha256] included (it is a Lemma in
     contract/gprog.v now, from src/sha256.c's own VST body proof).
     The [sha256_c_correct] component probe additionally covers every
@@ -26,7 +26,7 @@
     check.sh's model gate 2 source scan instead.)
 
     Siblings: assumptions/model.v (the shared pure-model surface,
-    including [Model.correct.wots.wots_correct], diffed against `[model]`) and
+    including [Shrincs.internal.common.correct.wots.wots_correct], diffed against `[model]`) and
     assumptions/ssprove.v (the Sec headline theorems, diffed
     against `[ssprove]`): same structure (baseline probe, then the
     headline theorems, widest printing), same exclusion from the default

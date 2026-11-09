@@ -4,13 +4,13 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.lib.prelude
+(** * Shrincs.internal.ssprove.lib.prelude
 
     Common imports, notations and settings for the library
     (hash-based signatures in SSProve).
 
-    Every file with SSProve content starts with [From Sec.lib Require
-    Import prelude.]; pure-math files under Model.math import only the
+    Every file with SSProve content starts with [From Shrincs.internal.ssprove.lib Require
+    Import prelude.]; pure-math files under Shrincs.internal.common.math import only the
     MathComp prefix and must not depend on SSProve.
 
     This file doubles as a smoke test: it checks that the SSProve
@@ -49,7 +49,7 @@ Local Definition _ssprove_surface :=
     a reduction [R : package I M], is a valid adversary against [I] --
     [valid_sep_link_weak] at the reduction's own bundled validity.
     The discharge lemma for validity-scoped hardness assumptions
-    (Sec.axioms): each application site is one
+    (Shrincs.internal.ssprove.axioms): each application site is one
     [valid_adv_link VA _]. *)
 Lemma valid_adv_link {I M : Interface} {A : nom_package} {R : package I M}
     (VA : ValidPackage (loc A) M A_export A) :

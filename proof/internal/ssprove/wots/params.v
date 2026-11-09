@@ -4,7 +4,7 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.wots.params
+(** * Shrincs.internal.ssprove.wots.params
 
     The WOTS+C parameter record [wc_params]: one value carrying every
     section parameter the scheme, games, hops and bounds used to thread
@@ -90,10 +90,10 @@ Record wc_params := {
 
     [wc_params_core] is [wc_params] minus the four anchor fields
     (z_star, i_star and their range proofs) -- everything a hash GAME
-    can see.  The game instances (Sec.wots.games, Sec.wots.hop.prf's
+    can see.  The game instances (Shrincs.internal.ssprove.wots.games, Shrincs.internal.ssprove.wots.hop.prf's
     khf) are defined over the core and only wrapped back to
     [wc_params] for the scheme, so the 6 hash assumptions
-    (Sec.axioms) can be stated with ZERO anchor
+    (Shrincs.internal.ssprove.axioms) can be stated with ZERO anchor
     quantification: the anchor is PROVABLY absent from their
     statements, not argued inert.  [wc_core_of] is the transparent
     projection; core and full spellings of every instance coincide by

@@ -4,7 +4,7 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Vst.repr.seqlist: mathcomp [seq] against stdlib [list]
+(** * Shrincs.internal.vst.support.repr.seqlist: mathcomp [seq] against stdlib [list]
 
     Both libraries are in scope in every proof of this tier, and they
     name the same operations differently. This file is the dictionary

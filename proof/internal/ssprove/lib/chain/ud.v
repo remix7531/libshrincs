@@ -4,7 +4,7 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.lib.chain.ud
+(** * Shrincs.internal.ssprove.lib.chain.ud
 
     The PURE per-chain sampling-map layer of the SM-UD hybrid argument
     for a Winternitz-style chain signature, generic over the tweakable
@@ -46,8 +46,8 @@ Section ChainUD.
 
 Context (PP N : choice_type).
 Context (l w : nat).
-(** Position-tweaked hash in [Model.math.chain]'s DEPENDENT shape (the
-    abstract [F'] of [Sec.lib.chain.core]): all chain walks below go
+(** Position-tweaked hash in [Shrincs.internal.common.math.chain]'s DEPENDENT shape (the
+    abstract [F'] of [Shrincs.internal.ssprove.lib.chain.core]): all chain walks below go
     through the total fold [chainc] and its total step [Fc]. *)
 Context (F' : PP -> nat -> forall p : nat, (p < w)%N -> N -> N).
 Context (dN : dist N).

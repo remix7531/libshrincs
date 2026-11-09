@@ -29,14 +29,14 @@
  *
  * `out` must point to 32 writable bytes and MUST NOT OVERLAP `in`;
  * that is what the two `restrict` qualifiers say, and the funspec
- * (proof/vst/contract/trusted.v's sha256_spec) says the same thing via
+ * (proof/internal/vst/support/contract/trusted.v's sha256_spec) says the same thing via
  * the separating conjunction between its two `data_at` clauses in SEP.
  *
  * `in` must be a valid pointer even when `inlen` is 0 (it is never
  * dereferenced in that case, but the funspec's precondition still
  * asks for a 0-length array at a real address, not for NULL).
  *
- * `inlen` is bounded by 2^61 - 1 (proof/model/sha256.v's
+ * `inlen` is bounded by 2^61 - 1 (proof/internal/common/sha256.v's
  * sha256_max_input_len), so that the message length in BITS fits the
  * 64-bit length field FIPS 180-4 SS 5.1.1 appends. The bound is far
  * beyond any address space; it is stated because the funspec must say

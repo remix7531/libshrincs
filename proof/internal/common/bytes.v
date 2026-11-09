@@ -4,7 +4,7 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Model.bytes: the representation atlas
+(** * Shrincs.internal.common.bytes: the representation atlas
 
     One library mapping between the machine-word representations the
     two proof stacks speak, generic over the word size [ws : wsize]
@@ -18,7 +18,7 @@
       word ws            --bytes_of_word-> seq Z     (big-endian wire bytes)
       seq Z              --word_of_bytes-> word ws
 
-    The VST side continues from [seq Z]: Vst.base maps it to
+    The VST side continues from [seq Z]: Shrincs.internal.vst.support.base maps it to
     CompCert's [list byte] / [list val] (that last hop is floyd-typed
     and lives there, keeping this file floyd-free).
 
@@ -46,7 +46,7 @@
     [sample uniform (2 ^ 256)] in the games. The two are equal but not
     feasibly convertible (2^256 in unary), so the mismatch makes the
     games file spin in conversion rather than fail.
-    [Sec.axioms] uses the same symbolic word-size convention.
+    [Shrincs.internal.ssprove.axioms] uses the same symbolic word-size convention.
 
     Byte order is BIG-ENDIAN throughout: [bytes_of_word ws w] renders
     [wunsigned w] most-significant byte first, matching both the SHA-256
@@ -169,7 +169,7 @@ Qed.
 
 (* Round-trips between the byte and word views (word_of_bytes o
    bytes_of_word = id and the masked converse) are PROVED, but not
-   here: they live in Vst.sha256.bridge as
+   here: they live in Shrincs.internal.vst.sha256.bridge as
    [word_of_bytes_of_word] and [bytes_of_word_of_bytes], next to the
    only proofs that need them (the C's load_be32 / store_be32 and the
    two digest stores). They are stated size-generically over [ws], so

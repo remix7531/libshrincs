@@ -117,7 +117,7 @@ Local Open Scope Z_scope.
     The three shapes the proof meets a read in -- a symbolic [Z]
     index, a [nat] literal, and the whole eight-element array written
     out -- are [Znth_words_to_vals], [Znth_words_to_vals_nat] and
-    [words_to_vals_8] of Vst.sha256.bridge. What is left
+    [words_to_vals_8] of Shrincs.internal.vst.sha256.bridge. What is left
     here is the one shape that is about the C loop and not about the
     translation. *)
 
@@ -137,7 +137,7 @@ Qed.
 (** ** The sliding sixteen-word window
 
     Loop 3 keeps only W[t mod 16], so the recurrence
-    [nth_schedule_rec] of Vst.sha256.clone states has to be
+    [nth_schedule_rec] of Shrincs.internal.vst.sha256.clone states has to be
     read off a window rather than off the whole schedule. *)
 
 (** The whole arithmetic content of the sliding window: the slot the
@@ -160,7 +160,7 @@ Qed.
 (* ================================================================= *)
 (** ** SS 6.2.2 step 4, in the shape the POSTcondition states it
 
-    [nth_compress_words] of Vst.sha256.clone gives one
+    [nth_compress_words] of Shrincs.internal.vst.sha256.clone gives one
     entry; step 4 stores all eight, so the array is written out. *)
 
 (** The POSTcondition's array, written out against the eight working

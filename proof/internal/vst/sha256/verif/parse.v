@@ -20,7 +20,7 @@
     to carry that window relation instead.
 
     The only real work per iteration is handing [load_be32] the four
-    bytes at offset [4*t]: Vst.base's [tuchar_split3_bytes] at
+    bytes at offset [4*t]: Shrincs.internal.vst.support.base's [tuchar_split3_bytes] at
     width 4 out of 64 is that split, and the same equation run
     backwards puts the 64-byte block together again for the next
     iteration. The model side is [nth_map]/[nth_iota] through

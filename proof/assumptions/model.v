@@ -7,7 +7,7 @@
 (** * Assumption audit (model tree)
 
     [Print Assumptions] for the shared pure-model surface: the ground-truth
-    correctness theorem [Model.correct.wots.wots_correct] and the pure
+    correctness theorem [Shrincs.internal.common.correct.wots.wots_correct] and the pure
     combinatorial core (chain extraction, target-sum/checksum encoding)
     that both proof trees' reductions rest on.  assumptions/check.sh's
     model gate 3 compiles this file, extracts the axiom names, and diffs
@@ -15,7 +15,7 @@
     which is EMPTY. The model assumes nothing: every [Print Assumptions]
     below prints "Closed under the global context". SHA-256 used to be
     the one exception ([Parameter SHA256]); it is a Definition over the
-    FIPS 180-4 transcription now (model/sha256.v), so not even
+    FIPS 180-4 transcription now (internal/common/sha256.v), so not even
     the hash is assumed, let alone a classical axiom.
 
     The model tree is the shared trust ROOT: both the ssprove security

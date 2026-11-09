@@ -4,9 +4,9 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Vst.sha256.bridge: the C's expressions ARE the standard's
+(** * Shrincs.internal.vst.sha256.bridge: the C's expressions ARE the standard's
 
-    FIPS 180-4 SS 3.2 read through Vst.repr.int32's carrier map:
+    FIPS 180-4 SS 3.2 read through Shrincs.internal.vst.support.repr.int32's carrier map:
     each lemma says that one CompCert expression the C compiles to is
     the model operation of the same name. The six logical-function
     proofs of verif/logical.v are nothing but these, applied.
@@ -18,7 +18,7 @@
     where [w32_of_intK] cancels it.
 
     The carrier maps themselves, the array view and the byte codec are
-    Vst.repr.int32; this file adds only what mentions a SHA-256
+    Shrincs.internal.vst.support.repr.int32; this file adds only what mentions a SHA-256
     operation. *)
 
 From Shrincs.internal.vst.support.repr Require Export int32.

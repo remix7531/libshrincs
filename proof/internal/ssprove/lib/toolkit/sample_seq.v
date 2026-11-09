@@ -4,7 +4,7 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.lib.toolkit.sample_seq
+(** * Shrincs.internal.ssprove.lib.toolkit.sample_seq
 
     n-fold independent sampling as code, with the ValidCode instance
     package validity inference needs.  Used by every scheme's key

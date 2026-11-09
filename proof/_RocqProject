@@ -1,10 +1,14 @@
 -Q . Shrincs
+
+# One logical root for the proof trees, standalone audit files and
+# generated Clight ASTs. Each directory nests under Shrincs.
+
 -arg -w -arg -deprecated-from-Coq,-notation-overridden,-ambiguous-paths,-notation-incompatible-format
 # -deprecated-from-Coq exists SOLELY for the three clightgen-generated
-# files (vst/clight/*.v, `From Coq Require ...`); hand-written files
+# files (clight/*.v, `From Coq Require ...`); hand-written files
 # must not need it -- the codebase is otherwise deprecation-clean.
 
-# The lib/ subdirectory of ssprove nests naturally as Sec.lib, so no
+# The lib/ subdirectory of ssprove nests naturally as Shrincs.internal.ssprove.lib, so no
 # nested override -Q lines are needed -- which also avoids the
 # "previously bound to ...; remapped" load-path warnings the old nested
 # overrides emitted on every coqc invocation.
@@ -151,6 +155,5 @@ internal/ssprove/wots/model_bridge.v
 # `Print Assumptions` tail on the headline theorem, and vst.v an
 # axiom-fetch-heavy compile over the whole VST body-proof surface.
 # `make audit` / assumptions/check.sh recompiles each standalone (gate 3),
-# so the audit is unaffected; `-Q assumptions Assumptions` above is kept
-# so those standalone compiles resolve (and so editor tooling reading
-# this file resolves them too).
+# so the audit is unaffected. The probes resolve under the same
+# `-Q . Shrincs` root as the default build.

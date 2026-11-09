@@ -4,10 +4,10 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.wots.bound.compress
+(** * Shrincs.internal.ssprove.wots.bound.compress
 
-    The compression game-hop equality, peeled out of [Sec.theorem]
-    for parallel type-checking (see [Sec.bound.grind] for the
+    The compression game-hop equality, peeled out of [Shrincs.internal.ssprove.theorem]
+    for parallel type-checking (see [Shrincs.internal.ssprove.bound.grind] for the
     rationale).
 
     States that the [G_post_grind -> G_post_compress] advantage equals the SM-TCR

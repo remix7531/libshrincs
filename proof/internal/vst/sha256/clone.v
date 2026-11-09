@@ -4,29 +4,29 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Vst.sha256.clone: the VST side's private copy of the spec
+(** * Shrincs.internal.vst.sha256.clone: the VST side's private copy of the spec
 
-    A PRIVATE CLONE of Model.sha256_spec, plus every derived fact the
+    A PRIVATE CLONE of Shrincs.sha256, plus every derived fact the
     machine-checked proofs need and a reviewer does not.
 
-    WHY A CLONE AND NOT AN IMPORT. Model.sha256_spec is one of the files
+    WHY A CLONE AND NOT AN IMPORT. Shrincs.sha256 is one of the files
     a reviewer reads, and it earns that by containing nothing but
     definitions, one faithfulness lemma and known-answer tests. The
     moment the body proofs under verif/ start needing sizes, prefix
     forms and step lemmas, those accumulate wherever the definitions
     live. Keeping the definitions in two places, with the compiler
     checking they agree, is what stops that: the machinery lands HERE
-    and Model.sha256_spec stays a document.
+    and Shrincs.sha256 stays a document.
 
-    HOW DRIFT IS CAUGHT. Vst.sha256.sync states, definition
+    HOW DRIFT IS CAUGHT. Shrincs.internal.vst.sha256.sync states, definition
     by definition, that the spelling below and the spelling in
-    Model.sha256_spec are the SAME TERM, each by [reflexivity] -- so the
+    Shrincs.sha256 are the SAME TERM, each by [reflexivity] -- so the
     kernel checks it and a divergence is a build failure, not a silent
-    fork. That also transfers Model.sha256_spec's known-answer tests to this
+    fork. That also transfers Shrincs.sha256's known-answer tests to this
     copy: the vectors pin one spelling, [reflexivity] pins the other
     to it.
 
-    NOTHING HERE IS REVIEWER-FACING. Read Model.sha256_spec instead.
+    NOTHING HERE IS REVIEWER-FACING. Read Shrincs.sha256 instead.
 
     THE DERIVED MACHINERY, and why each piece exists: a C `for` loop
     invariant has to name the value after i iterations, so the
@@ -203,7 +203,7 @@ Qed.
 
 (** The 64-bit big-endian encoding of the message length in bits --
     SS 5.1.1's "64-bit block equal to the number l". Rendered by the
-    codec in Model.bytes, shared with the C contracts. *)
+    codec in Shrincs.internal.common.bytes, shared with the C contracts. *)
 Definition len_bytes (n : Z) : seq Z := bytes_of_word U64 (wrepr U64 (8 * n)).
 
 (** SS 5.1.1 assembled: message, the 0x80 byte, the zero bytes, the

@@ -4,20 +4,20 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Vst.sha256.sync: the clone is the original
+(** * Shrincs.internal.vst.sha256.sync: the clone is the original
 
-    A GATE, not a development. Vst.sha256.clone keeps a
-    private copy of the SHA-256 specification so that Model.sha256_spec,
+    A GATE, not a development. Shrincs.internal.vst.sha256.clone keeps a
+    private copy of the SHA-256 specification so that Shrincs.sha256,
     a reviewer-facing file, can contain definitions, one faithfulness lemma and
     known-answer tests, and nothing else. This file is what makes that
     arrangement safe.
 
-    Every lemma below says that one definition of Model.sha256_spec and the
+    Every lemma below says that one definition of Shrincs.sha256 and the
     correspondingly named definition of the clone are THE SAME TERM.
     Edit one spelling and not the other and the build stops here,
     naming the definition that drifted.
 
-    THE CONSEQUENCE WORTH SPELLING OUT. Model.sha256_spec's known-answer
+    THE CONSEQUENCE WORTH SPELLING OUT. Shrincs.sha256's known-answer
     tests transfer. They pin the canonical spelling; these lemmas pin
     the clone to it; so the vectors are evidence about both, and the
     VST proofs are about a function that has been tested against
@@ -35,7 +35,7 @@
     identical and [reflexivity] is immediate. The order of the
     sections is the dependency order of the specification.
 
-    [Vst.sha256.correct] and [Vst.contract.trusted] use
+    [Shrincs.internal.vst.sha256.correct] and [Shrincs.internal.vst.support.contract.trusted] use
     [sync_sha256] to restate the C contract over the canonical hash. *)
 
 Require Shrincs.sha256.

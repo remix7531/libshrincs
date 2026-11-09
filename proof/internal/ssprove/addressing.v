@@ -4,12 +4,12 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.addressing
+(** * Shrincs.internal.ssprove.addressing
 
-    SSProve-specific structure layered on [Model.address]'s dependent
+    SSProve-specific structure layered on [Shrincs.internal.common.address]'s dependent
     ADRS: a mathcomp [Finite] instance (needed by mathcomp/SSProve
     machinery) and the encode/decode bridge into a [choice_type] tweak
-    space ([th_T]).  [Model.address] itself stays Stdlib-only, so this
+    space ([th_T]).  [Shrincs.internal.common.address] itself stays Stdlib-only, so this
     file is where the "generic model gets equipped with SSProve-specific
     structure" step happens.
 
@@ -20,12 +20,12 @@
     space [adrs_sf_ch] with its [encode_adrs]/[decode_adrs] bijection,
     and the anchor smart constructor [anchor_adrs].  None of it mentions
     WOTS+C chains or grinding, so a future scheme (the FXMSS hypertree,
-    the stateless SL_* arms already present in [Model.address.adrs]) can
+    the stateless SL_* arms already present in [Shrincs.internal.common.address.adrs]) can
     build its own tweaks on top of THIS file without pulling in the
     WOTS+C-specific machinery.  That machinery -- [chain_tweak],
     [prf_tweak], the [shrincs_wots_*_adrs] smart constructors, and their
     conditional index-injectivity lemmas -- lives in
-    [Sec.wots.addressing], which imports this file.
+    [Shrincs.internal.ssprove.wots.addressing], which imports this file.
 
     The WOTS+C address is parametric in [chain_count] (= [len]) and
     [pos_bound] (= [w-1]); this file's own [Section WcTweak] still
@@ -56,7 +56,7 @@
 
     [anchor_adrs] builds the [(zstar, istar)]-anchored [Wc_pk] carrier
     EXACTLY via [fin_of_nat]; a scheme's own smart constructors read the
-    anchor back off it (see [Sec.wots.addressing.shrincs_wots_chain_adrs]
+    anchor back off it (see [Shrincs.internal.ssprove.wots.addressing.shrincs_wots_chain_adrs]
     for the WOTS+C ones) to derive their sibling addresses. *)
 
 From HB Require Import structures.
@@ -120,7 +120,7 @@ Local Abbreviation adrs_sf := (address.adrs chain_count pos_bound).
 
     Transport the finite structure of the flat 12-arm coproduct
     [adrs_sum] along the constructor bijection.  Each [fin b] summand is
-    a [finType] via [Sec.lib.fin_fin] with [b] kept symbolic. *)
+    a [finType] via [Shrincs.internal.ssprove.lib.fin_fin] with [b] kept symbolic. *)
 
 Definition adrs_sum := ( fin 256 * fin (2^64) * fin (Z.of_nat chain_count) * fin (Z.of_nat pos_bound)
   + ( fin 256 * fin (2^64) * fin (Z.of_nat chain_count)
@@ -192,7 +192,7 @@ Proof. exact: can_inj encode_adrsK. Qed.
     scheme-specific sibling addresses are derived by typing the anchor.
     [anchor_adrs t] is any carrier holding just that anchor; a scheme's
     own smart constructors (e.g.
-    [Sec.wots.addressing.shrincs_wots_chain_adrs]) read it back via
+    [Shrincs.internal.ssprove.wots.addressing.shrincs_wots_chain_adrs]) read it back via
     [adrs_nh]/[adrs_ni] and set their own payload fields. *)
 
 Definition anchor_adrs (t : nat * nat)

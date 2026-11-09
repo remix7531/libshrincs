@@ -4,10 +4,10 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Vst.sha256.contract: what each function of src/sha256.c promises
+(** * Shrincs.internal.vst.sha256.contract: what each function of src/sha256.c promises
 
     Twelve funspecs, one per C function, each stating the FIPS
-    180-4 step the function performs in terms of Model.sha256_spec. Read
+    180-4 step the function performs in terms of Shrincs.sha256. Read
     together they are the design of the proof: the interesting content
     is which model function appears in which POSTcondition, because
     that is where the C's structure is asserted to match the
@@ -19,7 +19,7 @@
     src/sha256.c, not file-scope arrays, so they are not Clight globals
     and no caller has to own them: no [gv : globals], no SEP conjunct,
     and nothing about the round constants of a hash reaching any
-    caller's own contract. Vst.sha256.tables
+    caller's own contract. Shrincs.internal.vst.sha256.tables
     says why the C is written that way and what it cost.
 
     K APPEARS ONLY IN THE TWO INTERNAL CONTRACTS, and there as a
@@ -31,7 +31,7 @@
     Argument order is output first, matching include/sha256.h.
 
     SIZES ARE 64-BIT. The target is [bitsize 64] (check the [Module
-    Info] block of Vst.clight.sha256), so [size_t] is [tulong], a
+    Info] block of Shrincs.clight.sha256), so [size_t] is [tulong], a
     length parameter is [Vlong (Int64.repr n)], and its bound is
     [Int64.max_unsigned]. Passing [Vint] here is the classic 64-bit
     mistake: it does not fail at definition time, it fails much later
@@ -44,9 +44,9 @@ From Shrincs.internal.vst.sha256 Require Import clone.
 
 (* The sha256 translation unit's AST. Imported (not merely Required)
    so the identifiers below are unqualified; this shadows
-   Vst.clight.wots's [prog] and [composites], which Vst.base
+   Shrincs.clight.wots's [prog] and [composites], which Shrincs.internal.vst.support.base
    exports. The composite environments agree, as explained in
-   Vst.base's header, where the situation is created. *)
+   Shrincs.internal.vst.support.base's header, where the situation is created. *)
 From Shrincs.clight Require Import sha256.
 
 From mathcomp Require Import boot order algebra word_ssrZ word.
@@ -116,7 +116,7 @@ Definition spec_sigma1 : ident * funspec :=
 (** ** SS 3.1 (2): the big-endian word codec
 
     The only two functions in the file that decide byte order. Both
-    are stated over the shared codec in [Model.bytes]. *)
+    are stated over the shared codec in [Shrincs.internal.common.bytes]. *)
 
 Definition spec_load_be32 : ident * funspec :=
   DECLARE _load_be32
@@ -194,7 +194,7 @@ Definition spec_sha256_compress_words : ident * funspec :=
    scope open for the separating [*] in SEP, a bare [*] here parses as
    the type product, and the [%Z] escape does not help because in this
    import context [%Z] is MATHCOMP's int_scope and not Stdlib's
-   Z_scope (the trap Model.bytes documents for hex literals). *)
+   Z_scope (the trap Shrincs.internal.common.bytes documents for hex literals). *)
 Definition spec_sha256_compress_blocks : ident * funspec :=
   DECLARE _sha256_compress_blocks
   WITH shs : share, shb : share, shk : share,

@@ -4,7 +4,7 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.wots.hop.intermediates
+(** * Shrincs.internal.ssprove.wots.hop.intermediates
 
     The shared substrate of the WOTS+C game hops, factored out so the
     five hop files type-check IN PARALLEL instead of through a
@@ -20,7 +20,7 @@
 
       - the pure grinding-search picker [cp_pick] (+ [cp_zip_filter],
         [cp_pick_map]) and the two evaluation bridges [digestE],
-        [wendsE], all used by both [Sec.hop.compress] and the chain
+        [wendsE], all used by both [Shrincs.internal.ssprove.hop.compress] and the chain
         hops.
 
     Everything here is pure (games and rewrite lemmas); the reductions

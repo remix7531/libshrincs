@@ -4,13 +4,13 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.lib.games.stcrp
+(** * Shrincs.internal.ssprove.lib.games.stcrp
 
     S-TCR(Prop): Special Target-Collision Resistance with predicate
-    search, as a real/ideal game pair (see Sec.lib.games.thf for the
+    search, as a real/ideal game pair (see Shrincs.internal.ssprove.lib.games.thf for the
     convention).
 
-    This is the SM-TCR variant (Sec.lib.games.smtcr) where the challenge
+    This is the SM-TCR variant (Shrincs.internal.ssprove.lib.games.smtcr) where the challenge
     oracle, on query
     (T, M), finds the smallest counter i with
     Prop(Th(P, T, M || i)) = 1 and returns (Th(P, T, M || i), i);

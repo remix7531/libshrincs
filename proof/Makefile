@@ -36,7 +36,7 @@ SSPROVE_VOFILES := $(shell grep -E '^$(SSPROVE_DIR)/.*\.v$$' _RocqProject | sed 
 .PHONY: extract vst-prove ssprove-prove prove audit clean
 
 # ----- VST / Rocq -----------------------------------------------------------
-# Clight ASTs land in vst/clight/ so _RocqProject finds them.
+# Clight ASTs land in clight/ so _RocqProject finds them.
 
 extract: $(CLIGHT_DIR)/wots.v $(CLIGHT_DIR)/thash.v $(CLIGHT_DIR)/sha256.v
 
@@ -82,9 +82,9 @@ prove: Makefile.coq extract
 # see check.sh's header comment for the full gate-by-gate rationale and
 # per-tree scoping.
 #
-# The second recipe line builds model/correct/wots.vo explicitly:
+# The second recipe line builds internal/common/correct/wots.vo explicitly:
 # assumptions/model.v (the MODEL tree's probe) probes
-# Model.correct.wots.wots_correct, but model/correct/wots.v (the shared pure-model
+# Shrincs.internal.common.correct.wots.wots_correct, but internal/common/correct/wots.v (the shared pure-model
 # correctness theorem) is in neither compiled tree's .vo list and nothing
 # in either tree Requires it, so a from-scratch `make audit` would
 # otherwise fail check.sh's model-side coqc step (and its model gate 0)

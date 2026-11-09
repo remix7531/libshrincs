@@ -4,14 +4,14 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.wots.scheme
+(** * Shrincs.internal.ssprove.wots.scheme
 
     WOTS+C (Compressed WOTS+), the stateful one-time signature scheme,
     as a [sig_scheme] with a pure correctness lemma.  Definitions and
     correctness only; the security proof lives in the surrounding
     files.
 
-    Building blocks ([Sec.wots.params] carries them as record fields;
+    Building blocks ([Shrincs.internal.ssprove.wots.params] carries them as record fields;
     letter key in that file's header):
     - [wcp_F]      chain hash, called on SF_SHRINCS_WOTS_HASH (type 16)
                addresses (F : B^n x B^288 x B^n -> B^n);
@@ -29,11 +29,11 @@
                string in base w).
 
     Parameters: everything lives in ONE record value [P : wc_params]
-    ([Sec.wots.params]) -- the Winternitz parameter [wcp_w], the chain
+    ([Shrincs.internal.ssprove.wots.params]) -- the Winternitz parameter [wcp_w], the chain
     count [wcp_chain_count] (= ceil(n / log w)), the target chain-sum
     [wcp_constant_sum] (0 <= constant_sum <= chain_count(w-1)), the
     grinding-counter bound [wcp_c_max] (the counter is an 8c-bit value,
-    so c_max = 2^{8c}; bounded search as in Sec.lib.games.stcrp), and
+    so c_max = 2^{8c}; bounded search as in Shrincs.internal.ssprove.lib.games.stcrp), and
     the imaginary-tree anchor [(wcp_zstar, wcp_istar)]: the node-height
     and node-index fields of all this instance's addresses.  The
     instance addresses themselves ([grind_adrs P], [chain_adrs P],
@@ -50,7 +50,7 @@
       here is the instance anchor (z_star, i_star).
     - Grinding failure: if no counter below [c_max] satisfies the
       digit-sum predicate, [find_counter] is None and [sign] refuses
-      (option signing of Sec.lib.sig.scheme; no loops in packages).
+      (option signing of Shrincs.internal.ssprove.lib.sig.scheme; no loops in packages).
       [find_counter] is a pure function, so the counter iteration is
       always the same by construction.
     - Verification recomputes the digest at the SIGNATURE's counter —
@@ -74,7 +74,7 @@ Import PackageNotation.
 
 Section WOTSCScheme.
 
-(** The WOTS+C parameter record (see Sec.wots.params). *)
+(** The WOTS+C parameter record (see Shrincs.internal.ssprove.wots.params). *)
 Context (P : wc_params).
 
 (* ------------------------------------------------------------------ *)
@@ -88,8 +88,8 @@ Context (P : wc_params).
 (** Base-w digit vector of the digest at counter [c], MOST-SIGNIFICANT
     digit first (d parsed as (a_1, ..., a_l) with a_1 the top digit) --
     the same reading order as shrincs.py's base-w parse and
-    [Model.wots.base_2b], so the games<->model correspondence
-    (Sec.wots.model_bridge) is a plain equality.  [digits_w] itself is
+    [Shrincs.internal.common.wots.base_2b], so the games<->model correspondence
+    (Shrincs.internal.ssprove.wots.model_bridge) is a plain equality.  [digits_w] itself is
     least-significant-first, whence the [rev]. *)
 Definition digest_of (pp : wcp_PP P) (m : wcp_M P) (c : nat) : seq nat :=
   rev (digits_w (wcp_w P) (wcp_chain_count P) (wcp_H_grind P pp (grind_adrs P) (m, c))).
@@ -126,21 +126,21 @@ Proof. by move=> /find_counterP /andP[_ h]. Qed.
 (* ------------------------------------------------------------------ *)
 (** ** Pure scheme functions *)
 
-(** Chain step of the [i]-th chain, in [Model.math.chain]'s DEPENDENT
+(** Chain step of the [i]-th chain, in [Shrincs.internal.common.math.chain]'s DEPENDENT
     shape (width [w]): the step RECEIVES its position's in-range proof
     [(p < w)%N].  The concrete step ignores that proof and reads the
     (total, clamp-free) chain address at position [p] -- every fold ever
     reaches only positions [< w.-1], where [chain_adrs P] is the exact
     address, so the abstract [< w] proof is not needed to build it.
     This instantiates the abstract chain library's [F']
-    ([Sec.lib.chain.core]), so all chains below go through the total
+    ([Shrincs.internal.ssprove.lib.chain.core]), so all chains below go through the total
     fold [chainc].
 
     Per-hash-call tweak distinctness lives at the tweak level
     ([params.chain_tweak_inj]): the chain tweak carries its
     [(chain, position)] indices untruncated.  Cross-class distinctness
     (chain vs pk vs grind addresses) follows from [encode_tweak_inj]
-    plus the distinct type bytes of the underlying [Model.address]
+    plus the distinct type bytes of the underlying [Shrincs.internal.common.address]
     constructors. *)
 Definition chainf (pp : wcp_PP P) (i : nat) (p : nat) (_ : (p < wcp_w P)%N)
     (x : wcp_N P) : wcp_N P :=

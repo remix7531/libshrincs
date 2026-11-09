@@ -20,8 +20,8 @@ Rocq 9.2 + CompCert.
   existential — the C code is deterministic there, so the spec says so;
   `sign` keeps an existential since its residual genuinely depends on the
   ground counter found by grinding.
-- SHA-256 is defined in `proof/model/sha256_spec.v`. The proofs under
-  `proof/vst/sha256/` establish that `src/sha256.c` implements it.
+- SHA-256 is defined in `proof/sha256.v`. The proofs under
+  `proof/internal/vst/sha256/` establish that `src/sha256.c` implements it.
 - Zero `Admitted.`. The VST audit checks the classical library baseline,
   including the complete SHA-256 component proof.
 
@@ -69,9 +69,13 @@ test/                      runner.c, common.{c,h}
 test/wots/                 wots.c, gen_vectors.py, vectors/
 test/sha256/                sha256.c, vectors/
 test/ctgrind/                ctgrind.c
-proof/vst/                 model/, contract/, verif/, clight/
-proof/vst/sha256/          SHA-256 contracts, body proofs, verified component
-proof/model/sha256_spec.v  FIPS 180-4 definition and known-answer tests
+proof/internal/vst/support/ model/, contract/, repr/, tactics/, theory/
+proof/internal/vst/util/    utility body proofs
+proof/internal/vst/thash/   tweakable-hash body proofs
+proof/internal/vst/wots/    WOTS+C body proofs
+proof/internal/vst/sha256/  SHA-256 contracts, body proofs, verified component
+proof/clight/              generated translation units
+proof/sha256.v  FIPS 180-4 definition and known-answer tests
 ```
 
 ## Side channels

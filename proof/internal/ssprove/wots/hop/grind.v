@@ -4,7 +4,7 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.wots.hop.grind
+(** * Shrincs.internal.ssprove.wots.hop.grind
 
     The S-TCR(Prop) grinding hop of the WOTS+C one-time security
     proof: the FIRST split of the forgery analysis at
@@ -23,7 +23,7 @@
     with KFORGE answering false exactly on the GRIND case — i.e. when the
     forgery's recomputed digest equals the signed digest AS DIGIT VECTORS
     ([digest_of P pp mstar cstar == digest_of P pp m c]); the next hop
-    (Sec.wots.hop.compress) continues from [G_post_grind].
+    (Shrincs.internal.ssprove.wots.hop.compress) continues from [G_post_grind].
     Hence [Adv (G_forge_uniformchains P true) (G_post_grind P) <=
     AdvOf (STCRP_game ... 1) (A ∘ R_grind)] by the standard reduction
     steps at the consumer.
@@ -157,7 +157,7 @@ Definition R_grind : package (I_STCRP (thf_grind P) (coll_grind P) (wcp_M P)) (I
 (* ------------------------------------------------------------------ *)
 (** ** G_post_grind: G_forge_uniformchains-real with the GRIND case nulled
 
-    Defined in [Sec.wots.hop.intermediates] (shared so the hops
+    Defined in [Shrincs.internal.ssprove.wots.hop.intermediates] (shared so the hops
     type-check in parallel); used under this section's [P] as
     [intermediates.G_post_grind P]. *)
 

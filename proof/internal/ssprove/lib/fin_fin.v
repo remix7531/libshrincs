@@ -4,9 +4,9 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.lib.fin_fin: a mathcomp [finType] on [Model.fin.fin bnd].
+(** * Shrincs.internal.ssprove.lib.fin_fin: a mathcomp [finType] on [Shrincs.internal.common.fin.fin bnd].
 
-    [Model.fin] is deliberately Stdlib-only (a Z-backed ordinal, no
+    [Shrincs.internal.common.fin] is deliberately Stdlib-only (a Z-backed ordinal, no
     mathcomp), so this SSProve-layer shim equips [fin bnd] with the
     mathcomp [Finite] structure needed to use it as -- or inside -- a
     [choice_type] tweak space.  The instance is a clamp-free two-sided

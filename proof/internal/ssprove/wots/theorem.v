@@ -4,7 +4,7 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.wots.theorem
+(** * Shrincs.internal.ssprove.wots.theorem
 
     The end-to-end one-time security bound for WOTS+C — the
     chain/grinding/compression layer.
@@ -37,7 +37,7 @@
     Side conditions: [grind_range P] (H_grind outputs below
     w^chain_count — discharged at instantiation when H_grind is an
     (chain_count*log2 w)-bit hash), [wcp_Hcc] (at least one chain; see
-    Sec.wots.hop.prf) and the data sampler [wcp_dM]. *)
+    Shrincs.internal.ssprove.wots.hop.prf) and the data sampler [wcp_dM]. *)
 
 From Shrincs.internal.ssprove.lib Require Import prelude games.thf games.smtcr games.smpre games.smud
   games.stcrp games.prf sig.scheme sig.kots.
@@ -56,8 +56,8 @@ Import GRing.Theory Num.Theory Order.POrderTheory.
 
 Section WOTSCTheorem.
 
-(** The WOTS+C parameter record (see Sec.wots.params) and the keyed
-    derivation data (Sec.wots.hop.prf):
+(** The WOTS+C parameter record (see Shrincs.internal.ssprove.wots.params) and the keyed
+    derivation data (Shrincs.internal.ssprove.wots.hop.prf):
     SKseed space, derivation function and SKseed sampler. *)
 Context (P : wc_params).
 Context (K : choice_type).
@@ -101,7 +101,7 @@ Theorem shrincs_wots_secure_ideal_sk
           AdvOf (SMUD_game (thf_chain P) (coll_chain P) (wcp_chain_count P)) (A ∘ R_ud P false s).
 Proof.
 (* The four hop-equalities are proved in dedicated files
-   (Sec.wots.Bound.{Grind,Compress,ChainTCR,ChainPRE}) so their heavy
+   (Shrincs.internal.ssprove.wots.Bound.{Grind,Compress,ChainTCR,ChainPRE}) so their heavy
    Adv_perfect_l/r rewrites type-check in parallel; here we only
    instantiate the resulting opaque lemmas.
 
@@ -182,12 +182,12 @@ Qed.
     Reading the statement:
 
     - LHS [Adv (G_forge_keyed … true) (G_forge_keyed … false) A] IS A's
-      forgery probability against the keyed game (Sec.wots.hop.prf).
+      forgery probability against the keyed game (Shrincs.internal.ssprove.wots.hop.prf).
     - The middle six terms are [shrincs_wots_secure_ideal_sk]'s; the two
       PRF terms are the price of replacing the ideal chain starts by
       the PRF derivation, once on each side of the pair.
     - [wcp_Hcc] (at least one chain) is the PRF hop's data side
-      condition (Sec.wots.hop.prf header); [grind_range P] as above. *)
+      condition (Shrincs.internal.ssprove.wots.hop.prf header); [grind_range P] as above. *)
 Theorem shrincs_wots_secure
     (Hrange : grind_range P)
     (A : nom_package)
@@ -242,9 +242,9 @@ Qed.
 (* ------------------------------------------------------------------ *)
 (** ** The headline restated over the standard KOTS notion
 
-    [Sec.wots.kots_link] proves [G_forge_sampledkey]/[G_forge_keyed] are
+    [Shrincs.internal.ssprove.wots.kots_link] proves [G_forge_sampledkey]/[G_forge_keyed] are
     PERFECTLY, and UNCONDITIONALLY, the generic valid-commit KOTS
-    experiment [KOTS_vc_game] (Sec.lib.sig.kots) at
+    experiment [KOTS_vc_game] (Shrincs.internal.ssprove.lib.sig.kots) at
     [shrincs_wots_scheme P] / the keyed scheme [shrincs_wots_keyed P K PRF dK]
     (no [Hrange] side condition on the linking lemmas themselves — see
     that file's header). [AdvOf_perfect] swaps BOTH game bits (true and
@@ -281,7 +281,7 @@ Qed.
     as a bound on A's forgery advantage against [KOTS_vc_game
     (shrincs_wots_keyed P K PRF dK)] — the SAME 8-term bound, unchanged,
     since [G_forge_keyed_KOTS_vc] links the two games perfectly at every
-    bit. A referee who only trusts the standard notion (Sec.lib.sig.kots)
+    bit. A referee who only trusts the standard notion (Shrincs.internal.ssprove.lib.sig.kots)
     reads this statement, not [shrincs_wots_secure]'s. *)
 Theorem shrincs_wots_secure_kots
     (Hrange : grind_range P)

@@ -4,9 +4,9 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.wots.bound.grind
+(** * Shrincs.internal.ssprove.wots.bound.grind
 
-    The grinding game-hop equality, peeled out of [Sec.theorem] so it
+    The grinding game-hop equality, peeled out of [Shrincs.internal.ssprove.theorem] so it
     type-checks in parallel with the other hop-equalities (the final
     assembly's [Adv_perfect_l/r] rewrites over the full game terms are
     the build's long pole; splitting them lets [make -j] overlap them).

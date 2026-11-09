@@ -14,17 +14,17 @@
     [shrincs_adrs_put32]/[shrincs_thash]), and [src/sha256.c]
     (clight/sha256.v -- all 12, i.e. [Gprog_sha] verbatim).  18 of them
     are discharged by their own [semax_body Vprog Gprog f_<fn> <fn>_spec]
-    lemma. The WOTS+C, libc and tweakable-hash lemmas live in
-    [proof/vst/verif/body_*.v]. [contract/gprog.v] proves [body_sha256]
-    from [Vst.sha256.verif.sha256]'s body proof by context subsumption.
+    lemma. The WOTS+C, libc and tweakable-hash body proofs live in
+    their respective component directories. [contract/gprog.v] proves [body_sha256]
+    from [Shrincs.internal.vst.sha256.verif.sha256]'s body proof by context subsumption.
 
     THE OTHER 11 are [src/sha256.c]'s [static] helpers. They are in
     [Gprog] only because [body_sha256]'s subsumption step needs the
     context it was proved in to survive, and no [forward_call] in this
     directory can reach them (the C makes them [static]; see
-    [Vst.sha256.vsu]'s [sha256_public_idents]).  Their body
-    proofs live in [Vst.sha256.verif] and are packaged by
-    [Vst.sha256.vsu]. The VST audit probes that component separately
+    [Shrincs.internal.vst.sha256.vsu]'s [sha256_public_idents]).  Their body
+    proofs live in [Shrincs.internal.vst.sha256.verif] and are packaged by
+    [Shrincs.internal.vst.sha256.vsu]. The VST audit probes that component separately
     to cover the helper body proofs as well as the aggregate below.
 
     This file conjoins the 18 into ONE theorem, [all_bodies], so a single
@@ -38,7 +38,7 @@
     without a matching change here fails the build, rather than silently
     shrinking what the audit gate covers.
 
-    [Vprog] in [contract.public] and [CompSpecs] in [Vst.base] are
+    [Vprog] in [contract.public] and [CompSpecs] in [Shrincs.internal.vst.support.base] are
     built from [clight.wots.prog]. [contract.gprog] supplies the
     shared [Gprog]. The two thash-TU body lemmas
     ([body_shrincs_thash], [body_shrincs_adrs_put32]) state their

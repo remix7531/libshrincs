@@ -4,7 +4,7 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Vst.repr.words: words as C byte arrays
+(** * Shrincs.internal.vst.support.repr.words: words as C byte arrays
 
     The 32-byte codec both C modules speak: [w256] and its [list val] /
     [list byte] views, the lengths and indexed-access lemmas that let a
@@ -13,7 +13,7 @@
     funspec notations built on all of it.
 
     [w256] carries the complete SHA-256 digest. The model-side bridge
-    in [Vst.contract.trusted] connects that word to model byte lists. *)
+    in [Shrincs.internal.vst.support.contract.trusted] connects that word to model byte lists. *)
 
 From Shrincs.internal.vst.support Require Export base.
 From Shrincs.internal.vst.support.repr Require Export seqlist.

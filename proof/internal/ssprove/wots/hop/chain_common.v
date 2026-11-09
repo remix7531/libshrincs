@@ -4,10 +4,10 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.wots.hop.chain_common
+(** * Shrincs.internal.ssprove.wots.hop.chain_common
 
-    Shared substrate of the two chain hops [Sec.hop.chain_tcr]
-    (SM-TCR(F), G_post_compress -> G_post_chain) and [Sec.hop.chain_pre] (SM-PRE(F),
+    Shared substrate of the two chain hops [Shrincs.internal.ssprove.hop.chain_tcr]
+    (SM-TCR(F), G_post_compress -> G_post_chain) and [Shrincs.internal.ssprove.hop.chain_pre] (SM-PRE(F),
     G_post_chain -> G_forge_uniformchains-ideal): the section context and tweak/notation
     abbreviations, the pure re-tagging of the abstract chain
     bookkeeping into encoded addresses ([wq] and friends), the bridge
@@ -15,7 +15,7 @@
     honest key ([verify_from_ends] +
     [wtcr_decisionP]/[wpre_decisionP]/[wclassify_some]).  The shared
     [G_post_chain] endpoint of both chain hops is defined in
-    [Sec.hop.intermediates] (re-abbreviated by each half); keeping
+    [Shrincs.internal.ssprove.hop.intermediates] (re-abbreviated by each half); keeping
     this substrate in its own file lets the TCR and PRE proofs
     type-check in parallel. *)
 
@@ -53,8 +53,8 @@ Qed.
 
 Section ChainCommon.
 
-(** The WOTS+C parameter record (see Sec.wots.params), as in
-    Sec.wots.games. *)
+(** The WOTS+C parameter record (see Shrincs.internal.ssprove.wots.params), as in
+    Shrincs.internal.ssprove.wots.games. *)
 Context (P : wc_params).
 
 (* ------------------------------------------------------------------ *)
@@ -357,7 +357,7 @@ Qed.
 (** ** G_post_chain (the chain hops' shared endpoint)
 
     [G_post_chain] (G_post_compress with ALSO the ChainColl answers of the shared
-    classifier nulled) is defined in [Sec.hop.intermediates] so the
+    classifier nulled) is defined in [Shrincs.internal.ssprove.hop.intermediates] so the
     hops type-check in parallel; the two chain halves abbreviate it as
     [intermediates.G_post_chain] under their own context. *)
 

@@ -4,14 +4,14 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.lib.games.prf
+(** * Shrincs.internal.ssprove.lib.games.prf
 
     Keyed-hash distinguishing game (the PRF assumption), for a [khf]
-    (Sec.lib.games.thf).
+    (Shrincs.internal.ssprove.lib.games.thf).
 
     Like SM-UD, this is NATIVELY a distinguishing notion: the game
     pair IS the paper's pair of experiments (no CHECK oracle, no
-    real/ideal check convention; cf. Sec.lib.games.thf).  The [true] game
+    real/ideal check convention; cf. Shrincs.internal.ssprove.lib.games.thf).  The [true] game
     answers queries with [kh_eval k m] under a hidden key [k]; the
     [false] game answers with fresh uniform outputs.
 

@@ -4,7 +4,7 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Vst.repr.int32: CompCert [Int.int] against mathcomp [word U32]
+(** * Shrincs.internal.vst.support.repr.int32: CompCert [Int.int] against mathcomp [word U32]
 
     The C computes in [Int.int]; the specification computes in
     [word U32]. This file is the dictionary between the two carriers --
@@ -14,9 +14,9 @@
 
     NOTHING HERE KNOWS ABOUT SHA-256. What the two carriers do to a
     FIPS operation -- that the C's shift-shift-or IS the model's
-    [ROTR], that its [&] is [wand] -- is Vst.sha256.bridge, which
+    [ROTR], that its [&] is [wand] -- is Shrincs.internal.vst.sha256.bridge, which
     is stated in terms of this file. The split is the same one
-    Vst.repr.words makes on the byte side. *)
+    Shrincs.internal.vst.support.repr.words makes on the byte side. *)
 
 From Shrincs.internal.vst.support.repr Require Export words.
 
@@ -30,7 +30,7 @@ Open Scope Z_scope.
 (* ================================================================= *)
 (** ** The two directions
 
-    [w32c] is the universe-small carrier, the same trick Vst.base
+    [w32c] is the universe-small carrier, the same trick Shrincs.internal.vst.support.base
     plays at U256: a funspec WITH-telescope must not swallow the HB
     [comRingType] pack. *)
 
@@ -116,7 +116,7 @@ Qed.
 (* ================================================================= *)
 (** ** The byte codec round-trip
 
-    WHY THESE ARE NEEDED. Vst.sha256.clone defines the
+    WHY THESE ARE NEEDED. Shrincs.internal.vst.sha256.clone defines the
     digest twice over: [sha256_bytes] is the thirty-two bytes the C
     stores, and [sha256] is [word_of_bytes] of them. The POSTcondition of
     [spec_sha256] is phrased in the word, the C writes the bytes, and

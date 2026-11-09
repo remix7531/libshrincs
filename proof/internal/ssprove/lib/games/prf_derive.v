@@ -4,14 +4,14 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.lib.games.prf_derive
+(** * Shrincs.internal.ssprove.lib.games.prf_derive
 
     Generic PRF-derived-keys loop machinery, factored out of the WOTS+C
     PRF hop.  A scheme derives a batch of secrets by querying one keyed
-    hash [Kh : khf] (Sec.lib.games.thf) at [q] distinct, nat-indexed
+    hash [Kh : khf] (Shrincs.internal.ssprove.lib.games.thf) at [q] distinct, nat-indexed
     tweaks; this file packages the state-separating reasoning that a
     reduction routes that derivation through the [FQUERY] oracle of
-    [PRF_game Kh q] (Sec.lib.games.prf):
+    [PRF_game Kh q] (Shrincs.internal.ssprove.lib.games.prf):
 
       - [prf_sks]: the oracle-routed derivation loop (one FQUERY per
         index [i], collecting the answers), with its [ValidCode] instance;
@@ -31,7 +31,7 @@
     section lemmas emerge parameterized over exactly the data an
     instantiation supplies.
 
-    Instantiated at [Sec.wots.hop.prf]: [Kh := khf_prf],
+    Instantiated at [Shrincs.internal.ssprove.wots.hop.prf]: [Kh := khf_prf],
     [tw := fun i => (pp, prf_tweak P i)], [ev := fun k i => PRF pp (prf_adrs P i) k],
     the bridge is [kh_eval_ptw], and the ignore-set is that hop's [IGNK].
     The keyed WOTS+C scheme, the reduction [R_prf], and the two
@@ -67,7 +67,7 @@ Context (tw : nat -> kh_M Kh).
 Context (tw_inj : forall i j : nat, (i < q)%N -> (j < q)%N -> tw i = tw j -> i = j).
 
 (** The decode bridge: at tweak [tw i] the keyed hash computes the
-    scheme's derived value [ev k i].  [Sec.wots.hop.prf] supplies it
+    scheme's derived value [ev k i].  [Shrincs.internal.ssprove.wots.hop.prf] supplies it
     with [kh_eval_ptw]. *)
 Context (ev : kh_K Kh -> nat -> kh_N Kh).
 Context (kh_eval_tw : forall (k : kh_K Kh) (i : nat), kh_eval Kh k (tw i) = ev k i).

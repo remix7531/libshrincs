@@ -9,7 +9,7 @@
     Historical single-file entry point. Actual lemmas live in the
     [contract.lemmas.*] modules; this file just re-exports them so
     downstream code keeps working with
-    [From Vst Require Import contract.lemmas.]. *)
+    [From Shrincs.internal.vst.support Require Import contract.lemmas.]. *)
 
 From Shrincs.internal.vst.support Require Export theory.pure.
 From Shrincs.internal.vst.support Require Export contract.lemmas.data_at.

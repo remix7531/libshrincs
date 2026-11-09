@@ -4,7 +4,7 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Vst.base: the root of the VST tier
+(** * Shrincs.internal.vst.support.base: the root of the VST tier
 
     THE FILE EVERY OTHER vst/ FILE IMPORTS FIRST, and the reason it
     must be first is the import-order trap: floyd's notations and the
@@ -15,14 +15,14 @@
     and the name-hygiene note explaining what the merged stack shadows.
 
     ONE THING THIS FILE IS NOT: free of [wots.c]. It Exports
-    Vst.clight.wots, because [CompSpecs] has to be built from some
+    Shrincs.clight.wots, because [CompSpecs] has to be built from some
     program and all three Clight programs (sha256.c, thash.c, wots.c)
     have the same empty composite environment:
-    Vst.sha256.vsu's [compspecs_agree] says so by [reflexivity].
-    The SHA-256 proofs and [Vst.contract.repr] both export this
+    Shrincs.internal.vst.sha256.vsu's [compspecs_agree] says so by [reflexivity].
+    The SHA-256 proofs and [Shrincs.internal.vst.support.contract.repr] both export this
     instance, so contracts and callers use the same constant.
 
-    [Vst.repr] supplies the
+    [Shrincs.internal.vst.support.repr] supplies the
     mathcomp-seq to stdlib-list dictionary in [repr.seqlist], the
     32-byte word codec, the [tarray tuchar] surgery and the funspec
     notations in [repr.words]. *)

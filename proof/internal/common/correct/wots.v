@@ -4,7 +4,7 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Model.correct.wots: end-to-end correctness of WOTS+C.
+(** * Shrincs.internal.common.correct.wots: end-to-end correctness of WOTS+C.
 
     [wots_correct] -- [shrincs_wots_verify] accepts any signature produced
     by [shrincs_wots_sign] against the matching [shrincs_wots_pubkey_gen].

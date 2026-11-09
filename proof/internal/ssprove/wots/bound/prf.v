@@ -4,10 +4,10 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.wots.bound.prf
+(** * Shrincs.internal.ssprove.wots.bound.prf
 
     The PRF game-hop equality, in its own file like the other
-    per-hop advantage bounds (Sec.bound.grind), so it type-checks
+    per-hop advantage bounds (Shrincs.internal.ssprove.bound.grind), so it type-checks
     in parallel with them.
 
     States that the [G_forge_keyed -> G_forge_sampledkey] advantage (at either KOTS bit b)

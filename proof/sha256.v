@@ -4,7 +4,7 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Model.sha256_spec: SHA-256, FIPS 180-4
+(** * Shrincs.sha256: SHA-256, FIPS 180-4
 
     Read against FIPS 180-4 in its section order:
 
@@ -22,22 +22,22 @@
     ([padbits_spec]), and known-answer tests. Nothing else. Every
     derived fact the machine-checked proofs need -- sizes, prefix
     forms of the schedule and the round fold, the single-block
-    shortcut -- lives in Vst.sha256.clone and NOT here, so
+    shortcut -- lives in Shrincs.internal.vst.sha256.clone and NOT here, so
     that this file stays a document.
 
-    [Vst.sha256.clone] keeps a private copy for derived proof facts.
-    [Vst.sha256.sync] checks each definition against this file in the
+    [Shrincs.internal.vst.sha256.clone] keeps a private copy for derived proof facts.
+    [Shrincs.internal.vst.sha256.sync] checks each definition against this file in the
     kernel. The known-answer tests therefore pin both spellings.
 
     ONE EXPORTED FUNCTION. SS 6 below ends with [sha256], FIPS 180-4 in
     full: no preprocessing shortcuts, so no length-field special case
     to worry about. src/sha256.c exports exactly this one.
 
-    [Model.sha256] wraps these bytes for the shared model. The
-    hash-game assumptions in [Sec.axioms] concern that concrete hash.
+    [Shrincs.internal.common.sha256] wraps these bytes for the shared model. The
+    hash-game assumptions in [Shrincs.internal.ssprove.axioms] concern that concrete hash.
 
     SCOPE TRAPS, all three silent, all three documented at length in
-    Model.bytes: [Z] arrives via [BinInt] and never [ZArith]; nat
+    Shrincs.internal.common.bytes: [Z] arrives via [BinInt] and never [ZArith]; nat
     annotations are [%nat] and never [%N]; hex literals need [Z_scope]
     opened BY NAME, because in this import context [%Z] is mathcomp's
     [int_scope]. *)
@@ -268,7 +268,7 @@ Qed.
 
 (** The 64-bit big-endian encoding of the message length in bits --
     SS 5.1.1's "64-bit block equal to the number l". Rendered by the
-    codec in Model.bytes, shared with the C contracts. *)
+    codec in Shrincs.internal.common.bytes, shared with the C contracts. *)
 Definition len_bytes (n : Z) : seq Z := bytes_of_word U64 (wrepr U64 (8 * n)).
 
 (** SS 5.1.1 assembled: message, the 0x80 byte, the zero bytes, the
@@ -436,7 +436,7 @@ Definition sha256 (msg : seq Z) : word U256 := digest_of (sha256_words msg).
     produced by sha256sum(1) and python3 hashlib, and each lemma is
     closed inside the logic by [vm_compute] -- so they pin the
     DEFINITIONS above, not an extracted program. Via
-    Vst.sha256.sync they pin the VST side's clone too.
+    Shrincs.internal.vst.sha256.sync they pin the VST side's clone too.
 
     THE LENGTHS ARE CHOSEN, NOT ARBITRARY. SS 5.1.1's padding has one
     case split -- a message whose last partial block leaves room for
@@ -528,7 +528,7 @@ Local Close Scope sha_scope.
     the C is asserted to compute is the transcription of FIPS 180-4 a
     reader has just read, not a second description of it.
 
-    Reading key (notations from Vst.repr.words): [p |->32[sh] w] is
+    Reading key (notations from Shrincs.internal.vst.support.repr.words): [p |->32[sh] w] is
     "the thirty-two bytes at p, with permission sh, are the big-endian
     bytes of the word w"; [|->_32] is the same footprint with arbitrary
     content. The [;] between SEP clauses is a SEPARATING conjunction,
@@ -539,14 +539,14 @@ Local Close Scope sha_scope.
     NOTHING ELSE IS IN THEM. No [gv : globals] and no resource for the
     round constants: K and H^(0) are function locals in the C precisely
     so that this contract is a function of its bytes alone. See
-    Vst.sha256.tables.
+    Shrincs.internal.vst.sha256.tables.
 
-    THAT src/sha256.c SATISFIES IT is Vst.sha256.correct, whose
+    THAT src/sha256.c SATISFIES IT is Shrincs.internal.vst.sha256.correct, whose
     [sha256_c_correct] packages the twelve semax_body proofs of
-    Vst.sha256.verif as one verified component exporting exactly
+    Shrincs.internal.vst.sha256.verif as one verified component exporting exactly
     this one. It cannot be stated here: it needs the component, the
-    component is proved against Vst.sha256.clone, and the gate
-    tying the clone to this file (Vst.sha256.sync) is itself
+    component is proved against Shrincs.internal.vst.sha256.clone, and the gate
+    tying the clone to this file (Shrincs.internal.vst.sha256.sync) is itself
     downstream of this file. *)
 
 Local Open Scope Z_scope.

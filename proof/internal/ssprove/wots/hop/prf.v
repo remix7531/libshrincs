@@ -4,7 +4,7 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.wots.hop.prf
+(** * Shrincs.internal.ssprove.wots.hop.prf
 
     The PRF-derived secret-key hop: the keyed known-message game
     [G_forge_keyed] (chain starts derived from a hidden PRF key on
@@ -18,19 +18,19 @@
                              (R_prf b ∘ PRF_game khf_prf chain_count false)]
 
     so [Adv (G_forge_keyed b) (G_forge_sampledkey b) A = AdvOf (PRF_game khf_prf chain_count)
-    (A ∘ R_prf b)] at the consumer (Sec.bound.prf).  This hop
+    (A ∘ R_prf b)] at the consumer (Shrincs.internal.ssprove.bound.prf).  This hop
     composes OUTSIDE the proven ideal-key theorem
     ([shrincs_wots_secure_ideal_sk]) by the advantage triangle — the UD
     telescope and the four middle hops are never reopened.
 
     The generic PRF-derived-keys loop machinery (the oracle-routed
     derivation loop, its query-list bookkeeping, and the FQUERY
-    couplings) lives in [Sec.lib.games.prf_derive]; this file
+    couplings) lives in [Shrincs.internal.ssprove.lib.games.prf_derive]; this file
     instantiates it at [khf_prf] and the WOTS+C addresses.
 
     ** Design
 
-    - [khf_prf] is the [khf] (Sec.lib.games.thf) of the secret-key derivation:
+    - [khf_prf] is the [khf] (Shrincs.internal.ssprove.lib.games.thf) of the secret-key derivation:
       hidden key = SKseed, query input = (PKseed, encoded address) —
       the distinguisher knows both — output = an n-byte chain start.
       Argument order of the section parameter [PRF] follows the
@@ -101,7 +101,7 @@ End KhfPrfCore.
 
 Section PrfHop.
 
-(** The WOTS+C parameter record [P] (Sec.wots.params), plus the keyed
+(** The WOTS+C parameter record [P] (Shrincs.internal.ssprove.wots.params), plus the keyed
     derivation data: the SKseed space [K], the derivation function
     [PRF] and the SKseed sampler [dK]. *)
 Context (P : wc_params).
@@ -252,7 +252,7 @@ Local Abbreviation PRFG b := (PRF_game khf_prf (wcp_chain_count P) b).
 Local Abbreviation prf_k_loc' := (prf_k_loc khf_prf).
 Local Abbreviation prf_qs_loc' := (prf_qs_loc khf_prf).
 
-(* Keep the packages and the (Sec.lib.games.prf_derive) resolved oracle
+(* Keep the packages and the (Shrincs.internal.ssprove.lib.games.prf_derive) resolved oracle
    bodies folded under [simpl] from here on. *)
 #[local] Arguments resolve : simpl never.
 #[local] Arguments PRF_game : simpl never.
@@ -268,7 +268,7 @@ Local Abbreviation prf_qs_loc' := (prf_qs_loc khf_prf).
 (* ------------------------------------------------------------------ *)
 (** ** The invariant (header)
 
-    Hop-invariant template (Sec.hop.grind), with a TRIVIAL
+    Hop-invariant template (Shrincs.internal.ssprove.hop.grind), with a TRIVIAL
     committed branch: KFORGE makes no oracle call, so only the
     initial-state facts (needed by COMMIT) are recorded. *)
 
@@ -315,7 +315,7 @@ Proof. by move=> h1 h2; split. Qed.
 
     The block precondition [kblk], its update lemmas, the single-step
     FQUERY couplings, and the loop inductions now live in
-    [Sec.lib.games.prf_derive].  They are called below at
+    [Shrincs.internal.ssprove.lib.games.prf_derive].  They are called below at
     [Kh := khf_prf], the concrete PRF tweak [tw i = (pp, prf_tweak P i)]
     and evaluation [ev k i = PRF pp (prf_adrs P i) k], and the ambient
     ignore-set [IGNK].  The three obligations that instantiation owes —

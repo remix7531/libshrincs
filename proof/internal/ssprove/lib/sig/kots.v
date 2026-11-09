@@ -4,7 +4,7 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.lib.sig.kots
+(** * Shrincs.internal.ssprove.lib.sig.kots
 
     One-time, KNOWN-MESSAGE unforgeability game pair for a
     [sig_scheme]: the adversary submits the (single) message to be
@@ -18,7 +18,7 @@
     earlier by the message-digest hops, after which the WOTS+C layer
     faces exactly this known-message experiment.
 
-    Real/ideal convention as in Sec.lib.games.thf: ideal FORGE returns
+    Real/ideal convention as in Shrincs.internal.ssprove.lib.games.thf: ideal FORGE returns
     false; the known-message OTS success of A is
     [AdvOf (KOTS_game S) A]. *)
 
@@ -82,9 +82,9 @@ Definition KOTS_game (b : bool) : game I_KOTS :=
     proof-free).  The refusal probability is deliberately UNBOUNDED
     here: a valid-commit experiment is the right notion for the WOTS+C
     chain layer, whose tree consumer only ever signs grindable digests
-    by construction (see Sec.wots.games).  This game is machine-linked
+    by construction (see Shrincs.internal.ssprove.wots.games).  This game is machine-linked
     to the WOTS+C valid-commit games [G_forge_keyed] /
-    [G_forge_sampledkey] in Sec.wots.kots_link. *)
+    [G_forge_sampledkey] in Shrincs.internal.ssprove.wots.kots_link. *)
 Definition KOTS_vc_game (b : bool) : game I_KOTS.
 Proof.
   notypeclasses refine [package [fmap kots_pk_loc ; kots_log_loc ] ;

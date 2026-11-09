@@ -6,11 +6,11 @@
 
 (** * model.sha256: SHA-256, a defined function.
 
-    [SHA256] is [Model.sha256_spec]'s [sha256_bytes] -- the FIPS 180-4
+    [SHA256] is [Shrincs.sha256]'s [sha256_bytes] -- the FIPS 180-4
     transcription a reviewer reads, pinned by eleven known-answer tests
     against sha256sum(1) and python3 hashlib -- re-typed into the
     model's own byte vocabulary. The hash computation is defined here.
-    Hash-game security remains an assumption of [Sec.axioms].
+    Hash-game security remains an assumption of [Shrincs.internal.ssprove.axioms].
 
     THE TYPE IS UNCHANGED, so no consumer changed with it, and it still
     states the two properties every consumer needs intrinsically rather
@@ -32,13 +32,13 @@
     real WOTS+C call produces.
 
     WHAT THE DEFINITION COSTS: this file's Stdlib-only import list.
-    Reaching [Model.sha256_spec] pulls in mathcomp and -- loaded, never
+    Reaching [Shrincs.sha256] pulls in mathcomp and -- loaded, never
     imported -- floyd. That invariant is retired deliberately: an
     axiom-free hash is worth more than a short dependency list. Nothing
     below re-exports any of it, so the model's own vocabulary
     downstream ([model.wots] and on) is exactly what it was.
 
-    THE BYTE CODEC. [Model.sha256_spec] speaks [seq Z]; the model speaks
+    THE BYTE CODEC. [Shrincs.sha256] speaks [seq Z]; the model speaks
     [byte]. [sha256_out] maps [byte_val] in and [byte_mod256] out.
     [byte_mod256] is total, so the definition needs no per-element
     range proof threaded through a dependent map -- and that the mod
@@ -46,9 +46,9 @@
     ([map_byte_val_sha256_out], from [sha256_bytes_range]), so the
     model's bytes ARE the standard's bytes and not their residues.
 
-    THE DERIVED FACTS BELOW restate, over [Model.sha256_spec]'s canonical
+    THE DERIVED FACTS BELOW restate, over [Shrincs.sha256]'s canonical
     spelling, the handful of size and range facts the definition needs.
-    [Vst.sha256.clone] proves the same facts over its own
+    [Shrincs.internal.vst.sha256.clone] proves the same facts over its own
     private copy of the specification, for its own consumers; the model
     does not reach into the VST tree for them.
 
@@ -180,7 +180,7 @@ by apply: IH => b Hb; apply: Hall; rewrite in_cons Hb orbT.
 Qed.
 
 (** THE HONESTY STATEMENT for the codec above: [sha256_out]'s bytes
-    carry exactly [Model.sha256_spec]'s digest values. *)
+    carry exactly [Shrincs.sha256]'s digest values. *)
 Lemma map_byte_val_sha256_out (l : list byte) :
   List.map byte_val (sha256_out l) = sha256_bytes (List.map byte_val l).
 Proof.

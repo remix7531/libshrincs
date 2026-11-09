@@ -148,8 +148,8 @@ Qed.
     that saturates out-of-range inputs is not part of the model's
     vocabulary.  The one residual total adapter, at the SSProve
     abstract-scheme boundary where a bare [nat] index arrives
-    ([Sec.addressing]'s [shrincs_wots_chain_adrs_tot]), is a
+    ([Shrincs.internal.ssprove.addressing]'s [shrincs_wots_chain_adrs_tot]), is a
     [Bool.bool_dec] exact-in-range / dummy-out-of-range wrapper -- NOT a
     clamp: it never truncates, and its out-of-range branch is a distinct
-    unused address that is provably never reached.  [Model.fin] is now
+    unused address that is provably never reached.  [Shrincs.internal.common.fin] is now
     pristine exact-ordinal algebra. *)

@@ -7,7 +7,7 @@
 (** * contract.gprog: the full [Gprog] funspec bundle.
     Combines [contract.trusted] (the SHA-256 contract -- the sha256
     translation unit's own, see that file's header) with
-    [contract.helpers] (internal WOTS+ specs proved in [proof/vst/verif])
+    [contract.helpers] (internal WOTS+ specs proved in [proof/internal/vst])
     and [contract.public] (the public API specs).
 
     The internal helpers are partitioned into [Gprog_sha] / [Gprog_libc] /
@@ -20,7 +20,7 @@
     can assemble its own [Gprog] as [Gprog_libc ++ Gprog_thash ++ ...]
     without dragging in the WOTS-specific [Gprog_wots].
 
-    [Gprog_sha] IS [Vst.sha256.contract]'s, verbatim -- all
+    [Gprog_sha] IS [Shrincs.internal.vst.sha256.contract]'s, verbatim -- all
     twelve funspecs of [src/sha256.c], not just the one
     [shrincs_sha256] a caller can name. The eleven private ones are
     here for a single reason: [body_sha256] below moves the sha256
@@ -28,8 +28,8 @@
     only grow ([tycontext_sub]), so every funspec that proof was done
     against has to be present. They are unreachable from [src/wots.c]
     (all eleven are [static] in the C -- see
-    [Vst.sha256.vsu]'s [sha256_public_idents]), so no
-    [forward_call] anywhere in [proof/vst/verif] can resolve to one. *)
+    [Shrincs.internal.vst.sha256.vsu]'s [sha256_public_idents]), so no
+    [forward_call] anywhere in [proof/internal/vst] can resolve to one. *)
 
 From VST Require Export floyd.proofauto.
 
@@ -80,7 +80,7 @@ Definition Gprog : funspecs :=
 (* ================================================================= *)
 (** ** [src/sha256.c]'s body proof, moved into this context.
 
-    [Vst.sha256.verif.sha256]'s [body_sha256] proves
+    [Shrincs.internal.vst.sha256.verif.sha256]'s [body_sha256] proves
     [shrincs_sha256] against [spec_sha256] in the sha256 unit's OWN
     proof context ([Vprog_sha]/[Gprog_sha]). The only step needed here
     is context subsumption: [Gprog] extends [Gprog_sha] on the left, so

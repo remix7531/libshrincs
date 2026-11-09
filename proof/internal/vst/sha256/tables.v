@@ -4,7 +4,7 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Vst.sha256.tables: the two SHA-256 constant tables as VALUES
+(** * Shrincs.internal.vst.sha256.tables: the two SHA-256 constant tables as VALUES
 
     K (FIPS 180-4 SS 4.2.2) and H^(0) (SS 5.3.3) are function locals in
     src/sha256.c, not file-scope arrays, so they are NOT Clight globals
@@ -39,8 +39,8 @@ From Shrincs.internal.vst.support.repr Require Import words.
 From Shrincs.internal.vst.sha256 Require Import bridge.
 From Shrincs.internal.vst.sha256 Require Import clone.
 
-(* Imported for the AST's identifiers. This shadows Vst.clight.wots's
-   [prog], which Vst.base exports. The identifiers agree because
+(* Imported for the AST's identifiers. This shadows Shrincs.clight.wots's
+   [prog], which Shrincs.internal.vst.support.base exports. The identifiers agree because
    clightgen 3.17 derives every identifier from its NAME, so a symbol
    shared by the translation units is the same positive in all of
    them. *)
@@ -160,7 +160,7 @@ Qed.
 
     THEY ARE A SECOND TRANSCRIPTION, and the two lemmas beside them are
     what makes that safe: each says the list is [words_to_vals] of the
-    corresponding table of Model.sha256_spec, checked by [vm_compute] through
+    corresponding table of Shrincs.sha256, checked by [vm_compute] through
     [words_to_vals_table]. Change either the C or the specification
     alone and this file stops compiling, naming the table that drifted.
     Nothing else in the development may mention these numerals. *)

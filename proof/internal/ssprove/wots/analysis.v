@@ -4,7 +4,7 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.wots.analysis
+(** * Shrincs.internal.ssprove.wots.analysis
 
     The PURE forgery-analysis layer of the WOTS+C one-time security
     proof: the four-way forgery classifier [shrincs_wots_forgery_classify]
@@ -17,7 +17,7 @@
     must invert F at some position.  This is refined into the four
     cases the game hops consume.  The WOTS+C chain layer is the
     generic chain library at the address-wrapped chain hash [Fw]
-    (defined in Sec.games), so the per-chain classification
+    (defined in Shrincs.internal.ssprove.games), so the per-chain classification
     ([forgery_cases]), the PRE post-processing
     ([forgery_pre_preimage]), the digit selector ([forged_digit_lt],
     [eq_sumn_exists_lt]) and the whole TCR bookkeeping
@@ -84,8 +84,8 @@
     (injective: [encode_tweak_inj] + [chain_adrs_inj]); positions in
     the list are unchanged, so the library's [tcr_index w] IS the
     CHECK index (chosen over a nat*nat-tweaked wrapper thf so that all
-    three instances of Sec.games share one tweak space and the
-    distinct-address lemmas of Sec.wots.addressing apply directly). *)
+    three instances of Shrincs.internal.ssprove.games share one tweak space and the
+    distinct-address lemmas of Shrincs.internal.ssprove.wots.addressing apply directly). *)
 
 From Shrincs.internal.ssprove.lib Require Import prelude sig.scheme sig.kots
   games.thf toolkit.sample_seq.
@@ -100,8 +100,8 @@ Import PackageNotation.
 
 Section WOTSCAnalysis.
 
-(** The WOTS+C parameter record (see Sec.wots.params); the same context
-    as Sec.wots.scheme.  This layer is pure. *)
+(** The WOTS+C parameter record (see Shrincs.internal.ssprove.wots.params); the same context
+    as Shrincs.internal.ssprove.wots.scheme.  This layer is pure. *)
 Context (P : wc_params).
 
 (* ------------------------------------------------------------------ *)
@@ -221,7 +221,7 @@ Qed.
 
     Hypotheses are exactly what G_forge_uniformchains's KFORGE provides on a winning
     real run: the grinding fact for the signed counter
-    ([find_counter_isSome_good] of Sec.games delivers [wgood] from the
+    ([find_counter_isSome_good] of Shrincs.internal.ssprove.games delivers [wgood] from the
     COMMIT assert), the stored signature size (G_forge_uniformchains samples one root
     per digit of a length-chain_count digest), the verification of the forgery
     against the stored public key, and log-freshness ([notin_log_neq]

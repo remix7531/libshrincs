@@ -30,7 +30,7 @@
     a function of its bytes alone. src/sha256.c has NO globals: K
     (SS 4.2.2) and H^(0) (SS 5.3.3) are function locals, so the
     component claims no part of the initial memory and no client has to
-    carry the round constants of a hash. Vst.sha256.tables
+    carry the round constants of a hash. Shrincs.internal.vst.sha256.tables
     has the argument for writing the C that way and what it cost.
 
     WHAT THE PROOF COSTS. Nothing: [mkVSU] discharges every
@@ -62,7 +62,7 @@ Local Open Scope logic.
 
 (** The Clight AST of src/sha256.c in VSU's "quick program" form.
     [QPprog] normalises against the AMBIENT compspecs, which is
-    Vst.base's, built from wots.c. All three Clight programs have an
+    Shrincs.internal.vst.support.base's, built from wots.c. All three Clight programs have an
     empty composite environment, so the
     compspecs are the same object. [compspecs_agree] below says so
     by [reflexivity]. It is also what makes the cross-unit [data_at]
@@ -133,7 +133,7 @@ Proof. reflexivity. Qed.
 (** (d) The ambient compspecs is the sha256 unit's own. All three
     Clight programs have an empty composite environment,
     so the [CompSpecs] the twelve body proofs were done against --
-    Vst.base's, built from wots.c -- IS the one sha256.c
+    Shrincs.internal.vst.support.base's, built from wots.c -- IS the one sha256.c
     determines. This is what makes [QPprog prog] above legitimate and
     what removes the cross-unit [data_at] reconciliation from the
     link. *)

@@ -4,13 +4,13 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.wots.model_bridge
+(** * Shrincs.internal.ssprove.wots.model_bridge
 
     The games <-> model correspondence: the machine link between the
-    SSProve games layer ([Sec.wots.scheme], nat/ordinal-valued,
-    MSB-first digits) and the shared canonical model ([Model.wots],
+    SSProve games layer ([Shrincs.internal.ssprove.wots.scheme], nat/ordinal-valued,
+    MSB-first digits) and the shared canonical model ([Shrincs.internal.common.wots],
     Stdlib/Z-valued) at the CONCRETE truncated-SHA256 instantiation
-    ([Sec.axioms]'s [wc_sha256] record).  This is the
+    ([Shrincs.internal.ssprove.axioms]'s [wc_sha256] record).  This is the
     claim the README used to make WITHOUT a machine proof: "the games
     scheme computes the same thing as the ground-truth model."
 
@@ -24,8 +24,8 @@
     -- never the reverse (no model->games encoding appears in a
     statement's shape).  So the model's chain bounds ([fin (Z.of_nat
     len)]) never have to be materialized; the correspondence rides on
-    [Sec.bridge]'s already-proved [digest_of_bridge] /
-    [good_counter_bridge] and [Model.math.encoding]'s [be_num]/[digits_w]
+    [Shrincs.internal.ssprove.bridge]'s already-proved [digest_of_bridge] /
+    [good_counter_bridge] and [Shrincs.internal.common.math.encoding]'s [be_num]/[digits_w]
     machinery.
 
     ** The 6.1 stratum (DIGITS + COUNTER)
@@ -57,7 +57,7 @@
     inverse of encode on 16-byte blocks); a downstream consumer that
     needs the boolean form can restate it with an explicit [eqtype.eq_op].
 
-    IMPORT DISCIPLINE (see Sec.bridge / HashAssumptions headers,
+    IMPORT DISCIPLINE (see Shrincs.internal.ssprove.bridge / HashAssumptions headers,
     load-bearing): [BinInt] stays a plain [Import] and [Znat] a plain
     [Require] (qualified [Znat.Nat2Z.foo] access) -- `Require Import
     ZArith`/`Require Import Znat` both silently shadow mathcomp's nat
@@ -244,7 +244,7 @@ Proof. by apply: chain_iter_length; rewrite -size_lengthE /decode16 size_decode_
 
 Section model_bridge.
 
-(** The instance anchor (any leaf position; see Sec.wots.scheme). *)
+(** The instance anchor (any leaf position; see Shrincs.internal.ssprove.wots.scheme). *)
 Context (zstar istar : nat) (zstar_range : (zstar < 256)%nat).
 Context (istar_range : anchor_idx_bound istar).
 
@@ -256,10 +256,10 @@ Let P := wc_sha256 zstar istar zstar_range istar_range.
 
 (** The model-side anchor address: the games' [addressing.anchor_adrs]
     at [(zstar, istar)].  Its type [address.adrs chain_count_shrincs
-    w_shrincs.-1] is CONVERTIBLE to [Model.wots]'s [adrs = address.adrs
+    w_shrincs.-1] is CONVERTIBLE to [Shrincs.internal.common.wots]'s [adrs = address.adrs
     wots.len wots.w_pred] ([chain_count_shrincs = wots.len = 32],
     [w_shrincs.-1 = wots.w_pred = 15]), so [A0] passes directly wherever
-    a [Model.wots] address is expected. *)
+    a [Shrincs.internal.common.wots] address is expected. *)
 Definition A0 : address.adrs chain_count_shrincs w_shrincs.-1 :=
   addressing.anchor_adrs chain_count_shrincs w_shrincs
     (wc_anchor P) (wc_anchor_tagZ P) (wc_anchor_idxZ P).
@@ -284,7 +284,7 @@ Qed.
 
 (** T1: the games digest equals the model digest (both [seq nat = list
     nat]).  The digit order already matches ([scheme.digest_of] is
-    MSB-first, [rev (digits_w ...)], as is [Model.wots] via
+    MSB-first, [rev (digits_w ...)], as is [Shrincs.internal.common.wots] via
     [digest_of_bridge]), so this is a plain equality. *)
 Lemma digest_of_modelE (pp : PP_shrincs) (m : M_shrincs) (c : nat) :
   Shrincs.internal.ssprove.wots.scheme.digest_of P pp m c

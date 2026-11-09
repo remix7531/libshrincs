@@ -8,7 +8,7 @@
 
     The [shrincs_memset] / [shrincs_memcpy] / [shrincs_ct_memcmp] /
     [shrincs_panic] helpers from [include/util.h].  These are NOT trusted --
-    their bodies are proved in [proof/vst/verif/body_shrincs_*.v].  Bundled
+    their bodies are proved under [proof/internal/vst/util/]. Bundled
     with the tweakable-hash funspecs ([contract.helpers_thash]) and the
     WOTS+C step funspecs ([contract.helpers_wots]) as [Gprog_libc] in
     [contract.gprog]. *)

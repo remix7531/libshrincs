@@ -14,7 +14,7 @@
     holds [chain_addr_post a start j].
 
     The funspec's [PROP] carries [exists nh ni chain pos, a = Wc_hash ..]:
-    after [Model.address.adrs] became a dependent union, the position
+    after [Shrincs.internal.common.address.adrs] became a dependent union, the position
     setter [set_hash_pos] is the identity on every non-[Wc_hash] arm, so
     the C's unconditional position store only refines the model on the
     hash arm (the WOTS+C chain type the caller always sets).  The body

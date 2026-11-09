@@ -4,7 +4,7 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.wots.instantiation
+(** * Shrincs.internal.ssprove.wots.instantiation
 
     The headline theorem at the spec's parameters: w = 16 (4-bit
     chains), chain_count = 32, constant_sum = 240, a 16-bit grinding
@@ -17,7 +17,7 @@
 
     The hash functions stay ABSTRACT over the concrete types here;
     axioms.v instantiates them with the spec's real
-    truncated-SHA-256 construction (via Model.wots), yielding the
+    truncated-SHA-256 construction (via Shrincs.internal.common.wots), yielding the
     unconditional [shrincs_wots_secure_sha256]. *)
 
 From Shrincs.internal.ssprove.lib Require Import prelude games.thf games.smtcr games.smpre games.smud

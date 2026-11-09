@@ -4,7 +4,7 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Model.math.chain
+(** * Shrincs.internal.common.math.chain
 
     Winternitz hash chains with the chain POSITION as abstract tweak,
     and the collision-or-preimage extraction lemma that is the pure

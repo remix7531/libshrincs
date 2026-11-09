@@ -4,10 +4,10 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Sec.wots.bound.chain_pre
+(** * Shrincs.internal.ssprove.wots.bound.chain_pre
 
-    The chain-preimage game-hop equality, peeled out of [Sec.theorem]
-    for parallel type-checking (see [Sec.bound.grind]).
+    The chain-preimage game-hop equality, peeled out of [Shrincs.internal.ssprove.theorem]
+    for parallel type-checking (see [Shrincs.internal.ssprove.bound.grind]).
 
     States that the [G_post_chain -> G_forge_uniformchains false] advantage
     equals the SM-PRE advantage of the chain-preimage reduction

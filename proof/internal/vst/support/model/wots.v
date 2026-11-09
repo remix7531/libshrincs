@@ -6,7 +6,7 @@
 
 (** * wots.model.wots: re-export shim for the shared model.
 
-    Re-exports the pure WOTS+C model from [proof/model/wots.v] --
+    Re-exports the pure WOTS+C model from [proof/internal/common/wots.v] --
     definitions, supporting lemmas ([model.theory.wots],
     [model.theory.address]), and notation -- so every [From wots
     Require Import/Export model.wots.] line in this tree keeps
