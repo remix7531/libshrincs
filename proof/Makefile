@@ -11,10 +11,11 @@
 
 NPROC := $(shell nproc)
 
-VST_DIR     = vst
-SSPROVE_DIR = ssprove
+VST_DIR     = internal/vst
+CLIGHT_DIR  = clight
+SSPROVE_DIR = internal/ssprove
 AUDIT_DIR   = assumptions
-MODEL_DIR   = model
+MODEL_DIR   = internal/common
 
 # Cyan banner; blue success line.  Disable colors when NO_COLOR is set
 # (https://no-color.org/) so CI logs stay readable.
@@ -28,7 +29,8 @@ endif
 
 # The two trees' .vo targets, derived from _RocqProject so they never drift
 # out of sync with the file listing.
-VST_VOFILES     := $(shell grep -E '^$(VST_DIR)/.*\.v$$' _RocqProject | sed 's/\.v$$/.vo/')
+CLIGHT_VOFILES  := $(shell grep -E '^$(CLIGHT_DIR)/.*\.v$$' _RocqProject | sed 's/\.v$$/.vo/')
+VST_VOFILES     := $(shell grep -E '^$(VST_DIR)/.*\.v$$' _RocqProject | sed 's/\.v$$/.vo/') $(CLIGHT_VOFILES)
 SSPROVE_VOFILES := $(shell grep -E '^$(SSPROVE_DIR)/.*\.v$$' _RocqProject | sed 's/\.v$$/.vo/')
 
 .PHONY: extract vst-prove ssprove-prove prove audit clean
@@ -36,27 +38,27 @@ SSPROVE_VOFILES := $(shell grep -E '^$(SSPROVE_DIR)/.*\.v$$' _RocqProject | sed 
 # ----- VST / Rocq -----------------------------------------------------------
 # Clight ASTs land in vst/clight/ so _RocqProject finds them.
 
-extract: $(VST_DIR)/clight/wots.v $(VST_DIR)/clight/thash.v $(VST_DIR)/clight/sha256.v
+extract: $(CLIGHT_DIR)/wots.v $(CLIGHT_DIR)/thash.v $(CLIGHT_DIR)/sha256.v
 
-$(VST_DIR)/clight/wots.v: ../src/wots.c ../include/wots.h ../include/thash.h ../include/sha256.h ../include/util.h ../src/util.c
+$(CLIGHT_DIR)/wots.v: ../src/wots.c ../include/wots.h ../include/thash.h ../include/sha256.h ../include/util.h ../src/util.c
 	@mkdir -p $(@D)
 	clightgen -normalize -I../src -I../include -Wp,-w -include ../src/util.c -o $@ ../src/wots.c
 
 # The shared tweakable-hash TU. Like sha256.v (and unlike wots.v) util.c is
 # NOT folded in, so shrincs_memcpy/_memset/shrincs_sha256 stay External and
 # resolve through their Gprog funspecs; their bodies are proven in wots.v.
-$(VST_DIR)/clight/thash.v: ../src/thash.c ../include/thash.h ../include/sha256.h ../include/util.h
+$(CLIGHT_DIR)/thash.v: ../src/thash.c ../include/thash.h ../include/sha256.h ../include/util.h
 	@mkdir -p $(@D)
 	clightgen -normalize -I../src -I../include -Wp,-w -o $@ ../src/thash.c
 
-$(VST_DIR)/clight/sha256.v: ../src/sha256.c ../include/sha256.h
+$(CLIGHT_DIR)/sha256.v: ../src/sha256.c ../include/sha256.h
 	@mkdir -p $(@D)
 	clightgen -normalize -I../src -I../include -Wp,-w -o $@ $<
 
 # rocq makefile reads _RocqProject which lists the clight .v files, so
 # they must exist (via extract) before Makefile.coq is regenerated --
 # otherwise the generated rules reference missing inputs.
-Makefile.coq: _RocqProject $(VST_DIR)/clight/wots.v $(VST_DIR)/clight/thash.v $(VST_DIR)/clight/sha256.v
+Makefile.coq: _RocqProject $(CLIGHT_DIR)/wots.v $(CLIGHT_DIR)/thash.v $(CLIGHT_DIR)/sha256.v
 	@rocq makefile -f _RocqProject -o Makefile.coq
 
 vst-prove: extract Makefile.coq
@@ -88,7 +90,7 @@ prove: Makefile.coq extract
 # otherwise fail check.sh's model-side coqc step (and its model gate 0)
 # unless a prior `make prove` (full build) had left the .vo behind.
 audit: vst-prove ssprove-prove
-	@$(MAKE) -j $(NPROC) --no-print-directory -f Makefile.coq model/correct/wots.vo
+	@$(MAKE) -j $(NPROC) --no-print-directory -f Makefile.coq internal/common/correct/wots.vo
 	@$(BANNER) "combined honesty gate (model + ssprove + vst)"
 	@bash $(AUDIT_DIR)/check.sh
 	@$(SUCCESS) "Audit: all proofs green, trust surface unchanged"
@@ -100,4 +102,4 @@ clean:
 	    $(MAKE) --no-print-directory -f Makefile.coq cleanall; \
 	fi
 	@rm -f Makefile.coq Makefile.coq.conf \
-	       $(VST_DIR)/clight/wots.v $(VST_DIR)/clight/thash.v $(VST_DIR)/clight/sha256.v
+	       $(CLIGHT_DIR)/wots.v $(CLIGHT_DIR)/thash.v $(CLIGHT_DIR)/sha256.v

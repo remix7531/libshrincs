@@ -75,8 +75,24 @@ provenance_for() {
 
 # Gate 0: every tree/*.v listed in _RocqProject has an up-to-date .vo (the
 # assumptions/ probes are excluded from the default build on purpose).
+tree_directory() {
+  case "$1" in
+    model) printf '%s\n' internal/common ;;
+    ssprove) printf '%s\n' internal/ssprove ;;
+    vst) printf '%s\n' internal/vst ;;
+    clight) printf '%s\n' clight ;;
+    *) printf 'Unknown proof tree: %s\n' "$1" >&2; return 1 ;;
+  esac
+}
+
 gate0_build_freshness() {
   local tree="$1"
+  local directory
+  directory=$(tree_directory "$tree") || return 1
+  local source_pattern="^\s*${directory}/.*\.v\s*$"
+  if [ "$tree" = model ]; then
+    source_pattern='^\s*(internal/common/.*|sha256)\.v\s*$'
+  fi
 
   local ok=1
   while IFS= read -r vfile; do
@@ -85,15 +101,17 @@ gate0_build_freshness() {
       echo "FAIL: $vfile has no up-to-date .vo (build failed or stale)"
       ok=0
     fi
-  done < <(grep -E "^\s*${tree}/.*\.v\s*$" _RocqProject)
+  done < <(grep -E "$source_pattern" _RocqProject)
   [ "$ok" = 1 ]
 }
 
 # Gate 1: no proof gaps in the tree ($@ adds ssprove's assumptions/ probe dir).
 gate1_proof_gaps() {
   local tree="$1"; shift
+  local directory
+  directory=$(tree_directory "$tree") || return 1
 
-  if grep -rnE --include='*.v' '(^|[^A-Za-z_.])(Admitted|admit|give_up)\.' "$tree" "$@"; then
+  if grep -rnE --include='*.v' '(^|[^A-Za-z_.])(Admitted|admit|give_up)\.' "$directory" "$@"; then
     echo "FAIL: proof gaps found"
     return 1
   fi
@@ -117,20 +135,20 @@ gate2_confined() {
 
 gate2_model() {
   gate2_confined model \
-    'model/machine\.v:|model/address\.v:.*Hypothesis Hpb' \
-    model
+    'internal/common/machine\.v:|internal/common/address\.v:.*Hypothesis Hpb' \
+    internal/common sha256.v
 }
 
 gate2_ssprove() {
   gate2_confined ssprove \
-    'ssprove/axioms\.v:' \
-    ssprove "$ASSUMPTIONS_DIR"
+    'internal/ssprove/axioms\.v:' \
+    internal/ssprove "$ASSUMPTIONS_DIR"
 }
 
 gate2_vst() {
   gate2_confined vst \
     '$^' \
-    vst
+    internal/vst
 }
 
 # Gate 3: compile the tree's Print Assumptions probe, extract the axiom names
@@ -231,23 +249,24 @@ print_trust_surface() {
 # one line per tree; gates speak only when they FAIL.
 tree_fail=0
 gate0_build_freshness model || tree_fail=1
-gate1_proof_gaps model || tree_fail=1
+gate1_proof_gaps model sha256.v || tree_fail=1
 gate2_model || tree_fail=1
-gate3_assumptions model "-Q model Model -Q vst Vst -Q ssprove Sec -Q assumptions Assumptions" || tree_fail=1
+gate3_assumptions model "-Q . Shrincs" || tree_fail=1
 [ "$tree_fail" = 0 ] && echo "model    gates 0-3 green" || fail=1
 
 tree_fail=0
 gate0_build_freshness ssprove || tree_fail=1
 gate1_proof_gaps ssprove "$ASSUMPTIONS_DIR" || tree_fail=1
 gate2_ssprove || tree_fail=1
-gate3_assumptions ssprove "-Q model Model -Q vst Vst -Q ssprove Sec -Q assumptions Assumptions" || tree_fail=1
+gate3_assumptions ssprove "-Q . Shrincs" || tree_fail=1
 [ "$tree_fail" = 0 ] && echo "ssprove  gates 0-3 green" || fail=1
 
 tree_fail=0
 gate0_build_freshness vst || tree_fail=1
+gate0_build_freshness clight || tree_fail=1
 gate1_proof_gaps vst || tree_fail=1
 gate2_vst || tree_fail=1
-gate3_assumptions vst "-Q model Model -Q vst Vst -Q ssprove Sec -Q assumptions Assumptions" || tree_fail=1
+gate3_assumptions vst "-Q . Shrincs" || tree_fail=1
 [ "$tree_fail" = 0 ] && echo "vst      gates 0-3 green" || fail=1
 
 if [ "$fail" = 0 ]; then

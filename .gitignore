@@ -11,7 +11,7 @@
 Makefile*.coq
 Makefile*.coq.conf
 _RocqProject.*
-proof/vst/clight/
+proof/clight/
 build/
 result
 result-*
