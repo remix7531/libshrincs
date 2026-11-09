@@ -12,7 +12,7 @@ From Vst Require Import model.wots.
 
 Open Scope Z_scope.
 
-Local Notation adrs := (address.adrs len w_pred).
+Local Abbreviation adrs := (address.adrs len w_pred).
 
 (* Keep the fuel-heavy definitions symbolic in the body proof: [find_counter]
    / [find_from] carry the fuel [Z.to_nat c_max = Z.to_nat (2^16)], and

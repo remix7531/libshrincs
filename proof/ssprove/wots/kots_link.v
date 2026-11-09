@@ -74,7 +74,7 @@ Context (dK : dist K).
     private locations; the game's pk/log locations mirror the KOTS
     pk/log locations.  [forge_sig_loc] has no KOTS counterpart, so it
     is only [heap_ignore]d. *)
-Local Notation kinv S := (
+Local Abbreviation kinv S := (
   heap_ignore [fmap (forge_pk_loc P) ; (forge_log_loc P) ; (forge_sig_loc P) ; kots_pk_loc S ; kots_log_loc S]
   ⋊ couple_cross (forge_pk_loc P) (kots_pk_loc S) eq
   ⋊ couple_cross (forge_log_loc P) (kots_log_loc S) eq

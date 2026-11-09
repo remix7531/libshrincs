@@ -376,9 +376,9 @@ top of **SSProve** (state-separating proofs).
 - **Parameters travel as one record.** Files take a single
   `Context (P : wc_params)` (`Sec.wots.params`); scheme and game constants are
   plain definitions applied to `P` (`digest_of P`, `shrincs_wots_scheme P`,
-  `wsigs P`, ...), never per-file `Local Notation` pins of parameter-applied
+  `wsigs P`, ...), never per-file `Local Abbreviation` pins of parameter-applied
   constants. Hop-LOCAL proof abbreviations (invariant shapes, `r_*_tail`-style
-  scaffolding inside one hop file) may still use `Local Notation`; use `set`
+  scaffolding inside one hop file) may still use `Local Abbreviation`; use `set`
   only for a local subterm introduced inside a single proof.
 
 ## Comments

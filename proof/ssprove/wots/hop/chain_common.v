@@ -66,7 +66,7 @@ Context (P : wc_params).
     positions are untouched, so all indices ([q_index], [pre_index])
     are consumed unchanged. *)
 
-Local Notation qentry := ((nat * nat) * wcp_N P)%type.
+Local Abbreviation qentry := ((nat * nat) * wcp_N P)%type.
 
 Definition wq (q : qentry) : wc_adrs_ch P * wcp_N P := (shrincs_wots_tweak P q.1, q.2).
 

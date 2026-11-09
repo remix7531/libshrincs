@@ -248,9 +248,9 @@ Definition R_prf (b : bool) : package (I_PRF khf_prf) (I_KOTS (shrincs_wots_sche
 (* ------------------------------------------------------------------ *)
 (** ** Local abbreviations for the linked PRF game *)
 
-Local Notation PRFG b := (PRF_game khf_prf (wcp_chain_count P) b).
-Local Notation prf_k_loc' := (prf_k_loc khf_prf).
-Local Notation prf_qs_loc' := (prf_qs_loc khf_prf).
+Local Abbreviation PRFG b := (PRF_game khf_prf (wcp_chain_count P) b).
+Local Abbreviation prf_k_loc' := (prf_k_loc khf_prf).
+Local Abbreviation prf_qs_loc' := (prf_qs_loc khf_prf).
 
 (* Keep the packages and the (Sec.lib.games.prf_derive) resolved oracle
    bodies folded under [simpl] from here on. *)
@@ -324,7 +324,7 @@ Proof. by move=> h1 h2; split. Qed.
 
 (** The block precondition of the loop, pinned to this hop's [khf_prf]
     and ignore-set [IGNK]. *)
-Local Notation kblk' := (kblk khf_prf IGNK).
+Local Abbreviation kblk' := (kblk khf_prf IGNK).
 Arguments kblk : simpl never.
 
 (** Exact-tweak injectivity in the pair form the loop's [tw] needs:

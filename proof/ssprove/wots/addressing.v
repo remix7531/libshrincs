@@ -60,7 +60,7 @@ Section WcTweak.
     position field bound. *)
 Context (chain_count w : nat).
 Context (Hcc : (0 < chain_count)%nat) (Hw : (1 < w)%nat).
-Local Notation pos_bound := (w.-1).
+Local Abbreviation pos_bound := (w.-1).
 
 (** Positivity of [pos_bound], in the Peano [lt] shape the model's
     [shrincs_wots_hash_adrs] expects (the model is Stdlib-only). *)
@@ -80,16 +80,16 @@ Local Lemma chain_idx_boundZ (i : nat) (Hi : (i < chain_count)%nat) :
   (0 <= Z.of_nat i < Z.of_nat chain_count)%Z.
 Proof. move/ltP: Hi => Hi; move: HccZ; lia. Qed.
 
-Local Notation adrs_sf := (address.adrs chain_count pos_bound).
+Local Abbreviation adrs_sf := (address.adrs chain_count pos_bound).
 
 (** The core file's per-(chain_count,w) specializations, brought back
     into unqualified scope (the idiom every [Sec.wots.*] consumer of
     [Sec.addressing] already uses -- see e.g. [Sec.wots.scheme]). *)
-Local Notation adrs_sf_ch := (addressing.adrs_sf_ch chain_count w).
-Local Notation encode_adrs := (addressing.encode_adrs chain_count w).
-Local Notation decode_adrs := (addressing.decode_adrs chain_count w).
-Local Notation encode_adrs_inj := (addressing.encode_adrs_inj chain_count w).
-Local Notation anchor_adrs := (addressing.anchor_adrs chain_count w).
+Local Abbreviation adrs_sf_ch := (addressing.adrs_sf_ch chain_count w).
+Local Abbreviation encode_adrs := (addressing.encode_adrs chain_count w).
+Local Abbreviation decode_adrs := (addressing.decode_adrs chain_count w).
+Local Abbreviation encode_adrs_inj := (addressing.encode_adrs_inj chain_count w).
+Local Abbreviation anchor_adrs := (addressing.anchor_adrs chain_count w).
 
 (** The EXACT chain-index [fin] field: [i] placed at bound [chain_count]
     from its range proof [Hi], NO clamp ([fin_val] is [Z.of_nat i]). *)

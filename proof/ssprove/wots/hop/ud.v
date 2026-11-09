@@ -167,7 +167,7 @@ Definition HGw (s : nat) (b : bool) : game (I_KOTS (shrincs_wots_scheme P)) :=
 (** Invariant for both endpoint hops: heaps agree outside the six
     private locations; the G_forge_sampledkey/G_forge_uniformchains locations on the left mirror the
     Hw locations on the right. *)
-Local Notation inv01 := (
+Local Abbreviation inv01 := (
   heap_ignore ([fmap (forge_pk_loc P) ; (forge_log_loc P) ; (forge_sig_loc P) ; ud_hybrid_pk_loc ; ud_hybrid_log_loc ; ud_hybrid_sig_loc ])
   ⋊ couple_cross (forge_pk_loc P) ud_hybrid_pk_loc eq
   ⋊ couple_cross (forge_log_loc P) ud_hybrid_log_loc eq
@@ -363,7 +363,7 @@ Defined.
     not been called; the tweak list is pinned separately since the
     query loop grows it. *)
 
-Local Notation LL := ([fmap ud_hybrid_pk_loc ; ud_hybrid_log_loc ; ud_hybrid_sig_loc ;
+Local Abbreviation LL := ([fmap ud_hybrid_pk_loc ; ud_hybrid_log_loc ; ud_hybrid_sig_loc ;
                  r_ud_pk_loc ; r_ud_log_loc ; r_ud_sig_loc ;
                  ud_pp_loc (thf_chain P) ; ud_tws_loc (thf_chain P) ; ud_rev_loc ]).
 
@@ -624,7 +624,7 @@ Qed.
     locations on the left mirror the R_ud locations on the right; and
     as long as no commitment happened ([r_ud_pk_loc] still [None]) the
     SM-UD oracle state is untouched. *)
-Local Notation invR := (
+Local Abbreviation invR := (
   heap_ignore LL
   ⋊ couple_cross ud_hybrid_pk_loc r_ud_pk_loc eq
   ⋊ couple_cross ud_hybrid_log_loc r_ud_log_loc eq

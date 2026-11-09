@@ -12,7 +12,7 @@ From Vst Require Import model.wots.
 
 Open Scope Z_scope.
 
-Local Notation adrs := (address.adrs len w_pred).
+Local Abbreviation adrs := (address.adrs len w_pred).
 
 (* The address-stepping helpers this body leans on ([wc_set_chain] and its
    struct-eq/type/raw lemmas, [adrs_hash_is_Wc_hash], the [chain_iter_c]

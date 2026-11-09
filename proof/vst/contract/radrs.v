@@ -43,7 +43,7 @@ Open Scope Z_scope.
     [chain_count = len] and [pos_bound = w_pred]; this notation keeps
     every bare [adrs] type mention resolving to the fully-applied
     [address.adrs len w_pred]. *)
-Local Notation adrs := (address.adrs len w_pred).
+Local Abbreviation adrs := (address.adrs len w_pred).
 
 (* ================================================================= *)
 (** ** The flat wire view. *)

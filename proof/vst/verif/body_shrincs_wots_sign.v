@@ -13,7 +13,7 @@ Import ListNotations.
 
 Open Scope Z_scope.
 
-Local Notation adrs := (address.adrs len w_pred).
+Local Abbreviation adrs := (address.adrs len w_pred).
 
 (* Shared lemmas this proof leans on: the invariant re-typing bridge
    [chain_addr_post_struct_eq] lives in [contract.helpers]; the per-slot

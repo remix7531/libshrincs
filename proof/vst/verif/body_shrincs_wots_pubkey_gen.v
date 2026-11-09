@@ -12,7 +12,7 @@ From Vst Require Import model.wots.
 
 Open Scope Z_scope.
 
-Local Notation adrs := (address.adrs len w_pred).
+Local Abbreviation adrs := (address.adrs len w_pred).
 
 Local Opaque to_byte shrincs_wots_derive_sk shrincs_wots_chain_iter chain_iter_c T_sf.
 

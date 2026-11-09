@@ -22,7 +22,7 @@ From Vst Require Import contract.repr.
 Open Scope Z_scope.
 Open Scope logic.
 
-Local Notation adrs := (address.adrs len w_pred).
+Local Abbreviation adrs := (address.adrs len w_pred).
 
 (* ================================================================= *)
 (** ** [shrincs_adrs_put32(addr, off, v)] -- store [v] as 4 big-endian bytes at

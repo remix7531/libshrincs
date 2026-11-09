@@ -106,12 +106,12 @@ Section CompressHop.
 (** The WOTS+C parameter record (see Sec.wots.params). *)
 Context (P : wc_params).
 
-Local Notation SMB b := (SMTCR_game (thf_pkcompress P) (coll_pkcompress P) 1 b).
+Local Abbreviation SMB b := (SMTCR_game (thf_pkcompress P) (coll_pkcompress P) 1 b).
 
-Local Notation pp_loc' := (tcr_pp_loc (thf_pkcompress P)).
-Local Notation tgts_loc' := (tcr_tgts_loc (thf_pkcompress P)).
-Local Notation tws_loc' := (tcr_tws_loc (thf_pkcompress P)).
-Local Notation rev_loc' := tcr_rev_loc.
+Local Abbreviation pp_loc' := (tcr_pp_loc (thf_pkcompress P)).
+Local Abbreviation tgts_loc' := (tcr_tgts_loc (thf_pkcompress P)).
+Local Abbreviation tws_loc' := (tcr_tws_loc (thf_pkcompress P)).
+Local Abbreviation rev_loc' := tcr_rev_loc.
 
 (* ------------------------------------------------------------------ *)
 (** ** Pure layer: the COLLQ-routed grinding search

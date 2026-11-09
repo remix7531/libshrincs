@@ -853,7 +853,7 @@ Definition tcr_budget : nat := l + l * w.
 
 (** The committed (tweak, input) pairs live in the carrier of SM-TCR's
     target entry type. *)
-Local Notation qentry := ((nat * nat) * N)%type.
+Local Abbreviation qentry := ((nat * nat) * N)%type.
 
 (** Signature digit of chain [i] with digit [d] from root [u]. *)
 Definition sig_of_root (pp : PP) (i d : nat) (u : N) : N :=

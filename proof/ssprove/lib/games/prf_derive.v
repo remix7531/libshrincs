@@ -78,9 +78,9 @@ Context (Lig : Locations).
 Context (hk_dom : (prf_k_loc Kh).1 \in domm Lig).
 Context (hq_dom : (prf_qs_loc Kh).1 \in domm Lig).
 
-Local Notation PRFG b := (PRF_game Kh q b).
-Local Notation prf_k_loc' := (prf_k_loc Kh).
-Local Notation prf_qs_loc' := (prf_qs_loc Kh).
+Local Abbreviation PRFG b := (PRF_game Kh q b).
+Local Abbreviation prf_k_loc' := (prf_k_loc Kh).
+Local Abbreviation prf_qs_loc' := (prf_qs_loc Kh).
 
 (* ------------------------------------------------------------------ *)
 (** ** The oracle-routed derivation loop *)

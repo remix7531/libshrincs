@@ -16,12 +16,12 @@ Import ListNotations.
 
 (** These facts hold for ANY instantiation of [address.adrs]'s two
     bounds, so we keep them generic: a section over [cc]/[pb] with a
-    [Local Notation] rebinding the bare [adrs] to [address.adrs cc pb].
+    [Local Abbreviation] rebinding the bare [adrs] to [address.adrs cc pb].
     (None of them needs the positivity hypotheses -- they don't build a
     zero default.) *)
 Section AddrFacts.
 Variables cc pb : nat.
-Local Notation adrs := (address.adrs cc pb).
+Local Abbreviation adrs := (address.adrs cc pb).
 
 (** [shrincs_wots_grind_adrs] rebuilds the grind address from the
     anchor, so applying it twice is the same as once (the second

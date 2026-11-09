@@ -111,9 +111,9 @@ Section WcTweak.
     -- see the file header; [Hcc]/[Hw] are unused below.) *)
 Context (chain_count w : nat).
 Context (Hcc : (0 < chain_count)%nat) (Hw : (1 < w)%nat).
-Local Notation pos_bound := (w.-1).
+Local Abbreviation pos_bound := (w.-1).
 
-Local Notation adrs_sf := (address.adrs chain_count pos_bound).
+Local Abbreviation adrs_sf := (address.adrs chain_count pos_bound).
 
 (* ------------------------------------------------------------------ *)
 (** ** The mathcomp [Finite] instance on [adrs_sf]

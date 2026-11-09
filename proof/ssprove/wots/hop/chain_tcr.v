@@ -38,12 +38,12 @@ Context (P : wc_params).
 
 (** Library-game pins at this file's SM-TCR instance ([thf_chain P] /
     [coll_chain P]) and its oracle locations. *)
-Local Notation SMT b :=
+Local Abbreviation SMT b :=
   (SMTCR_game (thf_chain P) (coll_chain P) (tcr_budget (wcp_chain_count P) (wcp_w P)) b).
-Local Notation tpp_loc := (tcr_pp_loc (thf_chain P)).
-Local Notation ttgts_loc := (tcr_tgts_loc (thf_chain P)).
-Local Notation ttws_loc := (tcr_tws_loc (thf_chain P)).
-Local Notation trev_loc := tcr_rev_loc.
+Local Abbreviation tpp_loc := (tcr_pp_loc (thf_chain P)).
+Local Abbreviation ttgts_loc := (tcr_tgts_loc (thf_chain P)).
+Local Abbreviation ttws_loc := (tcr_tws_loc (thf_chain P)).
+Local Abbreviation trev_loc := tcr_rev_loc.
 
 (* ------------------------------------------------------------------ *)
 (** ** Pure layer: the re-tagging into encoded tweaks
@@ -53,7 +53,7 @@ Local Notation trev_loc := tcr_rev_loc.
     [thf_chain] stores ENCODED addresses ([chain_common.wq] re-tags one
     committed entry; positions are untouched). *)
 
-Local Notation qentry := ((nat * nat) * wcp_N P)%type.
+Local Abbreviation qentry := ((nat * nat) * wcp_N P)%type.
 
 (* ================================================================== *)
 (** ** The SM-TCR(F) hop (G_post_compress -> G_post_chain) *)

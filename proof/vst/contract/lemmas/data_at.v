@@ -20,7 +20,7 @@ From Vst Require Import theory.pure.
 
 Open Scope Z_scope.
 
-Local Notation adrs := (address.adrs len w_pred).
+Local Abbreviation adrs := (address.adrs len w_pred).
 
 (* ================================================================= *)
 (** ** [block_to_vals] -- list-shape and indexing. *)

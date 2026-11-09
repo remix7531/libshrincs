@@ -21,7 +21,7 @@ From Vst Require Import contract.public.
 Open Scope Z_scope.
 Open Scope logic.
 
-Local Notation adrs := (address.adrs len w_pred).
+Local Abbreviation adrs := (address.adrs len w_pred).
 
 (* ================================================================= *)
 (** ** [shrincs_wots_t_sf(out, pk_seed, addr, ends)] -- the tweakable hash over the

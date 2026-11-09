@@ -102,12 +102,12 @@ Context (P : wc_params).
 
 (** The STCRP instance and its private STCRP locations, kept as
     file-local abbreviations (library-game pins at this instance). *)
-Local Notation STB b :=
+Local Abbreviation STB b :=
   (STCRP_game (thf_grind P) (coll_grind P) (wcp_M P) (grind_enc P) (grind_prp P) (wcp_c_max P) 1 b).
-Local Notation pp_loc' := (stcr_pp_loc (thf_grind P)).
-Local Notation tgts_loc' := (stcr_tgts_loc (thf_grind P) (wcp_M P)).
-Local Notation tws_loc' := (stcr_tws_loc (thf_grind P)).
-Local Notation rev_loc' := stcr_rev_loc.
+Local Abbreviation pp_loc' := (stcr_pp_loc (thf_grind P)).
+Local Abbreviation tgts_loc' := (stcr_tgts_loc (thf_grind P) (wcp_M P)).
+Local Abbreviation tws_loc' := (stcr_tws_loc (thf_grind P)).
+Local Abbreviation rev_loc' := stcr_rev_loc.
 
 (* ------------------------------------------------------------------ *)
 (** ** The reduction package *)

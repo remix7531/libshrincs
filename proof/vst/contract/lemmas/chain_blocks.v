@@ -22,7 +22,7 @@ From Vst Require Import contract.lemmas.data_at.
 
 Open Scope Z_scope.
 
-Local Notation adrs := (address.adrs len w_pred).
+Local Abbreviation adrs := (address.adrs len w_pred).
 
 (* ================================================================= *)
 (** ** Per-chain blocks. *)

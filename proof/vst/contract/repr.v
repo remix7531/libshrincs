@@ -27,7 +27,7 @@ From Model Require Import theory.address.
 
 Open Scope Z_scope.
 
-Local Notation adrs := (address.adrs len w_pred).
+Local Abbreviation adrs := (address.adrs len w_pred).
 
 (* ================================================================= *)
 (** ** C-level representation bridges. *)

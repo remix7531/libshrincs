@@ -38,11 +38,11 @@ Context (P : wc_params).
 (** The SM-PRE game pair at this instance (a library-game pin) and the
     SM-PRE reduction's own location pins (library locations at the
     file-local [thf_chain P] instance). *)
-Local Notation SMP b := (SMPRE_game (thf_chain P) (coll_chain P) (wcp_chain_count P) b).
-Local Notation ppp_loc := (pre_pp_loc (thf_chain P)).
-Local Notation ptgts_loc := (pre_tgts_loc (thf_chain P)).
-Local Notation ptws_loc := (pre_tws_loc (thf_chain P)).
-Local Notation prev_loc := pre_rev_loc.
+Local Abbreviation SMP b := (SMPRE_game (thf_chain P) (coll_chain P) (wcp_chain_count P) b).
+Local Abbreviation ppp_loc := (pre_pp_loc (thf_chain P)).
+Local Abbreviation ptgts_loc := (pre_tgts_loc (thf_chain P)).
+Local Abbreviation ptws_loc := (pre_tws_loc (thf_chain P)).
+Local Abbreviation prev_loc := pre_rev_loc.
 
 (* ------------------------------------------------------------------ *)
 (** ** Pure layer: the re-tagging into encoded tweaks
@@ -53,7 +53,7 @@ Local Notation prev_loc := pre_rev_loc.
     committed entry; positions are untouched, so all indices
     ([q_index], [pre_index]) are consumed unchanged. *)
 
-Local Notation qentry := ((nat * nat) * wcp_N P)%type.
+Local Abbreviation qentry := ((nat * nat) * wcp_N P)%type.
 
 (* Shared proof-shaping directives (declared once, ahead of the
    proofs). *)

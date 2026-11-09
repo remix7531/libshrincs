@@ -20,7 +20,7 @@ Open Scope Z_scope.
 (** WOTS+C instantiates [Model.address]'s parametric ADRS at
     [chain_count = len] and [pos_bound = w_pred]; this notation keeps
     every bare [adrs] type mention resolving to [address.adrs len w_pred]. *)
-Local Notation adrs := (address.adrs len w_pred).
+Local Abbreviation adrs := (address.adrs len w_pred).
 
 (* ================================================================= *)
 (** ** Address-structure equality (WOTS+C anchor preservation). *)

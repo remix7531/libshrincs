@@ -62,7 +62,7 @@ Definition w_pred : nat := 15.
     every [adrs] type mention in this file resolving to the fully
     applied [address.adrs len w_pred] (the parameters are otherwise
     explicit on the type constructor). *)
-Local Notation adrs := (address.adrs len w_pred).
+Local Abbreviation adrs := (address.adrs len w_pred).
 
 (** Positivity of the instantiated position bound -- discharges the
     [0 < pos_bound] side condition of [shrincs_wots_hash_adrs]. *)
