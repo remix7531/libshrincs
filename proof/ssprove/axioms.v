@@ -139,7 +139,7 @@
     additivity gives an unconditional, closed-form bound on
     WOTS+C-with-truncated-SHA256's forgery advantage. *)
 
-From mathcomp Require Import all_boot all_order.
+From mathcomp Require Import boot order.
 From Sec.lib Require Import prelude games.thf games.smtcr games.smpre games.smud
   games.stcrp games.prf sig.scheme sig.kots.
 From Sec.lib Require Import chain.core.

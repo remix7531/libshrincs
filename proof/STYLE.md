@@ -240,8 +240,8 @@ comment. Generated files (`vst/clight/`) are exempt.
   `compcert`, or the SSProve/MathComp surface. `machine.v` is a
   self-contained clone precisely so this boundary holds.
 - **Carve-out: `math/`.** `Model.math.*` (`chain.v`, `encoding.v`) is the
-  MathComp island: it opens `From mathcomp Require Import all_boot
-  all_order` and follows ssreflect idiom (`seq`, boolean reflection, `Set
+  MathComp island: it opens `From mathcomp Require Import boot
+  order` and follows ssreflect idiom (`seq`, boolean reflection, `Set
   Implicit Arguments`) instead of the plain-Gallina style the rest of
   `Model` uses, because it is the shared pure-math layer `Sec` imports
   directly. This carve-out is about **import purity only**: a `math/` file

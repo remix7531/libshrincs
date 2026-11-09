@@ -63,7 +63,7 @@
     [adrs] value directly and serialize it internally (see
     [Model.wots.H_grind]'s use of [Model.address.adrs_bytes]). *)
 
-From mathcomp Require Import all_boot all_order.
+From mathcomp Require Import boot order.
 From Model Require Import math.chain math.encoding.
 From Model Require wots byte address.
 Require Model.theory.wots.

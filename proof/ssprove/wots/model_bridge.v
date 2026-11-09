@@ -67,7 +67,7 @@
     explicitly; [Zle_0_nat] is unqualified-unavailable, discharged by
     [lia].) *)
 
-From mathcomp Require Import all_boot all_order.
+From mathcomp Require Import boot order.
 From Sec.lib Require Import prelude games.thf games.smtcr games.smpre games.smud
   games.stcrp games.prf sig.scheme sig.kots.
 From Sec.lib Require Import chain.core.

@@ -66,7 +66,7 @@
     Pure MathComp; no SSProve imports (see proof/STYLE.md's Imports section,
     "Carve-out: math/"). *)
 
-From mathcomp Require Import all_boot all_order.
+From mathcomp Require Import boot order.
 
 Set Implicit Arguments.
 Unset Strict Implicit.

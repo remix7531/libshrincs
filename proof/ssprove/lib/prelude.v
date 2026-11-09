@@ -18,7 +18,7 @@
     layer (Adv, Pr', perfect, hybrid machinery) are available from the
     devshell-installed ssprove package. *)
 
-From mathcomp Require Export all_boot all_order all_algebra.
+From mathcomp Require Export boot order algebra.
 Unset SsrOldRewriteGoalsOrder. (* remove the line when requiring MathComp >= 2.6 *)
 
 From Stdlib Require Export Utf8.
