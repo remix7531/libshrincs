@@ -167,6 +167,13 @@ rewrite (Z.land_ones _ 8 ltac:(by [])).
 by apply: Z.mod_pos_bound.
 Qed.
 
-(* Round-trip laws require the matching word size and byte range. *)
+(* Round-trips between the byte and word views (word_of_bytes o
+   bytes_of_word = id and the masked converse) are PROVED, but not
+   here: they live in Vst.sha256.bridge as
+   [word_of_bytes_of_word] and [bytes_of_word_of_bytes], next to the
+   only proofs that need them (the C's load_be32 / store_be32 and the
+   two digest stores). They are stated size-generically over [ws], so
+   moving them down here is a refactor away if a second consumer
+   appears; until then they sit with their consumer. *)
 
 End Codec.

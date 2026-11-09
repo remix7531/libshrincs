@@ -35,8 +35,16 @@ vst/base.v
 vst/settings.v
 vst/repr/seqlist.v
 vst/repr/words.v
+vst/repr/int32.v
 vst/sha256/clone.v
 vst/sha256/sync.v
+vst/sha256/bridge.v
+vst/sha256/tables.v
+vst/sha256/contract.v
+vst/sha256/verif/logical.v
+vst/sha256/verif/load_be32.v
+vst/sha256/verif/store_be32.v
+vst/sha256/verif/parse.v
 vst/model/wots.v
 vst/theory/pure.v
 vst/contract/radrs.v
