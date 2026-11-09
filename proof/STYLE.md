@@ -19,16 +19,9 @@ This is the **one** style guide for all three proof trees under `proof/`:
   honesty gate below; not a proof tree of its own, but it shares the same
   naming/file conventions.
 
-This file used to be three separate `STYLE.md` files, one under each of
-`proof/model/`, `proof/ssprove/`, and `proof/vst/`, each restating the
-cross-tree naming convention and adding its own tactic/formatting rules.
-They are merged here: one copy of
-everything the three trees already agreed on (naming, comment taxonomy,
-formatting basics, imports discipline, the licensing header, the honesty
-gate), followed by three per-tree sections that keep every place the trees
-**deliberately** differ (semicolon-chaining, hypothesis-name casing, banner
-width, proof organization, ...). When a shared rule changes, change it once,
-here.
+Shared rules cover naming, comments, formatting, imports, licensing and
+the honesty gate. The per-tree sections specify tactic conventions and
+proof organization.
 
 ## Repo-wide file & directory naming
 

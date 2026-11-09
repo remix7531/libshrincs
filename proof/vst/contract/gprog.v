@@ -5,8 +5,8 @@
  *)
 
 (** * contract.gprog: the full [Gprog] funspec bundle.
-    Combines [contract.trusted] (axiomatic / external specs: SHA256, libc)
-    with [contract.helpers] (internal WOTS+ specs proved in [proof/verif])
+    Combines [contract.trusted] (the SHA-256 contract)
+    with [contract.helpers] (internal WOTS+ specs proved in [proof/vst/verif])
     and [contract.public] (the public API specs).
 
     The internal helpers are partitioned into [Gprog_libc] / [Gprog_thash] /

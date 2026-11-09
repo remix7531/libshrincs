@@ -176,12 +176,9 @@ gate3_assumptions() {
 CLASSICAL_MODEL=()
 CLASSICAL_SSPROVE=(
   R
-  SPropBase.ax_proof_irrel
   boolp.constructive_indefinite_description
   boolp.functional_extensionality_dep
   boolp.propositional_extensionality
-  functional_extensionality_dep
-  realsum.__admitted__interchange_psum
 )
 CLASSICAL_VST=(
   Axioms.prop_ext
@@ -189,7 +186,6 @@ CLASSICAL_VST=(
   ClassicalDedekindReals.sig_not_dec
   Classical_Prop.classic
   Ensembles.Extensionality_Ensembles
-  Eqdep.Eq_rect_eq.eq_rect_eq
   FunctionalExtensionality.functional_extensionality_dep
 )
 
@@ -223,10 +219,10 @@ print_trust_surface() {
   printf '%-8s  %-42s  %s\n' "--------" "------------------------------------------" "----------"
   print_trust_surface_rows model CLASSICAL_MODEL
   printf '%-8s  %-42s  %s\n' "ssprove" "(classical baseline, ${#CLASSICAL_SSPROVE[@]} entries)" \
-    "SSProve/mathcomp-analysis library axioms -- excluded middle, choice, prop/functional extensionality, proof irrelevance, one admitted realsum lemma"
+    "SSProve/mathcomp-analysis library axioms -- excluded middle, choice, prop/functional extensionality"
   print_trust_surface_rows ssprove CLASSICAL_SSPROVE
   printf '%-8s  %-42s  %s\n' "vst" "(classical baseline, ${#CLASSICAL_VST[@]} entries)" \
-    "CompCert/Coq-stdlib library axioms -- excluded middle, extensionality, UIP, classical reals decidability"
+    "CompCert/Coq-stdlib library axioms -- excluded middle, extensionality, classical reals decidability"
   print_trust_surface_rows vst CLASSICAL_VST
   echo "================================================================================"
 }

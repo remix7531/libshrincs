@@ -7,11 +7,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1782949081,
-        "narHash": "sha256-vp6Y/Grm98ESt6ceOkWiHWyZRDV3J1RID4w+6NWK9yA=",
+        "lastModified": 1785627969,
+        "narHash": "sha256-4dtXQk/NMePegK/nWp5NSeuZKLATItOq61lpEvmXqGw=",
         "owner": "hercules-ci",
         "repo": "flake-parts",
-        "rev": "17c9d6cdfc60c64f4ee8d306f9bc0b4ccb51481e",
+        "rev": "427bf4bd9435fdf21321c8cc628c24efc14c0f7a",
         "type": "github"
       },
       "original": {
@@ -20,85 +20,93 @@
         "type": "github"
       }
     },
-    "flake-utils": {
+    "flake-parts_2": {
       "inputs": {
-        "systems": "systems"
+        "nixpkgs-lib": [
+          "rocq-mcp-evolve",
+          "nixpkgs"
+        ]
       },
       "locked": {
-        "lastModified": 1731533236,
-        "narHash": "sha256-l0KFg5HjrsfsO/JpG+r7fRrqm12kzFHyUHqHCVpMMbI=",
-        "owner": "numtide",
-        "repo": "flake-utils",
-        "rev": "11707dc2f618dd54ca8739b309ec4fc024de578b",
+        "lastModified": 1793576659,
+        "narHash": "sha256-V1h85lUaJBQoHFrB2vpXZOE0Ju1MYSnIpsehoVZYlDo=",
+        "owner": "hercules-ci",
+        "repo": "flake-parts",
+        "rev": "ea2630b7470978622c7689a1ff75d2b389175399",
         "type": "github"
       },
       "original": {
-        "owner": "numtide",
-        "repo": "flake-utils",
+        "owner": "hercules-ci",
+        "repo": "flake-parts",
         "type": "github"
       }
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1783427417,
-        "narHash": "sha256-OLg5lbgv9nc+IShDS2WrrnIY9DCfRXWD5hxfS4x1Huk=",
+        "lastModified": 1793826729,
+        "narHash": "sha256-D5H7H+qMoTGI/jJtxKP4u7BdjkFnUyhOovTrf3pTOr0=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "1350febcfa4d9894e2254f42ab903859b2cad193",
+        "rev": "6dadaf4375be35033e1c84395adbd53ff5fded96",
         "type": "github"
       },
       "original": {
         "owner": "NixOS",
         "repo": "nixpkgs",
+        "rev": "6dadaf4375be35033e1c84395adbd53ff5fded96",
         "type": "github"
       }
     },
-    "pytanque": {
-      "inputs": {
-        "flake-utils": [
-          "rocq-mcp",
-          "flake-utils"
-        ],
-        "nixpkgs": [
-          "rocq-mcp",
-          "nixpkgs"
-        ]
-      },
+    "nixpkgs_2": {
       "locked": {
-        "lastModified": 1779018200,
-        "narHash": "sha256-o28Z7p2A2ocSdJawML8Qe19JTRkKNLV9T5Utgs8QIC0=",
-        "owner": "remix7531",
-        "repo": "pytanque",
-        "rev": "77763f3d99c6cc2eccab3e35518d6a7a3be5e2c1",
+        "lastModified": 1792657723,
+        "narHash": "sha256-JK7jng/nu00z8uxjdUYzXHeIZbnn987zfQnV55TuMRM=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "15aabc6e8d56a08f7d2f8dcc94c9b0a251aa1e45",
         "type": "github"
       },
       "original": {
-        "owner": "remix7531",
-        "ref": "feat/nix-flake",
-        "repo": "pytanque",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "15aabc6e8d56a08f7d2f8dcc94c9b0a251aa1e45",
         "type": "github"
       }
     },
-    "rocq-mcp": {
+    "rocq-mcp-evolve": {
       "inputs": {
-        "flake-utils": "flake-utils",
-        "nixpkgs": [
-          "nixpkgs"
-        ],
-        "pytanque": "pytanque"
+        "flake-parts": "flake-parts_2",
+        "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1782297313,
-        "narHash": "sha256-V5cP3iG4CeJRKxPUOGcU4AlLuxyeEaUY1sBTHZuUS7s=",
+        "lastModified": 1793996455,
+        "narHash": "sha256-NHVR1DLbDPfirRYUwLDJgnvP8jIFVRlBgaE+hbYGjt4=",
         "owner": "remix7531",
-        "repo": "rocq-mcp",
-        "rev": "25576dc461cb8b2892acbdaa11ec5536bc0e76e6",
+        "repo": "rocq-mcp-evolve",
+        "rev": "37563ebf06ca5a2d5816c72549caf44a58bd1625",
         "type": "github"
       },
       "original": {
         "owner": "remix7531",
-        "ref": "develop",
-        "repo": "rocq-mcp",
+        "repo": "rocq-mcp-evolve",
+        "rev": "37563ebf06ca5a2d5816c72549caf44a58bd1625",
+        "type": "github"
+      }
+    },
+    "rocq-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1793994902,
+        "narHash": "sha256-Q9BZPLU24pTgk035bflexJ+mcn5n2DfBH1BSiR/Uqpw=",
+        "owner": "remix7531",
+        "repo": "rocq",
+        "rev": "e90f1ee76c7119ab8c7d52dccaa0ef40ede5e6d2",
+        "type": "github"
+      },
+      "original": {
+        "owner": "remix7531",
+        "repo": "rocq",
+        "rev": "e90f1ee76c7119ab8c7d52dccaa0ef40ede5e6d2",
         "type": "github"
       }
     },
@@ -106,21 +114,43 @@
       "inputs": {
         "flake-parts": "flake-parts",
         "nixpkgs": "nixpkgs",
-        "rocq-mcp": "rocq-mcp"
+        "rocq-mcp-evolve": "rocq-mcp-evolve",
+        "rocq-src": "rocq-src",
+        "ssprove-src": "ssprove-src",
+        "vst-src": "vst-src"
       }
     },
-    "systems": {
+    "ssprove-src": {
+      "flake": false,
       "locked": {
-        "lastModified": 1681028828,
-        "narHash": "sha256-Vy1rq5AaRuLzOxct8nz4T6wlgyUR7zLU309k9mBC768=",
-        "owner": "nix-systems",
-        "repo": "default",
-        "rev": "da67096a3b9bf56a91d16901293e51ba5b49a27e",
+        "lastModified": 1793998417,
+        "narHash": "sha256-O7uQQimsEqBToOC6vnE7kdM+BlnkpAVejaSK3kmUM50=",
+        "owner": "remix7531",
+        "repo": "ssprove",
+        "rev": "fdbf1c4eee2f8f760eca5abc3cefb32a2a04adf7",
         "type": "github"
       },
       "original": {
-        "owner": "nix-systems",
-        "repo": "default",
+        "owner": "remix7531",
+        "repo": "ssprove",
+        "rev": "fdbf1c4eee2f8f760eca5abc3cefb32a2a04adf7",
+        "type": "github"
+      }
+    },
+    "vst-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1794223456,
+        "narHash": "sha256-GvCt+LW/irm/7XDxwOBErObhZZfHKn6DSdCL1RIUWOo=",
+        "owner": "remix7531",
+        "repo": "VST",
+        "rev": "8f62aee08e6cf58385422bb983426c57b3d4b0ed",
+        "type": "github"
+      },
+      "original": {
+        "owner": "remix7531",
+        "repo": "VST",
+        "rev": "8f62aee08e6cf58385422bb983426c57b3d4b0ed",
         "type": "github"
       }
     }

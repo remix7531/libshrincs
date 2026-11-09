@@ -2,17 +2,17 @@
 
 Formally verified [SHRINCS](https://eprint.iacr.org/2025/2203) constructions. First construction: **WOTS+C**, the SHRINCS leaf one-time signature.
 
-> **Status.** Proof-of-concept first construction (WOTS+C) toward full SHRINCS; the C in `src/` and its VST contracts are provisional and will change. In particular the public VST address contract is *overspecified*: it requires a fully well-formed 22-byte ADRS, while the C depends only on the 9-byte anchor and clobbers bytes `[9..22)` before reading them. Machine-checked correctness thus covers a subset (well-formed addresses) of the inputs the C accepts; this is an incompleteness, not an unsoundness (the C is correct on all inputs), and the contract will be revised.
+> **Status.** Proof-of-concept first construction (WOTS+C) toward full SHRINCS. The C in `src/` and its VST contracts are provisional and will change.
 
 Two independent, machine-checked proofs over one shared model (`proof/model/`):
 
-- **`proof/vst/`**: the C in `src/` is functionally correct (Rocq 9.0 + VST/CompCert).
+- **`proof/vst/`**: the C in `src/` is functionally correct (Rocq 9.2 + VST/CompCert).
 - **`proof/ssprove/`**: the scheme is one-time known-message unforgeable (the valid-commit experiment `KOTS_vc_game`), reduced to standard hash assumptions (Rocq + SSProve/MathComp), and provably computes the same thing as the model the C is verified against.
 
 ## Build & verify
 
 ```sh
-nix develop      # toolchains; or .#vst / .#ssprove individually
+nix develop      # shared Rocq 9.2, MathComp 2.6 and OCaml 5.3 toolchain
 make test        # C self-consistency / tamper tests + SHA-256 KATs
 make prove       # both proof trees
 make audit       # proofs + the honesty gate; ends with the TRUST SURFACE table

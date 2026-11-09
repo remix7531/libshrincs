@@ -4,7 +4,7 @@ Machine-checked functional-correctness proof of a C implementation of
 **WOTS+C** — the grinding / constant-sum Winternitz variant that
 replaces RFC 8391 WOTS+'s checksum chains with a search for a counter
 that maps the message to base-`w` digits of a fixed sum — using VST on
-Rocq 9.0 + CompCert.
+Rocq 9.2 + CompCert.
 
 ## What is proved
 
@@ -48,7 +48,7 @@ byte-for-byte — pk, sig, counter, digits, and an `H_grind` intermediate.
 Run from the repo root (`libshrincs/`):
 
 ```
-nix develop .#vst   # devshell with CompCert, VST, rocq-mcp
+nix develop         # shared proof toolchain
 make                # build the C library (build/libwots.a) only
 make test           # self-consistency + tamper suite + SHA-256 KATs/CAVS
 make extract        # clightgen: C -> Clight AST for vst-prove

@@ -18,7 +18,7 @@
     The in-tree libc alternatives ([shrincs_memcpy], [shrincs_memset],
     [shrincs_ct_memcmp], [shrincs_panic]) are NOT trusted -- their funspecs
     live in [contract.helpers] and their bodies are proved in
-    [proof/verif].
+    [proof/vst/verif].
 
     When auditing: the trusted FUNSPECS are exactly this file; the two
     trust anchors themselves are [Parameter SHA256] (proof/model/sha256.v)

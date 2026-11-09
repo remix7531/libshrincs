@@ -8,8 +8,8 @@ one-time signature that forms the leaf of the
 The proof reduces WOTS+C forgery to standard hash-function assumptions, with **no
 admitted goals**, checked automatically by `assumptions/check.sh`. The abstract headline
 theorem (`shrincs_wots_secure`) and its spec-parameter instantiation
-(`shrincs_wots_secure_shrincs`) add no axioms beyond a fixed classical baseline (six
-standard classical axioms plus one admitted upstream lemma); the concrete corollary over real SHA-256
+(`shrincs_wots_secure_shrincs`) add no axioms beyond the fixed classical baseline
+recorded in `proof/assumptions/allowed.txt`. The concrete corollary over real SHA-256
 (`shrincs_wots_secure_sha256`, in `axioms.v`) additionally rests on 6 named
 hash-hardness axioms, by design. It is a self-contained proof-of-concept: a generic
 hash-based-signature library (`lib/`), the WOTS+C scheme and proof (under `wots/`,
@@ -134,9 +134,8 @@ entire human review surface:
    via the unconditional link in `kots_link.v` — read whichever form matches the
    notion you trust.
 5. **The trusted base** —
-   [`assumptions/allowed.txt`](../assumptions/allowed.txt): six standard
-   classical axioms inherited from SSProve and MathComp-analysis, one admitted
-   upstream lemma (**own subsection below**), plus (only for the concrete
+   [`assumptions/allowed.txt`](../assumptions/allowed.txt): the inherited
+   library baseline, plus (only for the concrete
    `shrincs_wots_secure_sha256` corollary) 6 named hash-hardness axioms in
    [`axioms.v`](axioms.v) — PRF, SM-UD, STCRP, SM-TCR at the
    pk-compression hash, SM-TCR at the chain hash, SM-PRE. **The abstract theorems add
@@ -153,32 +152,17 @@ entire human review surface:
    statements, machine-tied to the full instances by the definitional witness
    `wc_sha256_coreE` (see `axioms.v`'s header, "REVIEWER NOTE").
 
-### The one admitted lemma
-
-The one non-axiom item on the trust surface is
-`realsum.__admitted__interchange_psum`, inherited from upstream SSProve's
-`mathcomp-experimental-reals` dependency (not authored in, or under the
-control of, this repo). It is a Fubini/Tonelli-style `psum`-interchange fact:
-summing a doubly-indexed nonnegative series in either order gives the same
-(possibly infinite) result. This is a standard, believed-true fact of real
-analysis — the kind of statement usually proved once in a real-analysis
-library and then relied on everywhere — and it enters this development
-through SSProve's own probability/advantage calculus (the `Adv`/triangle
-inequality machinery every hop in this proof composes with), not through
-anything WOTS+C-specific. It is worth a reviewer's eye precisely because it
-is the one link in the chain this repo did not itself prove.
-
 The reductions, relational invariants, and tactic proofs do **not** need reading —
 they are what the kernel checked.
 
 ## Building and the honesty gate
 
-Requires [Nix](https://nixos.org) with flakes (Rocq 9.0 + MathComp; SSProve is fetched
-from GitHub pinned to commit `971a4ac` on first `nix develop`). Run from the repo
+Requires [Nix](https://nixos.org) with flakes (Rocq 9.2 + MathComp 2.6; SSProve is fetched
+from GitHub pinned to commit `fdbf1c4` on first `nix develop`). Run from the repo
 root (`libshrincs/`):
 
 ```sh
-nix develop .#ssprove              # enter the toolchain
+nix develop                       # enter the toolchain
 make ssprove-prove                 # type-check every proof in this tree
 bash proof/assumptions/check.sh    # the honesty gate
 # or, combined: `make audit` (also builds+checks the vst tree's honesty gate)

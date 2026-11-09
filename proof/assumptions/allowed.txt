@@ -22,25 +22,21 @@ sha256.SHA256                              # the SHA-256 function itself (model/
 [ssprove]
 # --- SSProve / mathcomp-analysis classical-logic baseline (inherited from
 #     the library, not asserted by this repo: excluded middle, choice,
-#     extensionality, proof irrelevance, and one library-internal admitted
-#     lemma in mathcomp-analysis's realsum) ---
+#     and extensionality) ---
 R                                          # mathcomp-analysis abstract real-number carrier (reals.Real.type)
-SPropBase.ax_proof_irrel                   # SSProve's strict-Prop proof-irrelevance axiom
 boolp.constructive_indefinite_description  # classical choice, via mathcomp-analysis's boolp
 boolp.functional_extensionality_dep        # dependent functional extensionality (boolp)
 boolp.propositional_extensionality         # propositional extensionality (boolp)
-functional_extensionality_dep              # Coq stdlib's functional extensionality (separate copy from boolp's)
-realsum.__admitted__interchange_psum       # mathcomp-analysis's admitted double-psum interchange lemma (library gap, not ours)
 # --- the SHA-256 function itself (inherited from the model tree) ---
 sha256.SHA256                              # the SHA-256 function itself (model/sha256.v)
-# --- the 6 real-valued advantage-bound Parameters (ssprove/hash_assumptions.v) ---
+# --- the 6 real-valued advantage-bound Parameters (ssprove/axioms.v) ---
 eps_prf                                    # PRF advantage bound
 eps_smud                                   # SM-UD advantage bound
 eps_stcrp                                  # STCRP advantage bound
 eps_tcr_pk                                 # SM-TCR advantage bound at the pk-compression hash
 eps_tcr_chain                              # SM-TCR advantage bound at the chain hash
 eps_pre                                    # SM-PRE advantage bound
-# --- the 6 named hash-game security assumptions (ssprove/hash_assumptions.v) ---
+# --- the 6 named hash-game security assumptions (ssprove/axioms.v) ---
 sha256_prf_secure                          # truncated-SHA256 is eps_prf-secure as a PRF
 sha256_smud_secure                         # truncated-SHA256 is eps_smud-secure (SM-UD)
 sha256_stcrp_secure                        # truncated-SHA256 is eps_stcrp-secure (STCRP)
@@ -51,12 +47,11 @@ sha256_pre_secure                          # truncated-SHA256 is eps_pre-secure 
 [vst]
 # --- CompCert / Flocq / VST classical-logic baseline (inherited from the
 #     library, not asserted by this repo) ---
-Axioms.prop_ext                                         # propositional extensionality (Coq stdlib, via CompCert)
+Axioms.prop_ext                                         # propositional extensionality (CompCert's compcert.lib.Axioms)
 ClassicalDedekindReals.sig_forall_dec                   # classical decidability of a forall over nat (Coq stdlib Reals)
 ClassicalDedekindReals.sig_not_dec                      # classical decidability of double negation (Coq stdlib Reals)
 Classical_Prop.classic                                  # excluded middle (Coq stdlib Classical)
 Ensembles.Extensionality_Ensembles                      # set extensionality (Coq stdlib Ensembles)
-Eqdep.Eq_rect_eq.eq_rect_eq                              # Streicher's K / UIP (Coq stdlib Eqdep)
 FunctionalExtensionality.functional_extensionality_dep  # dependent functional extensionality (Coq stdlib)
 # --- the 2 named trust anchors ---
 gprog.body_sha256                          # trusted SHA-256 funspec (vst/contract/trusted.v; axiomatized in vst/contract/gprog.v)
