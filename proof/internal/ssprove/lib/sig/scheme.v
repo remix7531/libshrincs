@@ -18,7 +18,7 @@
       inside [Sk] means the EU-CMA game (Sec.lib.sig.eucma) stores ONE
       location, so game-hop invariants have a uniform shape. *)
 
-From Sec.lib Require Import prelude.
+From Shrincs.internal.ssprove.lib Require Import prelude.
 
 Import PackageNotation.
 #[local] Open Scope package_scope.

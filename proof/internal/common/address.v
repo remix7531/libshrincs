@@ -45,7 +45,7 @@
     Definitions only -- no lemmas. Facts live in [model.theory.address]. *)
 
 From Stdlib Require Import List ZArith Lia.
-From Model Require Export byte fin.
+From Shrincs.internal.common Require Export byte fin.
 Import ListNotations.
 Open Scope Z_scope.
 

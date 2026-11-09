@@ -48,7 +48,7 @@
     the lazy-key coupling, the ideal fresh-output coupling -- is reused
     verbatim. *)
 
-From Sec.lib Require Import prelude games.thf games.prf
+From Shrincs.internal.ssprove.lib Require Import prelude games.thf games.prf
   toolkit.sample_seq toolkit.relational_rules.
 
 Import PackageNotation.

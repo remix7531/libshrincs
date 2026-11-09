@@ -33,7 +33,7 @@
 
     SM-UD advantage of A: [AdvOf (SMUD_game T C p) A]. *)
 
-From Sec.lib Require Import prelude games.thf.
+From Shrincs.internal.ssprove.lib Require Import prelude games.thf.
 
 Import PackageNotation.
 #[local] Open Scope package_scope.

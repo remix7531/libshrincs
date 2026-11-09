@@ -14,9 +14,9 @@
     equals the PRF advantage of the derivation reduction [R_prf]
     (hop.prf's [R_prf_real] / [R_prf_ideal]). *)
 
-From Sec.lib Require Import prelude games.thf games.prf sig.scheme sig.kots.
-From Sec Require Import addressing.
-From Sec.wots Require Import params scheme games hop.prf.
+From Shrincs.internal.ssprove.lib Require Import prelude games.thf games.prf sig.scheme sig.kots.
+From Shrincs.internal.ssprove Require Import addressing.
+From Shrincs.internal.ssprove.wots Require Import params scheme games hop.prf.
 From mathcomp Require Import reals.
 
 Import PackageNotation.

@@ -61,13 +61,13 @@
     (UCOLLQ calls are not budgeted). *)
 
 From mathcomp Require Import reals.
-From Sec.lib Require Import prelude sig.scheme sig.kots
+From Shrincs.internal.ssprove.lib Require Import prelude sig.scheme sig.kots
   games.thf games.smud toolkit.sample_seq toolkit.relational_rules.
-From Model Require Import math.chain math.encoding.
-From Sec.lib Require Import chain.core chain.ud.
-From Sec Require Import addressing.
-From Sec.wots Require Import addressing.
-From Sec.wots Require Import scheme games analysis hop.intermediates.
+From Shrincs.internal.common Require Import math.chain math.encoding.
+From Shrincs.internal.ssprove.lib Require Import chain.core chain.ud.
+From Shrincs.internal.ssprove Require Import addressing.
+From Shrincs.internal.ssprove.wots Require Import addressing.
+From Shrincs.internal.ssprove.wots Require Import scheme games analysis hop.intermediates.
 
 Import PackageNotation.
 #[local] Open Scope package_scope.

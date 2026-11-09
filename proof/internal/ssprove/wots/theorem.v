@@ -39,11 +39,11 @@
     (chain_count*log2 w)-bit hash), [wcp_Hcc] (at least one chain; see
     Sec.wots.hop.prf) and the data sampler [wcp_dM]. *)
 
-From Sec.lib Require Import prelude games.thf games.smtcr games.smpre games.smud
+From Shrincs.internal.ssprove.lib Require Import prelude games.thf games.smtcr games.smpre games.smud
   games.stcrp games.prf sig.scheme sig.kots.
-From Sec.lib Require Import chain.core.
-From Sec Require Import addressing.
-From Sec.wots Require Import scheme games analysis
+From Shrincs.internal.ssprove.lib Require Import chain.core.
+From Shrincs.internal.ssprove Require Import addressing.
+From Shrincs.internal.ssprove.wots Require Import scheme games analysis
   hop.grind hop.compress hop.chain_tcr hop.chain_pre hop.ud hop.prf
   bound.grind bound.compress bound.chain_tcr bound.chain_pre bound.prf kots_link.
 From mathcomp Require Import reals.

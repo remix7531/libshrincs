@@ -35,16 +35,16 @@
     the specification's is a build failure naming the table that
     drifted. No other file may mention those numerals. *)
 
-From Vst.repr Require Import words.
-From Vst.sha256 Require Import bridge.
-From Vst.sha256 Require Import clone.
+From Shrincs.internal.vst.support.repr Require Import words.
+From Shrincs.internal.vst.sha256 Require Import bridge.
+From Shrincs.internal.vst.sha256 Require Import clone.
 
 (* Imported for the AST's identifiers. This shadows Vst.clight.wots's
    [prog], which Vst.base exports. The identifiers agree because
    clightgen 3.17 derives every identifier from its NAME, so a symbol
    shared by the translation units is the same positive in all of
    them. *)
-From Vst.clight Require Import sha256.
+From Shrincs.clight Require Import sha256.
 
 From mathcomp Require Import boot order algebra word_ssrZ word.
 From SSProve.Crypt Require Import jasmin_word jasmin_wsize.

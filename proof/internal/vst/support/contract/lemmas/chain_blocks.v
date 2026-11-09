@@ -16,9 +16,9 @@
     lemmas are proved alongside the body proofs that use them. *)
 
 From VST Require Import floyd.proofauto.
-From Vst Require Import contract.public.
-From Vst Require Import contract.lemmas.lengths.
-From Vst Require Import contract.lemmas.data_at.
+From Shrincs.internal.vst.support Require Import contract.public.
+From Shrincs.internal.vst.support Require Import contract.lemmas.lengths.
+From Shrincs.internal.vst.support Require Import contract.lemmas.data_at.
 
 Open Scope Z_scope.
 

@@ -12,7 +12,7 @@
     so a reader can expand [sync_eq] mentally to the three [eapply]s
     below. *)
 
-From Sec.lib Require Import prelude toolkit.relational_rules.
+From Shrincs.internal.ssprove.lib Require Import prelude toolkit.relational_rules.
 
 (* ssreflect rewrite side conditions precede the rewritten goal in
    MathComp 2.6. *)

@@ -16,9 +16,9 @@
     [contract.lemmas.arith_counter], which loads after [tactics.slot]. *)
 
 From VST Require Import floyd.proofauto.
-From Vst Require Import tactics.slot.
-From Vst Require Import contract.lemmas.data_at.
-From Vst Require Import contract.lemmas.arith_counter.
+From Shrincs.internal.vst.support Require Import tactics.slot.
+From Shrincs.internal.vst.support Require Import contract.lemmas.data_at.
+From Shrincs.internal.vst.support Require Import contract.lemmas.arith_counter.
 
 (** [store_type_byte] leaves the address conjunct holding
     [block_to_vals (radrs_bytes (rset_type (adrs_to_raw a) v))]; the

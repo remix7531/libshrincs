@@ -24,12 +24,12 @@
     byte bounds are used only where [Int.unsigned (Int.repr z) = z] is
     needed, never for disjointness of the four fields. *)
 
-From Vst.repr Require Import words.
-From Vst.sha256 Require Import bridge.
-From Vst.sha256 Require Import contract.
-From Vst.sha256 Require Import clone.
-From Vst Require Import settings.
-From Vst.clight Require Import sha256.
+From Shrincs.internal.vst.support.repr Require Import words.
+From Shrincs.internal.vst.sha256 Require Import bridge.
+From Shrincs.internal.vst.sha256 Require Import contract.
+From Shrincs.internal.vst.sha256 Require Import clone.
+From Shrincs.internal.vst.support Require Import settings.
+From Shrincs.clight Require Import sha256.
 
 (* The mathcomp surface is deliberately narrow: [ssralg] for the ring
    structure, [word.word] for [word U32] and its lemmas. The full

@@ -13,9 +13,9 @@
     equals the SM-PRE advantage of the chain-preimage reduction
     [R_chain_pre] (ChainHop's [R_chain_pre_real] / [R_chain_pre_ideal]). *)
 
-From Sec.lib Require Import prelude games.smpre sig.scheme sig.kots.
-From Sec Require Import addressing.
-From Sec.wots Require Import params scheme games analysis
+From Shrincs.internal.ssprove.lib Require Import prelude games.smpre sig.scheme sig.kots.
+From Shrincs.internal.ssprove Require Import addressing.
+From Shrincs.internal.ssprove.wots Require Import params scheme games analysis
   hop.chain_pre.
 From mathcomp Require Import reals.
 

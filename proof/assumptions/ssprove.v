@@ -33,7 +33,7 @@
     build (see _RocqProject's trailing comment); `make audit` / check.sh
     recompiles them standalone. *)
 
-From Sec.lib Require Import prelude.
+From Shrincs.internal.ssprove.lib Require Import prelude.
 
 Set Printing Width 4000.
 
@@ -43,14 +43,14 @@ Print Assumptions Adv_triangle.
 
 (* Pure spec-contract bridge (Sec.bridge): Model.wots's byte
    nibble-splitting vs this repo's LSB-first digits_w. *)
-Require Import Sec.bridge.
+Require Import Shrincs.internal.ssprove.bridge.
 Print Assumptions Sec.bridge.base_2b_digits_w.
 Print Assumptions Sec.bridge.digest_of_bridge.
 
 (* The headline result: one-time (known-message) security of keyed
    WOTS+C (chain starts PRF-derived), and its ideal-key stepping
    theorem. *)
-Require Import Sec.wots.theorem.
+Require Import Shrincs.internal.ssprove.wots.theorem.
 Print Assumptions Sec.wots.theorem.shrincs_wots_secure.
 Print Assumptions Sec.wots.theorem.shrincs_wots_secure_ideal_sk.
 
@@ -64,12 +64,12 @@ Print Assumptions Sec.wots.theorem.shrincs_wots_secure_kots_ideal_sk.
 (* The headline at the spec's parameters (w = 16, chain_count = 32,
    constant_sum = 240, c_max = 2^16, 16-byte values): the side
    conditions are discharged, so the bound is non-vacuous. *)
-Require Import Sec.wots.instantiation.
+Require Import Shrincs.internal.ssprove.wots.instantiation.
 Print Assumptions Sec.wots.instantiation.shrincs_wots_secure_shrincs.
 
 (* The concrete truncated-SHA256 construction, unconditional modulo
    the 6 named hash-game axioms (Sec.axioms). *)
-Require Import Sec.axioms.
+Require Import Shrincs.internal.ssprove.axioms.
 Print Assumptions Sec.axioms.shrincs_wots_secure_sha256.
 
 (* Same corollary, over KOTS_vc_game -- must depend on exactly the
@@ -84,7 +84,7 @@ Print Assumptions Sec.axioms.shrincs_wots_secure_kots_sha256.
    security claims: their cones must stay within the classical baseline
    plus sha256.SHA256 (the SHA-256 function), and must NOT touch any of
    the 6 hash-game axioms -- the correspondence is unconditional. *)
-Require Import Sec.wots.model_bridge.
+Require Import Shrincs.internal.ssprove.wots.model_bridge.
 Print Assumptions Sec.wots.model_bridge.pubkey_gen_modelE.
 Print Assumptions Sec.wots.model_bridge.find_counter_modelE.
 Print Assumptions Sec.wots.model_bridge.verify_modelE.

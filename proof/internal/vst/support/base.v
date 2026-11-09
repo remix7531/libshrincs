@@ -28,11 +28,11 @@
     notations in [repr.words]. *)
 
 From VST Require Export floyd.proofauto.
-From Vst Require Export clight.wots.
+From Shrincs.clight Require Export wots.
 
 From mathcomp Require Import boot order algebra word_ssrZ word.
 From SSProve.Crypt Require Import jasmin_word jasmin_wsize.
-From Model Require Export bytes.
+From Shrincs.internal.common Require Export bytes.
 
 #[export] Instance CompSpecs : compspecs. make_compspecs prog. Defined.
 

@@ -13,6 +13,6 @@
     The pure-Z [to_byte] shape, byte-extraction and [list_sum] facts these
     bridges build on live in [theory.pure]. *)
 
-From Vst Require Export contract.lemmas.arith_counter.
-From Vst Require Export contract.lemmas.arith_nibble.
-From Vst Require Export contract.lemmas.arith_xor.
+From Shrincs.internal.vst.support Require Export contract.lemmas.arith_counter.
+From Shrincs.internal.vst.support Require Export contract.lemmas.arith_nibble.
+From Shrincs.internal.vst.support Require Export contract.lemmas.arith_xor.

@@ -28,7 +28,7 @@
     build (see _RocqProject's trailing comment); `make audit` / check.sh
     recompiles them standalone. *)
 
-From Model Require Import math.chain math.encoding correct.wots.
+From Shrincs.internal.common Require Import math.chain math.encoding correct.wots.
 
 Set Printing Width 4000.
 

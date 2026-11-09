@@ -20,13 +20,13 @@
     truncated-SHA-256 construction (via Model.wots), yielding the
     unconditional [shrincs_wots_secure_sha256]. *)
 
-From Sec.lib Require Import prelude games.thf games.smtcr games.smpre games.smud
+From Shrincs.internal.ssprove.lib Require Import prelude games.thf games.smtcr games.smpre games.smud
   games.stcrp games.prf sig.scheme sig.kots.
-From Sec.lib Require Import chain.core.
-From Sec Require Import addressing.
-From Sec.wots Require Import scheme games
+From Shrincs.internal.ssprove.lib Require Import chain.core.
+From Shrincs.internal.ssprove Require Import addressing.
+From Shrincs.internal.ssprove.wots Require Import scheme games
   hop.grind hop.compress hop.chain_tcr hop.chain_pre hop.ud hop.prf.
-Require Import Sec.wots.theorem.
+Require Import Shrincs.internal.ssprove.wots.theorem.
 From mathcomp Require Import reals.
 
 Import PackageNotation.

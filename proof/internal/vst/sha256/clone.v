@@ -33,7 +33,7 @@
     schedule and the round fold each get an "upto n" form with a step
     lemma ([schedule_uptoS], [nth_schedule_upto_last], [roundsS]). *)
 
-From Model Require Import bytes.
+From Shrincs.internal.common Require Import bytes.
 
 From HB Require Import structures.
 From mathcomp Require Import boot order algebra word_ssrZ word.

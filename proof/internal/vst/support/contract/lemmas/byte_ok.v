@@ -10,7 +10,7 @@
     no-op, both genuinely needed by [contract.lemmas.shrincs_wots_verify]. *)
 
 From VST Require Import floyd.proofauto.
-From Vst Require Import contract.public.
+From Shrincs.internal.vst.support Require Import contract.public.
 
 Open Scope Z_scope.
 

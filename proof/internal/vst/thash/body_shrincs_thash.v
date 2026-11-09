@@ -14,8 +14,8 @@
     separate readable buffer (no aliasing with [out]). *)
 
 From VST Require Import floyd.proofauto.
-From Vst Require Import contract.gprog contract.lemmas.
-From Vst Require Import clight.thash.
+From Shrincs.internal.vst.support Require Import contract.gprog contract.lemmas.
+From Shrincs.clight Require Import thash.
 Import ListNotations.
 Open Scope Z_scope.
 

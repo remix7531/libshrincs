@@ -76,26 +76,26 @@
     18 Qed's into one theorem for the audit gate to probe. *)
 
 From VST Require Import floyd.proofauto.
-From Vst Require Import contract.gprog contract.lemmas.
-From Vst.clight Require Import thash.
+From Shrincs.internal.vst.support Require Import contract.gprog contract.lemmas.
+From Shrincs.clight Require Import thash.
 
-From Vst Require Import verif.body_shrincs_memset.
-From Vst Require Import verif.body_shrincs_memcpy.
-From Vst Require Import verif.body_shrincs_ct_memcmp.
-From Vst Require Import verif.body_shrincs_panic.
-From Vst Require Import verif.body_shrincs_adrs_put32.
-From Vst Require Import verif.body_shrincs_thash.
-From Vst Require Import verif.body_shrincs_wots_t_sf.
-From Vst Require Import verif.body_shrincs_wots_h_grind.
-From Vst Require Import verif.body_shrincs_wots_derive_sk.
-From Vst Require Import verif.body_shrincs_wots_chain_iter.
-From Vst Require Import verif.body_shrincs_wots_chain_from_seed.
-From Vst Require Import verif.body_shrincs_wots_map_digest.
-From Vst Require Import verif.body_shrincs_wots_grind_to_constant_sum.
-From Vst Require Import verif.body_shrincs_wots_pubkey_gen.
-From Vst Require Import verif.body_shrincs_wots_sign.
-From Vst Require Import verif.body_shrincs_wots_pubkey_from_sig.
-From Vst Require Import verif.body_shrincs_wots_verify.
+From Shrincs.internal.vst.util Require Import body_shrincs_memset.
+From Shrincs.internal.vst.util Require Import body_shrincs_memcpy.
+From Shrincs.internal.vst.util Require Import body_shrincs_ct_memcmp.
+From Shrincs.internal.vst.util Require Import body_shrincs_panic.
+From Shrincs.internal.vst.thash Require Import body_shrincs_adrs_put32.
+From Shrincs.internal.vst.thash Require Import body_shrincs_thash.
+From Shrincs.internal.vst.wots Require Import body_shrincs_wots_t_sf.
+From Shrincs.internal.vst.wots Require Import body_shrincs_wots_h_grind.
+From Shrincs.internal.vst.wots Require Import body_shrincs_wots_derive_sk.
+From Shrincs.internal.vst.wots Require Import body_shrincs_wots_chain_iter.
+From Shrincs.internal.vst.wots Require Import body_shrincs_wots_chain_from_seed.
+From Shrincs.internal.vst.wots Require Import body_shrincs_wots_map_digest.
+From Shrincs.internal.vst.wots Require Import body_shrincs_wots_grind_to_constant_sum.
+From Shrincs.internal.vst.wots Require Import body_shrincs_wots_pubkey_gen.
+From Shrincs.internal.vst.wots Require Import body_shrincs_wots_sign.
+From Shrincs.internal.vst.wots Require Import body_shrincs_wots_pubkey_from_sig.
+From Shrincs.internal.vst.wots Require Import body_shrincs_wots_verify.
 
 (* ================================================================= *)
 (** ** Completeness: [Gprog] has exactly these 29 idents, in this order.

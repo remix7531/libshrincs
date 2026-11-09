@@ -35,7 +35,7 @@
     lemmas need no [repr]-truncation bridge. *)
 
 From Stdlib Require Import List ZArith Lia.
-From Model Require Import byte fin address wots.
+From Shrincs.internal.common Require Import byte fin address wots.
 Import ListNotations.
 Open Scope Z_scope.
 

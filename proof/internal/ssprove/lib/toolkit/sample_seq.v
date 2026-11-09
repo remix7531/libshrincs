@@ -12,7 +12,7 @@
 
     Micro-test at the end of the file (see proof/STYLE.md). *)
 
-From Sec.lib Require Import prelude.
+From Shrincs.internal.ssprove.lib Require Import prelude.
 
 Import PackageNotation.
 #[local] Open Scope package_scope.

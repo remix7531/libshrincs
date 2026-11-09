@@ -21,8 +21,8 @@
     Vst.repr.int32; this file adds only what mentions a SHA-256
     operation. *)
 
-From Vst.repr Require Export int32.
-From Vst.sha256 Require Import clone.
+From Shrincs.internal.vst.support.repr Require Export int32.
+From Shrincs.internal.vst.sha256 Require Import clone.
 
 From mathcomp Require Import boot order algebra word_ssrZ word.
 From SSProve.Crypt Require Import jasmin_word jasmin_wsize.

@@ -15,4 +15,4 @@
     [PRF]'s argument order is [pk_seed -> ADRS -> sk_seed], matching
     [F] / [T_sf] / [H_grind]. *)
 
-From Model Require Export wots theory.address theory.wots.
+From Shrincs.internal.common Require Export wots theory.address theory.wots.

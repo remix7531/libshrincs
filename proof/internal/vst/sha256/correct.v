@@ -23,10 +23,10 @@
 
     The exported interface contains only the complete SHA-256 digest. *)
 
-From Vst.repr Require Import words.
-From Vst.sha256 Require Import contract vsu sync.
-From Vst.sha256 Require clone.
-Require Model.sha256_spec.
+From Shrincs.internal.vst.support.repr Require Import words.
+From Shrincs.internal.vst.sha256 Require Import contract vsu sync.
+From Shrincs.internal.vst.sha256 Require clone.
+Require Shrincs.sha256.
 From VST.floyd Require Import VSU.
 
 Set Bullet Behavior "Strict Subproofs".

@@ -35,9 +35,9 @@
     hash [Fw].  The generic one-sided relational rules used here live in
     [toolkit.relational_rules]. *)
 
-From Sec.lib Require Import prelude sig.scheme
+From Shrincs.internal.ssprove.lib Require Import prelude sig.scheme
   toolkit.sample_seq toolkit.relational_rules chain.core.
-From Model Require Import math.chain math.encoding.
+From Shrincs.internal.common Require Import math.chain math.encoding.
 
 Import PackageNotation.
 #[local] Open Scope package_scope.

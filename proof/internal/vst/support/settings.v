@@ -27,7 +27,7 @@
     [Int64.Z_mod_modulus] is the same hazard at [tulong], where
     sha256's message-length arithmetic lives. *)
 
-From Vst Require Import base.
+From Shrincs.internal.vst.support Require Import base.
 
 Arguments Int.Z_mod_modulus : simpl never.
 Arguments Int64.Z_mod_modulus : simpl never.

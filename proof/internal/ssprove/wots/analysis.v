@@ -87,13 +87,13 @@
     three instances of Sec.games share one tweak space and the
     distinct-address lemmas of Sec.wots.addressing apply directly). *)
 
-From Sec.lib Require Import prelude sig.scheme sig.kots
+From Shrincs.internal.ssprove.lib Require Import prelude sig.scheme sig.kots
   games.thf toolkit.sample_seq.
-From Model Require Import math.chain math.encoding.
-From Sec.lib Require Import chain.core.
-From Sec Require Import addressing.
-From Sec.wots Require Import addressing.
-From Sec.wots Require Import scheme games.
+From Shrincs.internal.common Require Import math.chain math.encoding.
+From Shrincs.internal.ssprove.lib Require Import chain.core.
+From Shrincs.internal.ssprove Require Import addressing.
+From Shrincs.internal.ssprove.wots Require Import addressing.
+From Shrincs.internal.ssprove.wots Require Import scheme games.
 
 Import PackageNotation.
 #[local] Open Scope package_scope.

@@ -36,13 +36,13 @@
     [forward_call] does not match and [entailer!] stops on a bare
     commutativity of [Z.mul] with nothing pointing at the cause. *)
 
-From Vst.repr Require Import words.
-From Vst.sha256 Require Import bridge.
-From Vst.sha256 Require Import tables.
-From Vst.sha256 Require Import contract.
-From Vst Require Import settings.
-From Vst.sha256 Require Import clone.
-From Vst.clight Require Import sha256.
+From Shrincs.internal.vst.support.repr Require Import words.
+From Shrincs.internal.vst.sha256 Require Import bridge.
+From Shrincs.internal.vst.sha256 Require Import tables.
+From Shrincs.internal.vst.sha256 Require Import contract.
+From Shrincs.internal.vst.support Require Import settings.
+From Shrincs.internal.vst.sha256 Require Import clone.
+From Shrincs.clight Require Import sha256.
 
 (* IMPORT DISCIPLINE. The wide mathcomp surface stays. The lemmas below
    are stated in the model's own vocabulary -- [seq], [size], [take],

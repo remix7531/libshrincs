@@ -25,8 +25,8 @@
     symbolically. *)
 
 From HB Require Import structures.
-From Sec.lib Require Import prelude.
-From Model Require Import fin.
+From Shrincs.internal.ssprove.lib Require Import prelude.
+From Shrincs.internal.common Require Import fin.
 From Stdlib Require Import ZArith Lia.
 
 (* [Finite.copy] through a bijection re-registers the lower structures

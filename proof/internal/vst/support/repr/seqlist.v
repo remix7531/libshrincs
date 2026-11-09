@@ -19,7 +19,7 @@
     Every proof in the tier crosses that boundary; only some of them
     touch bytes. *)
 
-From Vst Require Export base.
+From Shrincs.internal.vst.support Require Export base.
 
 From mathcomp Require Import boot order algebra word_ssrZ word.
 From SSProve.Crypt Require Import jasmin_word jasmin_wsize.

@@ -39,11 +39,11 @@
     operations and their lemmas. Widening it back would break every
     [by lia] below with a parse error rather than a proof failure. *)
 
-From Vst.repr Require Import words.
-From Vst.sha256 Require Import bridge.
-From Vst.sha256 Require Import contract.
-From Vst.sha256 Require Import clone.
-From Vst.clight Require Import sha256.
+From Shrincs.internal.vst.support.repr Require Import words.
+From Shrincs.internal.vst.sha256 Require Import bridge.
+From Shrincs.internal.vst.sha256 Require Import contract.
+From Shrincs.internal.vst.sha256 Require Import clone.
+From Shrincs.clight Require Import sha256.
 
 From mathcomp Require Import ssralg word.word.
 From SSProve.Crypt Require Import jasmin_word jasmin_wsize.

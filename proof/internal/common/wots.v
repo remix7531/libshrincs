@@ -43,7 +43,7 @@
     and keeps its own naming). *)
 
 From Stdlib Require Import List ZArith Lia.
-From Model Require Export address sha256 iteration.
+From Shrincs.internal.common Require Export address sha256 iteration.
 Import ListNotations.
 Open Scope Z_scope.
 

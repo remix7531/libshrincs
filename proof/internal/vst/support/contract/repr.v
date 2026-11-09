@@ -23,10 +23,10 @@
     callers must elaborate [data_at] against the same instance. *)
 
 From VST Require Export floyd.proofauto.
-From Vst Require Export base.
-From Vst Require Export model.wots contract.radrs.
-From Vst.clight Require Export wots.
-From Model Require Import theory.address.
+From Shrincs.internal.vst.support Require Export base.
+From Shrincs.internal.vst.support Require Export model.wots contract.radrs.
+From Shrincs.clight Require Export wots.
+From Shrincs.internal.common Require Import theory.address.
 
 Open Scope Z_scope.
 

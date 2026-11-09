@@ -14,7 +14,7 @@
     rather than in either framework's tree. *)
 
 From Stdlib Require Import List ZArith Lia Bool Arith.Peano_dec.
-From Model Require Import wots theory.wots.
+From Shrincs.internal.common Require Import wots theory.wots.
 Import ListNotations.
 Open Scope Z_scope.
 

@@ -26,7 +26,7 @@ From Stdlib Require Import ZArith Lia.
     through its qualified name here, so it never enters downstream
     scope -- crucial for the VST tree, whose CompCert [Byte] would
     otherwise be shadowed. *)
-From Model Require machine.
+From Shrincs.internal.common Require machine.
 #[local] Open Scope Z_scope.
 
 (* ================================================================= *)

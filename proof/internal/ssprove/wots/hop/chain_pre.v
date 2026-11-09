@@ -15,16 +15,16 @@
     re-declared locally, ahead of the proofs). *)
 
 From mathcomp.experimental_reals Require Import distr.
-From Sec.lib Require Import prelude sig.scheme sig.kots
+From Shrincs.internal.ssprove.lib Require Import prelude sig.scheme sig.kots
   games.thf games.smtcr games.smpre toolkit.sample_seq toolkit.relational_rules
   toolkit.hop_tactics.
-From Model Require Import math.chain math.encoding.
-From Sec.lib Require Import chain.core.
-From Sec Require Import addressing.
-From Sec.wots Require Import addressing.
-From Sec.wots Require Import scheme games analysis
+From Shrincs.internal.common Require Import math.chain math.encoding.
+From Shrincs.internal.ssprove.lib Require Import chain.core.
+From Shrincs.internal.ssprove Require Import addressing.
+From Shrincs.internal.ssprove.wots Require Import addressing.
+From Shrincs.internal.ssprove.wots Require Import scheme games analysis
   hop.intermediates.
-From Sec.wots Require Import hop.chain_common.
+From Shrincs.internal.ssprove.wots Require Import hop.chain_common.
 
 Import PackageNotation.
 #[local] Open Scope package_scope.

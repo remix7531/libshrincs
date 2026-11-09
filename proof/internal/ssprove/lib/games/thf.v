@@ -61,7 +61,7 @@
     oracle that re-samples) would be the unsoundness this duplication
     could otherwise hide. *)
 
-From Sec.lib Require Import prelude.
+From Shrincs.internal.ssprove.lib Require Import prelude.
 
 Import PackageNotation.
 #[local] Open Scope package_scope.

@@ -14,9 +14,9 @@
     advantage of the compression reduction [R_compress] (CompressHop's
     [R_compress_real] / [R_compress_ideal]). *)
 
-From Sec.lib Require Import prelude games.smtcr sig.scheme sig.kots.
-From Sec Require Import addressing.
-From Sec.wots Require Import params scheme games analysis
+From Shrincs.internal.ssprove.lib Require Import prelude games.smtcr sig.scheme sig.kots.
+From Shrincs.internal.ssprove Require Import addressing.
+From Shrincs.internal.ssprove.wots Require Import params scheme games analysis
   hop.grind hop.compress.
 From mathcomp Require Import reals.
 

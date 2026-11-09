@@ -51,14 +51,14 @@ From VST Require Export floyd.proofauto.
     re-imports floyd, whose CompCert [Notation byte := Byte.int] would
     otherwise shadow the model's [byte] in [sha256_block_spec] below.
     None of them reaches the 17 body proofs downstream. *)
-From Vst.repr Require Import int32.
+From Shrincs.internal.vst.support.repr Require Import int32.
 From SSProve.Crypt Require Import jasmin_wsize.
-From Vst.sha256 Require Import contract.
-From Vst.sha256 Require sync.
-Require Model.sha256_spec.
+From Shrincs.internal.vst.sha256 Require Import contract.
+From Shrincs.internal.vst.sha256 Require sync.
+Require Shrincs.sha256.
 
-From Vst Require Export contract.public.
-From Vst.clight Require Export sha256.
+From Shrincs.internal.vst.support Require Export contract.public.
+From Shrincs.clight Require Export sha256.
 
 Open Scope Z_scope.
 

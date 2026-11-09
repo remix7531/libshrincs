@@ -17,7 +17,7 @@
     induction over an unbounded query sequence. *)
 
 From mathcomp.experimental_reals Require Import distr.
-From Sec.lib Require Import prelude.
+From Shrincs.internal.ssprove.lib Require Import prelude.
 From SSProve.Crypt Require Import SubDistr Couplings.
 
 Import PackageNotation.

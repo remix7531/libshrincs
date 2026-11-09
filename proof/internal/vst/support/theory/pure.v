@@ -19,7 +19,7 @@
 
 From Stdlib Require Import List ZArith Lia.
 
-From Vst Require Import model.wots.
+From Shrincs.internal.vst.support Require Import model.wots.
 
 Import ListNotations.
 Open Scope Z_scope.

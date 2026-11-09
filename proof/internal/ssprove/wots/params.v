@@ -35,10 +35,10 @@
     the fold vs via the decoded tweak); [fin] has no definitional proof
     irrelevance, so two opaque witnesses would break that. *)
 
-From Sec.lib Require Import prelude.
-From Sec Require Import addressing.
-From Sec.wots Require Import addressing.
-From Model Require address.
+From Shrincs.internal.ssprove.lib Require Import prelude.
+From Shrincs.internal.ssprove Require Import addressing.
+From Shrincs.internal.ssprove.wots Require Import addressing.
+From Shrincs.internal.common Require address.
 From Stdlib Require Import ZArith.
 
 (* ================================================================== *)

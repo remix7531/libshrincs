@@ -47,10 +47,10 @@
    mathcomp surface. [words] Exports it, together with [w256] and the
    |->32 notations the contracts at the foot of this file are written
    in. *)
-From Vst.repr Require Import words.
-From Vst.clight Require Import sha256.
+From Shrincs.internal.vst.support.repr Require Import words.
+From Shrincs.clight Require Import sha256.
 
-From Model Require Import bytes.
+From Shrincs.internal.common Require Import bytes.
 
 From HB Require Import structures.
 From mathcomp Require Import boot order algebra word_ssrZ word.

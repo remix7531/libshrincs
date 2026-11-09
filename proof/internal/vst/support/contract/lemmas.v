@@ -11,13 +11,13 @@
     downstream code keeps working with
     [From Vst Require Import contract.lemmas.]. *)
 
-From Vst Require Export theory.pure.
-From Vst Require Export contract.lemmas.data_at.
-From Vst Require Export tactics.slot.
-From Vst Require Export contract.lemmas.cancel_hints.
-From Vst Require Export contract.lemmas.byte_ok.
-From Vst Require Export contract.lemmas.lengths.
-From Vst Require Export contract.lemmas.arith.
-From Vst Require Export tactics.adrs_store.
-From Vst Require Export contract.lemmas.chain_blocks.
-From Vst Require Export contract.lemmas.shrincs_wots_verify.
+From Shrincs.internal.vst.support Require Export theory.pure.
+From Shrincs.internal.vst.support Require Export contract.lemmas.data_at.
+From Shrincs.internal.vst.support Require Export tactics.slot.
+From Shrincs.internal.vst.support Require Export contract.lemmas.cancel_hints.
+From Shrincs.internal.vst.support Require Export contract.lemmas.byte_ok.
+From Shrincs.internal.vst.support Require Export contract.lemmas.lengths.
+From Shrincs.internal.vst.support Require Export contract.lemmas.arith.
+From Shrincs.internal.vst.support Require Export tactics.adrs_store.
+From Shrincs.internal.vst.support Require Export contract.lemmas.chain_blocks.
+From Shrincs.internal.vst.support Require Export contract.lemmas.shrincs_wots_verify.

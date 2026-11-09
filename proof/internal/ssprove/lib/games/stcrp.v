@@ -42,7 +42,7 @@
     S-TCR(Prop) advantage of A:
     [AdvOf (STCRP_game T C Mb enc prp cap p) A]. *)
 
-From Sec.lib Require Import prelude games.thf.
+From Shrincs.internal.ssprove.lib Require Import prelude games.thf.
 
 Import PackageNotation.
 #[local] Open Scope package_scope.

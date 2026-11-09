@@ -60,9 +60,9 @@
     for the WOTS+C ones) to derive their sibling addresses. *)
 
 From HB Require Import structures.
-From Sec.lib Require Import prelude fin_fin.
-From Model Require address.
-From Model Require Import byte fin.
+From Shrincs.internal.ssprove.lib Require Import prelude fin_fin.
+From Shrincs.internal.common Require address.
+From Shrincs.internal.common Require Import byte fin.
 From Stdlib Require Import ZArith Lia.
 
 Import PackageNotation.

@@ -38,8 +38,8 @@
     [Vst.sha256.correct] and [Vst.contract.trusted] use
     [sync_sha256] to restate the C contract over the canonical hash. *)
 
-Require Model.sha256_spec.
-From Vst.sha256 Require clone.
+Require Shrincs.sha256.
+From Shrincs.internal.vst.sha256 Require clone.
 
 Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".

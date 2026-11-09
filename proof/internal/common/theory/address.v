@@ -9,7 +9,7 @@
     Kept separate from [model.address] itself: that file is "the
     shape of an ADRS," this one is "facts about it." *)
 
-From Model Require Export address.
+From Shrincs.internal.common Require Export address.
 From Stdlib Require Import ZArith Lia List.
 Import ListNotations.
 #[local] Open Scope Z_scope.

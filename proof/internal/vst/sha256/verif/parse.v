@@ -43,12 +43,12 @@
     [by] clause: side conditions below are discharged by an explicit
     bullet or a trailing [; [| lia | lia]]; the stdlib form
     [rewrite L by lia] does not parse in this file. *)
-From Vst.repr Require Import words.
-From Vst.sha256 Require Import bridge.
-From Vst.sha256 Require Import contract.
-From Vst Require Import settings.
-From Vst.sha256 Require Import clone.
-From Vst.clight Require Import sha256.
+From Shrincs.internal.vst.support.repr Require Import words.
+From Shrincs.internal.vst.sha256 Require Import bridge.
+From Shrincs.internal.vst.sha256 Require Import contract.
+From Shrincs.internal.vst.support Require Import settings.
+From Shrincs.internal.vst.sha256 Require Import clone.
+From Shrincs.clight Require Import sha256.
 
 From mathcomp Require Import boot order algebra word_ssrZ word.
 From SSProve.Crypt Require Import jasmin_word jasmin_wsize.

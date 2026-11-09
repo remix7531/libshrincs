@@ -15,6 +15,6 @@
     [Gprog_wots] and assembles the full program [Gprog]. *)
 
 From VST Require Import floyd.proofauto.
-From Vst Require Export contract.helpers_libc.
-From Vst Require Export contract.helpers_thash.
-From Vst Require Export contract.helpers_wots.
+From Shrincs.internal.vst.support Require Export contract.helpers_libc.
+From Shrincs.internal.vst.support Require Export contract.helpers_thash.
+From Shrincs.internal.vst.support Require Export contract.helpers_wots.

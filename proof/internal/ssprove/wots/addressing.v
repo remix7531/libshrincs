@@ -43,10 +43,10 @@
     address, need not be distinguished, so injectivity is stated on
     in-range indices, which is all the consumers ever need. *)
 
-From Sec.lib Require Import prelude.
-From Sec Require Import addressing.
-From Model Require address.
-From Model Require Import fin.
+From Shrincs.internal.ssprove.lib Require Import prelude.
+From Shrincs.internal.ssprove Require Import addressing.
+From Shrincs.internal.common Require address.
+From Shrincs.internal.common Require Import fin.
 From Stdlib Require Import ZArith Lia Bool.
 
 Import PackageNotation.

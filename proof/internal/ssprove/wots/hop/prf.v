@@ -69,13 +69,13 @@
     Locations 370-372 (R's copies). *)
 
 From mathcomp.experimental_reals Require Import distr.
-From Sec.lib Require Import prelude sig.scheme sig.kots
+From Shrincs.internal.ssprove.lib Require Import prelude sig.scheme sig.kots
   games.thf games.prf games.prf_derive toolkit.sample_seq toolkit.relational_rules
   toolkit.hop_tactics.
-From Model Require Import math.chain math.encoding.
-From Sec Require Import addressing.
-From Sec.wots Require Import addressing.
-From Sec.wots Require Import scheme games.
+From Shrincs.internal.common Require Import math.chain math.encoding.
+From Shrincs.internal.ssprove Require Import addressing.
+From Shrincs.internal.ssprove.wots Require Import addressing.
+From Shrincs.internal.ssprove.wots Require Import scheme games.
 From Stdlib Require Import Lia.
 
 Import PackageNotation.

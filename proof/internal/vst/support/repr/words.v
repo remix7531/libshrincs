@@ -15,8 +15,8 @@
     [w256] carries the complete SHA-256 digest. The model-side bridge
     in [Vst.contract.trusted] connects that word to model byte lists. *)
 
-From Vst Require Export base.
-From Vst.repr Require Export seqlist.
+From Shrincs.internal.vst.support Require Export base.
+From Shrincs.internal.vst.support.repr Require Export seqlist.
 
 From mathcomp Require Import boot order algebra word_ssrZ word.
 From SSProve.Crypt Require Import jasmin_word jasmin_wsize.

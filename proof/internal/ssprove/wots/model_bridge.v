@@ -68,20 +68,20 @@
     [lia].) *)
 
 From mathcomp Require Import boot order.
-From Sec.lib Require Import prelude games.thf games.smtcr games.smpre games.smud
+From Shrincs.internal.ssprove.lib Require Import prelude games.thf games.smtcr games.smpre games.smud
   games.stcrp games.prf sig.scheme sig.kots.
-From Sec.lib Require Import chain.core.
-From Model Require Import math.encoding.
-From Sec Require Import addressing.
-From Sec.wots Require Import scheme games
+From Shrincs.internal.ssprove.lib Require Import chain.core.
+From Shrincs.internal.common Require Import math.encoding.
+From Shrincs.internal.ssprove Require Import addressing.
+From Shrincs.internal.ssprove.wots Require Import scheme games
   hop.grind hop.compress hop.chain_tcr hop.chain_pre hop.ud hop.prf.
-Require Import Sec.wots.theorem.
+Require Import Shrincs.internal.ssprove.wots.theorem.
 From mathcomp Require Import reals.
-Require Import Sec.wots.instantiation.
-From Sec Require Import bridge.
-Require Import Sec.axioms.
-From Model Require wots byte address.
-Require Model.theory.wots.
+Require Import Shrincs.internal.ssprove.wots.instantiation.
+From Shrincs.internal.ssprove Require Import bridge.
+Require Import Shrincs.internal.ssprove.axioms.
+From Shrincs.internal.common Require wots byte address.
+Require Shrincs.internal.common.theory.wots.
 (* See header IMPORT DISCIPLINE. *)
 From Stdlib Require Import BinInt Lia.
 From Stdlib Require Znat.

@@ -18,7 +18,7 @@
     is stated in terms of this file. The split is the same one
     Vst.repr.words makes on the byte side. *)
 
-From Vst.repr Require Export words.
+From Shrincs.internal.vst.support.repr Require Export words.
 
 From mathcomp Require Import boot order algebra word_ssrZ word.
 From SSProve.Crypt Require Import jasmin_word jasmin_wsize.

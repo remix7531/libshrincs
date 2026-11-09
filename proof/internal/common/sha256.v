@@ -63,12 +63,12 @@
     src/sha256.c / src/wots.c split at the C-source level. *)
 
 From Stdlib Require Import List ZArith Lia.
-From Model Require Export address bounded.
+From Shrincs.internal.common Require Export address bounded.
 (** [Import], not [Export]: the mathcomp-flavoured word/byte codec is
     used in the proofs below and in no consumer's statements. *)
-From Model Require Import bytes.
+From Shrincs.internal.common Require Import bytes.
 (** The specification has its own name beside this model wrapper. *)
-Require Import Model.sha256_spec.
+Require Import Shrincs.sha256.
 From mathcomp Require Import boot order algebra word_ssrZ word.
 From SSProve.Crypt Require Import jasmin_word jasmin_wsize.
 

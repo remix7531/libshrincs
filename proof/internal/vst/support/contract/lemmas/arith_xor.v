@@ -10,9 +10,9 @@
     preservation, plus [zero_ext 8] on an in-range [int]. *)
 
 From VST Require Import floyd.proofauto.
-From Vst Require Import contract.public.
-From Vst Require Import contract.lemmas.data_at.
-From Vst Require Import theory.pure.
+From Shrincs.internal.vst.support Require Import contract.public.
+From Shrincs.internal.vst.support Require Import contract.lemmas.data_at.
+From Shrincs.internal.vst.support Require Import theory.pure.
 
 Open Scope Z_scope.
 

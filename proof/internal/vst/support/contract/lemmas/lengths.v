@@ -11,7 +11,7 @@
     Every tweakable hash truncates SHA-256 to [n = 16] bytes. *)
 
 From VST Require Import floyd.proofauto.
-From Vst Require Import contract.public.
+From Shrincs.internal.vst.support Require Import contract.public.
 
 Open Scope Z_scope.
 

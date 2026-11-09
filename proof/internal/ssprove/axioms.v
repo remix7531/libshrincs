@@ -140,18 +140,18 @@
     WOTS+C-with-truncated-SHA256's forgery advantage. *)
 
 From mathcomp Require Import boot order.
-From Sec.lib Require Import prelude games.thf games.smtcr games.smpre games.smud
+From Shrincs.internal.ssprove.lib Require Import prelude games.thf games.smtcr games.smpre games.smud
   games.stcrp games.prf sig.scheme sig.kots.
-From Sec.lib Require Import chain.core.
-From Model Require Import math.encoding.
-From Sec Require Import addressing.
-From Sec.wots Require Import scheme games
+From Shrincs.internal.ssprove.lib Require Import chain.core.
+From Shrincs.internal.common Require Import math.encoding.
+From Shrincs.internal.ssprove Require Import addressing.
+From Shrincs.internal.ssprove.wots Require Import scheme games
   hop.grind hop.compress hop.chain_tcr hop.chain_pre hop.ud hop.prf kots_link.
-Require Import Sec.wots.theorem.
+Require Import Shrincs.internal.ssprove.wots.theorem.
 From mathcomp Require Import reals.
-Require Import Sec.wots.instantiation.
-From Sec Require Import bridge.
-From Model Require wots byte address.
+Require Import Shrincs.internal.ssprove.wots.instantiation.
+From Shrincs.internal.ssprove Require Import bridge.
+From Shrincs.internal.common Require wots byte address.
 (* See header IMPORT DISCIPLINE: BinInt (Import) + Znat (plain
    Require) keep Z literals/infix notation without shadowing
    mathcomp's nat "^". *)

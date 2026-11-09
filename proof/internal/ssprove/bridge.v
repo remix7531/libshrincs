@@ -64,9 +64,9 @@
     [Model.wots.H_grind]'s use of [Model.address.adrs_bytes]). *)
 
 From mathcomp Require Import boot order.
-From Model Require Import math.chain math.encoding.
-From Model Require wots byte address.
-Require Model.theory.wots.
+From Shrincs.internal.common Require Import math.chain math.encoding.
+From Shrincs.internal.common Require wots byte address.
+Require Shrincs.internal.common.theory.wots.
 From HB Require Import structures.
 From Stdlib Require Import BinInt Lia.
 From Stdlib Require Znat.

@@ -84,13 +84,13 @@
     Locations 330-332. *)
 
 From mathcomp.experimental_reals Require Import distr.
-From Sec.lib Require Import prelude sig.scheme sig.kots
+From Shrincs.internal.ssprove.lib Require Import prelude sig.scheme sig.kots
   games.thf games.stcrp toolkit.sample_seq toolkit.relational_rules.
-From Model Require Import math.chain math.encoding.
-From Sec.lib Require Import chain.core
+From Shrincs.internal.common Require Import math.chain math.encoding.
+From Shrincs.internal.ssprove.lib Require Import chain.core
   toolkit.hop_tactics.
-From Sec Require Import addressing.
-From Sec.wots Require Import params scheme games analysis hop.intermediates.
+From Shrincs.internal.ssprove Require Import addressing.
+From Shrincs.internal.ssprove.wots Require Import params scheme games analysis hop.intermediates.
 
 Import PackageNotation.
 #[local] Open Scope package_scope.

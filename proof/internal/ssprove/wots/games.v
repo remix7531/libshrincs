@@ -118,12 +118,12 @@
 
     Location ids 300+. *)
 
-From Sec.lib Require Import prelude sig.scheme sig.kots
+From Shrincs.internal.ssprove.lib Require Import prelude sig.scheme sig.kots
   games.thf games.smtcr games.smpre games.smud games.stcrp toolkit.sample_seq.
-From Model Require Import math.chain math.encoding.
-From Sec.lib Require Import chain.core.
-From Sec Require Import addressing.
-From Sec.wots Require Import scheme.
+From Shrincs.internal.common Require Import math.chain math.encoding.
+From Shrincs.internal.ssprove.lib Require Import chain.core.
+From Shrincs.internal.ssprove Require Import addressing.
+From Shrincs.internal.ssprove.wots Require Import scheme.
 
 Import PackageNotation.
 #[local] Open Scope package_scope.

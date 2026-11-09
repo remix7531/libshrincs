@@ -22,7 +22,7 @@
     FORGE returns false; the EU-CMA success of A is
     [AdvOf (EUCMA_game S) A]. *)
 
-From Sec.lib Require Import prelude sig.scheme.
+From Shrincs.internal.ssprove.lib Require Import prelude sig.scheme.
 
 Import PackageNotation.
 #[local] Open Scope package_scope.

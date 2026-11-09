@@ -17,7 +17,7 @@
     truncation of the digest to [out]. *)
 
 From VST Require Import floyd.proofauto.
-From Vst Require Import contract.gprog contract.lemmas.
+From Shrincs.internal.vst.support Require Import contract.gprog contract.lemmas.
 Import ListNotations.
 Open Scope Z_scope.
 

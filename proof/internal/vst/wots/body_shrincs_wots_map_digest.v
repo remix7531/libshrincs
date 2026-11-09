@@ -7,8 +7,8 @@
 (** * body_shrincs_wots_map_digest: VST body proof for [shrincs_wots_map_digest]. *)
 
 From VST Require Import floyd.proofauto.
-From Vst Require Import contract.gprog contract.lemmas.
-From Vst Require Import model.wots.
+From Shrincs.internal.vst.support Require Import contract.gprog contract.lemmas.
+From Shrincs.internal.vst.support Require Import model.wots.
 Import ListNotations.
 
 Open Scope Z_scope.

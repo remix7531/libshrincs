@@ -37,17 +37,17 @@
     mistake: it does not fail at definition time, it fails much later
     at a [forward_call] that will not match. *)
 
-From Vst.repr Require Import words.
-From Vst.sha256 Require Import bridge.
-From Vst.sha256 Require Import tables.
-From Vst.sha256 Require Import clone.
+From Shrincs.internal.vst.support.repr Require Import words.
+From Shrincs.internal.vst.sha256 Require Import bridge.
+From Shrincs.internal.vst.sha256 Require Import tables.
+From Shrincs.internal.vst.sha256 Require Import clone.
 
 (* The sha256 translation unit's AST. Imported (not merely Required)
    so the identifiers below are unqualified; this shadows
    Vst.clight.wots's [prog] and [composites], which Vst.base
    exports. The composite environments agree, as explained in
    Vst.base's header, where the situation is created. *)
-From Vst.clight Require Import sha256.
+From Shrincs.clight Require Import sha256.
 
 From mathcomp Require Import boot order algebra word_ssrZ word.
 From SSProve.Crypt Require Import jasmin_word jasmin_wsize.

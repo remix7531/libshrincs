@@ -34,12 +34,12 @@
     ~axiom-fetch-heavy compile only runs when the audit gate asks for
     it. *)
 
-From Vst Require Import verif.body_shrincs_wots_pubkey_gen.
-From Vst Require Import verif.body_shrincs_wots_sign.
-From Vst Require Import verif.body_shrincs_wots_pubkey_from_sig.
-From Vst Require Import verif.body_shrincs_wots_verify.
-From Vst Require Import verif.all_bodies.
-From Vst.sha256 Require Import correct.
+From Shrincs.internal.vst.wots Require Import body_shrincs_wots_pubkey_gen.
+From Shrincs.internal.vst.wots Require Import body_shrincs_wots_sign.
+From Shrincs.internal.vst.wots Require Import body_shrincs_wots_pubkey_from_sig.
+From Shrincs.internal.vst.wots Require Import body_shrincs_wots_verify.
+From Shrincs.internal.vst Require Import all_bodies.
+From Shrincs.internal.vst.sha256 Require Import correct.
 
 Set Printing Width 4000.
 

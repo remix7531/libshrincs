@@ -37,10 +37,10 @@ From VST Require Export floyd.proofauto.
     unit's funspec bundle and its body proof are needed to STATE and
     PROVE [body_sha256] below, and reach no further. (The body proof's
     own name is [body_sha256] too, hence the qualified reference.) *)
-From Vst.sha256 Require Import contract.
-From Vst.sha256.verif Require sha256.
+From Shrincs.internal.vst.sha256 Require Import contract.
+From Shrincs.internal.vst.sha256.verif Require sha256.
 
-From Vst Require Export contract.trusted contract.public contract.helpers.
+From Shrincs.internal.vst.support Require Export contract.trusted contract.public contract.helpers.
 
 Open Scope Z_scope.
 

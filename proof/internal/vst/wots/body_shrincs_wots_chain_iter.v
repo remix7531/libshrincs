@@ -21,7 +21,7 @@
     binds that witness and runs the loop over the [Wc_hash] address. *)
 
 From VST Require Import floyd.proofauto.
-From Vst Require Import contract.gprog contract.lemmas.
+From Shrincs.internal.vst.support Require Import contract.gprog contract.lemmas.
 
 Open Scope Z_scope.
 

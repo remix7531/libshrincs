@@ -10,8 +10,8 @@
     in VST contracts for the four public entry points.  Internal helper
     funspecs live in [contract.helpers]. *)
 
-From Vst Require Export contract.repr.
-From Model Require Import theory.address.
+From Shrincs.internal.vst.support Require Export contract.repr.
+From Shrincs.internal.common Require Import theory.address.
 
 Definition Vprog : varspecs. mk_varspecs prog. Defined.
 

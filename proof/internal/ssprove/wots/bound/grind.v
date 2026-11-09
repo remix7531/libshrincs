@@ -15,9 +15,9 @@
     equals the STCRP advantage of the grinding reduction [R_grind]
     (GrindHop's [R_grind_real] / [R_grind_ideal]). *)
 
-From Sec.lib Require Import prelude games.stcrp sig.scheme sig.kots.
-From Sec Require Import addressing.
-From Sec.wots Require Import params scheme games analysis
+From Shrincs.internal.ssprove.lib Require Import prelude games.stcrp sig.scheme sig.kots.
+From Shrincs.internal.ssprove Require Import addressing.
+From Shrincs.internal.ssprove.wots Require Import params scheme games analysis
   hop.grind.
 From mathcomp Require Import reals.
 

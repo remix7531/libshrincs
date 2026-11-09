@@ -37,12 +37,12 @@
     [shrincs_wots_verify]. *)
 
 From mathcomp.experimental_reals Require Import distr.
-From Sec.lib Require Import prelude sig.scheme sig.kots
+From Shrincs.internal.ssprove.lib Require Import prelude sig.scheme sig.kots
   toolkit.sample_seq toolkit.relational_rules.
-From Model Require Import math.chain math.encoding.
-From Sec Require Import addressing.
-From Sec.wots Require Import addressing.
-From Sec.wots Require Import scheme games hop.prf.
+From Shrincs.internal.common Require Import math.chain math.encoding.
+From Shrincs.internal.ssprove Require Import addressing.
+From Shrincs.internal.ssprove.wots Require Import addressing.
+From Shrincs.internal.ssprove.wots Require Import scheme games hop.prf.
 
 Import PackageNotation.
 #[local] Open Scope package_scope.

@@ -14,9 +14,9 @@
     [adrs] setters. *)
 
 From VST Require Import floyd.proofauto.
-From Vst Require Import contract.public.
-From Vst Require Import contract.radrs.
-From Vst Require Import theory.pure.
+From Shrincs.internal.vst.support Require Import contract.public.
+From Shrincs.internal.vst.support Require Import contract.radrs.
+From Shrincs.internal.vst.support Require Import theory.pure.
 
 Open Scope Z_scope.
 

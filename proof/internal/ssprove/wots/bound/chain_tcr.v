@@ -14,10 +14,10 @@
     advantage of the chain-TCR reduction [R_chain_tcr] (ChainHop's
     [R_chain_tcr_real] / [R_chain_tcr_ideal]). *)
 
-From Sec.lib Require Import prelude games.smtcr sig.scheme sig.kots.
-From Sec.lib Require Import chain.core.
-From Sec Require Import addressing.
-From Sec.wots Require Import params scheme games analysis
+From Shrincs.internal.ssprove.lib Require Import prelude games.smtcr sig.scheme sig.kots.
+From Shrincs.internal.ssprove.lib Require Import chain.core.
+From Shrincs.internal.ssprove Require Import addressing.
+From Shrincs.internal.ssprove.wots Require Import params scheme games analysis
   hop.compress hop.chain_tcr.
 From mathcomp Require Import reals.
 

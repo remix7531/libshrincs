@@ -62,11 +62,11 @@
     - One-time scheme: [sign] returns the key unchanged (the EU-CMA
       statement uses signing budget q_s = 1). *)
 
-From Sec.lib Require Import prelude sig.scheme toolkit.sample_seq chain.core.
-From Model Require Import math.chain math.encoding.
-From Sec Require Import addressing.
-From Sec.wots Require Import addressing.
-From Sec.wots Require Export params.
+From Shrincs.internal.ssprove.lib Require Import prelude sig.scheme toolkit.sample_seq chain.core.
+From Shrincs.internal.common Require Import math.chain math.encoding.
+From Shrincs.internal.ssprove Require Import addressing.
+From Shrincs.internal.ssprove.wots Require Import addressing.
+From Shrincs.internal.ssprove.wots Require Export params.
 From Stdlib Require Import Bool.
 
 Import PackageNotation.

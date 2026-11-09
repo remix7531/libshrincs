@@ -27,11 +27,11 @@
     and relational proofs stay in their per-hop files. *)
 
 From mathcomp.experimental_reals Require Import distr.
-From Sec.lib Require Import prelude sig.scheme sig.kots
+From Shrincs.internal.ssprove.lib Require Import prelude sig.scheme sig.kots
   chain.core.
-From Model Require Import math.chain math.encoding.
-From Sec Require Import addressing.
-From Sec.wots Require Import scheme games analysis.
+From Shrincs.internal.common Require Import math.chain math.encoding.
+From Shrincs.internal.ssprove Require Import addressing.
+From Shrincs.internal.ssprove.wots Require Import scheme games analysis.
 
 Import PackageNotation.
 #[local] Open Scope package_scope.

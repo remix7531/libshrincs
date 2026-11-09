@@ -41,11 +41,11 @@
     obligations are one [solve_SF_internal] each against a body proof
     that already exists. *)
 
-From Vst.repr Require Import words.
-From Vst.sha256 Require Import bridge clone.
-From Vst.sha256 Require Import tables contract.
-From Vst.clight Require Import sha256.
-From Vst.sha256.verif Require Import
+From Shrincs.internal.vst.support.repr Require Import words.
+From Shrincs.internal.vst.sha256 Require Import bridge clone.
+From Shrincs.internal.vst.sha256 Require Import tables contract.
+From Shrincs.clight Require Import sha256.
+From Shrincs.internal.vst.sha256.verif Require Import
   logical load_be32 store_be32 parse compress_words compress_blocks sha256.
 From VST.floyd Require Import VSU.
 

@@ -15,7 +15,7 @@
     proof) and the SSProve tree's model bridge. *)
 
 From Stdlib Require Import List ZArith Lia.
-From Model Require Export wots.
+From Shrincs.internal.common Require Export wots.
 Import ListNotations.
 Open Scope Z_scope.
 

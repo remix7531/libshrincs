@@ -17,7 +17,7 @@
     [contract.gprog]. *)
 
 From VST Require Import floyd.proofauto.
-From Vst Require Import contract.repr.
+From Shrincs.internal.vst.support Require Import contract.repr.
 
 Open Scope Z_scope.
 Open Scope logic.
