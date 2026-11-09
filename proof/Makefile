@@ -41,8 +41,10 @@ SSPROVE_VOFILES := $(shell grep -E '^$(SSPROVE_DIR)/.*\.v$$' _RocqProject | sed 
 # _RocqProject. CLIGHT_VOFILES adds them to the VST build targets.
 #
 # ONE clightgen INVOCATION PER .c FILE, and no -include anywhere: the four
-# C sources are four translation units. A -include would fold one TU's
-# bodies into another's AST.
+# C sources are four translation units, each verified as its own VSU
+# (internal/vst/*/component.v and internal/vst/sha256/vsu.v) and linked
+# in internal/vst/link.v. A -include would fold one TU's
+# bodies into another's AST, which is exactly what the link step is for.
 
 CLIGHT_ASTS = $(CLIGHT_DIR)/util.v $(CLIGHT_DIR)/sha256.v \
               $(CLIGHT_DIR)/thash.v $(CLIGHT_DIR)/wots.v

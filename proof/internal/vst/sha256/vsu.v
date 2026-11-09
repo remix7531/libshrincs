@@ -62,7 +62,7 @@ Local Open Scope logic.
 
 (** The Clight AST of src/sha256.c in VSU's "quick program" form.
     [QPprog] normalises against the AMBIENT compspecs, which is
-    Shrincs.internal.vst.support.base's, built from wots.c. All three Clight programs have an
+    Shrincs.internal.vst.support.base's, built from wots.c. All four Clight programs have an
     empty composite environment, so the
     compspecs are the same object. [compspecs_agree] below says so
     by [reflexivity]. It is also what makes the cross-unit [data_at]
@@ -130,7 +130,7 @@ Lemma sha256_public_idents :
   = [_shrincs_sha256].
 Proof. reflexivity. Qed.
 
-(** (d) The ambient compspecs is the sha256 unit's own. All three
+(** (d) The ambient compspecs is the sha256 unit's own. All four
     Clight programs have an empty composite environment,
     so the [CompSpecs] the twelve body proofs were done against --
     Shrincs.internal.vst.support.base's, built from wots.c -- IS the one sha256.c

@@ -11,8 +11,10 @@
     [src/thash.c]) and the WOTS+C step funspecs ([contract.helpers_wots],
     backing [src/wots.c]) -- one module per C translation unit, so each
     reads independently; every funspec is unchanged.  [contract.gprog]
-    partitions these same funspecs into [Gprog_libc] / [Gprog_thash] /
-    [Gprog_wots] and assembles the full program [Gprog]. *)
+    redistributes these same funspecs into the per-unit proof contexts
+    [Gprog_util] / [Gprog_thash] / [Gprog_wots], each an [Imports ++ G]
+    pair: a funspec appears in the [G] of the unit that DEFINES the
+    function and in the [Imports] of every unit that CALLS it. *)
 
 From VST Require Import floyd.proofauto.
 From Shrincs.internal.vst.support Require Export contract.helpers_libc.

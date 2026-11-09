@@ -7,14 +7,28 @@
 (** * contract.helpers_libc: VST funspecs for the in-tree libc alternatives.
 
     The [shrincs_memset] / [shrincs_memcpy] / [shrincs_ct_memcmp] /
-    [shrincs_panic] helpers from [include/util.h].  These are NOT trusted --
-    their bodies are proved under [proof/internal/vst/util/]. Bundled
-    with the tweakable-hash funspecs ([contract.helpers_thash]) and the
-    WOTS+C step funspecs ([contract.helpers_wots]) as [Gprog_libc] in
-    [contract.gprog]. *)
+    [shrincs_panic] helpers of [src/util.c].  These are NOT trusted --
+    their bodies are proved under [proof/internal/vst/util/] and
+    packaged by [Shrincs.internal.vst.util.component].  Bundled with the tweakable-hash
+    funspecs ([contract.helpers_thash]) and the WOTS+C step funspecs
+    ([contract.helpers_wots]) as [G_util] in [contract.gprog].
+
+    THE IDENTIFIERS COME FROM [Shrincs.clight.util], the util.c
+    translation unit's own AST, and it is the only source of
+    [_shrincs_panic] in the tree: [src/wots.c] has no [SHRINCS_ASSERT]
+    site left, so [shrincs_panic] is neither defined nor declared in
+    that unit's AST.  The other three ARE declared in the wots and thash
+    ASTs (as [External], since those units call them), but
+    [clightgen -normalize] string-keys every identifier, so all
+    spellings of e.g. [_shrincs_memcpy] are the same term [$"shrincs_memcpy"]
+    and the four funspecs below are the ONE definition every unit uses --
+    util.c's unit to Export, thash.c's and wots.c's to Import.  That
+    same-term property is what makes [Shrincs.internal.vst.link]'s [SC_tac] side
+    conditions [funspec_sub_refl]. *)
 
 From VST Require Import floyd.proofauto.
 From Shrincs.internal.vst.support Require Import contract.repr.
+From Shrincs.clight Require Import util.
 
 Open Scope Z_scope.
 Open Scope logic.

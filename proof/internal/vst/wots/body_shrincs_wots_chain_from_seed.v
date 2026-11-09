@@ -19,7 +19,7 @@ From Shrincs.internal.vst.support Require Import contract.gprog contract.lemmas.
 Open Scope Z_scope.
 
 Lemma body_shrincs_wots_chain_from_seed :
-  semax_body Vprog Gprog f_shrincs_wots_chain_from_seed shrincs_wots_chain_from_seed_spec.
+  semax_body Vprog Gprog_wots f_shrincs_wots_chain_from_seed shrincs_wots_chain_from_seed_spec.
 Proof.
   start_function.
 

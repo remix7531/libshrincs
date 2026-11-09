@@ -64,7 +64,7 @@ Proof.
     reflexivity.
 Qed.
 
-Lemma body_shrincs_wots_chain_iter : semax_body Vprog Gprog f_shrincs_wots_chain_iter shrincs_wots_chain_iter_spec.
+Lemma body_shrincs_wots_chain_iter : semax_body Vprog Gprog_wots f_shrincs_wots_chain_iter shrincs_wots_chain_iter_spec.
 Proof.
   start_function.
   rename H into Hstart.

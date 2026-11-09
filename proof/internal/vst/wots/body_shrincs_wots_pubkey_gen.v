@@ -16,7 +16,7 @@ Local Abbreviation adrs := (address.adrs len w_pred).
 
 Local Opaque to_byte shrincs_wots_derive_sk shrincs_wots_chain_iter chain_iter_c T_sf.
 
-Lemma body_shrincs_wots_pubkey_gen : semax_body Vprog Gprog f_shrincs_wots_pubkey_gen shrincs_wots_pubkey_gen_spec.
+Lemma body_shrincs_wots_pubkey_gen : semax_body Vprog Gprog_wots f_shrincs_wots_pubkey_gen shrincs_wots_pubkey_gen_spec.
 Proof.
   start_function.
   change pk_bytes with 16.

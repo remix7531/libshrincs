@@ -31,7 +31,7 @@ Ltac counter_guard_bound HRE :=
   vm_compute Int64.unsigned in HRE;
   lia.
 
-Lemma body_shrincs_wots_grind_to_constant_sum : semax_body Vprog Gprog f_shrincs_wots_grind_to_constant_sum shrincs_wots_grind_to_constant_sum_spec.
+Lemma body_shrincs_wots_grind_to_constant_sum : semax_body Vprog Gprog_wots f_shrincs_wots_grind_to_constant_sum shrincs_wots_grind_to_constant_sum_spec.
 Proof.
   (* The least-counter search as a [forward_while]: the invariant tracks the
      iteration [i] ([0 <= i <= c_max = 2^16]), the fact that every counter

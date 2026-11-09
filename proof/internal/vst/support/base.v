@@ -16,7 +16,7 @@
 
     ONE THING THIS FILE IS NOT: free of [wots.c]. It Exports
     Shrincs.clight.wots, because [CompSpecs] has to be built from some
-    program and all three Clight programs (sha256.c, thash.c, wots.c)
+    program and all four Clight programs (util.c, sha256.c, thash.c, wots.c)
     have the same empty composite environment:
     Shrincs.internal.vst.sha256.vsu's [compspecs_agree] says so by [reflexivity].
     The SHA-256 proofs and [Shrincs.internal.vst.support.contract.repr] both export this

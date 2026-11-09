@@ -19,7 +19,7 @@ From Shrincs.clight Require Import thash.
 Import ListNotations.
 Open Scope Z_scope.
 
-Lemma body_shrincs_thash : semax_body Vprog Gprog f_shrincs_thash shrincs_thash_spec.
+Lemma body_shrincs_thash : semax_body Vprog Gprog_thash f_shrincs_thash shrincs_thash_spec.
 Proof.
   start_function.
   rename H into Hpslen.

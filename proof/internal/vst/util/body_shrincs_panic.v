@@ -13,11 +13,12 @@
 
 From VST Require Import floyd.proofauto.
 From Shrincs.internal.vst.support Require Import contract.gprog contract.lemmas.
+From Shrincs.clight Require Import util.
 
 Open Scope Z_scope.
 
 Lemma body_shrincs_panic :
-  semax_body Vprog Gprog f_shrincs_panic shrincs_panic_spec.
+  semax_body Vprog Gprog_util f_shrincs_panic shrincs_panic_spec.
 Proof.
   start_function.
   contradiction.

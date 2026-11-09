@@ -9,9 +9,11 @@
  * the same transcription. Section references in the comments are to
  * FIPS 180-4.
  *
- * proof/internal/vst/sha256/verif/ proves each function against the FIPS
- * definition in proof/sha256.v. proof/internal/vst/sha256/vsu.v
+ * proof/internal/vst/sha256/verif/ proves each function against the
+ * FIPS definition in proof/sha256.v. proof/internal/vst/sha256/vsu.v
  * packages the proofs as a Verified Software Unit with no imports.
+ * proof/internal/vst/link.v links it with the other units to establish
+ * the public WOTS+C contracts.
  *
  * WHAT IS DELIBERATELY NOT HERE, and why
  *

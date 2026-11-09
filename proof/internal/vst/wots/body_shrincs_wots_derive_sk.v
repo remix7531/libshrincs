@@ -21,7 +21,7 @@ Local Opaque to_byte.
     wire view, then [shrincs_thash] the result -- a non-aliased
     [PRF] call giving [shrincs_wots_derive_sk chain_i sk_seed pk_seed a]
     and leaving [addr] holding [shrincs_wots_prf_adrs a chain_i]. *)
-Lemma body_shrincs_wots_derive_sk : semax_body Vprog Gprog f_shrincs_wots_derive_sk shrincs_wots_derive_sk_spec.
+Lemma body_shrincs_wots_derive_sk : semax_body Vprog Gprog_wots f_shrincs_wots_derive_sk shrincs_wots_derive_sk_spec.
 Proof.
   start_function.
 

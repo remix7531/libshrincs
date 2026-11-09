@@ -31,7 +31,7 @@ Local Abbreviation adrs := (address.adrs len w_pred).
 Opaque complete_block shrincs_wots_chain_iter T_sf thash digest_of H_grind base_2b.
 
 Lemma body_shrincs_wots_pubkey_from_sig :
-  semax_body Vprog Gprog f_shrincs_wots_pubkey_from_sig shrincs_wots_pubkey_from_sig_spec.
+  semax_body Vprog Gprog_wots f_shrincs_wots_pubkey_from_sig shrincs_wots_pubkey_from_sig_spec.
 Proof.
   start_function.
 

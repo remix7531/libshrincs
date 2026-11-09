@@ -8,11 +8,6 @@
 # files (clight/*.v, `From Coq Require ...`); hand-written files
 # must not need it -- the codebase is otherwise deprecation-clean.
 
-# The lib/ subdirectory of ssprove nests naturally as Shrincs.internal.ssprove.lib, so no
-# nested override -Q lines are needed -- which also avoids the
-# "previously bound to ...; remapped" load-path warnings the old nested
-# overrides emitted on every coqc invocation.
-
 internal/common/machine.v
 internal/common/fin.v
 internal/common/math/chain.v
@@ -27,19 +22,34 @@ internal/common/theory/address.v
 internal/common/theory/wots.v
 internal/common/correct/wots.v
 
+# ONE AST PER .c FILE, in link order: nothing is -include'd into
+# anything, so a function that crosses a translation-unit boundary is
+# Internal in exactly one of these and External in the others. What
+# reconciles the two is internal/vst/link.v, not the extraction.
 clight/util.v
 clight/sha256.v
 clight/thash.v
 clight/wots.v
 
-# The canonical SHA-256 specification and its verified C implementation.
+# --- SHA-256 definition and proof tree ---------------------------------
+# internal/common/bytes.v connects the byte representations. internal/vst/support/base.v provides
+# the shared CompSpecs used by SHA-256 and the WOTS+C contracts, with
+# word-codec bridges in internal/vst/support/repr/. sha256.v is canonical.
+# internal/vst/sha256/clone.v carries derived facts, and sync.v pins the clone to
+# the canonical definition. The body proofs follow call order. vsu.v
+# assembles their component, and correct.v states its exported contract
+# over sha256.v's spelling.
+
 internal/common/bytes.v
+
 internal/vst/support/base.v
 internal/vst/support/settings.v
 internal/vst/support/repr/seqlist.v
 internal/vst/support/repr/words.v
 internal/vst/support/repr/int32.v
+
 sha256.v
+
 internal/vst/sha256/clone.v
 internal/vst/sha256/sync.v
 internal/vst/sha256/bridge.v
@@ -54,6 +64,7 @@ internal/vst/sha256/verif/compress_blocks.v
 internal/vst/sha256/verif/sha256.v
 internal/vst/sha256/vsu.v
 internal/vst/sha256/correct.v
+
 internal/vst/support/model/wots.v
 internal/vst/support/theory/pure.v
 internal/vst/support/contract/radrs.v
@@ -96,7 +107,15 @@ internal/vst/wots/body_shrincs_wots_pubkey_gen.v
 internal/vst/wots/body_shrincs_wots_sign.v
 internal/vst/wots/body_shrincs_wots_pubkey_from_sig.v
 internal/vst/wots/body_shrincs_wots_verify.v
-internal/vst/all_bodies.v
+
+# --- the three remaining translation units as Verified Software Units,
+# then the link. internal/vst/sha256/vsu.v (above) is the fourth. Each component
+# packages its TU's body proofs; link.v joins all four into one component
+# with Imports nil, exporting the four public entry points.
+internal/vst/util/component.v
+internal/vst/thash/component.v
+internal/vst/wots/component.v
+internal/vst/link.v
 
 # --- ssprove: Lib (reusable hash-based-signature library slice) ---
 internal/ssprove/lib/prelude.v

@@ -29,7 +29,7 @@ Local Abbreviation adrs := (address.adrs len w_pred).
 Local Opaque find_counter find_from sign_block sign_chains shrincs_wots_derive_sk
        shrincs_wots_chain_iter thash F PRF T_sf digest_of H_grind base_2b to_byte.
 
-Lemma body_shrincs_wots_sign : semax_body Vprog Gprog f_shrincs_wots_sign shrincs_wots_sign_spec.
+Lemma body_shrincs_wots_sign : semax_body Vprog Gprog_wots f_shrincs_wots_sign shrincs_wots_sign_spec.
 Proof.
   (* WOTS+C shrincs_wots_sign, 2-byte-prepended counter refactor.  The C writes the
      2-byte big-endian counter to sig[0..2) BEFORE the chain loop, so the loop

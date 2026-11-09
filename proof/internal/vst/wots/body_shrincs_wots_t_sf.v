@@ -15,7 +15,7 @@ Open Scope Z_scope.
     [shrincs_thash(out, pk_seed, addr, ends, 512)] over the [len * n = 512]
     concatenated chain tips.  [T_sf] is definitionally [thash], so the
     generalized [shrincs_thash_spec] discharges the whole body. *)
-Lemma body_shrincs_wots_t_sf : semax_body Vprog Gprog f_shrincs_wots_t_sf shrincs_wots_t_sf_spec.
+Lemma body_shrincs_wots_t_sf : semax_body Vprog Gprog_wots f_shrincs_wots_t_sf shrincs_wots_t_sf_spec.
 Proof.
   start_function.
   unfold n_bytes in *.

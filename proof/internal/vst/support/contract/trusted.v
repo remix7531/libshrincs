@@ -6,44 +6,17 @@
 
 (** * contract.trusted: the SHA-256 contract, and its model-side view.
 
-    NOTHING IN THIS FILE IS TRUSTED ANYMORE, and the name is kept only
-    because every [Require] in the tree points at it. What used to live
-    here was an axiomatic funspec for [src/sha256.c] plus, in
-    [contract.gprog], an [Axiom body_sha256] asserting the C satisfies
-    it. Both are gone:
+    [sha256_spec] is the SHA-256 unit's exported contract.
+    [sha256_spec_canonical] pins it to [Shrincs.sha256.spec_sha256],
+    so the thash and wots imports describe the canonical FIPS 180-4
+    definition. [Shrincs.internal.vst.link] discharges those imports against
+    the verified SHA-256 component.
 
-    - [sha256_spec] IS the sha256 translation unit's own contract,
-      [Shrincs.internal.vst.sha256.contract.spec_sha256] -- the one
-      [Shrincs.internal.vst.sha256.vsu]'s verified component exports and
-      [Shrincs.internal.vst.sha256.verif.sha256] proves the C body against.
-      [sha256_spec_canonical] then says, by the kernel, that it is the
-      SAME TERM as the reviewer-facing [Shrincs.sha256.spec_sha256]
-      (the same statement [Shrincs.internal.vst.sha256.correct] makes about the
-      component's Exports slot), so what [Gprog] promises about
-      [shrincs_sha256] is FIPS 180-4 as transcribed in the file a
-      reviewer reads.
-    - [contract.gprog]'s [body_sha256] is now a [Lemma], proved from
-      that body proof by context subsumption.
-
-    THE MODEL-SIDE VIEW. The two callers of [shrincs_sha256]
-    ([verif.body_shrincs_thash], [verif.body_shrincs_wots_h_grind])
-    speak the model's vocabulary: a [block] in, [block_to_vals
-    (sha256' _)] out. [sha256_block_spec] is exactly that contract, and
-    [sha256_block_spec_sub] proves it is subsumed by [sha256_spec] --
-    the codec change of variable, nothing else. Each call site then
-    reads [forward_call sha256_block_spec_sub (...)], floyd's
-    call-with-a-subsumed-spec form, and the bodies are otherwise
-    unchanged.
-
-    The in-tree libc alternatives ([shrincs_memcpy], [shrincs_memset],
-    [shrincs_ct_memcmp], [shrincs_panic]) have their funspecs in
-    [contract.helpers] and their bodies proved in [proof/internal/vst].
-
-    When auditing: `make audit` checks that the model + vst trees
-    declare no [Axiom]/[Parameter] at all (beyond [machine.v]'s
-    Module-Type fields, discharged at instantiation) and that the
-    [Print Assumptions] cone of every body proof is the classical
-    CompCert/Coq-stdlib baseline and nothing else. *)
+    The callers [verif.body_shrincs_thash] and
+    [verif.body_shrincs_wots_h_grind] use the model's byte vocabulary.
+    [sha256_block_spec_sub] proves that [sha256_spec] supplies their
+    block-shaped contract through the lossless byte codec. Each call
+    applies that subsumption with [forward_call]. *)
 
 From VST Require Export floyd.proofauto.
 

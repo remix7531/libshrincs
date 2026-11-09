@@ -16,7 +16,7 @@ Import ListNotations.
 
 Open Scope Z_scope.
 
-Lemma body_shrincs_adrs_put32 : semax_body Vprog Gprog f_shrincs_adrs_put32 shrincs_adrs_put32_spec.
+Lemma body_shrincs_adrs_put32 : semax_body Vprog Gprog_thash f_shrincs_adrs_put32 shrincs_adrs_put32_spec.
 Proof.
   Local Opaque to_byte.
   start_function.

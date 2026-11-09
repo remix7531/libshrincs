@@ -23,7 +23,7 @@ Open Scope Z_scope.
 
 Local Opaque to_byte.
 
-Lemma body_shrincs_wots_h_grind : semax_body Vprog Gprog f_shrincs_wots_h_grind shrincs_wots_h_grind_spec.
+Lemma body_shrincs_wots_h_grind : semax_body Vprog Gprog_wots f_shrincs_wots_h_grind shrincs_wots_h_grind_spec.
 Proof.
   start_function.
   rename H into Hcntbnd.

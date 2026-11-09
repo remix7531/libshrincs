@@ -66,7 +66,7 @@ Open Scope Z_scope.
       [temp _sum (list_sum (firstn (Z.to_nat j) (digest_of ...)))]; each step
       is [firstn_S_snoc] + [list_sum_app]; digits are <= 15 so no overflow. *)
 
-Lemma body_shrincs_wots_map_digest : semax_body Vprog Gprog f_shrincs_wots_map_digest shrincs_wots_map_digest_spec.
+Lemma body_shrincs_wots_map_digest : semax_body Vprog Gprog_wots f_shrincs_wots_map_digest shrincs_wots_map_digest_spec.
 Proof.
   start_function.
   (* Unpack the clean-anchor precondition into the three per-field payload

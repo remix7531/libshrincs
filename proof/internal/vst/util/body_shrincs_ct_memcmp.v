@@ -15,11 +15,12 @@
 
 From VST Require Import floyd.proofauto.
 From Shrincs.internal.vst.support Require Import contract.gprog contract.lemmas.
+From Shrincs.clight Require Import util.
 
 Open Scope Z_scope.
 
 Lemma body_shrincs_ct_memcmp :
-  semax_body Vprog Gprog f_shrincs_ct_memcmp shrincs_ct_memcmp_spec.
+  semax_body Vprog Gprog_util f_shrincs_ct_memcmp shrincs_ct_memcmp_spec.
 Proof.
 
   (* ===== Setup ===== *)

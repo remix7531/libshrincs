@@ -18,7 +18,7 @@ Open Scope Z_scope.
    map and the grinding digest, and diverges. *)
 Local Opaque shrincs_wots_pubkey_from_sig digest_of valid_digest to_byte.
 
-Lemma body_shrincs_wots_verify : semax_body Vprog Gprog f_shrincs_wots_verify shrincs_wots_verify_spec.
+Lemma body_shrincs_wots_verify : semax_body Vprog Gprog_wots f_shrincs_wots_verify shrincs_wots_verify_spec.
 Proof.
   (* WOTS+C shrincs_wots_verify.  Allocate the scratch buffer [pk_cand], recompute the
      candidate public key with [shrincs_wots_pubkey_from_sig], and (on success)
