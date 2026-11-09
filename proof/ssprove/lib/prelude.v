@@ -19,7 +19,6 @@
     devshell-installed ssprove package. *)
 
 From mathcomp Require Export boot order algebra.
-Unset SsrOldRewriteGoalsOrder. (* remove the line when requiring MathComp >= 2.6 *)
 
 From Stdlib Require Export Utf8.
 From extructures Require Export ord fset fmap.

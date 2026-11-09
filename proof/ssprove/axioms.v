@@ -189,7 +189,7 @@ have hw := wf_digits_w (w:=256) bits n isT.
 move: hd; rewrite mem_rev => hd.
 move/allP: hw => /(_ d hd) /ltP hd256.
 rewrite byte.byte_modulus.
-rewrite Z.mod_small; [|lia].
+rewrite Z.mod_small; [lia |].
 by rewrite Znat.Nat2Z.id.
 Qed.
 
@@ -259,7 +259,7 @@ apply: ord_inj.
 rewrite val_encode16.
 rewrite /decode16.
 have -> : decode_block 16 (Ordinal (n:=2 ^ 128) (m:=m) hm) = decode_block 16 m by [].
-rewrite block16_norm_id; last exact: size_decode_block.
+rewrite block16_norm_id; first exact: size_decode_block.
 apply: encode_decode_block.
 rewrite pow256_16.
 exact: hm.

@@ -381,7 +381,7 @@ apply: kinvI.
 - do 3 (apply: heap_ignore_set_l; first by rewrite mem_domm).
   do 3 (apply: heap_ignore_set_r; first by rewrite mem_domm).
   exact: hign.
-- get_heap_simpl.
+- simplify_heap_reads.
   by split.
 Qed.
 

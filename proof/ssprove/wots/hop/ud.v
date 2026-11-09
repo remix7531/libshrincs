@@ -187,7 +187,8 @@ simplify_eq_rel arg.
   ssprove_code_simpl. simpl.
   ud_remember_rel pko 2%N.
   ssprove_sync => hpko.
-  eapply r_scheme_bind; [exact _|] => pp.
+  eapply r_scheme_bind; [exact _|].
+  move=> pp.
   ssprove_sync => hctr.
   have hgood := find_counter_isSome_good P
                   pp m hctr.
@@ -223,7 +224,8 @@ simplify_eq_rel arg.
   ssprove_code_simpl. simpl.
   ud_remember_rel pko 2%N.
   ssprove_sync => hpko.
-  eapply r_scheme_bind; [exact _|] => pp.
+  eapply r_scheme_bind; [exact _|].
+  move=> pp.
   ssprove_sync => hctr.
   have hgood := find_counter_isSome_good P
                   pp m hctr.
@@ -316,10 +318,10 @@ Qed.
     ends, exactly G_forge_uniformchains's code shape). *)
 (* Performance: build the package term with [notypeclasses refine] so the
    [ValidPackage] hole is NOT resolved during elaboration (when the call's
-   import interface is still a metavariable, which sends [fmap_solve] into a
-   ~330s fsubmap search); discharge it afterwards on the now-concrete goal
+   import interface is still a metavariable, which sends [fmap_solve] into
+   an unconstrained fsubmap search). Discharge it on the concrete goal
    with [ssprove_valid], then close the [grind_all]/[r_ud_loop] subgoals via
-   their registered [ValidCode] instances.  Cuts this definition ~330s -> <1s. *)
+   their registered [ValidCode] instances. *)
 Definition R_ud (b : bool) (s : nat) : package (I_SMUD (thf_chain P) (coll_chain P)) (I_KOTS (shrincs_wots_scheme P)).
 Proof.
   notypeclasses refine [package [fmap r_ud_pk_loc ; r_ud_log_loc ; r_ud_sig_loc ] ;
@@ -413,7 +415,7 @@ elim: cs k => [|c cs IH] k hpin hk /=.
   (* The UCOLLQ answer at the grind tweak IS H_grind at the grind
      address: the decoded grind tweak reproduces [gadrs] ([encode_adrsK]);
      fold the simplified record back to [gadrs]. *)
-  rewrite [X in (wcp_H_grind P) pp X](_ : _ = (grind_adrs P)); last exact: ((encode_tweakK P) (grind_adrs P)).
+  rewrite [X in (wcp_H_grind P) pp X](_ : _ = (grind_adrs P)); first exact: ((encode_tweakK P) (grind_adrs P)).
   apply: IH; [exact: hpin | exact: hk].
 Qed.
 
@@ -462,7 +464,8 @@ elim: ds i tws => [|d ds IH] i tws hicc hcnt hfresh /=.
     eapply (r_get_rhs_pin (ud_pp_loc (thf_chain P)) (Some pp));
       first by move=> s₀ s₁ [[_ h _] _].
     rewrite !bind_assoc; simpl.
-    eapply r_scheme_bind; [exact _|] => x.
+    eapply r_scheme_bind; [exact _|].
+    move=> x.
     eapply r_bind.
     * apply: IH.
       { by rewrite addSnnS. }
@@ -487,7 +490,8 @@ elim: ds i tws => [|d ds IH] i tws hicc hcnt hfresh /=.
   + (* direct sample *)
     ssprove_code_simpl; simpl.
     rewrite (code_link_scheme _ _ _ _ (prog_valid (wcp_dN P))) bind_ret.
-    eapply r_scheme_bind; [exact _|] => x.
+    eapply r_scheme_bind; [exact _|].
+    move=> x.
     eapply r_bind.
     * apply: IH.
       { by rewrite addSnnS. }
@@ -539,7 +543,8 @@ elim: ds i tws => [|d ds IH] i tws hicc hcnt hfresh /=.
       - exact: r_ud_pre_set_tws.
       - exact: get_set_heap_eq. }
     rewrite !bind_assoc; simpl.
-    eapply r_scheme_bind; [exact _|] => x.
+    eapply r_scheme_bind; [exact _|].
+    move=> x.
     eapply r_bind.
     * apply: IH.
       { by rewrite addSnnS. }
@@ -557,7 +562,8 @@ elim: ds i tws => [|d ds IH] i tws hicc hcnt hfresh /=.
   + (* direct sample *)
     ssprove_code_simpl; simpl.
     rewrite (code_link_scheme _ _ _ _ (prog_valid (wcp_dN P))) bind_assoc; simpl.
-    eapply r_scheme_bind; [exact _|] => x.
+    eapply r_scheme_bind; [exact _|].
+    move=> x.
     eapply r_bind.
     * apply: IH.
       { by rewrite addSnnS. }
@@ -659,7 +665,8 @@ simplify_eq_rel arg.
     move: hrr; rewrite /rem_inv /= => hrr.
     exact: hcr1 hrr. }
   rewrite !bind_assoc; simpl.
-  eapply r_scheme_bind; [exact _|] => pp.
+  eapply r_scheme_bind; [exact _|].
+  move=> pp.
   apply r_put_rhs.
   (* enter the grinding loop under the loop precondition *)
   eapply (rpre_weaken_rule (λ '(s₀, s₁), r_ud_pre_t pp [::] (s₀, s₁)));
@@ -772,7 +779,8 @@ simplify_eq_rel arg.
     move: hrr; rewrite /rem_inv /= => hrr.
     exact: hcr1 hrr. }
   rewrite !bind_assoc; simpl.
-  eapply r_scheme_bind; [exact _|] => pp.
+  eapply r_scheme_bind; [exact _|].
+  move=> pp.
   apply r_put_rhs.
   (* enter the grinding loop under the loop precondition *)
   eapply (rpre_weaken_rule (λ '(s₀, s₁), r_ud_pre_t pp [::] (s₀, s₁)));

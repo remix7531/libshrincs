@@ -135,7 +135,7 @@ Lemma digit_byte_bytevalK (b : byte.byte) : digit_byte (Z.to_nat (byte.byte_val 
 Proof.
 rewrite /digit_byte.
 have [h0 h256] := byte.byte_val_range b.
-rewrite Znat.Z2Nat.id; last lia.
+rewrite (Znat.Z2Nat.id _ h0).
 rewrite (byte.byte_mod256_small (byte.byte_val b) (byte.byte_val_range b)).
 by apply: byte.byte_eq; rewrite byte.byte_val_of.
 Qed.
@@ -194,7 +194,7 @@ Lemma Zofnat_expn (a b : nat) : Z.of_nat (expn a b) = Z.pow (Z.of_nat a) (Z.of_n
 Proof.
 elim: b => [|b IH]; first by rewrite expn0.
 rewrite expnS Znat.Nat2Z.inj_mul IH Znat.Nat2Z.inj_succ.
-rewrite Z.pow_succ_r; last by lia.
+rewrite Z.pow_succ_r; first by lia.
 by [].
 Qed.
 
@@ -278,7 +278,7 @@ rewrite grind_adrsE.
 have hE : wcp_H_grind P pp (address.shrincs_wots_grind_adrs A0) (m, c)
         = nat_of_ord (H_grind0_sha256 pp (address.shrincs_wots_grind_adrs A0) (m, c)) by [].
 rewrite hE /H_grind0_sha256 val_encode16.
-rewrite block16_norm_id; last by rewrite size_lengthE wots.H_grind_length.
+rewrite block16_norm_id; first by rewrite size_lengthE wots.H_grind_length.
 by [].
 Qed.
 
@@ -421,7 +421,7 @@ elim: n Hb => [|n IH] Hb.
                         (wots.chain_iter_rec_le st n Hb)) = 16%nat
     by apply: chain_iter_decode16_length.
   have -> : wcp_F P = F_sha256 by [].
-  rewrite /F_sha256 decode16_encode16; last by rewrite size_lengthE.
+  rewrite /F_sha256 decode16_encode16; first by rewrite size_lengthE.
   have Hposn : ((st + n)%nat < w_shrincs.-1)%nat := Hb'.
   rewrite (chain_adrs_modelE i (st + n)%nat Hi Hposn hp ci
              (fin.fin_of_nat (Z.of_nat wots.w_pred) ((st + n)%coq_nat)
@@ -461,8 +461,8 @@ apply: (@eq_from_nth _ (decode16 n0_shrincs)).
   by rewrite size_map hsz hszt.
 move=> j; rewrite size_map hsz => Hj.
 have HjP : (j < wots.len)%coq_nat by apply/ltP.
-rewrite (nth_map n0_shrincs); last by rewrite hsz.
-rewrite /chain_ends (nth_map (0%nat, n0_shrincs)); last
+rewrite (nth_map n0_shrincs); first by rewrite hsz.
+rewrite /chain_ends (nth_map (0%nat, n0_shrincs)); first
   by rewrite size_zip size_iota hxs minnn.
 rewrite nth_zip ?size_iota ?hxs // nth_iota //= add0n.
 rewrite (nth_listE _ (decode16 n0_shrincs)
@@ -476,7 +476,7 @@ rewrite (chainc_chain_iterE pp (PRF_sha256 pp (prf_adrs P j) k) j 0 w_shrincs.-1
            Hj wots.w_pred_pos
            (fin.fin_of_nat (Z.of_nat wots.len) j (wots.chain_idx_lt j HjP)))
   ?fin.fin_val_of_nat //.
-rewrite decode16_encode16; last first.
+rewrite decode16_encode16.
   by rewrite size_lengthE; apply: chain_iter_decode16_length.
 by rewrite (derive_sk_modelE pp k j Hj
               (fin.fin_of_nat (Z.of_nat wots.len) j (wots.chain_idx_lt j HjP))
@@ -532,11 +532,11 @@ apply: (@eq_from_nth _ (decode16 n0_shrincs)).
   by rewrite size_map hsz hszm.
 move=> j; rewrite size_map hsz => Hj.
 have HjP : (j < wots.len)%coq_nat by apply/ltP.
-rewrite (nth_map n0_shrincs); last by rewrite hsz.
-rewrite /Sec.wots.scheme.sign_chains (nth_map ((0%nat, n0_shrincs), 0%nat)); last first.
+rewrite (nth_map n0_shrincs); first by rewrite hsz.
+rewrite /Sec.wots.scheme.sign_chains (nth_map ((0%nat, n0_shrincs), 0%nat)).
   by rewrite !size_zip size_iota hxs hdD !minnn.
-rewrite nth_zip; last by rewrite size_zip size_iota hxs hdD minnn.
-rewrite nth_zip; last by rewrite size_iota hxs.
+rewrite nth_zip; first by rewrite size_zip size_iota hxs hdD minnn.
+rewrite nth_zip; first by rewrite size_iota hxs.
 rewrite nth_iota // add0n /=.
 rewrite (nth_listE _ (decode16 n0_shrincs)
            (wots.sign_chains (decode32 m) (decode16 k) (decode16 pp) A0 (Z.of_nat c)) j).
@@ -551,7 +551,7 @@ rewrite (chainc_chain_iterE pp (PRF_sha256 pp (prf_adrs P j) k) j 0 (List.nth j 
            (fin.fin_of_nat (Z.of_nat wots.len) j (wots.chain_idx_lt j HjP))
            (fin.fin_val_of_nat _ _ _)
            (wots.sign_chain_bound (decode16 pp) A0 (decode32 m) (Z.of_nat c) j)).
-rewrite decode16_encode16; last first.
+rewrite decode16_encode16.
   by rewrite size_lengthE; apply: chain_iter_decode16_length.
 by rewrite (derive_sk_modelE pp k j Hj
               (fin.fin_of_nat (Z.of_nat wots.len) j (wots.chain_idx_lt j HjP))
@@ -580,11 +580,11 @@ apply: (@eq_from_nth _ (decode16 n0_shrincs)).
   by rewrite size_map hsz hszm.
 move=> j; rewrite size_map hsz => Hj.
 have HjP : (j < wots.len)%coq_nat by apply/ltP.
-rewrite (nth_map n0_shrincs); last by rewrite hsz.
-rewrite /Sec.wots.scheme.complete_ends (nth_map (0%nat, (0%nat, n0_shrincs))); last first.
+rewrite (nth_map n0_shrincs); first by rewrite hsz.
+rewrite /Sec.wots.scheme.complete_ends (nth_map (0%nat, (0%nat, n0_shrincs))).
   by rewrite size_zip size_iota size_zip hdD hys !minnn.
-rewrite nth_zip; last by rewrite size_iota size_zip hdD hys minnn.
-rewrite nth_zip; last by rewrite hdD hys.
+rewrite nth_zip; first by rewrite size_iota size_zip hdD hys minnn.
+rewrite nth_zip; first by rewrite hdD hys.
 rewrite nth_iota // add0n /=.
 rewrite (nth_listE _ (decode16 n0_shrincs)
            (wots.complete_ends (decode32 m) [seq decode16 i | i <- ys] (Z.of_nat c) (decode16 pp) A0) j).
@@ -596,9 +596,9 @@ rewrite (chainc_chain_iterE pp (nth n0_shrincs ys j) j (List.nth j D 0%nat)
            (fin.fin_of_nat (Z.of_nat wots.len) j (wots.chain_idx_lt j HjP))
            (fin.fin_val_of_nat _ _ _)
            (wots.complete_chain_bound (decode16 pp) A0 (decode32 m) (Z.of_nat c) j)).
-rewrite decode16_encode16; last first.
+rewrite decode16_encode16.
   by rewrite size_lengthE; apply: chain_iter_decode16_length.
-rewrite -(nth_listE _ iteration.default (map decode16 ys) j) (nth_map n0_shrincs); last by rewrite hys.
+rewrite -(nth_listE _ iteration.default (map decode16 ys) j) (nth_map n0_shrincs); first by rewrite hys.
 by [].
 Qed.
 

@@ -11,18 +11,12 @@
     transparency state "none" (all constants opaque), and under that
     state its [Hint Resolve] entries [data_at_cancel] /
     [field_at_cancel] and the four data_at<->field_at bridge lemmas
-    head-match a MISmatched pair of conjuncts, bind the (often
-    2048-element) array arguments, and fail only after a 10-23s
-    unification backtrack storm.  The same [simple apply] issued from
-    a [Hint Extern] body runs under DEFAULT transparency and fails in
-    microseconds, while the Extern pattern is still matched under the
+    head-match a MISmatched pair of conjuncts, bind the array arguments,
+    and fail only after expensive unification backtracking.
+    The same [simple apply] issued from
+    a [Hint Extern] body runs under DEFAULT transparency and fails
+    before that backtracking, while the Extern pattern is matched under the
     db's opaque state, so no spurious firing is introduced.
-
-    Measured on body_shrincs_wots_verify (several [data_at]/[data_at_]
-    conjuncts over 2048-byte tuchar arrays): every closing
-    entailment and both [forward_call] frame cancels paid 10-35s
-    each, ~76s of an 86s compile; the swap brought the file to ~11s
-    with zero proof-body changes.
 
     Do NOT simply remove the six hints: [forward_if] fails without
     [data_at_field_at_cancel], and the loose [_ |-- data_at_] /

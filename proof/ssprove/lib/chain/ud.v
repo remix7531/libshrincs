@@ -212,7 +212,8 @@ Proof.
 elim: n k₀ k₁ => [|n IH] k₀ k₁ hk /=.
 - exact: (hk [::] erefl).
 - rewrite !bind_assoc.
-  eapply r_scheme_bind; [exact _|] => x.
+  eapply r_scheme_bind; [exact _|].
+  move=> x.
   rewrite !bind_assoc.
   apply: IH => xs hxs.
   apply: (hk (x :: xs)).
@@ -232,7 +233,8 @@ Proof.
 elim: m i k₀ k₁ => [|d m IH] i k₀ k₁ hk /=.
 - exact: (hk [::] erefl).
 - rewrite !bind_assoc.
-  eapply r_scheme_bind; [exact _|] => x.
+  eapply r_scheme_bind; [exact _|].
+  move=> x.
   rewrite !bind_assoc.
   apply: IH => xs hxs.
   apply: (hk (x :: xs)).

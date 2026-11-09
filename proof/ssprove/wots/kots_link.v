@@ -101,12 +101,14 @@ simplify_eq_rel arg.
   ssprove_rem_rel 1%N => e. subst pko'.
   ssprove_sync => hpko.
   (* couple the PKseed sample *)
-  eapply r_scheme_bind; [exact _|] => pp.
+  eapply r_scheme_bind; [exact _|].
+  move=> pp.
   (* the sign-refusal pivot (Sec.wots.scheme.find_counter) *)
   case E: (find_counter P pp m) => [c|].
   + (* Some c: both sides commit the same (pk, log) and issue the same signature *)
     simpl.
-    eapply r_scheme_bind; [exact _|] => k.
+    eapply r_scheme_bind; [exact _|].
+    move=> k.
     rewrite (shrincs_wots_sign_Some P pp (derive_sk P K PRF pp k) m c E).
     rewrite /shrincs_wots_pubkey_gen.
     simpl.
@@ -121,7 +123,8 @@ simplify_eq_rel arg.
        fails on the refused sign (the swap-and-collapse [r_fail_scheme_rhs]) *)
     simpl.
     eapply r_transR.
-    * eapply r_scheme_bind; [exact _|] => k.
+    * eapply r_scheme_bind; [exact _|].
+      move=> k.
       rewrite (shrincs_wots_sign_None P pp (derive_sk P K PRF pp k) m E).
       simpl.
       exact: (rreflexivity_rule fail).
@@ -161,12 +164,14 @@ simplify_eq_rel arg.
   ssprove_rem_rel 1%N => e. subst pko'.
   ssprove_sync => hpko.
   (* couple the PKseed sample *)
-  eapply r_scheme_bind; [exact _|] => pp.
+  eapply r_scheme_bind; [exact _|].
+  move=> pp.
   (* the sign-refusal pivot (Sec.wots.scheme.find_counter) *)
   case E: (find_counter P pp m) => [c|].
   + (* Some c: both sides commit the same (pk, log) and issue the same signature *)
     simpl.
-    eapply r_scheme_bind; [exact _|] => xs.
+    eapply r_scheme_bind; [exact _|].
+    move=> xs.
     rewrite (shrincs_wots_sign_Some P pp xs m c E).
     simpl.
     apply r_put_vs_put.
@@ -181,7 +186,8 @@ simplify_eq_rel arg.
        [r_fail_scheme_rhs]) *)
     simpl.
     eapply r_transR.
-    * eapply r_scheme_bind; [exact _|] => xs.
+    * eapply r_scheme_bind; [exact _|].
+      move=> xs.
       rewrite (shrincs_wots_sign_None P pp xs m E).
       simpl.
       exact: (rreflexivity_rule fail).

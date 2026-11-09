@@ -130,7 +130,7 @@ Lemma qmap_from_rcons j Q e :
   qmap_from j (rcons Q e) = setm (qmap_from j Q) (j + size Q)%N e.
 Proof.
 elim: Q j => [|a Q IH] j /=; first by rewrite addn0.
-rewrite IH setmC; last by apply/negbT/gtn_eqF; rewrite addSn ltnS leq_addr.
+rewrite IH setmC; first by apply/negbT/gtn_eqF; rewrite addSn ltnS leq_addr.
 by rewrite addSn addnS.
 Qed.
 
@@ -999,7 +999,7 @@ Proof.
 elim: ds st us i => [|d ds IH] st us i //; case: us => [|u us] //= [hsz].
 case: i => [|i] hi hu hk.
 - case: hu => <-; rewrite addn0 /q_index /= add0n.
-  rewrite qnth_cat_l ?size_chain_queries; last first.
+  rewrite qnth_cat_l ?size_chain_queries.
     rewrite /chain_query_count ltn_add2l; apply: ltn_sub2r; last by case/andP: hk.
     by apply: leq_ltn_trans (proj1 (andP hk)) (proj2 (andP hk)).
   exact: qnth_chain_queries.

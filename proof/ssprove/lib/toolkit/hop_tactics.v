@@ -14,6 +14,14 @@
 
 From Sec.lib Require Import prelude toolkit.relational_rules.
 
+(* ssreflect rewrite side conditions precede the rewritten goal in
+   MathComp 2.6. *)
+Ltac simplify_heap_reads :=
+  repeat
+    tryif rewrite get_set_heap_eq
+    then idtac
+    else (rewrite get_set_heap_neq; [ neq_loc_auto | ]).
+
 (** [sync_eq x x']: read a location on both sides, remembering the two
     values as [x] (lhs) and [x'] (rhs), and reduce to proving they
     agree.  Leaves TWO goals in order:

@@ -301,7 +301,7 @@ Lemma heap_ignore_set_r (L : Locations) (ℓ : Location) (v : ℓ)
   heap_ignore L (s₀, s₁) -> heap_ignore L (s₀, set_heap s₁ ℓ v).
 Proof.
 move=> hin h; rewrite /heap_ignore => ℓ' hl'.
-rewrite get_set_heap_neq; first exact: h.
+rewrite get_set_heap_neq; last exact: h.
 by apply/eqP => e; rewrite e hin in hl'.
 Qed.
 
@@ -311,7 +311,7 @@ Lemma heap_ignore_set_l (L : Locations) (ℓ : Location) (v : ℓ)
   heap_ignore L (s₀, s₁) -> heap_ignore L (set_heap s₀ ℓ v, s₁).
 Proof.
 move=> hin h; rewrite /heap_ignore => ℓ' hl'.
-rewrite get_set_heap_neq; first exact: h.
+rewrite get_set_heap_neq; last exact: h.
 by apply/eqP => e; rewrite e hin in hl'.
 Qed.
 

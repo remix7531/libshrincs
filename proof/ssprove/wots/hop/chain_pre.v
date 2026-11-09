@@ -603,7 +603,7 @@ apply: pr_invI.
   apply: heap_ignore_set_r; first by rewrite mem_domm.
   apply: heap_ignore_set_r; first by rewrite mem_domm.
   exact: hign.
-- get_heap_simpl.
+- simplify_heap_reads.
   rewrite hpp hrev htws htgts.
   split=> //.
   by exists m, c, us; split=> //; split.

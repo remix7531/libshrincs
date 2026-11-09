@@ -33,7 +33,7 @@
     matching [F]/[T_sf]/[H_grind] and the SSProve tree's own hash
     [Context] convention, rather than the spec's literal
     [PRF(pk_seed, sk_seed, ADRS)] (ADRS last) -- see
-    [proof/ssprove/Hop/prf.v]'s header, which documents the spec's
+    [proof/ssprove/wots/hop/prf.v]'s header, which documents the spec's
     order as "a byte-level instantiation detail."
 
     The top-level algorithms ([shrincs_wots_pubkey_gen], [shrincs_wots_sign],
