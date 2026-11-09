@@ -4,7 +4,7 @@
 # generated Clight ASTs. Each directory nests under Shrincs.
 
 -arg -w -arg -deprecated-from-Coq,-notation-overridden,-ambiguous-paths,-notation-incompatible-format
-# -deprecated-from-Coq exists SOLELY for the three clightgen-generated
+# -deprecated-from-Coq exists SOLELY for the four clightgen-generated
 # files (clight/*.v, `From Coq Require ...`); hand-written files
 # must not need it -- the codebase is otherwise deprecation-clean.
 
@@ -27,9 +27,10 @@ internal/common/theory/address.v
 internal/common/theory/wots.v
 internal/common/correct/wots.v
 
+clight/util.v
 clight/sha256.v
-clight/wots.v
 clight/thash.v
+clight/wots.v
 
 # The canonical SHA-256 specification and its verified C implementation.
 internal/common/bytes.v

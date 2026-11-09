@@ -3,7 +3,7 @@
 #
 # This Makefile owns everything under proof/: clightgen extraction, the
 # generated Rocq Makefile.coq, and both proof trees (VST + SSProve) plus
-# the combined honesty gate. It is invoked from the repo root via
+# the honesty gate (assumptions/). It is invoked from the repo root via
 # `make -C proof <target>`; the root Makefile's extract/vst-prove/
 # ssprove-prove/prove/audit targets simply route here, so `make audit`
 # etc. from the repo root behave exactly as before the proof build moved.
@@ -28,7 +28,8 @@ else
 endif
 
 # The two trees' .vo targets, derived from _RocqProject so they never drift
-# out of sync with the file listing.
+# out of sync with the file listing. CLIGHT_VOFILES adds the generated
+# clight/ modules to the internal/vst/ proof targets.
 CLIGHT_VOFILES  := $(shell grep -E '^$(CLIGHT_DIR)/.*\.v$$' _RocqProject | sed 's/\.v$$/.vo/')
 VST_VOFILES     := $(shell grep -E '^$(VST_DIR)/.*\.v$$' _RocqProject | sed 's/\.v$$/.vo/') $(CLIGHT_VOFILES)
 SSPROVE_VOFILES := $(shell grep -E '^$(SSPROVE_DIR)/.*\.v$$' _RocqProject | sed 's/\.v$$/.vo/')
@@ -36,29 +37,45 @@ SSPROVE_VOFILES := $(shell grep -E '^$(SSPROVE_DIR)/.*\.v$$' _RocqProject | sed 
 .PHONY: extract vst-prove ssprove-prove prove audit clean
 
 # ----- VST / Rocq -----------------------------------------------------------
-# Clight ASTs land in clight/ so _RocqProject finds them.
+# Clight ASTs land in clight/ under the Shrincs root declared by
+# _RocqProject. CLIGHT_VOFILES adds them to the VST build targets.
+#
+# ONE clightgen INVOCATION PER .c FILE, and no -include anywhere: the four
+# C sources are four translation units. A -include would fold one TU's
+# bodies into another's AST.
 
-extract: $(CLIGHT_DIR)/wots.v $(CLIGHT_DIR)/thash.v $(CLIGHT_DIR)/sha256.v
+CLIGHT_ASTS = $(CLIGHT_DIR)/util.v $(CLIGHT_DIR)/sha256.v \
+              $(CLIGHT_DIR)/thash.v $(CLIGHT_DIR)/wots.v
 
-$(CLIGHT_DIR)/wots.v: ../src/wots.c ../include/wots.h ../include/thash.h ../include/sha256.h ../include/util.h ../src/util.c
+extract: $(CLIGHT_ASTS)
+
+# The in-tree libc alternatives, [src/util.c]: memcpy/memset/ct_memcmp/panic.
+# The leaf TU -- it calls nothing.
+$(CLIGHT_DIR)/util.v: ../src/util.c ../include/util.h Makefile
 	@mkdir -p $(@D)
-	clightgen -normalize -I../src -I../include -Wp,-w -include ../src/util.c -o $@ ../src/wots.c
+	clightgen -normalize -I../src -I../include -Wp,-w -o $@ ../src/util.c
 
-# The shared tweakable-hash TU. Like sha256.v (and unlike wots.v) util.c is
-# NOT folded in, so shrincs_memcpy/_memset/shrincs_sha256 stay External and
-# resolve through their Gprog funspecs; their bodies are proven in wots.v.
-$(CLIGHT_DIR)/thash.v: ../src/thash.c ../include/thash.h ../include/sha256.h ../include/util.h
+$(CLIGHT_DIR)/sha256.v: ../src/sha256.c ../include/sha256.h Makefile
+	@mkdir -p $(@D)
+	clightgen -normalize -I../src -I../include -Wp,-w -o $@ $<
+
+# The shared tweakable-hash TU. shrincs_memcpy/_memset/shrincs_sha256 are
+# External here and discharged at the link against the util / sha256 units.
+$(CLIGHT_DIR)/thash.v: ../src/thash.c ../include/thash.h ../include/sha256.h ../include/util.h Makefile
 	@mkdir -p $(@D)
 	clightgen -normalize -I../src -I../include -Wp,-w -o $@ ../src/thash.c
 
-$(CLIGHT_DIR)/sha256.v: ../src/sha256.c ../include/sha256.h
+# The WOTS+C TU. Its six callees (the three shims it uses, shrincs_sha256,
+# and thash.c's two) are all External; util.h is a prerequisite for the
+# declarations only.
+$(CLIGHT_DIR)/wots.v: ../src/wots.c ../include/wots.h ../include/thash.h ../include/sha256.h ../include/util.h Makefile
 	@mkdir -p $(@D)
-	clightgen -normalize -I../src -I../include -Wp,-w -o $@ $<
+	clightgen -normalize -I../src -I../include -Wp,-w -o $@ ../src/wots.c
 
 # rocq makefile reads _RocqProject which lists the clight .v files, so
 # they must exist (via extract) before Makefile.coq is regenerated --
 # otherwise the generated rules reference missing inputs.
-Makefile.coq: _RocqProject $(CLIGHT_DIR)/wots.v $(CLIGHT_DIR)/thash.v $(CLIGHT_DIR)/sha256.v
+Makefile.coq: _RocqProject $(CLIGHT_ASTS)
 	@rocq makefile -f _RocqProject -o Makefile.coq
 
 vst-prove: extract Makefile.coq
@@ -101,5 +118,4 @@ clean:
 	@if [ -e Makefile.coq ]; then \
 	    $(MAKE) --no-print-directory -f Makefile.coq cleanall; \
 	fi
-	@rm -f Makefile.coq Makefile.coq.conf \
-	       $(CLIGHT_DIR)/wots.v $(CLIGHT_DIR)/thash.v $(CLIGHT_DIR)/sha256.v
+	@rm -f Makefile.coq Makefile.coq.conf $(CLIGHT_ASTS)

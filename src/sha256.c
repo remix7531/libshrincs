@@ -91,7 +91,10 @@
  * and an OR -- and not via a rotate intrinsic, so that the C and the
  * Rocq definition (Shrincs.sha256.ROTR) are the same expression.
  *
- * ROTR and SHR are macros whose expressions match the named
+ * ROTR and SHR are macros so their shift and OR expressions remain
+ * visible in the Clight bodies of the six logical functions below.
+ *
+ * Nothing is lost on the proof side: ROTR and SHR are named
  * definitions in the model, and one bridge lemma each relates the
  * CompCert shift/or expression to them, so the six proofs below still
  * reason about ROTR rather than about raw bits.
@@ -204,8 +207,8 @@ static void sha256_parse(uint32_t M[restrict 16], const uint8_t *restrict block)
  *
  * K IS A PARAMETER because this is the per-BLOCK function: declared
  * here it would be re-initialised for every 64-byte block, and the
- * callers pay it once per call instead. This also keeps sixty-four
- * stores out of the longest proof in the development.
+ * callers pay it once per call instead. This keeps sixty-four stores
+ * out of the longest proof in the development.
  *
  * The four numbered steps in the comments are the standard's own. */
 
@@ -265,8 +268,8 @@ sha256_compress_words(uint32_t H[restrict 8], const uint32_t M[restrict 16], con
      * slot IS the destination slot, (t - 16) % 16 == t % 16, so the
      * read below happens before the write that retires it.
      *
-     * Separate loops avoid a per-round `t < 16` branch and confine
-     * schedule generation to the rounds that need it. */
+     * Separate loops avoid a per-round `if (t < 16)` branch and keep
+     * schedule generation confined to these later rounds. */
     for (t = 16; t < 64; t++) {
         w = sigma1(W[(t - 2) % 16]) + W[(t - 7) % 16] + sigma0(W[(t - 15) % 16]) + W[(t - 16) % 16];
         W[t % 16] = w;
