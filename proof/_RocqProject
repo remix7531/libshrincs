@@ -123,16 +123,6 @@ internal/vst/link.v
 internal/ssprove/lib/prelude.v
 internal/ssprove/shape.v
 internal/ssprove/instance.v
-internal/ssprove/lib/fin_fin.v
-internal/ssprove/lib/sig/scheme.v
-internal/ssprove/lib/sig/kots.v
-internal/ssprove/lib/sig/eucma.v
-internal/ssprove/lib/games/thf.v
-internal/ssprove/lib/games/smtcr.v
-internal/ssprove/lib/games/smpre.v
-internal/ssprove/lib/games/smud.v
-internal/ssprove/lib/games/stcrp.v
-internal/ssprove/lib/games/prf.v
 internal/ssprove/lib/games/prf_derive.v
 internal/ssprove/lib/toolkit/sample_seq.v
 internal/ssprove/lib/toolkit/relational_rules.v
