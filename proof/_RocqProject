@@ -123,6 +123,7 @@ internal/vst/link.v
 internal/ssprove/lib/prelude.v
 internal/ssprove/shape.v
 internal/ssprove/instance.v
+internal/ssprove/security.v
 internal/ssprove/lib/games/prf_derive.v
 internal/ssprove/lib/toolkit/sample_seq.v
 internal/ssprove/lib/toolkit/relational_rules.v

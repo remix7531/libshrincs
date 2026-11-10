@@ -21,6 +21,7 @@
 #     the library, not asserted by this repo: excluded middle, choice,
 #     and extensionality) ---
 Axioms.R                                   # SSProve abstract real carrier
+FunctionalExtensionality.functional_extensionality_dep  # dependent functional extensionality from Stdlib, via CompCert and VST
 boolp.constructive_indefinite_description  # classical choice, via mathcomp-analysis's boolp
 boolp.functional_extensionality_dep        # dependent functional extensionality (boolp)
 boolp.propositional_extensionality         # propositional extensionality (boolp)

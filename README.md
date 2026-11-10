@@ -9,6 +9,8 @@ The C correctness proof and the generic security reductions are machine-checked:
 - **`proof/internal/vst/`**: the C in `src/` is functionally correct (Rocq 9.2 + VST/CompCert).
 - **`proof/internal/ssprove/`**: generic WOTS+C one-time known-message security is bounded by explicit reductions against the hash games in `proof/games.v`.
 
+`proof/internal/ssprove/instance.v` instantiates the generic model with the literal algorithms in `proof/spec.v`. Its proved adapters transfer correctness and security to that specification through `proof/internal/ssprove/security.v`.
+
 ## Build & verify
 
 ```sh

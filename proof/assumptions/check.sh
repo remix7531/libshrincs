@@ -194,6 +194,7 @@ gate3_assumptions() {
 CLASSICAL_MODEL=()
 CLASSICAL_SSPROVE=(
   Axioms.R
+  FunctionalExtensionality.functional_extensionality_dep
   boolp.constructive_indefinite_description
   boolp.functional_extensionality_dep
   boolp.propositional_extensionality

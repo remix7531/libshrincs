@@ -4,13 +4,14 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Shrincs.internal.ssprove.instance: encodings and static address classes
+(** * Shrincs.internal.ssprove.instance: the model at the functions of Shrincs.spec
 
-    The specification hash calls use one packed tweak and byte-message interface. These lemmas identify its grinding encoding and prove the injective node and chain-end encodings. At one node of one tree, the chain, compression and grinding tweaks satisfy their static address classes and the chain and PRF tweaks are injective over their bounded indexes. *)
+    [wc_sha256] is the parameter record of the security proof with the carriers, hashes and tweaks of the specification, at one node of one tree. The lemmas after it show that the model's key generation, signing and verification at this record are [wots_c_pubkey_gen], [wots_c_sign] and [wots_c_pubkey_from_sig]. Shrincs.internal.ssprove.security concludes from them that the model's keyed scheme is the scheme of the public statement, so no second scheme definition stands between the two. *)
 
-From Shrincs.internal.ssprove.lib Require Import prelude.
+From Shrincs.internal.ssprove.lib Require Import prelude chain.core.
 From Shrincs Require Import spec games.
 From Shrincs.internal.ssprove Require Import shape.
+From Shrincs.internal.ssprove.wots Require Import scheme games hop.prf.
 From mathcomp Require Import word_ssrZ word.
 From SSProve.Crypt Require Import jasmin_word jasmin_wsize.
 From Stdlib Require Import BinInt.
@@ -220,6 +221,178 @@ Proof.
 move=> hi hi' h.
 have hc : uint U32 i = uint U32 i' := congr1 (fun t : tweak => t.1.2) h.
 exact: (@uint32_inj i i' (chain_index_lt i hi) (chain_index_lt i' hi') hc).
+Qed.
+
+(*  The parameter record  *)
+
+Definition wc_sha256 : wc_params := {|
+  wcp_PP := bytes 16 ;
+  wcp_N  := bytes 16 ;
+  wcp_M  := bytes 32 ;
+  wcp_Tw := tweak ;
+  wcp_HM := 'list ('word U8) ;
+  wcp_w := w_shrincs ;
+  wcp_chain_count := chain_count_shrincs ;
+  wcp_Hcc := wots_c_Hcc ;
+  wcp_Hw  := wots_c_Hw ;
+  wcp_tw_chain := tw_chain ;
+  wcp_tw_prf   := tw_prf ;
+  wcp_tw_pk    := tw_pk ;
+  wcp_tw_grind := tw_grind ;
+  wcp_tw_chain_inj := tw_chain_inj ;
+  wcp_tw_prf_inj := tw_prf_inj ;
+  wcp_Th := Th ;
+  wcp_encode_node := fun x => tval x ;
+  wcp_encode_node_inj := fun x y h => val_inj h ;
+  wcp_encode_ends := fun xs => flatten [seq tval x | x <- xs] ;
+  wcp_encode_ends_inj := @flatten_rows_inj 16 isT ;
+  wcp_encode_grind := shrincs_wots_grind_enc ;
+  wcp_chain_class := shrincs_wots_chain_class ;
+  wcp_pk_class := shrincs_wots_pkcompress_class ;
+  wcp_grind_class := shrincs_wots_grind_class ;
+  wcp_tw_chain_class := tw_chain_class ;
+  wcp_tw_pk_class := tw_pk_class ;
+  wcp_tw_grind_class := tw_grind_class ;
+  wcp_tw_chain_not_pk := tw_chain_not_pkcompress_class ;
+  wcp_encode_grind_class := fun m c => tw_grind_encoded_class m ;
+  wcp_encode_grind_not_chain := fun m c => tw_grind_encoded_not_chain_class m ;
+  wcp_encode_grind_not_pk := fun m c => tw_grind_encoded_not_pkcompress_class m ;
+  wcp_digits := spec_digits ;
+  wcp_digits_size := size_spec_digits ;
+  wcp_digits_wf := spec_digits_wf ;
+  wcp_digits_inj := spec_digits_inj ;
+  wcp_G0 := zeros 16 ;
+  wcp_Sig := bytes (2 + WOTS_C_CHAINS_SIZE) ;
+  wcp_sig_encode := fun sg => sig_of sg.1 sg.2 ;
+  wcp_sig_decode := fun sg => (sig_blocks sg, sig_ctr sg) ;
+  wcp_dPP := dBytes 16 ;
+  wcp_dN  := dBytes 16 ;
+  wcp_constant_sum := WOTS_C_CONSTANT_SUM ;
+  wcp_c_max        := c_max_shrincs ;
+|}.
+
+Local Abbreviation P := wc_sha256.
+Local Abbreviation model_chain :=
+  (chainc (wcp_PP P) (wcp_N P) (wcp_w P) (chainf P)).
+
+Lemma H_grind_model (pp : bytes 16) (ADRS : Address) (m : bytes 32) (c : nat) :
+  H_grind pp ADRS m (uint U16 c) = wcp_H_grind P pp (tweak_of ADRS) (m, c).
+Proof. by rewrite H_grind_encoding_Th. Qed.
+
+(*  Chains  *)
+
+(* The model's fold over a chain is the specification's loop. The bound keeps every position under the guard of the model's step. *)
+Lemma chainc_chain_iter (pp : bytes 16) (i : nat) (x : bytes 16) (s n : nat) :
+  s + n <= w_shrincs ->
+  model_chain pp i x s n
+  = wots_c_chain_iter x s (s + n) pp node_height node_index (uint U32 i).
+Proof.
+elim: n x s => [|n IH] x s hs.
+- by rewrite /wots_c_chain_iter /range addn0 subnn.
+- have hsw : s < w_shrincs.
+    by apply: (leq_trans _ hs); rewrite addnS ltnS leq_addr.
+  rewrite (chainc_shift (wcp_PP P) (wcp_N P) (wcp_w P) (chainf P) pp i x s n).
+  rewrite (FcE (wcp_PP P) (wcp_N P) (wcp_w P) (chainf P) pp i s x hsw).
+  have hs' : s.+1 + n <= w_shrincs by rewrite addSnnS.
+  rewrite (IH _ _ hs') /wots_c_chain_iter /range.
+  have -> : s.+1 + n - s.+1 = n by rewrite addKn.
+  have -> : s + n.+1 - s = n.+1 by rewrite addKn.
+  by [].
+Qed.
+
+(* A digit of a digest is at most w - 1. *)
+Lemma digit_le (pp : bytes 16) (m : bytes 32) (c i : nat) :
+  nth 0 (digest_of P pp m c) i <= (wcp_w P).-1.
+Proof. by have := nth_digest_of_lt P pp m c i. Qed.
+
+(*  Key generation  *)
+
+Lemma pubkey_adapter (pp k : bytes 16) :
+  wots_c_pubkey_gen k pp node_height node_index tree_balanced tree_depth
+  = shrincs_wots_pubkey_gen P (bytes 16) shrincs_wots_prf pp k.
+Proof.
+rewrite /shrincs_wots_pubkey_gen /shrincs_wots_pubkey /derive_sk chain_ends_mkseq.
+rewrite /wots_c_pubkey_gen T_sf_Th /wcp_T_sf.
+apply: (congr1 (fun xs : seq (bytes 16) => Th pp tw_pk (flatten [seq tval x | x <- xs]))).
+apply/eq_in_map => i _.
+have hd : 0 + (wcp_w P).-1 <= w_shrincs by rewrite add0n leq_pred.
+by rewrite (chainc_chain_iter pp i _ 0 _ hd) ?add0n PRF_Th.
+Qed.
+
+(*  Signing  *)
+
+(* The grinding loop of the specification is the model's search for the first good counter. *)
+Lemma grind_adapter (pp : bytes 16) (m : bytes 32) :
+  wots_c_grind_to_constant_sum pp m node_height node_index
+  = omap (fun c => (uint U16 c, digest_of P pp m c)) (find_counter P pp m).
+Proof.
+rewrite /wots_c_grind_to_constant_sum /find_counter /range subn0 for_first_filter.
+congr omap.
+- apply: functional_extensionality => c.
+  by rewrite H_grind_model.
+- congr ohead; apply: eq_filter => c.
+  by rewrite H_grind_model /good_counter -(grind_prpE P).
+Qed.
+
+Lemma sign_adapter (pp k : bytes 16) (m : bytes 32) :
+  wots_c_sign m k pp node_height node_index tree_balanced tree_depth
+  = omap (wcp_sig_encode P)
+      (shrincs_wots_sign P pp (derive_sk P (bytes 16) shrincs_wots_prf pp k) m).
+Proof.
+rewrite /wots_c_sign grind_adapter /shrincs_wots_sign.
+case: (find_counter P pp m) => [c|]; last by [].
+cbn [omap Option.map Option.bind Option.apply].
+congr Some.
+have -> : wcp_sig_encode P = fun sg => sig_of sg.1 sg.2 by [].
+cbn [fst snd].
+rewrite /derive_sk (sign_chains_mkseq P pp _ _ (size_digest_of P pp m c)).
+rewrite -sig_of_tuple.
+congr (sig_of _ c).
+apply/eq_in_map => i _.
+have hd : 0 + nth 0 (digest_of P pp m c) i <= w_shrincs.
+  exact: (leq_trans (digit_le pp m c i) (leq_pred _)).
+by rewrite (chainc_chain_iter pp i _ 0 _ hd) PRF_Th.
+Qed.
+
+(*  Verification  *)
+
+(* The model's verifier on a decoded signature, with its chain completions written as the specification's loops. Stated apart from the specification's verifier: a rewrite in a goal that holds a tuple's size proof can land inside that proof. *)
+Lemma model_verifyE (pp root : bytes 16) (m : bytes 32) (sg : bytes (2 + WOTS_C_CHAINS_SIZE)) :
+  shrincs_wots_verify P pp root m (wcp_sig_decode P sg)
+  = (sumn (digest_of P pp m (sig_ctr sg)) == WOTS_C_CONSTANT_SUM)
+    && (Th pp tw_pk (flatten [seq tval x | x <-
+          [seq wots_c_chain_iter (slice sg (2 + i * 16) 16)
+                 (nth 0 (digest_of P pp m (sig_ctr sg)) i)
+                 (2 ^ WOTS_C_CHAIN_BITS - 1) pp node_height node_index (uint U32 i)
+          | i <- iota 0 WOTS_C_CHAIN_COUNT]]) == root).
+Proof.
+have -> : wcp_sig_decode P sg = (sig_blocks sg, sig_ctr sg) by [].
+rewrite /shrincs_wots_verify; cbn [fst snd].
+rewrite -(grind_prpE P) size_map size_iota eqxx andTb.
+congr (_ && (_ == root)).
+rewrite /sig_blocks (complete_ends_mkseq P pp _ _ (size_digest_of P pp m (sig_ctr sg))).
+congr (Th pp tw_pk (flatten [seq tval x | x <- _])).
+apply/eq_in_map => i _.
+have hle := digit_le pp m (sig_ctr sg) i.
+have hd : nth 0 (digest_of P pp m (sig_ctr sg)) i
+          + ((wcp_w P).-1 - nth 0 (digest_of P pp m (sig_ctr sg)) i) <= w_shrincs.
+  by rewrite (subnKC hle) leq_pred.
+by rewrite (chainc_chain_iter pp i _ _ _ hd) (subnKC hle).
+Qed.
+
+Lemma verify_adapter (pp root : bytes 16) (m : bytes 32) (sg : bytes (2 + WOTS_C_CHAINS_SIZE)) :
+  (wots_c_pubkey_from_sig sg m pp node_height node_index == Some root)
+  = shrincs_wots_verify P pp root m (wcp_sig_decode P sg).
+Proof.
+have hds : base_2b (H_grind pp (WotsCGrind node_height node_index) m
+                      (int_from_bytes U16 (slice sg 0 2)))
+             WOTS_C_CHAIN_BITS WOTS_C_CHAIN_COUNT
+           = digest_of P pp m (sig_ctr sg).
+  by rewrite /digest_of /sig_ctr -[X in _ = wcp_digits P (wcp_H_grind P pp _ (m, X))]/(sig_ctr sg)
+             -{1}(uint_to_nat (int_from_bytes U16 (slice sg 0 2))) H_grind_model.
+rewrite model_verifyE /wots_c_pubkey_from_sig /wots_c_map_digest hds.
+case: (sumn (digest_of P pp m (sig_ctr sg)) == WOTS_C_CONSTANT_SUM); last by [].
+by rewrite T_sf_Th.
 Qed.
 
 End AtTheAnchor.
