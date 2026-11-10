@@ -12,7 +12,7 @@
     [False] and the body can be anything. *)
 
 From VST Require Import floyd.proofauto.
-From Shrincs.internal.vst.support Require Import contract.gprog contract.lemmas.
+From Shrincs.internal.vst.support Require Import contract.gprog.
 From Shrincs.clight Require Import util.
 
 Open Scope Z_scope.

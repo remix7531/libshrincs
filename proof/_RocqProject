@@ -91,6 +91,7 @@ internal/vst/support/contract/helpers_thash.v
 internal/vst/support/contract/helpers_wots.v
 internal/vst/support/contract/helpers.v
 internal/vst/shape.v
+internal/vst/support/theory/values.v
 internal/vst/support/contract/buffer.v
 internal/vst/support/contract/trusted.v
 internal/vst/support/contract/gprog.v
@@ -100,6 +101,7 @@ internal/vst/util/body_shrincs_memcpy.v
 internal/vst/util/body_shrincs_ct_memcmp.v
 internal/vst/util/body_shrincs_panic.v
 internal/vst/thash/body_shrincs_adrs_put32.v
+internal/vst/thash/body_shrincs_adrs_pack.v
 internal/vst/thash/body_shrincs_thash.v
 internal/vst/wots/body_shrincs_wots_t_sf.v
 internal/vst/wots/body_shrincs_wots_h_grind.v
@@ -112,6 +114,17 @@ internal/vst/wots/body_shrincs_wots_pubkey_gen.v
 internal/vst/wots/body_shrincs_wots_sign.v
 internal/vst/wots/body_shrincs_wots_pubkey_from_sig.v
 internal/vst/wots/body_shrincs_wots_verify.v
+internal/vst/wots/body_shrincs_wots_c_t_sf.v
+internal/vst/wots/body_shrincs_wots_c_f.v
+internal/vst/wots/body_shrincs_wots_c_h_grind.v
+internal/vst/wots/body_shrincs_wots_c_prf.v
+internal/vst/wots/body_shrincs_wots_c_chain_iter.v
+internal/vst/wots/body_shrincs_wots_c_base_2b.v
+internal/vst/wots/body_shrincs_wots_c_map_digest.v
+internal/vst/wots/body_shrincs_wots_c_grind_to_constant_sum.v
+internal/vst/wots/body_shrincs_wots_c_pubkey_gen.v
+internal/vst/wots/body_shrincs_wots_c_sign.v
+internal/vst/wots/body_shrincs_wots_c_pubkey_from_sig.v
 
 # --- the three remaining translation units as Verified Software Units,
 # then the link. internal/vst/sha256/vsu.v (above) is the fourth. Each component

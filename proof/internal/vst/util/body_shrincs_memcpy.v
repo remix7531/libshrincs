@@ -7,7 +7,7 @@
 (** * body_shrincs_memcpy: VST body proof for [shrincs_memcpy]. *)
 
 From VST Require Import floyd.proofauto.
-From Shrincs.internal.vst.support Require Import contract.gprog contract.lemmas.
+From Shrincs.internal.vst.support Require Import contract.gprog.
 From Shrincs.clight Require Import util.
 
 Open Scope Z_scope.

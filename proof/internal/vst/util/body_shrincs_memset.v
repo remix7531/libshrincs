@@ -7,7 +7,7 @@
 (** * body_shrincs_memset: VST body proof for [shrincs_memset]. *)
 
 From VST Require Import floyd.proofauto.
-From Shrincs.internal.vst.support Require Import contract.gprog contract.lemmas.
+From Shrincs.internal.vst.support Require Import contract.gprog.
 From Shrincs.clight Require Import util.
 
 Open Scope Z_scope.
@@ -57,7 +57,11 @@ Proof.
     forward.
     entailer!.
     (* The stored [zero_ext 8 c] is just [c] since [c < 256]. *)
-    rewrite zero_ext_8_byte by lia.
+    assert (Hbyte : Int.zero_ext 8 c = c).
+    { apply zero_ext_inrange.
+      change (two_p 8) with 256.
+      lia. }
+    rewrite Hbyte.
     list_solve.
 
   (* ===== Loop exit ===== *)

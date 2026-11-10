@@ -15,7 +15,6 @@ VST_DIR     = internal/vst
 CLIGHT_DIR  = clight
 SSPROVE_DIR = internal/ssprove
 AUDIT_DIR   = assumptions
-MODEL_DIR   = internal/common
 
 # Cyan banner; blue success line.  Disable colors when NO_COLOR is set
 # (https://no-color.org/) so CI logs stay readable.
@@ -28,8 +27,9 @@ else
 endif
 
 # The two trees' .vo targets, derived from _RocqProject so they never drift
-# out of sync with the file listing. CLIGHT_VOFILES adds the generated
-# clight/ modules to the internal/vst/ proof targets.
+# out of sync with the file listing. CLIGHT_VOFILES folds into the vst set:
+# clight/ is separate from internal/vst/ (single -Q . Shrincs root, see
+# _RocqProject), but the generated ASTs are still part of the VST build.
 CLIGHT_VOFILES  := $(shell grep -E '^$(CLIGHT_DIR)/.*\.v$$' _RocqProject | sed 's/\.v$$/.vo/')
 VST_VOFILES     := $(shell grep -E '^$(VST_DIR)/.*\.v$$' _RocqProject | sed 's/\.v$$/.vo/') $(CLIGHT_VOFILES)
 SSPROVE_VOFILES := $(shell grep -E '^$(SSPROVE_DIR)/.*\.v$$' _RocqProject | sed 's/\.v$$/.vo/')
@@ -37,8 +37,9 @@ SSPROVE_VOFILES := $(shell grep -E '^$(SSPROVE_DIR)/.*\.v$$' _RocqProject | sed 
 .PHONY: extract vst-prove ssprove-prove prove audit spec-test clean
 
 # ----- VST / Rocq -----------------------------------------------------------
-# Clight ASTs land in clight/ under the Shrincs root declared by
-# _RocqProject. CLIGHT_VOFILES adds them to the VST build targets.
+# Clight ASTs land in clight/ (single -Q . Shrincs
+# root, see _RocqProject), so _RocqProject finds them; CLIGHT_VOFILES
+# below folds them into the vst build set.
 #
 # ONE clightgen INVOCATION PER .c FILE, and no -include anywhere: the four
 # C sources are four translation units, each verified as its own VSU
@@ -51,7 +52,7 @@ CLIGHT_ASTS = $(CLIGHT_DIR)/util.v $(CLIGHT_DIR)/sha256.v \
 
 extract: $(CLIGHT_ASTS)
 
-# The in-tree libc alternatives, [src/util.c]: memcpy/memset/ct_memcmp/panic.
+# The in-tree libc alternatives, [src/util.c]: memcpy/memset/panic.
 # The leaf TU -- it calls nothing.
 $(CLIGHT_DIR)/util.v: ../src/util.c ../include/util.h Makefile
 	@mkdir -p $(@D)
@@ -67,7 +68,7 @@ $(CLIGHT_DIR)/thash.v: ../src/thash.c ../include/thash.h ../include/sha256.h ../
 	@mkdir -p $(@D)
 	clightgen -normalize -I../src -I../include -Wp,-w -o $@ ../src/thash.c
 
-# The WOTS+C TU. Its six callees (the three shims it uses, shrincs_sha256,
+# The WOTS+C TU. Its five callees (the two shims it uses, shrincs_sha256,
 # and thash.c's two) are all External; util.h is a prerequisite for the
 # declarations only.
 $(CLIGHT_DIR)/wots.v: ../src/wots.c ../include/wots.h ../include/thash.h ../include/sha256.h ../include/util.h Makefile
@@ -92,29 +93,15 @@ prove: Makefile.coq extract
 	@$(MAKE) -j $(NPROC) --no-print-directory -f Makefile.coq
 	@$(SUCCESS) "All Verifications Succeeded"
 
-# `make audit` is the combined honesty gate for all three proof trees
-# (model, ssprove, vst): it forces the vst + ssprove trees to actually
-# compile (not just grep their source text; the model tree is built as
-# their shared dependency), then runs the single, parameterized combined
-# gate (assumptions/check.sh) covering all three trees' build-freshness,
-# proof-gap, axiom/parameter/hypothesis, and Print-Assumptions checks --
-# see check.sh's header comment for the full gate-by-gate rationale and
-# per-tree scoping.
-#
-# The second recipe line builds internal/common/correct/wots.vo explicitly:
-# assumptions/model.v (the MODEL tree's probe) probes
-# Shrincs.internal.common.correct.wots.wots_correct, but internal/common/correct/wots.v (the shared pure-model
-# correctness theorem) is in neither compiled tree's .vo list and nothing
-# in either tree Requires it, so a from-scratch `make audit` would
-# otherwise fail check.sh's model-side coqc step (and its model gate 0)
-# unless a prior `make prove` (full build) had left the .vo behind.
+# The literal specification and both proof stacks are compiled before the gates.
 audit: vst-prove ssprove-prove
-	@$(MAKE) -j $(NPROC) --no-print-directory -f Makefile.coq internal/common/correct/wots.vo
-	@$(BANNER) "combined honesty gate (model + ssprove + vst)"
+	@$(MAKE) -j $(NPROC) --no-print-directory -f Makefile.coq spec.vo
+	@$(BANNER) "honesty gate"
 	@bash $(AUDIT_DIR)/check.sh
 	@$(SUCCESS) "Audit: all proofs green, trust surface unchanged"
 
-# The kernel virtual machine checks the literal specification on each vector.
+# spec.v against the reference vectors, evaluated by the kernel's virtual
+# machine. Minutes of work per key generation, so it is its own target.
 spec-test: extract Makefile.coq
 	@$(MAKE) -j $(NPROC) --no-print-directory -f Makefile.coq spec.vo
 	@bash ../test/spec/run.sh
