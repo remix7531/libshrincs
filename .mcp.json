@@ -1,12 +1,13 @@
 {
   "mcpServers": {
     "rocq": {
-      "command": "rocq-mcp",
+      "command": "bash",
+      "args": ["-c", "cd proof && exec rocq-mcp-evolve"],
       "type": "stdio",
       "env": {
-        "ROCQ_PET_TIMEOUT": "300",
-        "ROCQ_PET_TIMEOUT_GRACE": "60",
-        "ROCQ_MAX_STATES": "65536"
+        "ROCQ_STEP_TIMEOUT": "300",
+        "ROCQ_QED_TIMEOUT": "600",
+        "ROCQ_RENDER": "compact"
       }
     }
   }
