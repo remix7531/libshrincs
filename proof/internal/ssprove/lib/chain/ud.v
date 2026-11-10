@@ -35,9 +35,9 @@
     hash [Fw].  The generic one-sided relational rules used here live in
     [toolkit.relational_rules]. *)
 
-From Shrincs.internal.ssprove.lib Require Import prelude sig.scheme
+From Shrincs.internal.ssprove.lib Require Import prelude
   toolkit.sample_seq toolkit.relational_rules chain.core.
-From Shrincs.internal.common Require Import math.chain math.encoding.
+From Shrincs Require Import games.
 
 Import PackageNotation.
 #[local] Open Scope package_scope.
@@ -46,10 +46,10 @@ Section ChainUD.
 
 Context (PP N : choice_type).
 Context (l w : nat).
-(** Position-tweaked hash in [Shrincs.internal.common.math.chain]'s DEPENDENT shape (the
-    abstract [F'] of [Shrincs.internal.ssprove.lib.chain.core]): all chain walks below go
-    through the total fold [chainc] and its total step [Fc]. *)
-Context (F' : PP -> nat -> forall p : nat, (p < w)%N -> N -> N).
+(** Position-tweaked hash (the abstract [F'] of
+    [Shrincs.internal.ssprove.lib.chain.core]): all chain walks below go
+    through the fold [chainc] and its step [Fc]. *)
+Context (F' : PP -> nat -> nat -> N -> N).
 Context (dN : dist N).
 
 (* ------------------------------------------------------------------ *)

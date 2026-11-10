@@ -6,192 +6,28 @@
 
 (** * Shrincs.internal.ssprove.wots.games
 
-    Game-instance scaffolding for the WOTS+C one-time security proof:
-    the [thf] / [thf_coll] instances for the three tweakable hash
-    functions under attack (F, T_sf, H_grind), and the valid-commit
-    known-message game pair [G_forge_sampledkey] /
-    [G_forge_uniformchains] (definitions only; the hops live in later
-    files).
+    The experiments use one hash instance over encoded messages.
+    [thf_hash] samples hidden messages by encoding sampled nodes,
+    which is the input distribution required by the chain games.
+    [grind_enc] can change both the tweak and the message, and its
+    class law makes the bounded search agree with [find_counter].
 
-    [G_forge_sampledkey]/[G_forge_uniformchains] are the generic
-    known-message game pair specialized to the WOTS+C scheme operations
-    (grinding, pk compression, concrete stateful addresses); the SM-UD
-    re-rooting machinery ([sample_sig_roots]) comes from the chain
-    library (Shrincs.internal.ssprove.lib.chain) at the address-wrapped chain hash [Fw].
+    [G_forge_sampledkey] and [G_forge_uniformchains] are intermediate
+    known-message games. Both abort when grinding fails and store the
+    issued signature for the reductions. The latter samples chain roots
+    at the signing positions through [sample_sig_roots]. [Fw] connects
+    these operations to the generic chain library. Location ids 300+. *)
 
-    ** The thf instances (documented th_* choices)
-
-    All three instances share th_PP := PP (PKseed) and
-    th_T := [wc_adrs_ch P], the encoded stateful address space of
-    Shrincs.internal.ssprove.addressing (thf tweaks must be a [choice_type]; the
-    scheme's structured [wc_adrs P] addresses enter via [encode_tweak],
-    and [th_eval] decodes with the proven-cancelling [decode_tweak] —
-    the junk branch on non-canonical tuples is dead code, see
-    [th_evalE_*]):
-
-    - [thf_chain]  (chain hash F):           th_M := N, th_N := N;
-            samplers dN/dN (SM-PRE samples hidden inputs, SM-UD ideal
-            samples outputs — both n-byte strings).
-    - [thf_pkcompress] (pk compression T_sf): th_M := 'list N (the chain_count chain
-            ends), th_N := N; only SM-TCR is assumed on T_sf, which
-            never samples th_M/th_N, so th_dM is a dummy (ret [::]).
-    - [thf_grind] (grinding hash H_grind):   th_M := M × 'nat (message,
-            counter — STCRP's [enc m c := (m, c)]), th_N := 'nat (the
-            digest as a [nat], parsed base-w downstream, exactly as in
-            Shrincs.internal.ssprove.wots.scheme); only S-TCR(Prop) is assumed on H_grind,
-            which never samples th_M/th_N, so both samplers are
-            dummies (th_dM needs SOME inhabitant of M, whence the
-            record field [wcp_dM] — data only, never used by the
-            games; instantiations have a canonical 2n-bit-string
-            sampler).
-
-    ** Collections
-
-    Each instance's collection exposes the OTHER members of the
-    collection that the reductions must evaluate under the
-    still-hidden PKseed:
-    - [coll_chain]: T_sf and H_grind.  The SM-UD/SM-TCR/SM-PRE reductions
-      on F must compute the grinded digest BEFORE their first query
-      (the digest determines the queried tweaks), hence H_grind;
-      T_sf is included for uniformity (pk compression could also
-      wait until after GETPP).
-    - [coll_pkcompress]: F and H_grind.  The SM-TCR(T_sf) reduction must commit
-      the honest chain ends as its target before GETPP, and those are
-      F-chains over an H_grind digest.
-    - [coll_grind]: F and T_sf.  (STCRP's SQUERY does the grinding
-      in-oracle and nothing forces queries after the digest, so the
-      trivial collection would do; the symmetric choice is free.)
-    Tweaks of collection members are also encoded addresses; inputs
-    and outputs are tagged with the evident sums.
-
-    ** The STCRP instantiation for H_grind
-
-    Mb := M, [grind_enc m c := (m, c)], [grind_prp] := the digit-sum
-    predicate (decode base-w, check [valid_digest] — exactly
-    [good_counter]'s structure), cap := c_max.  [grind_search_find_ctr]
-    proves that STCRP's in-oracle bounded search at the encoded
-    grinding address IS the scheme's [find_counter].
-
-    ** G_forge_sampledkey / G_forge_uniformchains (the valid-commit game pair)
-
-    [G_forge_sampledkey] is the known-message game (Shrincs.internal.ssprove.lib.sig.kots) for the
-    shrincs_wots_scheme scheme, flattened into one self-contained package, in the
-    VALID-COMMIT variant: COMMIT [#assert]s grinding success
-    ([isSome (find_counter ...)]) right after sampling PKseed, so a
-    grinding failure aborts the experiment and COMMIT always signs.
-    Rationale: after a refusal nothing is revealed, and bounding
-    refusal-branch forgeries would need targets at EVERY position
-    with no consumer — and the tree layer only ever signs grindable
-    digests by construction.  This is the VALID-COMMIT variant
-    [KOTS_vc_game shrincs_wots_scheme] (Shrincs.internal.ssprove.lib.sig.kots), not the
-    plain [KOTS_game]; the correspondence between this flat game (and
-    its keyed sibling [G_forge_keyed], Shrincs.internal.ssprove.wots.hop.prf) and
-    [KOTS_vc_game] is now MACHINE-CHECKED, unconditionally and
-    perfectly, in Shrincs.internal.ssprove.wots.kots_link — no longer a merely-documented
-    deviation.
-
-    COMMIT also stores the issued signature (chain values + counter)
-    in [forge_sig_loc]: KFORGE never reads it, but the later reduction
-    hops need the signed data and sharing one location set keeps their
-    invariants small.
-
-    [G_forge_uniformchains] is the
-    post-SM-UD-hybrid game, named for its state: the signature chain
-    values are uniform (re-rooted) rather than chain-folded from a
-    sampled key.  The grinding still happens (digest first — it
-    determines the chain digits), then each chain's signature value is
-    sampled RE-ROOTED at its digit position via [sample_sig_roots] at
-    [Fw] (digit 0: the value itself is a fresh uniform; digit d > 0: a
-    hidden uniform sits one hash step below,
-    [σ_i = F (chain_adrs P i (d-1)) u_i] — the SM-PRE oracle's
-    distribution), and the public key is the T_sf compression of the
-    chain ends completed from the signature values ([complete_ends],
-    the verifier's own completion).
-
-    ** Shared reduction vocabulary ([wsigs] and friends)
-
-    The tail of this file names the chain library's query/decision
-    combinators at this instance's [Fw] once ([wsigs], [wends],
-    [wcommitq], [wpreq], [wtcr_dec], [wpre_dec]), so the hop and bound
-    files share one spelling instead of each pinning the applications
-    locally.
-
-    Location ids 300+. *)
-
-From Shrincs.internal.ssprove.lib Require Import prelude sig.scheme sig.kots
-  games.thf games.smtcr games.smpre games.smud games.stcrp toolkit.sample_seq.
-From Shrincs.internal.common Require Import math.chain math.encoding.
+From Shrincs.internal.ssprove.lib Require Import prelude
+  toolkit.sample_seq.
 From Shrincs.internal.ssprove.lib Require Import chain.core.
-From Shrincs.internal.ssprove Require Import addressing.
+From Shrincs Require Import games.
 From Shrincs.internal.ssprove.wots Require Import scheme.
+
 
 Import PackageNotation.
 #[local] Open Scope package_scope.
 #[local] Open Scope sep_scope.
-
-(* ================================================================== *)
-(** ** The hash-game instances over the anchor-free core
-
-    Every instance a hash ASSUMPTION quantifies over is defined here,
-    over [wc_params_core] (see params.v): the games can provably not
-    see the anchor.  The [wc_params] spellings further below are
-    transparent wrappers over [wc_core_of P], so nothing downstream
-    changes -- the two spellings coincide by conversion. *)
-
-Section WOTSCGamesCore.
-
-Context (H : wc_params_core).
-
-Definition thf_chain_core : thf :=
-  {| th_PP := wcc_PP H ; th_T := wc_adrs_ch_core H ; th_M := wcc_N H ; th_N := wcc_N H ;
-     th_eval := fun pp t x => wcc_F H pp (decode_tweak_core H t) x ;
-     th_dPP := wcc_dPP H ; th_dM := wcc_dN H ; th_dN := wcc_dN H |}.
-
-Definition thf_pkcompress_core : thf :=
-  {| th_PP := wcc_PP H ; th_T := wc_adrs_ch_core H ; th_M := 'list (wcc_N H) ; th_N := wcc_N H ;
-     th_eval := fun pp t xs => wcc_T_sf H pp (decode_tweak_core H t) xs ;
-     th_dPP := wcc_dPP H ; th_dM := {code ret ([::] : seq (wcc_N H)) } ; th_dN := wcc_dN H |}.
-
-Definition thf_grind_core : thf :=
-  {| th_PP := wcc_PP H ; th_T := wc_adrs_ch_core H ; th_M := wcc_M H × 'nat ; th_N := 'nat ;
-     th_eval := fun pp t mc => wcc_H_grind H pp (decode_tweak_core H t) mc ;
-     th_dPP := wcc_dPP H ;
-     th_dM := {code m ← wcc_dM H ;; ret (m, 0) } ;
-     th_dN := {code ret 0 } |}.
-
-Definition coll_chain_core : thf_coll thf_chain_core :=
-  Build_thf_coll thf_chain_core (wc_adrs_ch_core H) (('list (wcc_N H)) ∐ (wcc_M H × 'nat)) ((wcc_N H) ∐ 'nat)
-    (fun pp t x =>
-       match x with
-       | inl xs => inl (wcc_T_sf H pp (decode_tweak_core H t) xs)
-       | inr mc => inr (wcc_H_grind H pp (decode_tweak_core H t) mc)
-       end).
-
-Definition coll_pkcompress_core : thf_coll thf_pkcompress_core :=
-  Build_thf_coll thf_pkcompress_core (wc_adrs_ch_core H) ((wcc_N H) ∐ (wcc_M H × 'nat)) ((wcc_N H) ∐ 'nat)
-    (fun pp t x =>
-       match x with
-       | inl y => inl (wcc_F H pp (decode_tweak_core H t) y)
-       | inr mc => inr (wcc_H_grind H pp (decode_tweak_core H t) mc)
-       end).
-
-Definition coll_grind_core : thf_coll thf_grind_core :=
-  Build_thf_coll thf_grind_core (wc_adrs_ch_core H) ((wcc_N H) ∐ ('list (wcc_N H))) ((wcc_N H) ∐ (wcc_N H))
-    (fun pp t x =>
-       match x with
-       | inl y => inl (wcc_F H pp (decode_tweak_core H t) y)
-       | inr xs => inr (wcc_T_sf H pp (decode_tweak_core H t) xs)
-       end).
-
-Definition grind_enc_core (m : wcc_M H) (c : nat) : wcc_M H * nat := (m, c).
-
-(** [scheme.valid_digest] spelled over the core fields (w and the
-    target sum are core data), MSB-first as there. *)
-Definition grind_prp_core (x : nat) : bool :=
-  wf_digits (wcc_w H) (rev (digits_w (wcc_w H) (wcc_chain_count H) x))
-  && (sumn (rev (digits_w (wcc_w H) (wcc_chain_count H) x)) == wcc_constant_sum H).
-
-End WOTSCGamesCore.
 
 Section WOTSCGames.
 
@@ -199,74 +35,51 @@ Section WOTSCGames.
 Context (P : wc_params).
 
 (* ------------------------------------------------------------------ *)
-(** ** The three thf instances (th_* choices in the header)
+(** ** The common hash instance *)
 
-    [th_eval] must be total on the encoded tweak space [wc_adrs_ch P];
-    [decode_tweak] is a TOTAL structural round trip (see params.v /
-    addressing.v), so no default/fallback is needed here at all.
-    All are wrappers over the core instances above. *)
+Definition d_hash_message : dist (wcp_HM P) :=
+  {code x ← wcp_dN P ;; ret (wcp_encode_node P x)}.
 
-Definition thf_chain : thf := thf_chain_core (wc_core_of P).
+Definition thf_hash : thf :=
+  {| th_PP := wcp_PP P ; th_T := wc_adrs_ch P ; th_M := wcp_HM P ; th_N := wcp_N P ;
+     th_eval := wcp_Th P ;
+     th_dPP := wcp_dPP P ; th_dM := d_hash_message ; th_dN := wcp_dN P |}.
 
-Definition thf_pkcompress : thf := thf_pkcompress_core (wc_core_of P).
+Definition grind_enc (t : wc_adrs_ch P) (m : wcp_M P) (c : nat)
+    : wc_adrs_ch P * wcp_HM P :=
+  wcp_encode_grind P t m c.
 
-(** [thf_grind]: the grinding hash, output modeled as a bare [nat] (the
-    n-byte digest read base-w by [digits_w]; case-1 soundness rests on
-    [digits_w] injectivity below [w^chain_count], i.e. the [grind_range]
-    premise of [shrincs_wots_secure_ideal_sk]).  [th_dM]/[th_dN] are DUMMY
-    samplers (data only) — they would be wrong for a search game that
-    samples its challenge, so [thf_grind] is only ever used to build
-    [STCRP_game thf_grind ...]; it is never instantiated into
-    SMUD/SMPRE. *)
-Definition thf_grind : thf := thf_grind_core (wc_core_of P).
-
-(** The core decoder at [wc_core_of P] IS the instance decoder (one
-    delta each side). *)
-Lemma core_decodeE (t : wc_adrs_ch P) :
-  decode_tweak_core (wc_core_of P) t = decode_tweak P t.
+(** Sanity: on encoded tweaks the instances evaluate the scheme's
+    functions — the consumers' interface to [th_eval]. *)
+Lemma th_evalE_Tf pp (a : wc_adrs P) (x : wcp_N P) :
+  th_eval thf_hash pp (encode_tweak P a) (wcp_encode_node P x) = wcp_F P pp a x.
 Proof. by []. Qed.
 
-(** Sanity: on encoded (canonical) tweaks the instances evaluate the
-    scheme's functions — the consumers' interface to [th_eval]. *)
-Lemma th_evalE_Tf pp (a : wc_adrs P) (x : wcp_N P) :
-  th_eval thf_chain pp (encode_tweak P a) x = wcp_F P pp a x.
-Proof. by rewrite /th_eval /thf_chain /thf_chain_core /= core_decodeE encode_tweakK. Qed.
-
 Lemma th_evalE_Tpk pp (a : wc_adrs P) (xs : seq (wcp_N P)) :
-  th_eval thf_pkcompress pp (encode_tweak P a) xs = wcp_T_sf P pp a xs.
-Proof. by rewrite /th_eval /thf_pkcompress /thf_pkcompress_core /= core_decodeE encode_tweakK. Qed.
+  th_eval thf_hash pp (encode_tweak P a) (wcp_encode_ends P xs) = wcp_T_sf P pp a xs.
+Proof. by []. Qed.
 
-Lemma th_evalE_Tgr pp (a : wc_adrs P) (mc : wcp_M P * nat) :
-  th_eval thf_grind pp (encode_tweak P a) mc = wcp_H_grind P pp a mc.
-Proof. by rewrite /th_eval /thf_grind /thf_grind_core /= core_decodeE encode_tweakK. Qed.
-
-(* ------------------------------------------------------------------ *)
-(** ** Collections (header: each instance exposes the other two) *)
-
-Definition coll_chain : thf_coll thf_chain := coll_chain_core (wc_core_of P).
-
-Definition coll_pkcompress : thf_coll thf_pkcompress :=
-  coll_pkcompress_core (wc_core_of P).
-
-Definition coll_grind : thf_coll thf_grind := coll_grind_core (wc_core_of P).
+Lemma th_evalE_Tgr pp (a : wc_adrs P) (m : wcp_M P) (c : nat) :
+  th_eval thf_hash pp (grind_enc (encode_tweak P a) m c).1
+    (grind_enc (encode_tweak P a) m c).2 = wcp_H_grind P pp a (m, c).
+Proof. by []. Qed.
 
 (* ------------------------------------------------------------------ *)
 (** ** The STCRP instantiation for H_grind
 
-    Shrincs.internal.ssprove.lib.games.stcrp is parameterized by (Mb, enc, prp, cap); the
-    grinding instance is Mb := M, enc := pairing with the counter,
-    prp := the digit-sum predicate on the decoded digest, cap :=
-    c_max (the bounded-search deviation documented in stcrp.v matches
-    the scheme's [find_counter] exactly). *)
+    The grinding instance encodes the message digest and counter into
+    a tweak and a hash message. Its search predicate is the digit-sum
+    test, and its counter bound is [c_max]. *)
 
-Definition grind_enc (m : wcp_M P) (c : nat) : wcp_M P * nat :=
-  grind_enc_core (wc_core_of P) m c.
+(** The digits of a grinding hash output sum to the target. *)
+Definition grind_prp (g : wcp_G P) : bool :=
+  sumn (wcp_digits P g) == wcp_constant_sum P.
 
-(** MSB-first, matching [scheme.digest_of]'s [rev] (the predicate is
-    rev-invariant -- [wf_digits]/[sumn] don't see order -- but keeping
-    the same spelling makes [grind_search_find_ctr] definitional).
-    [grind_prp_core] is [valid_digest] one delta away. *)
-Definition grind_prp (x : nat) : bool := grind_prp_core (wc_core_of P) x.
+(** [grind_prp] is [valid_digest] of the digits: the digit bound that
+    [valid_digest] also checks holds for every hash output
+    ([wcp_digits_wf]). *)
+Lemma grind_prpE (g : wcp_G P) : grind_prp g = valid_digest P (wcp_digits P g).
+Proof. by rewrite /valid_digest /wf_digits (wcp_digits_wf P). Qed.
 
 (** STCRP's in-oracle search at the encoded grinding address is the
     scheme's grinding ([find_counter]); in particular the counter stored
@@ -274,11 +87,13 @@ Definition grind_prp (x : nat) : bool := grind_prp_core (wc_core_of P) x.
     exactly when COMMIT's grinding assert fails. *)
 Lemma grind_search_find_ctr pp (m : wcp_M P) :
   ohead [seq i <- iota 0 (wcp_c_max P)
-        | grind_prp (th_eval thf_grind pp (encode_tweak P (grind_adrs P)) (grind_enc m i))]
+        | let q := grind_enc (encode_tweak P (grind_adrs P)) m i in
+          if wcp_grind_class P q.1 then grind_prp (th_eval thf_hash pp q.1 q.2) else false]
   = find_counter P pp m.
 Proof.
 rewrite /find_counter; congr ohead; apply: eq_filter => i.
-by rewrite /good_counter /grind_prp /digest_of th_evalE_Tgr.
+rewrite /grind_enc (wcp_encode_grind_class P).
+by rewrite grind_prpE /good_counter /digest_of /wcp_H_grind.
 Qed.
 
 (* ------------------------------------------------------------------ *)
@@ -289,15 +104,8 @@ Qed.
     THE bridge that lets the chain library's analysis and its
     [sample_sig_roots] re-rooting machinery apply to WOTS+C. *)
 
-Definition Fw (pp : wcp_PP P) (i : nat) (p : nat) (_ : (p < wcp_w P)%N) (x : wcp_N P) : wcp_N P :=
+Definition Fw (pp : wcp_PP P) (i : nat) (p : nat) (x : wcp_N P) : wcp_N P :=
   wcp_F P pp (chain_adrs P i p) x.
-
-(** [Fw]'s chain steps are the scheme's ([chainf] of Shrincs.internal.ssprove.wots.scheme ==
-    the chain library's [chainf] at [Fw]); stated once so consumers
-    can rewrite instead of relying on conversion. *)
-Lemma chainf_Fw pp i :
-  Shrincs.internal.ssprove.lib.chain.core.chainf (wcp_PP P) (wcp_N P) (wcp_w P) Fw pp i = chainf P pp i.
-Proof. by []. Qed.
 
 (* ------------------------------------------------------------------ *)
 (** ** Shared reduction vocabulary (header): the chain library's
@@ -315,7 +123,7 @@ Definition wpre_dec := pre_decision (wcp_PP P) (wcp_N P) (wcp_chain_count P) (wc
 
 Definition forge_pk_loc := mkloc 300 (None : option (Pk (shrincs_wots_scheme P))).
 Definition forge_log_loc := mkloc 301 ([::] : seq (Msg (shrincs_wots_scheme P))).
-Definition forge_sig_loc := mkloc 302 (None : option (Sig (shrincs_wots_scheme P))).
+Definition forge_sig_loc := mkloc 302 (None : option (wc_sig_parts P)).
 
 Definition G_forge_sampledkey (b : bool) : game (I_KOTS (shrincs_wots_scheme P)) :=
   [package [fmap forge_pk_loc ; forge_log_loc ; forge_sig_loc ] ;
@@ -330,13 +138,14 @@ Definition G_forge_sampledkey (b : bool) : game (I_KOTS (shrincs_wots_scheme P))
       #put forge_pk_loc := Some (pp, shrincs_wots_pubkey P pp xs) ;;
       #put forge_log_loc := [:: m] ;;
       #put forge_sig_loc := Some (sign_chains P pp xs (digest_of P pp m c), c) ;;
-      ret ((pp, shrincs_wots_pubkey P pp xs), Some (sign_chains P pp xs (digest_of P pp m c), c))
+      ret ((pp, shrincs_wots_pubkey P pp xs),
+           Some (wcp_sig_encode P (sign_chains P pp xs (digest_of P pp m c), c)))
     } ;
     [ KFORGE ] : { Msg (shrincs_wots_scheme P) × Sig (shrincs_wots_scheme P) ~> 'bool } '(m, s) {
       pk ← getSome forge_pk_loc ;;
       log ← get forge_log_loc ;;
       if b then
-        ret (shrincs_wots_verify P pk.1 pk.2 m s && (m \notin log))
+        ret (shrincs_wots_verify P pk.1 pk.2 m (wcp_sig_decode P s) && (m \notin log))
       else
         ret false
     }
@@ -371,13 +180,14 @@ Definition G_forge_uniformchains (b : bool) : game (I_KOTS (shrincs_wots_scheme 
       #put forge_pk_loc := Some (pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp (digest_of P pp m c) sg)) ;;
       #put forge_log_loc := [:: m] ;;
       #put forge_sig_loc := Some (sg, c) ;;
-      ret ((pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp (digest_of P pp m c) sg)), Some (sg, c))
+      ret ((pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp (digest_of P pp m c) sg)),
+           Some (wcp_sig_encode P (sg, c)))
     } ;
     [ KFORGE ] : { Msg (shrincs_wots_scheme P) × Sig (shrincs_wots_scheme P) ~> 'bool } '(m, s) {
       pk ← getSome forge_pk_loc ;;
       log ← get forge_log_loc ;;
       if b then
-        ret (shrincs_wots_verify P pk.1 pk.2 m s && (m \notin log))
+        ret (shrincs_wots_verify P pk.1 pk.2 m (wcp_sig_decode P s) && (m \notin log))
       else
         ret false
     }

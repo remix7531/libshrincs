@@ -8,10 +8,10 @@
 
     Generic PRF-derived-keys loop machinery, factored out of the WOTS+C
     PRF hop.  A scheme derives a batch of secrets by querying one keyed
-    hash [Kh : khf] (Shrincs.internal.ssprove.lib.games.thf) at [q] distinct, nat-indexed
+    hash [Kh : khf] (Shrincs.games) at [q] distinct, nat-indexed
     tweaks; this file packages the state-separating reasoning that a
     reduction routes that derivation through the [FQUERY] oracle of
-    [PRF_game Kh q] (Shrincs.internal.ssprove.lib.games.prf):
+    [PRF_game Kh q] (Shrincs.games):
 
       - [prf_sks]: the oracle-routed derivation loop (one FQUERY per
         index [i], collecting the answers), with its [ValidCode] instance;
@@ -48,8 +48,10 @@
     the lazy-key coupling, the ideal fresh-output coupling -- is reused
     verbatim. *)
 
-From Shrincs.internal.ssprove.lib Require Import prelude games.thf games.prf
+From Shrincs.internal.ssprove.lib Require Import prelude
   toolkit.sample_seq toolkit.relational_rules.
+
+From Shrincs Require Import games.
 
 Import PackageNotation.
 #[local] Open Scope package_scope.

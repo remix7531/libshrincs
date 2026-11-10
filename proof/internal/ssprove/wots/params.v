@@ -8,269 +8,211 @@
 
     The WOTS+C parameter record [wc_params]: one value carrying every
     section parameter the scheme, games, hops and bounds used to thread
-    individually (types, Winternitz data, hash functions, samplers,
-    grinding data, and the imaginary-tree anchor with its range proofs).
-    Downstream files take a single [Context (P : wc_params)] instead of
-    a 19-line Context block, and every scheme/game constant is a plain
-    definition applied to [P] -- no [Local Notation] preamble.
+    individually (types, Winternitz data, tweaks, the hash function,
+    samplers and grinding data).  Downstream files take a single
+    [Context (P : wc_params)] instead of a 19-line Context block, and
+    every scheme/game constant is a plain definition applied to [P] --
+    no [Local Notation] preamble.
 
-    ** Letter key (the three hashes under attack)
+    The record is deliberately abstract.  The hop proofs run [simpl]
+    over game code that contains the grinding search and the chain
+    folds; at a concrete instance those would unfold.
 
-    - [wcp_F]       the chain hash F        (SF_SHRINCS_WOTS_HASH, type 16);
-    - [wcp_T_sf]    the pk compression T_sf (SF_SHRINCS_WOTS_PK, type 17) --
-                    [_sf] = stateful single-function: one keyed hash
-                    family serving the whole stateful (SF_) address
-                    range, distinguished only by the ADRS tweak;
-    - [wcp_H_grind] the grinding hash H_grind (SF_SHRINCS_WOTS_GRIND,
-                    type 22), output read as [chain_count] base-w digits.
+    ** Hash roles
 
-    ** Proof fields and definitional transparency (load-bearing)
+    - [wcp_F]       the chain hash F, called at [wcp_tw_chain];
+    - [wcp_T_sf]    the pk compression T_sf, called at [wcp_tw_pk];
+    - [wcp_H_grind] evaluates grinding at its encoded tweak and message.
+                    Its output is read as [chain_count] digits by
+                    [wcp_digits], which is injective.
 
-    [wc_anchor_tagZ] / [wc_anchor_idxZ] below are DEFINITIONS, never
-    opaque lemmas ([Qed]), and must stay that way: every smart
-    constructor across the whole development receives the anchor bound
-    proofs through these two names, so all call sites share literally
-    the same proof term -- the exact address must stay DEFINITIONALLY
-    equal wherever it is rebuilt (e.g. the chain address reached via
-    the fold vs via the decoded tweak); [fin] has no definitional proof
-    irrelevance, so two opaque witnesses would break that. *)
+    Each role is derived from [wcp_Th]. The encoders place nodes, chain
+    ends and grinding inputs in its common message space [wcp_HM].
+
+    ** Tweaks
+
+    A hash call is separated from every other by its tweak, a value of
+    [wcp_Tw].  The record names the four families of tweaks one
+    instance uses and states the two injectivity facts the proofs need:
+    distinct chain steps and distinct chain starts have distinct
+    tweaks.  Whatever locates the instance (its anchor in a tree) is
+    inside the four fields; the model never looks at it.
+
+    The second half of this file keeps the address vocabulary the hop
+    files were written against ([grind_adrs], [encode_tweak],
+    [chain_tweak], ...).  Each name is now a plain renaming of a record
+    field, and encoding is the identity. *)
 
 From Shrincs.internal.ssprove.lib Require Import prelude.
-From Shrincs.internal.ssprove Require Import addressing.
-From Shrincs.internal.ssprove.wots Require Import addressing.
-From Shrincs.internal.common Require address.
-From Stdlib Require Import ZArith.
 
 (* ================================================================== *)
 (** ** The parameter record *)
 
 Record wc_params := {
-  (* Spaces: public parameter (PKseed), hash domain (n-byte strings),
-     message space (the 2n-bit output of Hmsg^sf feeding grinding). *)
+  (* Public seed, nodes, message digests, tweaks and hash messages. *)
   wcp_PP : choice_type ;
   wcp_N  : choice_type ;
   wcp_M  : choice_type ;
+  wcp_Tw : choice_type ;
+  wcp_HM : choice_type ;
 
-  (* Winternitz parameter and chain count, with positivity.  Declared
-     before the hash functions because the exact address type
-     [address.adrs chain_count w.-1] depends on them. *)
+  (* Winternitz parameter and chain count, with positivity. *)
   wcp_w           : nat ;
   wcp_chain_count : nat ;
   wcp_Hcc : (0 < wcp_chain_count)%nat ;
   wcp_Hw  : (1 < wcp_w)%nat ;
 
-  (* Imaginary-tree anchor (z_star, i_star) of this WOTS+C instance:
-     the (node height, node index) ADRS fields of all its addresses.
-     [wcp_zstar] is the wire format's 1-byte height field, so it must
-     be byte-range for the ADRS round-trip to hold; [wcp_istar] is a
-     2^64-bounded ADRS field ([anchor_idx_bound]). *)
-  wcp_zstar : nat ;
-  wcp_istar : nat ;
-  wcp_zstar_range : (wcp_zstar < 256)%nat ;
-  wcp_istar_range : anchor_idx_bound wcp_istar ;
+  (* The tweaks of this instance: step [pos] of chain [i], the start of
+     chain [i], public key compression, grinding.  The first two are
+     total on [nat]; they need only be injective on the indices the
+     scheme reaches. *)
+  wcp_tw_chain : nat -> nat -> wcp_Tw ;
+  wcp_tw_prf   : nat -> wcp_Tw ;
+  wcp_tw_pk    : wcp_Tw ;
+  wcp_tw_grind : wcp_Tw ;
+  wcp_tw_chain_inj : forall i pos i' pos' : nat,
+    (i < wcp_chain_count)%nat -> (i' < wcp_chain_count)%nat ->
+    (pos < wcp_w.-1)%nat -> (pos' < wcp_w.-1)%nat ->
+    wcp_tw_chain i pos = wcp_tw_chain i' pos' -> i = i' /\ pos = pos' ;
+  wcp_tw_prf_inj : forall i i' : nat,
+    (i < wcp_chain_count)%nat -> (i' < wcp_chain_count)%nat ->
+    wcp_tw_prf i = wcp_tw_prf i' -> i = i' ;
 
-  (* The three tweakable hashes (letter key in the header). *)
-  wcp_F       : wcp_PP -> address.adrs wcp_chain_count wcp_w.-1 -> wcp_N -> wcp_N ;
-  wcp_T_sf    : wcp_PP -> address.adrs wcp_chain_count wcp_w.-1 -> seq wcp_N -> wcp_N ;
-  wcp_H_grind : wcp_PP -> address.adrs wcp_chain_count wcp_w.-1 -> wcp_M * nat -> nat ;
+  wcp_Th : wcp_PP -> wcp_Tw -> wcp_HM -> wcp_N ;
+  wcp_encode_node : wcp_N -> wcp_HM ;
+  wcp_encode_node_inj : injective wcp_encode_node ;
+  wcp_encode_ends : seq wcp_N -> wcp_HM ;
+  wcp_encode_ends_inj : injective wcp_encode_ends ;
+  wcp_encode_grind : wcp_Tw -> wcp_M -> nat -> wcp_Tw * wcp_HM ;
 
-  (* Samplers: key generation (dPP, dN) and the dummy message sampler
-     consumed only by the grinding thf instance's data fields. *)
+  (* Target classes are static. The grinding encoder changes payload
+     words while retaining a grinding tweak outside the other classes. *)
+  wcp_chain_class : pred wcp_Tw ;
+  wcp_pk_class : pred wcp_Tw ;
+  wcp_grind_class : pred wcp_Tw ;
+  wcp_tw_chain_class : forall i pos, wcp_chain_class (wcp_tw_chain i pos) ;
+  wcp_tw_pk_class : wcp_pk_class wcp_tw_pk ;
+  wcp_tw_grind_class : wcp_grind_class wcp_tw_grind ;
+  wcp_tw_chain_not_pk : forall i pos, ~~ wcp_pk_class (wcp_tw_chain i pos) ;
+  wcp_encode_grind_class : forall m c,
+    wcp_grind_class (wcp_encode_grind wcp_tw_grind m c).1 ;
+  wcp_encode_grind_not_chain : forall m c,
+    ~~ wcp_chain_class (wcp_encode_grind wcp_tw_grind m c).1 ;
+  wcp_encode_grind_not_pk : forall m c,
+    ~~ wcp_pk_class (wcp_encode_grind wcp_tw_grind m c).1 ;
+
+  (* The digits of a grinding hash output, one per chain, each below
+     [w].  The GRIND hop turns equal digit vectors into a collision on
+     H_grind, which needs [wcp_digits_inj].  [wcp_G0] is an arbitrary
+     inhabitant, read only on code paths the proofs show to be dead. *)
+  wcp_digits : wcp_N -> seq nat ;
+  wcp_digits_size : forall g : wcp_N, size (wcp_digits g) = wcp_chain_count ;
+  wcp_digits_wf : forall g : wcp_N, all (fun d => (d < wcp_w)%nat) (wcp_digits g) ;
+  wcp_digits_inj : injective wcp_digits ;
+  wcp_G0 : wcp_N ;
+
+  (* The signature as the adversary handles it.  The model works on
+     its two parts, the chain values and the grinding counter:
+     [wcp_sig_decode] splits a signature into them and
+     [wcp_sig_encode] builds one.  The security proof needs no law
+     relating the two: a forged signature is only ever decoded, an
+     issued one only ever encoded. *)
+  wcp_Sig : choice_type ;
+  wcp_sig_encode : seq wcp_N * nat -> wcp_Sig ;
+  wcp_sig_decode : wcp_Sig -> seq wcp_N * nat ;
+
+  (* Key generation samples the public seed and the nodes. *)
   wcp_dPP : dist wcp_PP ;
   wcp_dN  : dist wcp_N ;
-  wcp_dM  : dist wcp_M ;
 
   (* Target chain-sum and grinding-counter bound (c_max = 2^{8c}). *)
   wcp_constant_sum : nat ;
   wcp_c_max        : nat ;
 }.
 
-(* ================================================================== *)
-(** ** The anchor-free core
+Abbreviation wcp_G := wcp_N.
 
-    [wc_params_core] is [wc_params] minus the four anchor fields
-    (z_star, i_star and their range proofs) -- everything a hash GAME
-    can see.  The game instances (Shrincs.internal.ssprove.wots.games, Shrincs.internal.ssprove.wots.hop.prf's
-    khf) are defined over the core and only wrapped back to
-    [wc_params] for the scheme, so the 6 hash assumptions
-    (Shrincs.internal.ssprove.axioms) can be stated with ZERO anchor
-    quantification: the anchor is PROVABLY absent from their
-    statements, not argued inert.  [wc_core_of] is the transparent
-    projection; core and full spellings of every instance coincide by
-    conversion (machine-checked at the SHA-256 instantiation by
-    [axioms.wc_sha256_coreE]). *)
+Definition wcp_F (P : wc_params) (pp : wcp_PP P) (t : wcp_Tw P) (x : wcp_N P)
+    : wcp_N P :=
+  wcp_Th P pp t (wcp_encode_node P x).
 
-Record wc_params_core := {
-  wcc_PP : choice_type ;
-  wcc_N  : choice_type ;
-  wcc_M  : choice_type ;
+Definition wcp_T_sf (P : wc_params) (pp : wcp_PP P) (t : wcp_Tw P)
+    (xs : seq (wcp_N P)) : wcp_N P :=
+  wcp_Th P pp t (wcp_encode_ends P xs).
 
-  wcc_w           : nat ;
-  wcc_chain_count : nat ;
-  wcc_Hcc : (0 < wcc_chain_count)%nat ;
-  wcc_Hw  : (1 < wcc_w)%nat ;
+Definition wcp_H_grind (P : wc_params) (pp : wcp_PP P) (t : wcp_Tw P)
+    (mc : wcp_M P * nat) : wcp_N P :=
+  wcp_Th P pp (wcp_encode_grind P t mc.1 mc.2).1 (wcp_encode_grind P t mc.1 mc.2).2.
 
-  wcc_F       : wcc_PP -> address.adrs wcc_chain_count wcc_w.-1 -> wcc_N -> wcc_N ;
-  wcc_T_sf    : wcc_PP -> address.adrs wcc_chain_count wcc_w.-1 -> seq wcc_N -> wcc_N ;
-  wcc_H_grind : wcc_PP -> address.adrs wcc_chain_count wcc_w.-1 -> wcc_M * nat -> nat ;
+#[global] Arguments wcp_F : simpl never.
+#[global] Arguments wcp_T_sf : simpl never.
+#[global] Arguments wcp_H_grind : simpl never.
 
-  wcc_dPP : dist wcc_PP ;
-  wcc_dN  : dist wcc_N ;
-  wcc_dM  : dist wcc_M ;
-
-  wcc_constant_sum : nat ;
-  wcc_c_max        : nat ;
-}.
-
-Definition wc_core_of (P : wc_params) : wc_params_core := {|
-  wcc_PP := wcp_PP P ;
-  wcc_N  := wcp_N P ;
-  wcc_M  := wcp_M P ;
-  wcc_w := wcp_w P ;
-  wcc_chain_count := wcp_chain_count P ;
-  wcc_Hcc := wcp_Hcc P ;
-  wcc_Hw  := wcp_Hw P ;
-  wcc_F       := wcp_F P ;
-  wcc_T_sf    := wcp_T_sf P ;
-  wcc_H_grind := wcp_H_grind P ;
-  wcc_dPP := wcp_dPP P ;
-  wcc_dN  := wcp_dN P ;
-  wcc_dM  := wcp_dM P ;
-  wcc_constant_sum := wcp_constant_sum P ;
-  wcc_c_max        := wcp_c_max P ;
-|}.
-
-(** The core's address type, tweak space and tweak decoder -- the only
-    address vocabulary a hash game touches (decoding is total and
-    anchor-free; see addressing.v). *)
-Definition wc_adrs_core (H : wc_params_core) :=
-  address.adrs (wcc_chain_count H) (wcc_w H).-1.
-
-Definition wc_adrs_ch_core (H : wc_params_core) : choice_type :=
-  addressing.adrs_sf_ch (wcc_chain_count H) (wcc_w H).
-
-Definition decode_tweak_core (H : wc_params_core) (t : wc_adrs_ch_core H) :
-    wc_adrs_core H :=
-  addressing.decode_adrs (wcc_chain_count H) (wcc_w H) t.
+(** The two parts of a signature as a choice type: what the games
+    store, as opposed to the encoded [wcp_Sig] their oracles exchange. *)
+Definition wc_sig_parts (P : wc_params) : choice_type :=
+  chProd (chList (wcp_N P)) chNat.
 
 (* ================================================================== *)
-(** ** Derived address vocabulary
+(** ** Address vocabulary
 
-    The exact address type and tweak space of an instance, and the
-    Addressing smart constructors specialized to it, as plain
-    definitions over [P]. *)
+    An address of the instance and its tweak are the same value. *)
 
-(** The exact stateful address type of the instance. *)
-Definition wc_adrs (P : wc_params) := address.adrs (wcp_chain_count P) (wcp_w P).-1.
+Definition wc_adrs (P : wc_params) : Type := wcp_Tw P.
 
-(** Its encoded tweak space (a [choice_type], for the thf games). *)
-Definition wc_adrs_ch (P : wc_params) : choice_type :=
-  addressing.adrs_sf_ch (wcp_chain_count P) (wcp_w P).
+Definition wc_adrs_ch (P : wc_params) : choice_type := wcp_Tw P.
 
-(** The instance anchor and its two bound proofs.  TRANSPARENT -- see
-    the header; do not turn these into [Qed] lemmas. *)
-Definition wc_anchor (P : wc_params) : nat * nat := (wcp_zstar P, wcp_istar P).
+(** ADRS^g, the grinding address. *)
+Definition grind_adrs (P : wc_params) : wc_adrs P := wcp_tw_grind P.
 
-Definition wc_anchor_tagZ (P : wc_params) :
-  (Z.of_nat (wc_anchor P).1 < 256)%Z :=
-  anchor_tag_bound_lt _ (wcp_zstar_range P).
+(** ADRS^pk, the pk-compression address. *)
+Definition pk_adrs (P : wc_params) : wc_adrs P := wcp_tw_pk P.
 
-Definition wc_anchor_idxZ (P : wc_params) :
-  (Z.of_nat (wc_anchor P).2 < 2 ^ 64)%Z :=
-  wcp_istar_range P.
+(** ADRS^h, the address of step [pos] of chain [i]. *)
+Definition chain_adrs (P : wc_params) (i pos : nat) : wc_adrs P := wcp_tw_chain P i pos.
 
-(** ADRS^g, the grinding address (type 22). *)
-Definition grind_adrs (P : wc_params) : wc_adrs P :=
-  addressing.shrincs_wots_grind_adrs (wcp_chain_count P) (wcp_w P)
-    (wc_anchor P) (wc_anchor_tagZ P) (wc_anchor_idxZ P).
-
-(** ADRS^pk, the pk-compression address (type 17). *)
-Definition pk_adrs (P : wc_params) : wc_adrs P :=
-  addressing.shrincs_wots_pk_adrs (wcp_chain_count P) (wcp_w P)
-    (wc_anchor P) (wc_anchor_tagZ P) (wc_anchor_idxZ P).
-
-(** The EXACT chain address (type 16) at chain [i], position [pos],
-    from their range proofs -- no clamp. *)
-Definition chain_adrs_exact (P : wc_params) (i pos : nat)
-    (Hi : (i < wcp_chain_count P)%nat) (Hpos : (pos < (wcp_w P).-1)%nat) : wc_adrs P :=
-  addressing.shrincs_wots_chain_adrs (wcp_chain_count P) (wcp_w P) (wcp_Hcc P) (wcp_Hw P)
-    (wc_anchor P) (wc_anchor_tagZ P) (wc_anchor_idxZ P) i pos Hi Hpos.
-
-(** ADRS^h, total and clamp-free: the exact chain address on in-range
-    [(i, pos)] (the only pairs any fold reaches), a dummy (the pk
-    address) out of range -- a [bool_dec] guard, not a clamp. *)
-Definition chain_adrs (P : wc_params) (i pos : nat) : wc_adrs P :=
-  addressing.shrincs_wots_chain_adrs_tot (wcp_chain_count P) (wcp_w P) (wcp_Hcc P) (wcp_Hw P)
-    (wc_anchor P) (wc_anchor_tagZ P) (wc_anchor_idxZ P) i pos.
-
-(** On every reachable (in-range) index and position, [chain_adrs] IS
-    the exact chain address, independent of the range proofs. *)
-Lemma chain_adrs_exactE (P : wc_params) (i pos : nat)
-    (Hi : (i < wcp_chain_count P)%nat) (Hpos : (pos < (wcp_w P).-1)%nat) :
-  chain_adrs P i pos = chain_adrs_exact P i pos Hi Hpos.
-Proof. exact: addressing.shrincs_wots_chain_adrs_totE. Qed.
-
-(** ADRS^prf (type 21), total on the bare chain index. *)
-Definition prf_adrs (P : wc_params) (i : nat) : wc_adrs P :=
-  addressing.shrincs_wots_prf_adrs (wcp_chain_count P) (wcp_w P) (wcp_Hcc P)
-    (wc_anchor P) (wc_anchor_tagZ P) (wc_anchor_idxZ P) i.
+(** ADRS^prf, the address of the start of chain [i]. *)
+Definition prf_adrs (P : wc_params) (i : nat) : wc_adrs P := wcp_tw_prf P i.
 
 (* ================================================================== *)
 (** ** Tweak encoding
 
-    [encode_tweak]/[decode_tweak]: the structural bijection between the
-    instance's addresses and its encoded tweak space, plus the two
-    per-hash-call tweaks (encoded chain / prf addresses) and their
-    reconciliation and injectivity lemmas -- the Addressing facts
-    restated over [P] so consumers rewrite without arity pins. *)
+    [encode_tweak] and [decode_tweak] are the identity.  They stay as
+    names because the hop proofs rewrite with the lemmas below; no
+    [simpl] unfolds them, since neither reduces a [match]. *)
 
-Definition encode_tweak (P : wc_params) (a : wc_adrs P) : wc_adrs_ch P :=
-  addressing.encode_adrs (wcp_chain_count P) (wcp_w P) a.
+Definition encode_tweak (P : wc_params) (a : wc_adrs P) : wc_adrs_ch P := a.
 
-Definition decode_tweak (P : wc_params) (t : wc_adrs_ch P) : wc_adrs P :=
-  addressing.decode_adrs (wcp_chain_count P) (wcp_w P) t.
+Definition decode_tweak (P : wc_params) (t : wc_adrs_ch P) : wc_adrs P := t.
 
 Lemma encode_tweakK (P : wc_params) : cancel (encode_tweak P) (decode_tweak P).
-Proof. exact: addressing.encode_adrsK. Qed.
+Proof. by []. Qed.
 
 Lemma encode_tweak_inj (P : wc_params) : injective (encode_tweak P).
-Proof. exact: addressing.encode_adrs_inj. Qed.
+Proof. by []. Qed.
 
-(** The per-hash-call chain tweak (encoded total chain address). *)
+(** The per-hash-call chain tweak. *)
 Definition chain_tweak (P : wc_params) (i pos : nat) : wc_adrs_ch P :=
-  addressing.chain_tweak (wcp_chain_count P) (wcp_w P) (wcp_Hcc P) (wcp_Hw P)
-    (wc_anchor P) (wc_anchor_tagZ P) (wc_anchor_idxZ P) i pos.
+  encode_tweak P (chain_adrs P i pos).
 
 Definition prf_tweak (P : wc_params) (i : nat) : wc_adrs_ch P :=
-  addressing.prf_tweak (wcp_chain_count P) (wcp_w P) (wcp_Hcc P)
-    (wc_anchor P) (wc_anchor_tagZ P) (wc_anchor_idxZ P) i.
+  encode_tweak P (prf_adrs P i).
 
 Lemma decode_chain_tweak (P : wc_params) (i pos : nat) :
   decode_tweak P (chain_tweak P i pos) = chain_adrs P i pos.
-Proof. exact: addressing.decode_adrs_chain_tweak. Qed.
+Proof. by []. Qed.
 
 Lemma decode_prf_tweak (P : wc_params) (i : nat) :
   decode_tweak P (prf_tweak P i) = prf_adrs P i.
-Proof. exact: addressing.decode_adrs_prf_tweak. Qed.
+Proof. by []. Qed.
 
 Lemma chain_tweak_inj (P : wc_params) (i pos i' pos' : nat) :
   (i < wcp_chain_count P)%nat -> (i' < wcp_chain_count P)%nat ->
   (pos < (wcp_w P).-1)%nat -> (pos' < (wcp_w P).-1)%nat ->
   chain_tweak P i pos = chain_tweak P i' pos' -> i = i' /\ pos = pos'.
-Proof. exact: addressing.chain_tweak_inj. Qed.
+Proof. exact: wcp_tw_chain_inj. Qed.
 
 Lemma prf_tweak_inj (P : wc_params) (i i' : nat) :
   (i < wcp_chain_count P)%nat -> (i' < wcp_chain_count P)%nat ->
   prf_tweak P i = prf_tweak P i' -> i = i'.
-Proof. exact: addressing.prf_tweak_inj. Qed.
-
-(* ================================================================== *)
-(** ** Shared side condition
-
-    The sole data side condition of the security theorem: H_grind's
-    output fits in [chain_count] base-w digits (digest injectivity via
-    [digits_w] needs its argument below [w ^ chain_count]). *)
-
-Definition grind_range (P : wc_params) : Prop :=
-  forall (pp : wcp_PP P) (a : wc_adrs P) (x : wcp_M P * nat),
-    (wcp_H_grind P pp a x < expn (wcp_w P) (wcp_chain_count P))%nat.
+Proof. exact: wcp_tw_prf_inj. Qed.

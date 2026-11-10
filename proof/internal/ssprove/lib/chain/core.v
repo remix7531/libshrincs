@@ -25,34 +25,22 @@
       - [ChainDecisionTCR] / [ChainDecisionPRE] : the computable
                           SM-TCR / SM-PRE forgery classifiers.
 
-    DEPENDENT-FOLD BRIDGE.  [Shrincs.internal.common.math.chain] is now width-bounded: its
-    step [f : forall p, (p < w)%N -> A -> A] RECEIVES the in-range proof
-    and the fold [chain x s n] is a FUNCTION of a bound proof
-    [(s + n <= w)%N].  The abstract step of THIS layer is re-typed to
-    match — [Context (F' : PP -> nat -> forall p, (p < w)%N -> N -> N)] —
-    so a later phase (the concrete address builder) can construct an
-    EXACT [fin]-bounded position at every step with NO saturating clamp.
-    Because the many step-application sites here (chain ends, signing,
-    verification checks, the reduction's query/target lists) live in
-    [map]/boolean/[flatten] contexts with no bound in scope, we expose a
-    TOTAL step [Fc] (guards the position, else identity) and a TOTAL
-    fold [chainc] (structural [Fixpoint] over [Fc]).  On every in-range
-    input these agree with [Shrincs.internal.common.math.chain]'s dependent [f]/[chain]
-    ([FcE], [chaincE]); the composition algebra [chainc_cat] /
-    [chainc_split] / [chainc_rcons] holds UNCONDITIONALLY (the fold is
-    total), so all the public definitions keep their exact statement
-    shapes and the value/forgery lemmas gain only [_ <= w] / [_ < w]
-    side conditions where they invoke [Shrincs.internal.common.math.chain]'s [*P] specs.
-    [chain_searchc] / [chain_extractc] are the analogous total mirrors of
-    [chain_search] / [chain_extract], with bridges [chain_searchcE] /
-    [chain_extractcE].  This keeps the step [F']'s in-range proof live at
-    the leaves while insulating the bookkeeping from the bound.
+    THE CHAIN STEP.  The abstract hash [F' : PP -> nat -> nat -> N -> N]
+    takes a chain index and a position.  Every chain goes through the
+    step [Fc], which applies [F'] at positions below [w] and is the
+    identity at or above, and through the fold [chainc] over [Fc].
+    Every position the scheme reaches is below [w.-1], so [FcE] always
+    applies there.
+    The composition algebra [chainc_cat] / [chainc_split] /
+    [chainc_rcons] holds unconditionally.  [chain_searchc] /
+    [chain_extractc] compare a forged chain against the honest one, with
+    specification [chain_searchcP].
 
     See each section's header comment for details. *)
 
-From Shrincs.internal.ssprove.lib Require Import prelude sig.scheme
+From Shrincs.internal.ssprove.lib Require Import prelude
   toolkit.sample_seq.
-From Shrincs.internal.common Require Import math.chain math.encoding.
+From Shrincs Require Export games.
 
 Import PackageNotation.
 #[local] Open Scope package_scope.
@@ -201,15 +189,61 @@ Qed.
 Lemma ohead_mem {T : eqType} {s : seq T} {x : T} : ohead s = Some x -> x \in s.
 Proof. by case: s => //= a s [<-]; rewrite in_cons eqxx. Qed.
 
+(* ------------------------------------------------------------------ *)
+(** ** Digit vectors
+
+    A digit vector is a [seq nat].  From the chain value at depth [d]
+    anyone can compute the values at every depth [d' >= d], so a forged
+    digit vector is only useful at a coordinate where the forged digit
+    is strictly below the honest one.  [eq_sumn_exists_lt] finds such a
+    coordinate for two distinct vectors with the same digit sum: the
+    fixed sum plays the role of the WOTS+ checksum. *)
+
+(** Well-formed digit vectors: every digit below the radix. *)
+Definition wf_digits (w : nat) (ds : seq nat) : bool := all (fun d => d < w) ds.
+
+(** A strictly smaller sum forces a strictly smaller coordinate. *)
+Lemma ltn_sumn_exists_lt {u v : seq nat} :
+  size u = size v -> sumn u < sumn v ->
+  exists2 k, k < size u & nth 0 u k < nth 0 v k.
+Proof.
+elim: u v => [|a u IH] [|b v] //= [sz] hlt.
+case: (ltnP a b) => hab; first by exists 0.
+have hlt' : sumn u < sumn v.
+  rewrite -(ltn_add2l b); apply: leq_ltn_trans hlt.
+  by rewrite leq_add2r.
+have [k hk hd] := IH v sz hlt'.
+by exists k.+1.
+Qed.
+
+(** Two distinct vectors of the same size and the same digit sum: [u]
+    is strictly below [v] at some coordinate.  Consumed with
+    [u := forged] and [v := honest]. *)
+Lemma eq_sumn_exists_lt {u v : seq nat} :
+  size u = size v -> sumn u = sumn v -> u <> v ->
+  exists2 k, k < size u & nth 0 u k < nth 0 v k.
+Proof.
+elim: u v => [|a u IH] [|b v] //= [sz] hsum hne.
+case: (ltngtP a b) => hab.
+- by exists 0.
+- have hlt : sumn u < sumn v by rewrite -(ltn_add2l b) -hsum ltn_add2r.
+  have [k hk hd] := ltn_sumn_exists_lt sz hlt.
+  by exists k.+1.
+- have hsum' : sumn u = sumn v by move: hsum; rewrite hab => /addnI.
+  have hne' : u <> v by move=> e; apply: hne; rewrite hab e.
+  have [k hk hd] := IH v sz hsum' hne'.
+  by exists k.+1.
+Qed.
+
 
 (* ================= merged Shrincs.internal.ssprove.lib.chain.* ================= *)
 
 (** All the [F]-using content is one [Section] so the four former
-    [Chain.*] layers share the width-bounded step [F'] and the total
-    wrappers [Fc] / [chainc] / [chain_extractc] (which must be in scope
-    across all four).  Section-variable generalisation still drops the
-    variables a given definition does not use, so each public name keeps
-    its natural parameter list. *)
+    [Chain.*] layers share the step [F'] and the wrappers [Fc] /
+    [chainc] / [chain_extractc] (which must be in scope across all
+    four).  Section-variable generalisation still drops the variables a
+    given definition does not use, so each public name keeps its
+    natural parameter list. *)
 
 Section ChainCore.
 
@@ -219,45 +253,32 @@ Context (PP N : choice_type).
 (** Number of chains, digit bound (digits in [0..w-1]), target sum. *)
 Context (l w tsum : nat).
 
-(** Position-tweaked hash: applying at position [p] SUPPLIES the proof
-    [p < w] (the [Shrincs.internal.common.math.chain] dependent-step convention), so a
-    consumer builds an exact [fin] position with no clamp. *)
-Context (F' : PP -> nat -> forall p : nat, (p < w)%N -> N -> N).
+(** Position-tweaked hash, at chain index and position. *)
+Context (F' : PP -> nat -> nat -> N -> N).
 
 (** Output distribution for the SM-UD signature-root sampler. *)
 Context (dN : dist N).
 
 (* ================================================================== *)
-(** ** Dependent-fold bridge: total wrappers over [Shrincs.internal.common.math.chain] *)
+(** ** The chain step and the chain fold *)
 
-(** The dependent chain step of chain [i] fed to [Shrincs.internal.common.math.chain]. *)
-Definition chainf (pp : PP) (i : nat) : forall p : nat, (p < w)%N -> N -> N :=
-  fun p H x => F' pp i p H x.
-
-(** TOTAL step: apply [F'] at position [p] when [p < w], else identity.
-    The guard is a [Bool.bool_dec] sumbool (NOT [boolP]): its branch
-    binder carries the CONCRETE [p < w] equation, so reasoning about the
-    wrapper never abstracts the bound out of [F']'s proof argument. *)
+(** The step: apply [F'] at position [p] when [p < w], else identity.
+    The guard is a [Bool.bool_dec] sumbool, which [simpl] leaves alone
+    on an abstract position, so a goal keeps the step folded. *)
 Definition Fc (pp : PP) (t : nat * nat) (x : N) : N :=
   match Bool.bool_dec ((t.2)%N < w)%N true with
-  | left H => F' pp t.1 t.2 H x
+  | left _ => F' pp t.1 t.2 x
   | right _ => x
   end.
 
-(** In range, [Fc] IS the dependent step (proof-irrelevantly). *)
-Lemma FcE pp i p x (H : (p < w)%N) : Fc pp (i, p) x = F' pp i p H x.
+(** In range, [Fc] IS the hash. *)
+Lemma FcE pp i p x (H : (p < w)%N) : Fc pp (i, p) x = F' pp i p x.
 Proof.
-rewrite /Fc /=; case: (Bool.bool_dec (p < w)%N true) => [H0|H0].
-- by rewrite (bool_irrelevance H0 H).
-- by case: (H0 H).
+rewrite /Fc /=; case: (Bool.bool_dec (p < w)%N true) => [//|H0].
+by case: (H0 H).
 Qed.
 
-Lemma chainf_Fc pp i p x (H : (p < w)%N) : chainf pp i p H x = Fc pp (i, p) x.
-Proof. by rewrite (FcE pp i p x H). Qed.
-
-(** TOTAL fold: apply [Fc] at positions [s, ..., s + n - 1] from [x].
-    A plain structural [Fixpoint] (mirrors the shape of the old total
-    [chain]); no bound proof needed since [Fc] is total. *)
+(** The fold: apply [Fc] at positions [s, ..., s + n - 1] from [x]. *)
 Fixpoint chainc (pp : PP) (i : nat) (x : N) (s n : nat) {struct n} : N :=
   if n is n'.+1 then chainc pp i (Fc pp (i, s) x) s.+1 n' else x.
 
@@ -270,18 +291,10 @@ Lemma chainc_shift pp i x k j :
   chainc pp i x k j.+1 = chainc pp i (Fc pp (i, k) x) k.+1 j.
 Proof. by []. Qed.
 
-(** In range, [chainc] IS the dependent fold. *)
-Lemma chaincE pp i x s n (H : (s + n <= w)%N) :
-  chainc pp i x s n = @Shrincs.internal.common.math.chain.chain N w (chainf pp i) x s n H.
-Proof.
-elim: n s x H => [|n IH] s x H.
-- by rewrite (@Shrincs.internal.common.math.chain.chain0 N w (chainf pp i) x s H).
-- have Hf : (s < w)%N := @Shrincs.internal.common.math.chain.chain_hd_lt w s n H.
-  have Ht : (s.+1 + n <= w)%N := @Shrincs.internal.common.math.chain.chain_tl_le w s n H.
-  rewrite (@Shrincs.internal.common.math.chain.chainSr N w (chainf pp i) x s n H Hf Ht).
-  rewrite (chainf_Fc pp i s x Hf).
-  exact: (IH s.+1 (Fc pp (i, s) x) Ht).
-Qed.
+(** The fold as a [foldl] over its positions. *)
+Lemma chainc_foldl pp i x s n :
+  chainc pp i x s n = foldl (fun y j => Fc pp (i, j) y) x (iota s n).
+Proof. by elim: n x s => [|n IH] x s //=; rewrite IH. Qed.
 
 (** Composition (UNCONDITIONAL — the fold is total). *)
 Lemma chainc_cat pp i x s m n :
@@ -311,43 +324,60 @@ rewrite (chainc_shift pp i x s n.+1) IH (chainc_shift pp i x s n).
 by rewrite addSnnS.
 Qed.
 
-(** TOTAL forged/honest walk (mirror of [Shrincs.internal.common.math.chain.chain_search]
-    with the total step). *)
-Fixpoint chain_searchc (pp : PP) (i : nat) (u v : N) (k n : nat) {struct n}
-    : @Shrincs.internal.common.math.chain.ccase N :=
-  if n is n'.+1 then
-    (if u == v then @Shrincs.internal.common.math.chain.ChainMeet N
-     else if Fc pp (i, k) u == Fc pp (i, k) v then @Shrincs.internal.common.math.chain.ChainColl N k u v
-     else chain_searchc pp i (Fc pp (i, k) u) (Fc pp (i, k) v) k.+1 n')
-  else @Shrincs.internal.common.math.chain.ChainMeet N.
+(** Outcome of comparing a forged chain against the honest chain. *)
+Variant ccase : Type :=
+  | ChainColl of nat & N & N
+    (** [ChainColl k u v]: collision at step [k]: [u != v],
+        [Fc (i, k) u = Fc (i, k) v], [u] the forged-side and [v] the
+        honest-side value at position [k]. *)
+  | ChainMeet
+    (** The forged chain meets the honest chain exactly at the honest
+        chain's start position. *).
 
-Lemma chain_searchcE pp i u v k n (H : (k + n <= w)%N) :
-  chain_searchc pp i u v k n
-  = @Shrincs.internal.common.math.chain.chain_search N w (chainf pp i) u v k n H.
+(** Walk both chains forward from position [k] ([u] forged-side
+    value, [v] honest-side value, [n] steps remaining) and report the
+    FIRST step at which distinct inputs hash to equal outputs.  Once
+    the values differ they keep differing until such a step, so under
+    endpoint equality [ChainMeet] is only returned when [u == v] at the
+    entry position. *)
+Fixpoint chain_searchc (pp : PP) (i : nat) (u v : N) (k n : nat) {struct n} : ccase :=
+  if n is n'.+1 then
+    (if u == v then ChainMeet
+     else if Fc pp (i, k) u == Fc pp (i, k) v then ChainColl k u v
+     else chain_searchc pp i (Fc pp (i, k) u) (Fc pp (i, k) v) k.+1 n')
+  else ChainMeet.
+
+Lemma chain_searchcP pp i u v k n :
+  chainc pp i u k n = chainc pp i v k n ->
+  match chain_searchc pp i u v k n with
+  | ChainColl k' u' v' =>
+      [/\ k <= k' < k + n,
+          u' = chainc pp i u k (k' - k),
+          v' = chainc pp i v k (k' - k),
+          u' != v'
+        & Fc pp (i, k') u' = Fc pp (i, k') v']
+  | ChainMeet => u = v
+  end.
 Proof.
-elim: n u v k H => [//|n IH] u v k H /=.
-rewrite (chainf_Fc pp i k u (@Shrincs.internal.common.math.chain.chain_hd_lt w k n H)).
-rewrite (chainf_Fc pp i k v (@Shrincs.internal.common.math.chain.chain_hd_lt w k n H)).
-case: ifP => // _.
-by case: ifP => // _.
+elim: n u v k => [|n IH] u v k /= heq; first exact: heq.
+case: (altP (u =P v)) => [//|hne].
+case: (altP (Fc pp (i, k) u =P Fc pp (i, k) v)) => [hcol|hncol].
+- by split; rewrite ?subnn ?leqnn ?addnS ?ltnS ?leq_addr.
+- move: (IH _ _ k.+1 heq).
+  case: (chain_searchc pp i (Fc pp (i, k) u) (Fc pp (i, k) v) k.+1 n) => [k' u' v'|]; last first.
+    by move=> hfeq; rewrite hfeq eqxx in hncol.
+  move=> [/andP[h1 h2] hu' hv' hne' hcol']; split=> //.
+  + by rewrite (ltnW h1) -addSnnS h2.
+  + by rewrite hu' -(subnSK h1).
+  + by rewrite hv' -(subnSK h1).
 Qed.
 
-(** TOTAL forgery classifier (mirror of [Shrincs.internal.common.math.chain.chain_extract]). *)
+(** Forgery classifier: forged chain from [y] at position [j], honest
+    chain from [z] at position [i'], both ending at position [e]. *)
 Definition chain_extractc (pp : PP) (i : nat) (y : N) (j : nat) (z : N) (i' e : nat)
-    : @Shrincs.internal.common.math.chain.ccase N :=
+    : ccase :=
   chain_searchc pp i (chainc pp i y j (i' - j)) z i' (e - i').
 
-Lemma chain_extractcE pp i y j z i' e
-    (Hij : (j + (i' - j) <= w)%N) (Hie : (i' + (e - i') <= w)%N) :
-  chain_extractc pp i y j z i' e
-  = @Shrincs.internal.common.math.chain.chain_extract N w (chainf pp i) y j z i' e Hij Hie.
-Proof.
-rewrite /chain_extractc.
-rewrite (chaincE pp i y j (i' - j) Hij).
-by rewrite (chain_searchcE pp i _ z i' (e - i') Hie).
-Qed.
-
-(* ================= former Shrincs.internal.ssprove.lib.chain.scheme ================= *)
 
 (* ------------------------------------------------------------------ *)
 (** ** Pure scheme functions *)
@@ -437,7 +467,6 @@ rewrite /chain_ends /sign_digits -hxs.
 by apply: all_chain_checks; rewrite ?hm ?hxs.
 Qed.
 
-(* ================= former Shrincs.internal.ssprove.lib.chain.Sample ================= *)
 
 Fixpoint sample_sig_roots (pp : PP) (i : nat) (m : seq nat) :
     raw_code (chList N) :=
@@ -467,7 +496,6 @@ Definition ends_from_sig (pp : PP) (m : seq nat) (sg : seq N) : seq N :=
   [seq chainc pp q.1 q.2.2 q.2.1 (w.-1 - q.2.1)
   | q <- zip (iota 0 l) (zip m sg)].
 
-(* ================= former Shrincs.internal.ssprove.lib.chain.Forgery ================= *)
 
 (* ------------------------------------------------------------------ *)
 (** *** Digit-vector selectors *)
@@ -482,7 +510,7 @@ have /(all_nthP 0) hnth := hw.
 by have := hnth i; rewrite hm => /(_ hi).
 Qed.
 
-(** THE message-level selector (wrap of [encoding.eq_sumn_exists_lt],
+(** THE message-level selector (wrap of [eq_sumn_exists_lt],
     the fixed digit sum playing the role of the WOTS+ checksum): two
     distinct valid messages give a chain index where the FORGED digit is
     strictly below the signed one — the only place a forger cannot walk
@@ -504,9 +532,9 @@ Qed.
 (* ------------------------------------------------------------------ *)
 (** *** The per-chain forgery classifier *)
 
-(** THE classifier (restatement of [chain.chain_extractP] with
-    [y := sigstar], [j := dstar], [z := sigi], [i := d], [e := w.-1]):
-    on the selected chain [i], the signer revealed [sigi] at position
+(** THE classifier ([chain_searchcP] at the forged chain walked up to
+    the honest position): on the selected chain [i], the signer
+    revealed [sigi] at position
     [d] and published [end_i = chainc sigi d (w.-1 - d)]; the forger
     claims [sigstar] at the strictly smaller position [dstar] and
     verification forces the same endpoint.  Then
@@ -515,12 +543,12 @@ Qed.
       value at position [k], recomputable from [sigi] — exactly the
       input of the TCR target the reduction committed at tweak [(i, k)]
       — and [u != v] with [Fc pp (i,k) u = Fc pp (i,k) v]:
-      [(tcr_index m i k, u)] wins SM-TCR's CHECK;
+      [u] at that target's index wins SM-TCR's CHECK;
     - [ChainMeet]: the forged chain reaches [sigi] at position [d]
       (note [0 < d] since [dstar < d]); [forgery_pre_preimage] below
       extracts the SM-PRE witness.
-    ([chain_extract_ok]'s [u]-component [u = chainc sigstar dstar
-    (k - dstar)] is dropped: the reduction submits [u] itself.) *)
+    (What [u] is in terms of [sigstar] is dropped: the reduction
+    submits [u] itself.) *)
 Lemma forgery_cases pp i d (sigi : N) dstar (sigstar : N) :
   dstar < d -> d < w ->
   chainc pp i sigstar dstar (w.-1 - dstar)
@@ -537,29 +565,14 @@ Proof.
 move=> hdd hdw heq.
 have hji : (dstar <= d)%N := ltnW hdd.
 have hie : (d <= w.-1)%N by rewrite -ltnS (ltn_predK hdw).
-have hew : (w.-1 <= w)%N := leq_pred w.
-have Hij : (dstar + (d - dstar) <= w)%N by rewrite (subnKC hji) (leq_trans (ltnW hdw) (leqnn w)).
-have Hie : (d + (w.-1 - d) <= w)%N by rewrite (subnKC hie).
-have Hej : (dstar + (w.-1 - dstar) <= w)%N by rewrite (subnKC (leq_trans hji hie)).
-rewrite (chaincE pp i sigstar dstar (w.-1 - dstar) Hej)
-        (chaincE pp i sigi d (w.-1 - d) Hie) in heq.
-have hspec := @Shrincs.internal.common.math.chain.chain_extractP N w (chainf pp i)
-                sigstar dstar sigi d w.-1 Hij Hie Hej hji hie heq.
-rewrite (chain_extractcE pp i sigstar dstar sigi d w.-1 Hij Hie).
-move: hspec; rewrite /Shrincs.internal.common.math.chain.chain_extract_ok.
-case: (Shrincs.internal.common.math.chain.chain_extract _ _ _ _ _) => [k u v|].
-- move=> [hk _ hv hne hcol]; split => //.
-  + have hik : (d <= k)%N by case/andP: hk.
-    have hkw : (k < w.-1)%N by case/andP: hk.
-    have Hk : (d + (k - d) <= w)%N by rewrite (subnKC hik) (leq_trans (ltnW hkw) hew).
-    rewrite (chaincE pp i sigi d (k - d) Hk).
-    exact: (hv Hk).
-  + have hkw : (k < w)%N by case/andP: hk => _ hkw; exact: leq_trans hkw hew.
-    rewrite -(chainf_Fc pp i k u hkw) -(chainf_Fc pp i k v hkw).
-    exact: (hcol hkw).
-- move=> hmeet.
-  rewrite (chaincE pp i sigstar dstar (d - dstar) Hij).
-  exact: (hmeet Hij).
+have hinner : chainc pp i (chainc pp i sigstar dstar (d - dstar)) d (w.-1 - d)
+              = chainc pp i sigi d (w.-1 - d).
+  by rewrite -(chainc_split pp i sigstar dstar d w.-1 hji hie).
+rewrite /chain_extractc.
+move: (chain_searchcP pp i _ _ d (w.-1 - d) hinner).
+case: (chain_searchc pp i _ sigi d (w.-1 - d)) => [k u v|] //.
+move=> [hk _ hv hne hcol]; split=> //.
+by move: hk; rewrite (subnKC hie).
 Qed.
 
 (** PRE-case post-processing: if the forged chain meets [sigi] at
@@ -626,227 +639,9 @@ rewrite nth_zip ?hm ?hsg //=.
 by rewrite nth_iota // add0n.
 Qed.
 
-(** THE composed forgery pipeline, packaged for the reduction. *)
-Lemma forgery_classify pp (m mstar : seq nat) (sg sgstar : seq N)
-    (y0 : N) :
-  valid_msg m -> size sg = l ->
-  verify_sig pp (ends_from_sig pp m sg) mstar sgstar ->
-  mstar != m ->
-  exists2 i, i < l &
-    [/\ nth 0 mstar i < nth 0 m i, nth 0 m i < w &
-        match chain_extractc pp i (nth y0 sgstar i) (nth 0 mstar i)
-                            (nth y0 sg i) (nth 0 m i) w.-1 with
-        | ChainColl k u v =>
-            [/\ nth 0 m i <= k < w.-1,
-                v = chainc pp i (nth y0 sg i) (nth 0 m i)
-                          (k - nth 0 m i),
-                u != v
-              & Fc pp (i, k) u = Fc pp (i, k) v]
-        | ChainMeet =>
-            chainc pp i (nth y0 sgstar i) (nth 0 mstar i)
-                  (nth 0 m i - nth 0 mstar i) = nth y0 sg i
-        end].
-Proof.
-move=> hvm hsg hver hne.
-have hvm' : valid_msg mstar by case/and3P: hver.
-have hm : size m = l by case/and3P: hvm => /eqP.
-have [i hi hlt] := forged_digit_lt _ _ hvm hvm' hne.
-exists i => //.
-have hdw : nth 0 m i < w := valid_msg_digit _ _ hvm hi.
-have hends := size_ends_from_sig pp _ _ hm hsg.
-have h1 := verify_sig_nth _ _ _ _ y0 _ hver hends hi.
-rewrite (ends_from_sig_nth pp _ _ y0 _ hm hsg hi) in h1.
-split=> //.
-exact: (forgery_cases _ _ _ _ _ _ hlt hdw h1).
-Qed.
-
-(* ------------------------------------------------------------------ *)
-(** *** Target bookkeeping for the TCR reduction *)
-
-(** Targets of one chain: position [k] runs over
-    [iota d_i (w.-1 - d_i)] = [d_i, ..., w.-2]; the input committed at
-    [(i, k)] is the honest chain value at [k], walked from the signature
-    digit. *)
-Definition tcr_chain (pp : PP) (i d : nat) (sg : N) :
-    seq ((nat * nat) * N) :=
-  [seq ((i, k), chainc pp i sg d (k - d)) | k <- iota d (w.-1 - d)].
-
-(** The full committed target list. *)
-Definition tcr_targets (pp : PP) (m : seq nat) (sigs : seq N) :
-    seq ((nat * nat) * N) :=
-  flatten [seq tcr_chain pp q.1 q.2.1 q.2.2
-          | q <- zip (iota 0 l) (zip m sigs)].
-
-(** Position of target [(i, k)] in [tcr_targets]. *)
-Definition tcr_index (m : seq nat) (i k : nat) : nat :=
-  sumn [seq w.-1 - d | d <- take i m] + (k - nth 0 m i).
-
-(** Auxiliary forms, generalized over the starting chain index [st]. *)
-
-Lemma size_tcr_targets_from pp st (ds : seq nat) (ss : seq N) :
-  size ss = size ds ->
-  size (flatten [seq tcr_chain pp q.1 q.2.1 q.2.2
-                | q <- zip (iota st (size ds)) (zip ds ss)])
-  = sumn [seq w.-1 - d | d <- ds].
-Proof.
-elim: ds st ss => [|d ds IH] st [|s ss] //= [hss].
-by rewrite size_cat size_map size_iota (IH st.+1 ss hss).
-Qed.
-
-Lemma tcr_targets_from_nth pp st (ds : seq nat) (ss : seq N) i k
-    (x0 : (nat * nat) * N) (y0 : N) :
-  size ss = size ds -> i < size ds -> nth 0 ds i <= k < w.-1 ->
-  nth x0
-    (flatten [seq tcr_chain pp q.1 q.2.1 q.2.2
-             | q <- zip (iota st (size ds)) (zip ds ss)])
-    (sumn [seq w.-1 - d | d <- take i ds] + (k - nth 0 ds i))
-  = (((st + i)%N, k),
-     chainc pp (st + i) (nth y0 ss i) (nth 0 ds i)
-           (k - nth 0 ds i)).
-Proof.
-elim: ds st ss i => [|d ds IH] st ss i hss hi hk.
-  by rewrite ltn0 in hi.
-case: ss hss => [|s ss] //= [hss]; case: i hi hk => [|i] hi hk.
-- move: hk => /andP[hdk hkw].
-  have hdw : d < w.-1 := leq_ltn_trans hdk hkw.
-  have hlt : k - d < w.-1 - d := ltn_sub2r hdw hkw.
-  have hsz : k - d < size (iota d (w.-1 - d)) by rewrite size_iota.
-  rewrite /= add0n addn0 nth_cat size_map size_iota hlt (nth_map 0) //.
-  by rewrite nth_iota // subnKC.
-- rewrite /= -addnA nth_cat size_map size_iota ltnNge leq_addr /= addKn.
-  by rewrite (IH st.+1 ss i hss hi hk) addSnnS.
-Qed.
-
-Lemma tcr_tweaks_from_ge pp st (ds : seq nat) (ss : seq N) :
-  all (fun t : nat * nat => st <= t.1)
-      (unzip1 (flatten [seq tcr_chain pp q.1 q.2.1 q.2.2
-                       | q <- zip (iota st (size ds)) (zip ds ss)])).
-Proof.
-elim: ds st ss => [|d ds IH] st [|s ss] //=.
-rewrite unzip1_cat all_cat; apply/andP; split.
-- rewrite /tcr_chain /unzip1 -map_comp all_map.
-  by apply/allP => k _ /=.
-- apply/allP => t ht.
-  have /allP/(_ t ht) /= hge := IH st.+1 ss.
-  exact: ltnW.
-Qed.
-
-Lemma tcr_tweaks_from_uniq pp st (ds : seq nat) (ss : seq N) :
-  uniq (unzip1 (flatten [seq tcr_chain pp q.1 q.2.1 q.2.2
-                        | q <- zip (iota st (size ds)) (zip ds ss)])).
-Proof.
-elim: ds st ss => [|d ds IH] st [|s ss] //=.
-rewrite unzip1_cat cat_uniq; apply/and3P; split.
-- rewrite /tcr_chain /unzip1 -map_comp map_inj_uniq ?iota_uniq //.
-  by move=> k1 k2 /(congr1 (fun p : nat * nat => p.2)) e; exact: e.
-- apply/hasPn => t ht /=.
-  have /allP/(_ t ht) /= hge := tcr_tweaks_from_ge pp st.+1 ds ss.
-  rewrite /tcr_chain /unzip1 -map_comp.
-  apply/negP => /mapP[k _ et].
-  by move: hge; rewrite et ltnn.
-- exact: IH.
-Qed.
-
-(** Size of the committed list. *)
-Lemma size_tcr_targets pp (m : seq nat) (sigs : seq N) :
-  size m = l -> size sigs = l ->
-  size (tcr_targets pp m sigs) = sumn [seq w.-1 - d | d <- m].
-Proof.
-move=> hm hsigs.
-by rewrite /tcr_targets -hm size_tcr_targets_from // hsigs hm.
-Qed.
-
-(** Crude cap: the SM-TCR budget [p := l * w] always suffices. *)
-Lemma size_tcr_targets_leq pp (m : seq nat) (sigs : seq N) :
-  size m = l -> size sigs = l ->
-  size (tcr_targets pp m sigs) <= l * w.
-Proof.
-move=> hm hsigs.
-rewrite size_tcr_targets //.
-have hall : all (fun x => x <= w) [seq w.-1 - d | d <- m].
-  apply/allP => x /mapP[d _ ->].
-  exact: leq_trans (leq_subr _ _) (leq_pred _).
-have := sumn_all_leq _ _ hall.
-by rewrite size_map hm.
-Qed.
-
-(** The committed index of [(i, k)] is in range. *)
-Lemma tcr_index_lt (m : seq nat) i k :
-  size m = l -> i < l -> nth 0 m i <= k < w.-1 ->
-  tcr_index m i k < sumn [seq w.-1 - d | d <- m].
-Proof.
-move=> hm hi /andP[hdk hkw].
-rewrite /tcr_index -[in X in _ < X](cat_take_drop i m) (drop_nth 0) ?hm //.
-rewrite map_cat sumn_cat /= ltn_add2l.
-apply: ltn_addr; apply: ltn_sub2r => //.
-exact: leq_ltn_trans hdk hkw.
-Qed.
-
-(** THE bookkeeping lemma: at index [tcr_index m i k] the reduction
-    committed exactly tweak [(i, k)] with input the honest chain value
-    at [k]. *)
-Lemma tcr_targets_nth pp (m : seq nat) (sigs : seq N) i k
-    (x0 : (nat * nat) * N) (y0 : N) :
-  size m = l -> size sigs = l -> i < l ->
-  nth 0 m i <= k < w.-1 ->
-  nth x0 (tcr_targets pp m sigs) (tcr_index m i k)
-  = ((i, k),
-     chainc pp i (nth y0 sigs i) (nth 0 m i) (k - nth 0 m i)).
-Proof.
-move=> hm hsigs hi hk.
-have hss : size sigs = size m by rewrite hsigs hm.
-have hi' : i < size m by rewrite hm.
-rewrite /tcr_targets /tcr_index -hm.
-by rewrite (tcr_targets_from_nth pp 0 _ _ _ _ x0 y0 hss hi' hk) ?add0n.
-Qed.
-
-(** Tweak distinctness. *)
-Lemma tcr_targets_tweaks_uniq pp (m : seq nat) (sigs : seq N) :
-  size m = l -> uniq (unzip1 (tcr_targets pp m sigs)).
-Proof.
-move=> hm; rewrite /tcr_targets -hm.
-exact: tcr_tweaks_from_uniq.
-Qed.
-
-(** Every committed tweak-target has chain index [< st + size ds] and
-    position [< w.-1]. *)
-Lemma tcr_tweaks_from_range pp st (ds : seq nat) (ss : seq N) :
-  all (fun t : nat * nat => (t.1 < st + size ds)%N && (t.2 < w.-1)%N)
-      (unzip1 (flatten [seq tcr_chain pp q.1 q.2.1 q.2.2
-                       | q <- zip (iota st (size ds)) (zip ds ss)])).
-Proof.
-elim: ds st ss => [|d ds IH] st [|s ss] //=.
-rewrite unzip1_cat all_cat; apply/andP; split.
-- rewrite /tcr_chain /unzip1 -map_comp all_map.
-  apply/allP => k; rewrite mem_iota => /andP[hdk hk2] /=.
-  have hlt : d < w.-1.
-    by move: (leq_ltn_trans hdk hk2); rewrite -{1}(addn0 d) ltn_add2l subn_gt0.
-  apply/andP; split.
-  + by rewrite addnS ltnS leq_addr.
-  + by move: hk2; rewrite (subnKC (ltnW hlt)).
-- apply/allP => t ht.
-  have /allP/(_ t ht) := IH st.+1 ss.
-  by rewrite addSnnS.
-Qed.
-
-(** THE range bookkeeping lemma consumed by the encoded-tweak
-    injectivity side conditions. *)
-Lemma tcr_targets_mem_range pp (m : seq nat) (sigs : seq N) t :
-  size m = l -> t \in unzip1 (tcr_targets pp m sigs) ->
-  (t.1 < l)%N /\ (t.2 < w.-1)%N.
-Proof.
-move=> hm ht; move: ht; rewrite /tcr_targets -hm => ht.
-have /allP/(_ t ht) := tcr_tweaks_from_range pp 0 m sigs.
-by rewrite add0n hm => /andP[h1 h2]; split.
-Qed.
-
-(* ================= former Shrincs.internal.ssprove.lib.chain.Decision (TCR) ================= *)
 
 (* ================================================================== *)
 (** ** TCR decision and committed-query bookkeeping *)
-
-(** SM-TCR budget: [l] sigma queries plus at most [l * w] walk queries. *)
-Definition tcr_budget : nat := l + l * w.
 
 (* ------------------------------------------------------------------ *)
 (** *** Pure layer: committed queries, signatures, ends, indices *)
@@ -927,7 +722,7 @@ Lemma commit_queries_cons pp st d ds u us :
 Proof. by []. Qed.
 
 (** Budget cap: [total_query_count] of any [l]-digit message fits in [tcr_budget]. *)
-Lemma nqs_le (ds : seq nat) : size ds = l -> total_query_count ds <= tcr_budget.
+Lemma nqs_le (ds : seq nat) : size ds = l -> total_query_count ds <= tcr_budget l w.
 Proof.
 move=> hsz.
 have hall : all (λ x, x <= w.+1) [seq chain_query_count d | d <- ds].
@@ -1009,8 +804,7 @@ case: i => [|i] hi hu hk.
 Qed.
 
 (* ------------------------------------------------------------------ *)
-(** *** The forgery classifier (computable counterpart of
-    [forgery_classify]) *)
+(** *** The forgery classifier, as a computable decision *)
 
 Definition tcr_decision (pp : PP) (m mstar : seq nat) (sgs sgstar : seq N) :
     option (nat * N) :=
@@ -1076,7 +870,6 @@ exists (i, k), v; split.
 - exact: hcol.
 Qed.
 
-(* ================= former Shrincs.internal.ssprove.lib.chain.Decision (PRE) ================= *)
 
 (* ================================================================== *)
 (** ** PRE decision and committed-query bookkeeping *)

@@ -23,21 +23,19 @@
     - [wcp_H_grind] grinding hash, called on the SF_SHRINCS_WOTS_GRIND (type 22)
                address (H_grind : B^n x B^288 x B^{2n} x B^{8c}
                -> B^n); at the games layer th_M := M × 'nat (message,
-               counter) and th_N := 'nat — the n-byte digest is
-               modeled as a [nat], parsed into base-w digits by
-               [encoding.digits_w] (same data as parsing the byte
-               string in base w).
+               counter) and th_N := [wcp_G] — the n-byte digest,
+               read as base-w digits by [wcp_digits].
 
     Parameters: everything lives in ONE record value [P : wc_params]
     ([Shrincs.internal.ssprove.wots.params]) -- the Winternitz parameter [wcp_w], the chain
     count [wcp_chain_count] (= ceil(n / log w)), the target chain-sum
     [wcp_constant_sum] (0 <= constant_sum <= chain_count(w-1)), the
     grinding-counter bound [wcp_c_max] (the counter is an 8c-bit value,
-    so c_max = 2^{8c}; bounded search as in Shrincs.internal.ssprove.lib.games.stcrp), and
-    the imaginary-tree anchor [(wcp_zstar, wcp_istar)]: the node-height
-    and node-index fields of all this instance's addresses.  The
-    instance addresses themselves ([grind_adrs P], [chain_adrs P],
-    [pk_adrs P], [prf_adrs P]) are params.v definitions.
+    so c_max = 2^{8c}; bounded search as in Shrincs.games.stcrp), and
+    the tweaks of the instance.  The imaginary-tree anchor (node height
+    and node index) is inside them.  The instance addresses
+    ([grind_adrs P], [chain_adrs P], [pk_adrs P], [prf_adrs P]) are
+    params.v definitions.
 
     Modeling choices (documented deviations):
     - The chain_count secret chain starts are SAMPLED ([sample_seq dN chain_count]) rather
@@ -47,25 +45,27 @@
       starts from ideal keys.  Hence Sk = (PKseed, chain starts)
       instead of (PKseed, SKseed, ADRS).
     - Pk = (PKseed, compressed pk); a full PK also carries ADRS, which
-      here is the instance anchor (z_star, i_star).
+      here is the instance anchor, fixed by the record.
     - Grinding failure: if no counter below [c_max] satisfies the
       digit-sum predicate, [find_counter] is None and [sign] refuses
-      (option signing of Shrincs.internal.ssprove.lib.sig.scheme; no loops in packages).
+      (option signing of Shrincs.games; no loops in packages).
       [find_counter] is a pure function, so the counter iteration is
       always the same by construction.
     - Verification recomputes the digest at the SIGNATURE's counter —
       no re-grinding — rejects unless its digit sum is constant_sum, then
       completes each chain and recompresses, comparing with pk.  We
       additionally check [size sg == chain_count] (sigma is exactly chain_count chain
-      values) and [wf_digits] (automatic for recomputed digests
-      whenever 0 < w, by [wf_digits_w]).
+      values) and [wf_digits] (every digit below w; an instance whose
+      [wcp_digits] only produces such digits makes it redundant).
     - One-time scheme: [sign] returns the key unchanged (the EU-CMA
-      statement uses signing budget q_s = 1). *)
+      statement uses signing budget q_s = 1).
+    - The pure functions below work on the two parts of a signature,
+      (chain values, counter).  The scheme record exchanges the
+      encoded signature [wcp_Sig P]: [sign] encodes and [verify]
+      decodes first. *)
 
-From Shrincs.internal.ssprove.lib Require Import prelude sig.scheme toolkit.sample_seq chain.core.
-From Shrincs.internal.common Require Import math.chain math.encoding.
-From Shrincs.internal.ssprove Require Import addressing.
-From Shrincs.internal.ssprove.wots Require Import addressing.
+From Shrincs.internal.ssprove.lib Require Import prelude toolkit.sample_seq chain.core.
+From Shrincs Require Import games.
 From Shrincs.internal.ssprove.wots Require Export params.
 From Stdlib Require Import Bool.
 
@@ -85,14 +85,10 @@ Context (P : wc_params).
     SMALLEST counter below [c_max] whose digit sum is [constant_sum] (an
     unbounded iteration ctr = 0, 1, 2, ... bounded by [c_max]). *)
 
-(** Base-w digit vector of the digest at counter [c], MOST-SIGNIFICANT
-    digit first (d parsed as (a_1, ..., a_l) with a_1 the top digit) --
-    the same reading order as shrincs.py's base-w parse and
-    [Shrincs.internal.common.wots.base_2b], so the games<->model correspondence
-    (Shrincs.internal.ssprove.wots.model_bridge) is a plain equality.  [digits_w] itself is
-    least-significant-first, whence the [rev]. *)
+(** Digit vector of the digest at counter [c]: the instance's reading
+    [wcp_digits] of the grinding hash output, one digit per chain. *)
 Definition digest_of (pp : wcp_PP P) (m : wcp_M P) (c : nat) : seq nat :=
-  rev (digits_w (wcp_w P) (wcp_chain_count P) (wcp_H_grind P pp (grind_adrs P) (m, c))).
+  wcp_digits P (wcp_H_grind P pp (grind_adrs P) (m, c)).
 
 (** The post-grinding digest space: well-formed digits summing to the
     target (sum_i a_i = constant_sum). *)
@@ -106,7 +102,7 @@ Definition find_counter (pp : wcp_PP P) (m : wcp_M P) : option nat :=
   ohead [seq c <- iota 0 (wcp_c_max P) | good_counter pp m c].
 
 Lemma size_digest_of pp m c : size (digest_of pp m c) = wcp_chain_count P.
-Proof. by rewrite /digest_of size_rev size_digits_w. Qed.
+Proof. exact: wcp_digits_size. Qed.
 
 Lemma find_counterP pp m c :
   find_counter pp m = Some c -> good_counter pp m c && (c < wcp_c_max P).
@@ -126,24 +122,16 @@ Proof. by move=> /find_counterP /andP[_ h]. Qed.
 (* ------------------------------------------------------------------ *)
 (** ** Pure scheme functions *)
 
-(** Chain step of the [i]-th chain, in [Shrincs.internal.common.math.chain]'s DEPENDENT
-    shape (width [w]): the step RECEIVES its position's in-range proof
-    [(p < w)%N].  The concrete step ignores that proof and reads the
-    (total, clamp-free) chain address at position [p] -- every fold ever
-    reaches only positions [< w.-1], where [chain_adrs P] is the exact
-    address, so the abstract [< w] proof is not needed to build it.
-    This instantiates the abstract chain library's [F']
-    ([Shrincs.internal.ssprove.lib.chain.core]), so all chains below go through the total
-    fold [chainc].
+(** Chain step of the [i]-th chain at position [p]: [F] at the chain
+    address.  This instantiates the abstract chain library's [F']
+    ([Shrincs.internal.ssprove.lib.chain.core]), so all chains below go
+    through the fold [chainc].
 
     Per-hash-call tweak distinctness lives at the tweak level
-    ([params.chain_tweak_inj]): the chain tweak carries its
-    [(chain, position)] indices untruncated.  Cross-class distinctness
-    (chain vs pk vs grind addresses) follows from [encode_tweak_inj]
-    plus the distinct type bytes of the underlying [Shrincs.internal.common.address]
-    constructors. *)
-Definition chainf (pp : wcp_PP P) (i : nat) (p : nat) (_ : (p < wcp_w P)%N)
-    (x : wcp_N P) : wcp_N P :=
+    ([params.chain_tweak_inj]).  No proof here needs the four tweak
+    classes (chain, start, pk, grind) to be apart from each other:
+    each class is the tweak of a different function of the record. *)
+Definition chainf (pp : wcp_PP P) (i : nat) (p : nat) (x : wcp_N P) : wcp_N P :=
   wcp_F P pp (chain_adrs P i p) x.
 
 (** Chain ends: the [i]-th component is the end (position w-1) of the
@@ -218,6 +206,56 @@ Lemma size_complete_ends pp ds ys :
 Proof. by rewrite size_map !size_zip size_iota. Qed.
 
 (* ------------------------------------------------------------------ *)
+(** ** Indexed forms
+
+    The three chain maps above zip their inputs with the chain indices.
+    When the inputs are themselves indexed by the chain, each is a
+    plain map over the indices: the shape a loop [for i in range(n)]
+    has.  The digit of chain [i] is read with [nth]. *)
+
+Lemma zip_iota_map (A : Type) (n : nat) (f : nat -> A) :
+  zip (iota 0 n) [seq f i | i <- iota 0 n] = [seq (i, f i) | i <- iota 0 n].
+Proof. by rewrite -[X in zip X _]map_id zip_map. Qed.
+
+Lemma chain_ends_mkseq pp (f : nat -> wcp_N P) :
+  chain_ends pp [seq f i | i <- iota 0 (wcp_chain_count P)]
+  = [seq chainc (wcp_PP P) (wcp_N P) (wcp_w P) chainf pp i (f i) 0 (wcp_w P).-1
+    | i <- iota 0 (wcp_chain_count P)].
+Proof. by rewrite /chain_ends zip_iota_map -map_comp. Qed.
+
+Lemma sign_chains_mkseq pp (f : nat -> wcp_N P) (ds : seq nat) :
+  size ds = wcp_chain_count P ->
+  sign_chains pp [seq f i | i <- iota 0 (wcp_chain_count P)] ds
+  = [seq chainc (wcp_PP P) (wcp_N P) (wcp_w P) chainf pp i (f i) 0 (nth 0 ds i)
+    | i <- iota 0 (wcp_chain_count P)].
+Proof.
+move=> hds.
+rewrite -[in LHS](mkseq_nth 0 ds) hds /sign_chains /mkseq.
+by rewrite zip_iota_map zip_map -map_comp.
+Qed.
+
+Lemma complete_ends_mkseq pp (ds : seq nat) (f : nat -> wcp_N P) :
+  size ds = wcp_chain_count P ->
+  complete_ends pp ds [seq f i | i <- iota 0 (wcp_chain_count P)]
+  = [seq chainc (wcp_PP P) (wcp_N P) (wcp_w P) chainf pp i (f i) (nth 0 ds i)
+           ((wcp_w P).-1 - nth 0 ds i)
+    | i <- iota 0 (wcp_chain_count P)].
+Proof.
+move=> hds.
+rewrite -[in LHS](mkseq_nth 0 ds) hds /complete_ends /mkseq.
+by rewrite zip_map zip_iota_map -map_comp.
+Qed.
+
+(** Every digit of a digest is below [w], also past the end of the
+    digest, where [nth] reads its default. *)
+Lemma nth_digest_of_lt pp m c i : nth 0 (digest_of pp m c) i < wcp_w P.
+Proof.
+case: (ltnP i (size (digest_of pp m c))) => hi.
+- exact: (all_nthP 0 (wcp_digits_wf P _)).
+- by rewrite nth_default //; exact: (ltnW (wcp_Hw P)).
+Qed.
+
+(* ------------------------------------------------------------------ *)
 (** ** Correctness *)
 
 (** Pointwise core, generalized over the starting chain index [st]: a
@@ -289,15 +327,15 @@ Definition shrincs_wots_scheme : sig_scheme := {|
   Pk := wcp_PP P × wcp_N P ;
   Sk := wcp_PP P × ('list (wcp_N P)) ;
   Msg := wcp_M P ;
-  Sig := ('list (wcp_N P)) × 'nat ;
+  Sig := wcp_Sig P ;
   SParam := 'unit ;
   keygen := fun _ => {code
     pp ← wcp_dPP P ;;
     xs ← sample_seq (wcp_dN P) (wcp_chain_count P) ;;
     ret ((pp, xs), (pp, shrincs_wots_pubkey pp xs)) } ;
   sign := fun sk m => {code
-    ret (omap (fun sg => (sg, sk)) (shrincs_wots_sign sk.1 sk.2 m)) } ;
-  verify := fun pk m sg => shrincs_wots_verify pk.1 pk.2 m sg
+    ret (omap (fun sg => (wcp_sig_encode P sg, sk)) (shrincs_wots_sign sk.1 sk.2 m)) } ;
+  verify := fun pk m sg => shrincs_wots_verify pk.1 pk.2 m (wcp_sig_decode P sg)
 |}.
 
 End WOTSCScheme.
