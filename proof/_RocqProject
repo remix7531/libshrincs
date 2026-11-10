@@ -139,3 +139,6 @@ internal/ssprove/security.v
 
 # --- the honesty gate ---
 # The standalone assumption probes are compiled by assumptions/check.sh.
+
+# Public statements compose completed results over the canonical specification.
+theorem.v

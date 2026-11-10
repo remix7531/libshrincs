@@ -3,8 +3,8 @@
 This guide covers the public specifications and both internal backends.
 `spec.v` transcribes the reference, `sha256.v` defines SHA, `contracts.v`
 owns public C contracts and `games.v` owns the security experiments.
-Use short specification comments to explain the role of each definition
-group, game behavior, constraints and
+`theorem.v` composes completed proofs. Use short specification comments to
+explain the role of each definition group, game behavior, constraints and
 invariants. Reading guidance belongs in `README.md`.
 
 The backend style sections use `Model` for shared Gallina proofs under

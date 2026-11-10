@@ -4,6 +4,8 @@ The C library implements the BIP WOTS+C algorithms in `proof/spec.v`. Its public
 
 The SSProve development under `proof/internal/ssprove/` proves correctness and bounds the concrete KOTS advantage through six explicit hash-game reductions. `proof/games.v` defines the common hash interface, restricted evaluation oracles and concrete signature scheme.
 
+`proof/theorem.v` composes correctness, the linked C component and the concrete security bound into the public theorem. It also states the complete SHA-256 component contract.
+
 `make test` checks the C implementation. `make prove` builds both proof stacks, `make audit` checks their inherited assumptions and `make spec-test` checks the literal specification against the committed reference vectors. `make check` runs the compiler, sanitizer, source, proof and vector checks.
 
 See `proof/README.md` for the proof layout and `proof/STYLE.md` for its conventions.

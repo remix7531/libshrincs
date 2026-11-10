@@ -14,7 +14,7 @@
     - [PARAMS] gives the C arguments in the order of the C prototype. [rep_val x] is the C value that carries [x].
     - [SEP] lists the memory the function needs. [at_ sh x p] says that [x] sits at [p] in its C representation with permission [sh], and [space_for A sh p] says that [p] has room for a value of type [A] and says nothing about its content. The clauses of one [SEP] are separated, so the buffers of a call do not overlap, which is what [restrict] says in the C prototype.
 
-    The body and component proofs under internal/vst establish these specifications. *)
+    That the C satisfies these specifications is the second conjunct of Shrincs.theorem. *)
 
 From VST Require Import floyd.proofauto.
 From Shrincs.clight Require Export wots.
