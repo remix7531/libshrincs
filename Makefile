@@ -103,7 +103,7 @@ endif
 
 # ----- Top-level targets ----------------------------------------------------
 
-.PHONY: all lib test extract vst-prove ssprove-prove prove audit clean gen-vectors \
+.PHONY: all lib test extract vst-prove ssprove-prove prove audit spec-test clean gen-vectors \
         check-asan check-msan check-ccomp \
         check-ct check-ct-gcc check-ct-clang check-ct-ccomp \
         check check-no-prove check-tidy check-fanalyzer format check-format \
@@ -119,13 +119,11 @@ extract:
 test: $(MAIN)
 	./$(MAIN)
 
-# Regenerate the committed WOTS+C KAT vectors from the shrincs-bip
-# reference.  A manual developer step -- the .kat is committed, so
-# `make test` / CI need neither Python nor a shrincs-bip checkout.
-# Override the reference path with SHRINCS=/path/to/shrincs.py.
-SHRINCS ?= ../shrincs-bip/impl/shrincs.py
+# The generator requires the reference revision transcribed by proof/spec.v.
+# The committed vectors keep ordinary checks independent of that checkout.
+SHRINCS_BIP ?= ../shrincs-bip
 gen-vectors:
-	python3 test/wots/gen_vectors.py --shrincs $(SHRINCS) -o test/wots/vectors/wotsc.kat
+	python3 test/spec/gen_vectors.py --shrincs-bip $(SHRINCS_BIP) -o test/spec/vectors/wots_c.kat
 
 vst-prove:
 	@$(MAKE) --no-print-directory -C proof vst-prove
@@ -140,6 +138,9 @@ prove:
 # proof/Makefile's `audit` target for the full recipe and its rationale.
 audit:
 	@$(MAKE) --no-print-directory -C proof audit
+
+spec-test:
+	@$(MAKE) --no-print-directory -C proof spec-test
 
 # ----- Quality gates --------------------------------------------------------
 # Each sub-target builds in its own BUILD=build/<config> subdir so they
@@ -167,6 +168,8 @@ check: check-no-prove
 	@$(MAKE) --no-print-directory prove
 	@$(BANNER) "audit (honesty gate)"
 	@$(MAKE) --no-print-directory audit
+	@$(BANNER) "spec-test (specification against the reference vectors)"
+	@$(MAKE) --no-print-directory spec-test
 
 check-tidy:
 	@$(BANNER) "clang-tidy"

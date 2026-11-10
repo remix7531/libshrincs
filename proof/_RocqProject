@@ -49,6 +49,7 @@ internal/vst/support/repr/words.v
 internal/vst/support/repr/int32.v
 
 sha256.v
+spec.v
 
 internal/vst/sha256/clone.v
 internal/vst/sha256/sync.v

@@ -40,7 +40,7 @@ search space `c_max=2^16`, hash `SHA-256` truncated to 16 bytes. The
 This is the SHRINCS stateful (FXMSS) leaf construction: every tweakable
 hash is `SHA-256(pk_seed ‖ zeros(48) ‖ ADRS ‖ M)[:16]` (no bitmasks), and
 domain separation lives in a 22-byte `ADRS`. `test/wots/vectors/wotsc.kat`
-(regenerable with `make gen-vectors`) cross-checks the compiled C against
+cross-checks the compiled C against
 the authoritative Python reference `shrincs-bip/impl/shrincs.py`
 byte-for-byte — pk, sig, counter, digits, and an `H_grind` intermediate.
 
@@ -66,7 +66,8 @@ make clean
 include/                  wots.h, thash.h, sha256.h, util.h
 src/                       wots.c, thash.c, sha256.c, util.c
 test/                      runner.c, common.{c,h}
-test/wots/                 wots.c, gen_vectors.py, vectors/
+test/wots/                 wots.c, vectors/
+test/spec/                 literal specification vectors and generator
 test/sha256/                sha256.c, vectors/
 test/ctgrind/                ctgrind.c
 proof/internal/vst/support/ model/, contract/, repr/, tactics/, theory/

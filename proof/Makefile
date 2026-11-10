@@ -34,7 +34,7 @@ CLIGHT_VOFILES  := $(shell grep -E '^$(CLIGHT_DIR)/.*\.v$$' _RocqProject | sed '
 VST_VOFILES     := $(shell grep -E '^$(VST_DIR)/.*\.v$$' _RocqProject | sed 's/\.v$$/.vo/') $(CLIGHT_VOFILES)
 SSPROVE_VOFILES := $(shell grep -E '^$(SSPROVE_DIR)/.*\.v$$' _RocqProject | sed 's/\.v$$/.vo/')
 
-.PHONY: extract vst-prove ssprove-prove prove audit clean
+.PHONY: extract vst-prove ssprove-prove prove audit spec-test clean
 
 # ----- VST / Rocq -----------------------------------------------------------
 # Clight ASTs land in clight/ under the Shrincs root declared by
@@ -113,6 +113,11 @@ audit: vst-prove ssprove-prove
 	@$(BANNER) "combined honesty gate (model + ssprove + vst)"
 	@bash $(AUDIT_DIR)/check.sh
 	@$(SUCCESS) "Audit: all proofs green, trust surface unchanged"
+
+# The kernel virtual machine checks the literal specification on each vector.
+spec-test: extract Makefile.coq
+	@$(MAKE) -j $(NPROC) --no-print-directory -f Makefile.coq spec.vo
+	@bash ../test/spec/run.sh
 
 # ----- Clean ----------------------------------------------------------------
 
