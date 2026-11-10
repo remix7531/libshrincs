@@ -140,11 +140,8 @@ internal/ssprove/lib/toolkit/hop_tactics.v
 internal/ssprove/lib/chain/core.v
 internal/ssprove/lib/chain/ud.v
 
-internal/ssprove/bridge.v
 
 # --- ssprove: WOTS+C scheme + one-time security proof ---
-internal/ssprove/addressing.v
-internal/ssprove/wots/addressing.v
 internal/ssprove/wots/params.v
 internal/ssprove/wots/scheme.v
 internal/ssprove/wots/games.v
@@ -169,9 +166,6 @@ internal/ssprove/wots/bound/chain_tcr.v
 internal/ssprove/wots/bound/chain_pre.v
 internal/ssprove/wots/bound/prf.v
 internal/ssprove/wots/theorem.v
-internal/ssprove/wots/instantiation.v
-internal/ssprove/axioms.v
-internal/ssprove/wots/model_bridge.v
 
 # --- assumption audit ---
 # The three per-tree probe files assumptions/{model,ssprove,vst}.v are

@@ -18,7 +18,7 @@
                              (R_prf b ∘ PRF_game khf_prf chain_count false)]
 
     so [Adv (G_forge_keyed b) (G_forge_sampledkey b) A = AdvOf (PRF_game khf_prf chain_count)
-    (A ∘ R_prf b)] at the consumer (Shrincs.internal.ssprove.bound.prf).  This hop
+    (A ∘ R_prf b)] at the consumer (Shrincs.internal.ssprove.wots.bound.prf).  This hop
     composes OUTSIDE the proven ideal-key theorem
     ([shrincs_wots_secure_ideal_sk]) by the advantage triangle — the UD
     telescope and the four middle hops are never reopened.
@@ -30,7 +30,7 @@
 
     ** Design
 
-    - [khf_prf] is the [khf] (Shrincs.internal.ssprove.lib.games.thf) of the secret-key derivation:
+    - [khf_prf] is the [khf] (Shrincs.games) of the secret-key derivation:
       hidden key = SKseed, query input = (PKseed, encoded address) —
       the distinguisher knows both — output = an n-byte chain start.
       Argument order of the section parameter [PRF] follows the
@@ -38,8 +38,7 @@
       PRF(pk_seed, sk_seed, ADRS) order is a byte-level
       instantiation detail.
     - [derive_sk pp k] derives the [chain_count] chain starts at the
-      SF_SHRINCS_WOTS_PRF (type 21) addresses of this instance — the first
-      real consumer of [shrincs_wots_prf_adrs].
+      PRF addresses [prf_adrs P i] of this instance.
     - [G_forge_keyed b] is verbatim [G_forge_sampledkey b] with the chain-start sampling
       [sample_seq dN chain_count] replaced by [k ← dK] plus the pure
       derivation; same locations (the games are never composed, and
@@ -55,7 +54,7 @@
     - Side condition [Hcc : 0 < chain_count], REAL side only: with no
       chains, G_forge_keyed samples a key that R ∘ PRF_game never samples,
       which a lossy [dK] would distinguish.  A data side condition
-      like [Hrange], discharged at instantiation (the spec has
+      carried by the parameter record (the spec has
       chain_count = 32).
 
     ** Invariant
@@ -69,35 +68,17 @@
     Locations 370-372 (R's copies). *)
 
 From mathcomp.experimental_reals Require Import distr.
-From Shrincs.internal.ssprove.lib Require Import prelude sig.scheme sig.kots
-  games.thf games.prf games.prf_derive toolkit.sample_seq toolkit.relational_rules
+From Shrincs.internal.ssprove.lib Require Import prelude
+  games.prf_derive toolkit.sample_seq toolkit.relational_rules
   toolkit.hop_tactics.
-From Shrincs.internal.common Require Import math.chain math.encoding.
-From Shrincs.internal.ssprove Require Import addressing.
-From Shrincs.internal.ssprove.wots Require Import addressing.
+From Shrincs Require Import games.
 From Shrincs.internal.ssprove.wots Require Import scheme games.
 From Stdlib Require Import Lia.
+
 
 Import PackageNotation.
 #[local] Open Scope package_scope.
 #[local] Open Scope sep_scope.
-
-(** The khf instance over the anchor-free core (see params.v /
-    games.v: the assumption-facing instances provably cannot see the
-    anchor); [khf_prf] below wraps it at [wc_core_of P]. *)
-Section KhfPrfCore.
-
-Context (H : wc_params_core).
-Context (K : choice_type).
-Context (PRF : wcc_PP H -> wc_adrs_core H -> K -> wcc_N H).
-Context (dK : dist K).
-
-Definition khf_prf_core : khf :=
-  {| kh_K := K ; kh_M := wcc_PP H × wc_adrs_ch_core H ; kh_N := wcc_N H ;
-     kh_eval := fun k pt => PRF pt.1 (decode_tweak_core H pt.2) k ;
-     kh_dK := dK ; kh_dN := wcc_dN H |}.
-
-End KhfPrfCore.
 
 Section PrfHop.
 
@@ -109,11 +90,11 @@ Context (K : choice_type).
 Context (PRF : wcp_PP P -> wc_adrs P -> K -> wcp_N P).
 Context (dK : dist K).
 
-(** The PRF tweak ([params.prf_tweak], the encoded SF_SHRINCS_WOTS_PRF
-    address of chain [i]) carries its chain index untruncated, so
-    [ptw_fresh] below -- distinct chains query distinct PRF inputs --
-    holds with no range side condition, while [kh_eval_ptw] shows it
-    still computes the scheme's real PRF at [prf_adrs P i]. *)
+(** The PRF tweak ([params.prf_tweak], the address of the start of
+    chain [i]) is injective on the chain indices ([prf_tweak_inj]), so
+    distinct chains query distinct PRF inputs ([prf_tw_inj] below),
+    while [kh_eval_ptw] shows it computes the scheme's PRF at
+    [prf_adrs P i]. *)
 
 (* ------------------------------------------------------------------ *)
 (** ** The khf instance and the key derivation *)
@@ -122,19 +103,21 @@ Context (dK : dist K).
     carries (PKseed, encoded address) — both known to the
     distinguisher; output sampler [dN] (the ideal branch returns
     fresh n-byte strings, exactly the ideal-key chain starts). *)
-Definition khf_prf : khf := khf_prf_core (wc_core_of P) K PRF dK.
+Definition khf_prf : khf :=
+  {| kh_K := K ; kh_M := wcp_PP P × wc_adrs_ch P ; kh_N := wcp_N P ;
+     kh_eval := fun k pt => PRF pt.1 (decode_tweak P pt.2) k ;
+     kh_dK := dK ; kh_dN := wcp_dN P |}.
 
-(** On encoded (canonical) tweaks [khf_prf] evaluates the derivation — the
+(** On encoded tweaks [khf_prf] evaluates the derivation — the
     consumers' interface to [kh_eval]. *)
 Lemma kh_evalE (k : K) (pp : wcp_PP P) (a : wc_adrs P) :
   kh_eval khf_prf k (pp, encode_tweak P a) = PRF pp a k.
-Proof. by rewrite /kh_eval /khf_prf /khf_prf_core /= core_decodeE encode_tweakK. Qed.
+Proof. by []. Qed.
 
-(** On a PRF tweak [khf_prf] evaluates the scheme's derivation: decoding the
-    untruncated PRF tweak reproduces the concrete PRF address. *)
+(** On a PRF tweak [khf_prf] evaluates the scheme's derivation. *)
 Lemma kh_eval_ptw (k : K) (pp : wcp_PP P) (i : nat) :
   kh_eval khf_prf k (pp, prf_tweak P i) = PRF pp (prf_adrs P i) k.
-Proof. by rewrite /kh_eval /khf_prf /khf_prf_core /= core_decodeE decode_prf_tweak. Qed.
+Proof. by []. Qed.
 
 (** The spec's per-chain secret derivation: chain [i]'s start is the
     PRF at the SF_SHRINCS_WOTS_PRF address of chain [i]. *)
@@ -158,16 +141,16 @@ Definition shrincs_wots_keyed : sig_scheme := {|
   Pk := wcp_PP P × wcp_N P ;
   Sk := wcp_PP P × K ;
   Msg := wcp_M P ;
-  Sig := ('list (wcp_N P)) × 'nat ;
+  Sig := wcp_Sig P ;
   SParam := 'unit ;
   keygen := fun _ => {code
     pp ← wcp_dPP P ;;
     k ← dK ;;
     ret ((pp, k), (pp, shrincs_wots_pubkey_gen pp k)) } ;
   sign := fun sk m => {code
-    ret (omap (fun sg => (sg, sk))
+    ret (omap (fun sg => (wcp_sig_encode P sg, sk))
               (shrincs_wots_sign P sk.1 (derive_sk sk.1 sk.2) m)) } ;
-  verify := fun pk m sg => shrincs_wots_verify P pk.1 pk.2 m sg
+  verify := fun pk m sg => shrincs_wots_verify P pk.1 pk.2 m (wcp_sig_decode P sg)
 |}.
 
 (** Correctness through the keyed signing function (from the pure
@@ -198,13 +181,13 @@ Definition G_forge_keyed (b : bool) : game (I_KOTS (shrincs_wots_scheme P)) :=
       #put (forge_log_loc P) := [:: m] ;;
       #put (forge_sig_loc P) := Some (sign_chains P pp (derive_sk pp k) (digest_of P pp m c), c) ;;
       ret ((pp, shrincs_wots_pubkey P pp (derive_sk pp k)),
-           Some (sign_chains P pp (derive_sk pp k) (digest_of P pp m c), c))
+           Some (wcp_sig_encode P (sign_chains P pp (derive_sk pp k) (digest_of P pp m c), c)))
     } ;
     [ KFORGE ] : { Msg (shrincs_wots_scheme P) × Sig (shrincs_wots_scheme P) ~> 'bool } '(m, s) {
       pk ← getSome (forge_pk_loc P) ;;
       log ← get (forge_log_loc P) ;;
       if b then
-        ret (shrincs_wots_verify P pk.1 pk.2 m s && (m \notin log))
+        ret (shrincs_wots_verify P pk.1 pk.2 m (wcp_sig_decode P s) && (m \notin log))
       else
         ret false
     }
@@ -216,7 +199,7 @@ Definition G_forge_keyed (b : bool) : game (I_KOTS (shrincs_wots_scheme P)) :=
 (** R's own locations (370+, see header). *)
 Definition r_prf_pk_loc := mkloc 370 (None : option (Pk (shrincs_wots_scheme P))).
 Definition r_prf_log_loc := mkloc 371 ([::] : seq (Msg (shrincs_wots_scheme P))).
-Definition r_prf_sig_loc := mkloc 372 (None : option (Sig (shrincs_wots_scheme P))).
+Definition r_prf_sig_loc := mkloc 372 (None : option (wc_sig_parts P)).
 
 (** THE reduction: plays [I_KOTS WC] using the FQUERY oracle.  COMMIT
     samples PKseed itself (public) and computes the grinding assert
@@ -233,9 +216,10 @@ Definition R_prf (b : bool) : package (I_PRF khf_prf) (I_KOTS (shrincs_wots_sche
       #put r_prf_pk_loc := Some (pp, shrincs_wots_pubkey P pp xs) ;;
       #put r_prf_log_loc := [:: m] ;;
       #put r_prf_sig_loc := Some (sign_chains P pp xs (digest_of P pp m c), c) ;;
-      ret ((pp, shrincs_wots_pubkey P pp xs), Some (sign_chains P pp xs (digest_of P pp m c), c))
+      ret ((pp, shrincs_wots_pubkey P pp xs), Some (wcp_sig_encode P (sign_chains P pp xs (digest_of P pp m c), c)))
     } ;
-    [ KFORGE ] : { Msg (shrincs_wots_scheme P) × Sig (shrincs_wots_scheme P) ~> 'bool } '(mst, sgst) {
+    [ KFORGE ] : { Msg (shrincs_wots_scheme P) × Sig (shrincs_wots_scheme P) ~> 'bool } '(mst, sgw) {
+      let sgst := wcp_sig_decode P sgw in
       pk ← getSome r_prf_pk_loc ;;
       log ← get r_prf_log_loc ;;
       if b then
@@ -268,7 +252,7 @@ Local Abbreviation prf_qs_loc' := (prf_qs_loc khf_prf).
 (* ------------------------------------------------------------------ *)
 (** ** The invariant (header)
 
-    Hop-invariant template (Shrincs.internal.ssprove.hop.grind), with a TRIVIAL
+    Hop-invariant template (Shrincs.internal.ssprove.wots.hop.grind), with a TRIVIAL
     committed branch: KFORGE makes no oracle call, so only the
     initial-state facts (needed by COMMIT) are recorded. *)
 
@@ -277,8 +261,8 @@ Definition IGNK : Locations :=
         prf_k_loc' ; prf_qs_loc' ].
 
 Definition RK (pko : option (Pk (shrincs_wots_scheme P))) (lg : seq (Msg (shrincs_wots_scheme P)))
-    (sgo : option (Sig (shrincs_wots_scheme P)))
-    (pko' : option (Pk (shrincs_wots_scheme P))) (lg' : seq (Msg (shrincs_wots_scheme P))) (sgo' : option (Sig (shrincs_wots_scheme P)))
+    (sgo : option (wc_sig_parts P))
+    (pko' : option (Pk (shrincs_wots_scheme P))) (lg' : seq (Msg (shrincs_wots_scheme P))) (sgo' : option (wc_sig_parts P))
     (ko : option K) (qs : seq (kh_M khf_prf)) : Prop :=
   [/\ pko' = pko, lg' = lg, sgo' = sgo &
       match pko with
@@ -359,11 +343,11 @@ Lemma r_prf_tail (pp : wcp_PP P) (m : wcp_M P) (c : nat) (xs : seq (wcp_N P))
      (#put (forge_pk_loc P) := Some (pp, shrincs_wots_pubkey P pp xs) ;;
       #put (forge_log_loc P) := [:: m] ;;
       #put (forge_sig_loc P) := Some (sign_chains P pp xs (digest_of P pp m c), c) ;;
-      ret ((pp, shrincs_wots_pubkey P pp xs), Some (sign_chains P pp xs (digest_of P pp m c), c)))
+      ret ((pp, shrincs_wots_pubkey P pp xs), Some (wcp_sig_encode P (sign_chains P pp xs (digest_of P pp m c), c))))
    ≈ (#put r_prf_pk_loc := Some (pp, shrincs_wots_pubkey P pp xs) ;;
       #put r_prf_log_loc := [:: m] ;;
       #put r_prf_sig_loc := Some (sign_chains P pp xs (digest_of P pp m c), c) ;;
-      ret ((pp, shrincs_wots_pubkey P pp xs), Some (sign_chains P pp xs (digest_of P pp m c), c)))
+      ret ((pp, shrincs_wots_pubkey P pp xs), Some (wcp_sig_encode P (sign_chains P pp xs (digest_of P pp m c), c))))
   ⦃ λ '(b0, s0) '(b1, s1), b0 = b1 /\ kinv (s0, s1) ⦄.
 Proof.
 do 3 eapply r_put_lhs.
@@ -456,8 +440,9 @@ simplify_eq_rel arg.
   + by rewrite add0n.
   + move=> kk; exact: r_prf_tail.
 - (* KFORGE: local on both sides *)
-  destruct arg as [mst sgst].
+  destruct arg as [mst sgw].
   simpl.
+  move: (wcp_sig_decode P sgw) => sgst.
   sync_pko.
   rewrite code_link_assertD.
   eapply r_assertD; first by [].
@@ -516,8 +501,9 @@ simplify_eq_rel arg.
   + by rewrite add0n.
   + move=> xs hxs; exact: r_prf_tail.
 - (* KFORGE: identical to the real-side case (the PRF bit is spent) *)
-  destruct arg as [mst sgst].
+  destruct arg as [mst sgw].
   simpl.
+  move: (wcp_sig_decode P sgw) => sgst.
   sync_pko.
   rewrite code_link_assertD.
   eapply r_assertD; first by [].

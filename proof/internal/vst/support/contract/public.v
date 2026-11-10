@@ -116,8 +116,7 @@ Lemma w_pred_eq           : w_pred           = 15%nat. Proof. reflexivity. Qed.
     total [nat -> fin 32] inverse used at this C-refinement boundary --
     value-preserving whenever the index is in range (which every WOTS+C
     caller guarantees: chain index [< chain_count = 32]), saturating to 0
-    otherwise.  It is the VST-side sibling of [Shrincs.internal.ssprove.addressing.chain_of_nat]
-    (the SSProve fold's totalizer); the pure model itself stays clamp-free.
+    otherwise. The pure model itself stays clamp-free.
 
     Value-faithfulness ([to_chain32_val] / [to_chain32_id]) is all the
     bodies need: in range it equals the model's exact [fin_of_nat 32 i _],

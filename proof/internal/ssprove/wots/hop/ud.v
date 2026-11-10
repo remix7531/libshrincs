@@ -16,7 +16,7 @@
     identities), sampler couplings ([r_sample_seq_size],
     [r_sample_sig_roots]) and relational mini-rules ([r_get_rhs_pin],
     [r_put_rhs_pre], [heap_ignore_set_l/rhs]) apply at the
-    address-wrapped chain hash [Fw] (the Shrincs.internal.ssprove.games bridge):
+    address-wrapped chain hash [Fw] (the Shrincs.internal.ssprove.wots.games bridge):
     [Fw pp (i, k) x = F pp (chain_adrs i k) x], so all of them line up
     with shrincs_wots_scheme's [chainf]/[complete_ends] by conversion.
 
@@ -29,15 +29,14 @@
       by [wf_digits] (from the COMMIT assert via
       [find_counter_isSome_good]), so both endpoint identifications hold
       for EVERY [w].
-    - Tweaks are ENCODED CHAIN ADDRESSES: the SM-UD oracle is queried
-      at [encode_adrs (chain_adrs i s)] instead of [(i, s)];
-      distinctness is [encode_adrs_inj] + [chain_adrs_inj].
+    - Tweaks are CHAIN ADDRESSES: the SM-UD oracle is queried at
+      [chain_tweak P i s] instead of [(i, s)]; distinctness is
+      [chain_tweak_inj].
     - [pp] is hidden until UGETPP, but the reduction needs the digest
       BEFORE its first UQUERY (the digits select the queried chains).
-      The collection [coll_chain] exposes H_grind for exactly this purpose:
-      the reduction performs the grinding THROUGH the collection
-      oracle — one unguarded UCOLLQ call pins [pp]'s lazy sampling at
-      a fixed program point (the UCOLLQ pin), then [grind_all] queries
+      EVAL computes the grinding encoding outside the chain target
+      class. One such call pins [pp]'s lazy sampling at
+      a fixed program point (the EVAL pin), then [grind_all] queries
       H_grind at every counter below [c_max] and the bounded search
       ([grind_pick]) happens on the answers, purely; [grind_pick_map]
       identifies the result with the scheme's [find_counter].
@@ -54,20 +53,19 @@
 
     [UDw_telescope]: for every KFORGE-bit [b],
       [Adv (G_forge_sampledkey b) (G_forge_uniformchains b) A
-         <= \sum_(0 <= s < w.-2) AdvOf (SMUD_game thf_chain coll_chain chain_count) (A ∘ R_ud b s)]
+         <= \sum_(0 <= s < w.-2) AdvOf (SMUD_game thf_hash chain_class chain_count) (A ∘ R_ud b s)]
     via [Adv_hybrid_dep] over
-      [Game s b' := R_ud b s ∘ SMUD_game thf_chain coll_chain chain_count b'].
+      [Game s b' := R_ud b s ∘ SMUD_game thf_hash chain_class chain_count b'].
     Note the cap [p := chain_count]: COMMIT makes at most one UQUERY per chain
-    (UCOLLQ calls are not budgeted). *)
+    (EVAL calls are not budgeted). *)
 
 From mathcomp Require Import reals.
-From Shrincs.internal.ssprove.lib Require Import prelude sig.scheme sig.kots
-  games.thf games.smud toolkit.sample_seq toolkit.relational_rules.
-From Shrincs.internal.common Require Import math.chain math.encoding.
+From Shrincs.internal.ssprove.lib Require Import prelude
+  toolkit.sample_seq toolkit.relational_rules.
 From Shrincs.internal.ssprove.lib Require Import chain.core chain.ud.
-From Shrincs.internal.ssprove Require Import addressing.
-From Shrincs.internal.ssprove.wots Require Import addressing.
+From Shrincs Require Import games.
 From Shrincs.internal.ssprove.wots Require Import scheme games analysis hop.intermediates.
+
 
 Import PackageNotation.
 #[local] Open Scope package_scope.
@@ -111,12 +109,12 @@ Proof. by []. Qed.
 (* ------------------------------------------------------------------ *)
 (** ** Pure layer: the in-oracle grinding search
 
-    The reduction queries H_grind through UCOLLQ at every counter
+    The reduction queries H_grind through EVAL at every counter
     below [c_max] ([grind_all] below) and runs the bounded search on
     the answer list: [grind_pick] returns the first (counter, digest
     value) whose decoded digits satisfy the digit-sum predicate —
     [find_counter]'s search, re-rooted at the oracle answers
-    ([grind_pick_map]).  These are exactly [Shrincs.internal.ssprove.hop.intermediates]'s
+    ([grind_pick_map]).  These are exactly [Shrincs.internal.ssprove.wots.hop.intermediates]'s
     shared [cp_pick]/[cp_pick_map] (same picker the Compress and chain
     hops use); re-abbreviated here under this section's context. *)
 
@@ -126,7 +124,7 @@ Proof. by []. Qed.
 
 Definition ud_hybrid_pk_loc := mkloc 310 (None : option (Pk (shrincs_wots_scheme P))).
 Definition ud_hybrid_log_loc := mkloc 311 ([::] : seq (Msg (shrincs_wots_scheme P))).
-Definition ud_hybrid_sig_loc := mkloc 312 (None : option (Sig (shrincs_wots_scheme P))).
+Definition ud_hybrid_sig_loc := mkloc 312 (None : option (wc_sig_parts P)).
 
 (** Per chain [i] with digit [d_i := nth 0 d i] of the grinded
     digest, [Hw s] samples ONE hidden uniform root at position
@@ -149,13 +147,13 @@ Definition HGw (s : nat) (b : bool) : game (I_KOTS (shrincs_wots_scheme P)) :=
       #put ud_hybrid_log_loc := [:: m] ;;
       #put ud_hybrid_sig_loc := Some (roots_map (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp s 0 d xs, c) ;;
       ret ((pp, (wcp_T_sf P) pp (pk_adrs P) ((complete_ends P) pp d (roots_map (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp s 0 d xs))),
-           Some (roots_map (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp s 0 d xs, c))
+           Some (wcp_sig_encode P (roots_map (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp s 0 d xs, c)))
     } ;
     [ KFORGE ] : { Msg (shrincs_wots_scheme P) × Sig (shrincs_wots_scheme P) ~> 'bool } '(m, sg) {
       pk ← getSome ud_hybrid_pk_loc ;;
       log ← get ud_hybrid_log_loc ;;
       if b then
-        ret ((shrincs_wots_verify P) pk.1 pk.2 m sg && (m \notin log))
+        ret ((shrincs_wots_verify P) pk.1 pk.2 m (wcp_sig_decode P sg) && (m \notin log))
       else
         ret false
     }
@@ -253,31 +251,17 @@ Qed.
 
 Definition r_ud_pk_loc := mkloc 313 (None : option (Pk (shrincs_wots_scheme P))).
 Definition r_ud_log_loc := mkloc 314 ([::] : seq (Msg (shrincs_wots_scheme P))).
-Definition r_ud_sig_loc := mkloc 315 (None : option (Sig (shrincs_wots_scheme P))).
+Definition r_ud_sig_loc := mkloc 315 (None : option (wc_sig_parts P)).
 
-(** The grinding loop: one UCOLLQ call per counter below [c_max],
+(** The grinding loop: one EVAL call per counter below [c_max],
     each evaluating H_grind at the grinding address of this instance
     under the hidden [pp]; returns the answer list. *)
-Fixpoint grind_all (m : (wcp_M P)) (cs : seq nat) : raw_code (chList 'nat) :=
-  match cs with
-  | [::] => ret [::]
-  | c :: cs' =>
-      r ← (call [ UCOLLQ ] :
-             { ((wc_adrs_ch P) × (('list (wcp_N P)) ∐ ((wcp_M P) × 'nat))) ~> ((wcp_N P) ∐ 'nat) }
-             ((encode_tweak P) (grind_adrs P), inr (m, c))) ;;
-      hs ← grind_all m cs' ;;
-      ret ((if r is inr h then h else 0) :: hs)
-  end.
+Local Abbreviation grind_all :=
+  (grind_loop P).
 
 #[export] Instance grind_all_valid (L : Locations) (m : (wcp_M P)) (cs : seq nat) :
-  ValidCode L (I_SMUD (thf_chain P) (coll_chain P)) (grind_all m cs).
-Proof.
-elim: cs => [|c cs IH] /=.
-- apply valid_ret.
-- eapply valid_opr; first by fmap_solve.
-  move=> r; eapply valid_bind; [exact: IH|].
-  move=> hs; apply valid_ret.
-Qed.
+  ValidCode L (I_SMUD (thf_hash P)) (grind_all m cs).
+Proof. apply: grind_loop_valid; fmap_solve. Qed.
 
 (** The query loop: one UQUERY at the encoded chain address
     [(i, s)] per chain with digit [>= s + 2] (the chains on which the
@@ -295,7 +279,7 @@ Fixpoint r_ud_loop (s i : nat) (ds : seq nat) : raw_code (chList (wcp_N P)) :=
   end.
 
 #[export] Instance r_ud_loop_valid (L : Locations) (s i : nat) (ds : seq nat) :
-  ValidCode L (I_SMUD (thf_chain P) (coll_chain P)) (r_ud_loop s i ds).
+  ValidCode L (I_SMUD (thf_hash P)) (r_ud_loop s i ds).
 Proof.
 elim: ds i => [|d ds IH] i /=.
 - apply valid_ret.
@@ -309,9 +293,9 @@ elim: ds i => [|d ds IH] i /=.
     move=> ys; apply valid_ret.
 Qed.
 
-(** The reduction.  COMMIT: one unguarded UCOLLQ call pins [pp]'s
+(** The reduction. COMMIT: one EVAL call outside the chain class pins [pp]'s
     lazy sampling at a fixed program point in both compositions (the
-    UCOLLQ pin), the grinding runs through the collection oracle
+    EVAL pin), the grinding runs through EVAL
     ([grind_all] + the pure [grind_pick]), the per-chain
     queries follow at the digest's digits, then UGETPP reveals [pp]
     and COMMIT finishes purely (compressed pk from the completed
@@ -322,19 +306,19 @@ Qed.
    an unconstrained fsubmap search). Discharge it on the concrete goal
    with [ssprove_valid], then close the [grind_all]/[r_ud_loop] subgoals via
    their registered [ValidCode] instances. *)
-Definition R_ud (b : bool) (s : nat) : package (I_SMUD (thf_chain P) (coll_chain P)) (I_KOTS (shrincs_wots_scheme P)).
+Definition R_ud (b : bool) (s : nat) : package (I_SMUD (thf_hash P)) (I_KOTS (shrincs_wots_scheme P)).
 Proof.
   notypeclasses refine [package [fmap r_ud_pk_loc ; r_ud_log_loc ; r_ud_sig_loc ] ;
     [ COMMIT ] : { SParam (shrincs_wots_scheme P) × Msg (shrincs_wots_scheme P) ~> Pk (shrincs_wots_scheme P) × 'option (Sig (shrincs_wots_scheme P)) } '(sp, m) {
       pko ← get r_ud_pk_loc ;;
       #assert ~~ (isSome pko) ;;
-      _ ← (call [ UCOLLQ ] :
-             { ((wc_adrs_ch P) × (('list (wcp_N P)) ∐ ((wcp_M P) × 'nat))) ~> ((wcp_N P) ∐ 'nat) }
-             ((encode_tweak P) (grind_adrs P), inl [::])) ;;
+      _ ← (call [ EVAL ] :
+             { (wc_adrs_ch P × wcp_HM P) ~> wcp_N P }
+             (wcp_encode_grind P (grind_adrs P) m 0)) ;;
       hs ← grind_all m (iota 0 (wcp_c_max P)) ;;
       #assert (isSome ((intermediates.cp_pick P) hs)) ;;
-      let c := (odflt (0, 0) ((intermediates.cp_pick P) hs)).1 in
-      let d := rev (digits_w (wcp_w P) (wcp_chain_count P) (odflt (0, 0) ((intermediates.cp_pick P) hs)).2) in
+      let c := (odflt (0, wcp_G0 P) ((intermediates.cp_pick P) hs)).1 in
+      let d := wcp_digits P (odflt (0, wcp_G0 P) ((intermediates.cp_pick P) hs)).2 in
       ys ← r_ud_loop s 0 d ;;
       pp ← (call [ UGETPP ] : { 'unit ~> (wcp_PP P) } tt) ;;
       #put r_ud_pk_loc :=
@@ -342,13 +326,13 @@ Proof.
       #put r_ud_log_loc := [:: m] ;;
       #put r_ud_sig_loc := Some (rud_sig (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp s 0 d ys, c) ;;
       ret ((pp, (wcp_T_sf P) pp (pk_adrs P) ((complete_ends P) pp d (rud_sig (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp s 0 d ys))),
-           Some (rud_sig (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp s 0 d ys, c))
+           Some (wcp_sig_encode P (rud_sig (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp s 0 d ys, c)))
     } ;
     [ KFORGE ] : { Msg (shrincs_wots_scheme P) × Sig (shrincs_wots_scheme P) ~> 'bool } '(m, sg) {
       pk ← getSome r_ud_pk_loc ;;
       log ← get r_ud_log_loc ;;
       if b then
-        ret ((shrincs_wots_verify P) pk.1 pk.2 m sg && (m \notin log))
+        ret ((shrincs_wots_verify P) pk.1 pk.2 m (wcp_sig_decode P sg) && (m \notin log))
       else
         ret false
     }
@@ -358,34 +342,117 @@ Proof.
 Defined.
 
 (* ------------------------------------------------------------------ *)
+(** ** Linked oracle bodies *)
+
+Local Abbreviation SMU b :=
+  (SMUD_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P) b).
+
+Definition ud_eval_op : opsig :=
+  (EVAL, (wc_adrs_ch P × wcp_HM P, wcp_N P)).
+Definition ud_uqo : opsig := (UQUERY, (wc_adrs_ch P, wcp_N P)).
+Definition ud_gpo : opsig := (UGETPP, ('unit, wcp_PP P)).
+
+Lemma resolve_ud_eval (b : bool) (q : wc_adrs_ch P * wcp_HM P) :
+  resolve (SMU b) ud_eval_op q =
+  (#assert ~~ wcp_chain_class P q.1 ;;
+   ppo ← get (ud_pp_loc (thf_hash P)) ;;
+   pp ← match ppo with
+        | Some pp => ret pp
+        | None => pp ← wcp_dPP P ;; #put (ud_pp_loc (thf_hash P)) := Some pp ;; ret pp
+        end ;;
+   ret (th_eval (thf_hash P) pp q.1 q.2)).
+Proof. by case: q => t x; case: b; simplify_linking. Qed.
+
+Lemma resolve_ud_uq_real (t : wc_adrs_ch P) :
+  resolve (SMU true) ud_uqo t =
+  (#assert wcp_chain_class P t ;;
+   revealed ← get ud_rev_loc ;;
+   #assert ~~ revealed ;;
+   tws ← get (ud_tws_loc (thf_hash P)) ;;
+   #assert (size tws < wcp_chain_count P)%N ;;
+   #assert (t \notin tws) ;;
+   #put (ud_tws_loc (thf_hash P)) := rcons tws t ;;
+   ppo ← get (ud_pp_loc (thf_hash P)) ;;
+   pp ← match ppo with
+        | Some pp => ret pp
+        | None => pp ← wcp_dPP P ;; #put (ud_pp_loc (thf_hash P)) := Some pp ;; ret pp
+        end ;;
+   x ← d_hash_message P ;;
+   ret (th_eval (thf_hash P) pp t x)).
+Proof. by simplify_linking. Qed.
+
+Lemma resolve_ud_uq_ideal (t : wc_adrs_ch P) :
+  resolve (SMU false) ud_uqo t =
+  (#assert wcp_chain_class P t ;;
+   revealed ← get ud_rev_loc ;;
+   #assert ~~ revealed ;;
+   tws ← get (ud_tws_loc (thf_hash P)) ;;
+   #assert (size tws < wcp_chain_count P)%N ;;
+   #assert (t \notin tws) ;;
+   #put (ud_tws_loc (thf_hash P)) := rcons tws t ;;
+   y ← wcp_dN P ;;
+   ret y).
+Proof. by simplify_linking. Qed.
+
+Lemma resolve_ud_gp (b : bool) (u : unit) :
+  resolve (SMU b) ud_gpo u =
+  (ppo ← get (ud_pp_loc (thf_hash P)) ;;
+   pp ← match ppo with
+        | Some pp => ret pp
+        | None => pp ← wcp_dPP P ;; #put (ud_pp_loc (thf_hash P)) := Some pp ;; ret pp
+        end ;;
+   #put ud_rev_loc := true ;;
+   ret pp).
+Proof. by case: b; simplify_linking. Qed.
+
+Lemma link_ud_call (b : bool) (o : opsig) (x : src o) :
+  code_link (opr o x (fun y => ret y)) (SMU b) = resolve (SMU b) o x.
+Proof.
+change (bind (resolve (SMU b) o x) (fun y => ret y) = resolve (SMU b) o x).
+exact: bind_ret.
+Qed.
+
+#[local] Arguments resolve : simpl never.
+#[local] Arguments SMUD_game : simpl never.
+#[local] Arguments find_counter : simpl never.
+#[local] Arguments digest_of : simpl never.
+#[local] Arguments complete_ends : simpl never.
+#[local] Arguments shrincs_wots_verify : simpl never.
+#[local] Arguments th_eval : simpl never.
+#[local] Arguments grind_prp : simpl never.
+#[local] Arguments Shrincs.internal.ssprove.wots.params.decode_tweak : simpl never.
+#[local] Arguments intermediates.cp_pick : simpl never.
+Local Opaque SMUD_game.
+
+(* ------------------------------------------------------------------ *)
 (** ** The oracle-loop couplings
 
     Loop-invariant preconditions: heaps agree outside the private
-    locations, [pp] is initialised (by the UCOLLQ pin) and UGETPP has
+    locations, [pp] is initialised (by the EVAL pin) and UGETPP has
     not been called; the tweak list is pinned separately since the
     query loop grows it. *)
 
 Local Abbreviation LL := ([fmap ud_hybrid_pk_loc ; ud_hybrid_log_loc ; ud_hybrid_sig_loc ;
                  r_ud_pk_loc ; r_ud_log_loc ; r_ud_sig_loc ;
-                 ud_pp_loc (thf_chain P) ; ud_tws_loc (thf_chain P) ; ud_rev_loc ]).
+                 ud_pp_loc (thf_hash P) ; ud_tws_loc (thf_hash P) ; ud_rev_loc ]).
 
 Definition r_ud_pre (pp : (wcp_PP P)) : precond :=
   λ '(s₀, s₁),
     [/\ heap_ignore LL (s₀, s₁),
-        get_heap s₁ (ud_pp_loc (thf_chain P)) = Some pp
+        get_heap s₁ (ud_pp_loc (thf_hash P)) = Some pp
       & get_heap s₁ ud_rev_loc = false].
 
 Arguments r_ud_pre : simpl never.
 
 Definition r_ud_pre_t (pp : (wcp_PP P)) (tws : seq (wc_adrs_ch P)) : precond :=
   λ '(s₀, s₁),
-    r_ud_pre pp (s₀, s₁) /\ get_heap s₁ (ud_tws_loc (thf_chain P)) = tws.
+    r_ud_pre pp (s₀, s₁) /\ get_heap s₁ (ud_tws_loc (thf_hash P)) = tws.
 
 Arguments r_ud_pre_t : simpl never.
 
-Lemma r_ud_pre_set_tws (pp : (wcp_PP P)) (v : ud_tws_loc (thf_chain P)) (s₀ s₁ : heap) :
+Lemma r_ud_pre_set_tws (pp : (wcp_PP P)) (v : ud_tws_loc (thf_hash P)) (s₀ s₁ : heap) :
   r_ud_pre pp (s₀, s₁) ->
-  r_ud_pre pp (s₀, set_heap s₁ (ud_tws_loc (thf_chain P)) v).
+  r_ud_pre pp (s₀, set_heap s₁ (ud_tws_loc (thf_hash P)) v).
 Proof.
 case=> h1 h2 h3; split.
 - by apply: heap_ignore_set_r h1; apply: fhas_in; fmap_solve.
@@ -394,28 +461,29 @@ case=> h1 h2 h3; split.
 Qed.
 
 (** The grinding loop is rhs-only and deterministic once [pp] is
-    pinned: every UCOLLQ call reads the initialised [ud_pp_loc] and
+    pinned: every EVAL call reads the initialised [ud_pp_loc] and
     returns an H_grind evaluation; the precondition is preserved and
     the continuation receives the honest answer list. *)
 Lemma r_grind_all (b : bool) {B Bc : choiceType} (pp : (wcp_PP P)) (m : (wcp_M P))
     (cs : seq nat) (pre : precond) (post : postcond B Bc)
-    (c₀ : raw_code B) (k : chList 'nat -> raw_code Bc) :
-  (forall s₀ s₁, pre (s₀, s₁) -> get_heap s₁ (ud_pp_loc (thf_chain P)) = Some pp) ->
+    (c₀ : raw_code B) (k : chList (wcp_G P) -> raw_code Bc) :
+  (forall s₀ s₁, pre (s₀, s₁) -> get_heap s₁ (ud_pp_loc (thf_hash P)) = Some pp) ->
   ⊢ ⦃ λ '(s₀, s₁), pre (s₀, s₁) ⦄
       c₀ ≈ k [seq (wcp_H_grind P) pp (grind_adrs P) (m, c) | c <- cs] ⦃ post ⦄ ->
   ⊢ ⦃ λ '(s₀, s₁), pre (s₀, s₁) ⦄
-      c₀ ≈ bind (code_link (grind_all m cs) (SMUD_game (thf_chain P) (coll_chain P) (wcp_chain_count P) b)) k ⦃ post ⦄.
+      c₀ ≈ bind (code_link (grind_all m cs) (SMUD_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P) b)) k ⦃ post ⦄.
 Proof.
 elim: cs k => [|c cs IH] k hpin hk /=.
 - exact: hk.
-- ssprove_code_simpl; simpl; simplify_linking.
-  eapply (r_get_rhs_pin (ud_pp_loc (thf_chain P)) (Some pp)); first exact: hpin.
+- rewrite bind_assoc
+          (resolve_ud_eval b (wcp_encode_grind P (grind_adrs P) m c)).
+  eapply r_bind_assertD_rhs.
+    by move=> s0 s1 _; exact: (wcp_encode_grind_not_chain P m c).
+  move=> _.
+  eapply (r_get_rhs_pin (ud_pp_loc (thf_hash P)) (Some pp)); first exact: hpin.
   simpl.
   rewrite code_link_bind bind_assoc; simpl.
-  (* The UCOLLQ answer at the grind tweak IS H_grind at the grind
-     address: the decoded grind tweak reproduces [gadrs] ([encode_adrsK]);
-     fold the simplified record back to [gadrs]. *)
-  rewrite [X in (wcp_H_grind P) pp X](_ : _ = (grind_adrs P)); first exact: ((encode_tweakK P) (grind_adrs P)).
+  rewrite (th_evalE_Tgr P).
   apply: IH; [exact: hpin | exact: hk].
 Qed.
 
@@ -431,7 +499,7 @@ Lemma r_rw_loop_real (pp : (wcp_PP P)) (s i : nat) (ds : seq nat)
   (forall j : nat, i <= j -> (j < (wcp_chain_count P))%N -> (chain_tweak P j s \notin tws)) ->
   ⊢ ⦃ λ '(s₀, s₁), r_ud_pre_t pp tws (s₀, s₁) ⦄
       sample_seq (wcp_dN P) (size ds)
-    ≈ code_link (r_ud_loop s i ds) (SMUD_game (thf_chain P) (coll_chain P) (wcp_chain_count P) true)
+    ≈ code_link (r_ud_loop s i ds) (SMUD_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P) true)
   ⦃ λ '(xs, s₀) '(ys, s₁),
       (r_ud_pre pp (s₀, s₁) /\ size xs = size ds)
       /\ ys = uq_real_map (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp s i ds xs ⦄.
@@ -443,29 +511,41 @@ elim: ds i tws => [|d ds IH] i tws hicc hcnt hfresh /=.
   { by apply: leq_trans hicc; rewrite /= addnS ltnS leq_addr. }
   rewrite code_link_bind.
   case: (boolP (s.+2 <= d)) => hd.
-  + (* queried chain: inlined real UQUERY *)
-    ssprove_code_simpl; simpl.
-    eapply (r_get_rhs_pin ud_rev_loc false);
+  + (* queried chain *)
+    rewrite link_ud_call (resolve_ud_uq_real (chain_tweak P i s)).
+    eapply r_bind_assertD_rhs.
+      by move=> s0 s1 _; exact: (wcp_tw_chain_class P i s).
+    move=> _.
+    eapply (r_get_bind_rhs ud_rev_loc false);
       first by move=> s₀ s₁ [[_ _ h] _].
-    simpl.
-    eapply (r_get_rhs_pin (ud_tws_loc (thf_chain P)) tws);
+    cbv beta.
+    eapply r_bind_assertD_rhs; first by [].
+    move=> _.
+    eapply (r_get_bind_rhs (ud_tws_loc (thf_hash P)) tws);
       first by move=> s₀ s₁ [_ h].
+    cbv beta.
     have hlt : size tws < (wcp_chain_count P).
     { apply: leq_trans hcnt; rewrite /= hd add1n addnS ltnS.
       exact: leq_addr. }
     have hni : (chain_tweak P i s \notin tws) := hfresh i (leqnn i) hicc0.
-    rewrite hlt hni; simpl.
-    eapply (r_put_rhs_pre (ud_tws_loc (thf_chain P))
+    eapply r_bind_assertD_rhs; first by [].
+    move=> _.
+    eapply r_bind_assertD_rhs; first by [].
+    move=> _.
+    eapply (r_put_bind_rhs (ud_tws_loc (thf_hash P))
       (rcons tws (chain_tweak P i s)) _
       (r_ud_pre_t pp (rcons tws (chain_tweak P i s)))).
     { move=> s₀ s₁ [hpre _]; split.
       - exact: r_ud_pre_set_tws.
       - exact: get_set_heap_eq. }
-    eapply (r_get_rhs_pin (ud_pp_loc (thf_chain P)) (Some pp));
+    eapply (r_get_bind_rhs (ud_pp_loc (thf_hash P)) (Some pp));
       first by move=> s₀ s₁ [[_ h _] _].
+    cbv beta iota.
+    rewrite /d_hash_message /=.
     rewrite !bind_assoc; simpl.
     eapply r_scheme_bind; [exact _|].
     move=> x.
+    rewrite code_link_bind /=.
     eapply r_bind.
     * apply: IH.
       { by rewrite addSnnS. }
@@ -480,13 +560,11 @@ elim: ds i tws => [|d ds IH] i tws hicc hcnt hfresh /=.
       apply r_ret => s₀' s₁' /= [-> ->].
       split; first by split; [exact: hpre| rewrite /= hsz].
       (* The real UQUERY answer at the chain tweak IS the wrapped chain
-         hash.  With the EXACT tweak space [decode_tweak (ctw i s)] is
-         [otf (fto (cadrs i s))], no longer definitionally [cadrs i s], so
-         the chain-hash head needs an explicit [decode_adrs_chain_tweak]
-         fold (the [otf]/[fto] cancel). *)
+         hash. *)
       congr (_ :: _); last exact: hys.
       have hsw : (s < (wcp_w P))%N by apply: (ltn_trans hs); rewrite ltn_predL; apply: (ltnW (wcp_Hw P)).
-      by rewrite core_decodeE (decode_chain_tweak P) (FcE (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp i s x hsw).
+      by rewrite (th_evalE_Tf P)
+                 (FcE (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp i s x hsw).
   + (* direct sample *)
     ssprove_code_simpl; simpl.
     rewrite (code_link_scheme _ _ _ _ (prog_valid (wcp_dN P))) bind_ret.
@@ -512,7 +590,7 @@ Lemma r_rw_loop_ideal (pp : (wcp_PP P)) (s i : nat) (ds : seq nat)
   (forall j : nat, i <= j -> (j < (wcp_chain_count P))%N -> (chain_tweak P j s \notin tws)) ->
   ⊢ ⦃ λ '(s₀, s₁), r_ud_pre_t pp tws (s₀, s₁) ⦄
       sample_seq (wcp_dN P) (size ds)
-    ≈ code_link (r_ud_loop s i ds) (SMUD_game (thf_chain P) (coll_chain P) (wcp_chain_count P) false)
+    ≈ code_link (r_ud_loop s i ds) (SMUD_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P) false)
   ⦃ λ '(xs, s₀) '(ys, s₁),
       (r_ud_pre pp (s₀, s₁) /\ size xs = size ds)
       /\ ys = xs ⦄.
@@ -524,27 +602,38 @@ elim: ds i tws => [|d ds IH] i tws hicc hcnt hfresh /=.
   { by apply: leq_trans hicc; rewrite /= addnS ltnS leq_addr. }
   rewrite code_link_bind.
   case: (boolP (s.+2 <= d)) => hd.
-  + (* queried chain: inlined ideal UQUERY *)
-    ssprove_code_simpl; simpl.
-    eapply (r_get_rhs_pin ud_rev_loc false);
+  + (* queried chain *)
+    rewrite link_ud_call (resolve_ud_uq_ideal (chain_tweak P i s)).
+    eapply r_bind_assertD_rhs.
+      by move=> s0 s1 _; exact: (wcp_tw_chain_class P i s).
+    move=> _.
+    eapply (r_get_bind_rhs ud_rev_loc false);
       first by move=> s₀ s₁ [[_ _ h] _].
-    simpl.
-    eapply (r_get_rhs_pin (ud_tws_loc (thf_chain P)) tws);
+    cbv beta.
+    eapply r_bind_assertD_rhs; first by [].
+    move=> _.
+    eapply (r_get_bind_rhs (ud_tws_loc (thf_hash P)) tws);
       first by move=> s₀ s₁ [_ h].
+    cbv beta.
     have hlt : size tws < (wcp_chain_count P).
     { apply: leq_trans hcnt; rewrite /= hd add1n addnS ltnS.
       exact: leq_addr. }
     have hni : (chain_tweak P i s \notin tws) := hfresh i (leqnn i) hicc0.
-    rewrite hlt hni; simpl.
-    eapply (r_put_rhs_pre (ud_tws_loc (thf_chain P))
+    eapply r_bind_assertD_rhs; first by [].
+    move=> _.
+    eapply r_bind_assertD_rhs; first by [].
+    move=> _.
+    eapply (r_put_bind_rhs (ud_tws_loc (thf_hash P))
       (rcons tws (chain_tweak P i s)) _
       (r_ud_pre_t pp (rcons tws (chain_tweak P i s)))).
     { move=> s₀ s₁ [hpre _]; split.
       - exact: r_ud_pre_set_tws.
       - exact: get_set_heap_eq. }
-    rewrite !bind_assoc; simpl.
+    cbv beta iota.
+    rewrite bind_assoc; simpl.
     eapply r_scheme_bind; [exact _|].
     move=> x.
+    rewrite code_link_bind /=.
     eapply r_bind.
     * apply: IH.
       { by rewrite addSnnS. }
@@ -584,7 +673,7 @@ Lemma r_rw_loop_real_l (pp : (wcp_PP P)) (s : nat) (ds : seq nat) :
   size ds = (wcp_chain_count P) ->
   ⊢ ⦃ λ '(s₀, s₁), r_ud_pre_t pp [::] (s₀, s₁) ⦄
       sample_seq (wcp_dN P) (wcp_chain_count P)
-    ≈ code_link (r_ud_loop s 0 ds) (SMUD_game (thf_chain P) (coll_chain P) (wcp_chain_count P) true)
+    ≈ code_link (r_ud_loop s 0 ds) (SMUD_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P) true)
   ⦃ λ '(xs, s₀) '(ys, s₁),
       (r_ud_pre pp (s₀, s₁) /\ size xs = (wcp_chain_count P))
       /\ ys = uq_real_map (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp s 0 ds xs ⦄.
@@ -606,7 +695,7 @@ Lemma r_rw_loop_ideal_l (pp : (wcp_PP P)) (s : nat) (ds : seq nat) :
   size ds = (wcp_chain_count P) ->
   ⊢ ⦃ λ '(s₀, s₁), r_ud_pre_t pp [::] (s₀, s₁) ⦄
       sample_seq (wcp_dN P) (wcp_chain_count P)
-    ≈ code_link (r_ud_loop s 0 ds) (SMUD_game (thf_chain P) (coll_chain P) (wcp_chain_count P) false)
+    ≈ code_link (r_ud_loop s 0 ds) (SMUD_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P) false)
   ⦃ λ '(xs, s₀) '(ys, s₁),
       (r_ud_pre pp (s₀, s₁) /\ size xs = (wcp_chain_count P))
       /\ ys = xs ⦄.
@@ -635,35 +724,40 @@ Local Abbreviation invR := (
   ⋊ couple_cross ud_hybrid_pk_loc r_ud_pk_loc eq
   ⋊ couple_cross ud_hybrid_log_loc r_ud_log_loc eq
   ⋊ couple_cross ud_hybrid_sig_loc r_ud_sig_loc eq
-  ⋊ couple_rhs r_ud_pk_loc (ud_pp_loc (thf_chain P))
+  ⋊ couple_rhs r_ud_pk_loc (ud_pp_loc (thf_hash P))
       (λ pk ppo, pk = None -> ppo = None)
   ⋊ couple_rhs r_ud_pk_loc ud_rev_loc
       (λ pk r, pk = None -> r = false)
-  ⋊ couple_rhs r_ud_pk_loc (ud_tws_loc (thf_chain P))
+  ⋊ couple_rhs r_ud_pk_loc (ud_tws_loc (thf_hash P))
       (λ pk tws, pk = None -> tws = [::])
 ).
 
 Lemma Rw_real_perfect (b : bool) (s : nat) (hsw : (s < (wcp_w P).-1)%nat) :
-  perfect (I_KOTS (shrincs_wots_scheme P)) (HGw s b) (R_ud b s ∘ SMUD_game (thf_chain P) (coll_chain P) (wcp_chain_count P) true).
+  perfect (I_KOTS (shrincs_wots_scheme P)) (HGw s b) (R_ud b s ∘ SMUD_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P) true).
 Proof.
 ssprove_share. eapply prove_perfect.
 eapply (eq_rel_perf_ind _ _ invR).
 { ssprove_invariant => //. }
 simplify_eq_rel arg.
 - destruct arg as [sp m].
-  ssprove_code_simpl. simpl.
+  simpl.
   ud_remember_rel pko 5%N.
   rewrite code_link_assertD.
   ssprove_sync => hpko.
-  ssprove_code_simpl; simpl; simplify_linking.
+  simpl.
   case: pko hpko => [a|] //= _.
-  (* UCOLLQ pin: pp is still unset, gets sampled here *)
-  eapply (r_get_rhs_pin (ud_pp_loc (thf_chain P)) None).
+  (* EVAL pin: pp is still unset, gets sampled here *)
+  rewrite (resolve_ud_eval true (wcp_encode_grind P (grind_adrs P) m 0)).
+  eapply r_bind_assertD_rhs.
+    by move=> s0 s1 _; exact: (wcp_encode_grind_not_chain P m 0).
+  move=> _.
+  eapply (r_get_bind_rhs (ud_pp_loc (thf_hash P)) None).
   { move=> s₀ s₁ [[hbase hrl] hrr].
     case: hbase => [[[[[[hig hcc1] hcc2] hcc3] hcr1] hcr2] hcr3].
     move: hcr1; rewrite !rel_app_cons /= => hcr1.
     move: hrr; rewrite /rem_inv /= => hrr.
     exact: hcr1 hrr. }
+  cbv beta iota.
   rewrite !bind_assoc; simpl.
   eapply r_scheme_bind; [exact _|].
   move=> pp.
@@ -682,14 +776,6 @@ simplify_eq_rel arg.
     - rewrite get_set_heap_neq //; exact: hcr2 hrr.
     - rewrite get_set_heap_neq //; exact: hcr3 hrr. }
   rewrite code_link_bind.
-  (* NB: the bit must be EXPLICIT: in this goal the composed SMUD game
-     is the unfolded fmap-of-mkdefs literal with the bit already
-     iota-reduced inside the oracle bodies, so a bare
-     [eapply r_grind_all] cannot recover the [SMUD_game T C chain_count ?b]
-     instance by unification; with [true] pinned, conversion identifies
-     [SMUD_game T C chain_count true] with the literal.  [pp] must be explicit
-     too: it does not occur in the conclusion, and the leftover evar
-     in the pin premise ([Some ?pp]) defeats [done]'s assumption. *)
   eapply (r_grind_all true pp).
   { by move=> s₀ s₁ [[_ h _] _]. }
   cbv beta.
@@ -703,15 +789,16 @@ simplify_eq_rel arg.
   rewrite code_link_bind.
   eapply r_bind.
   { apply: r_rw_loop_real_l => //.
-    by rewrite size_rev size_digits_w. }
+    exact: (wcp_digits_size P). }
   move=> xs ys.
   eapply rpre_hypothesis_rule => s₀ s₁ [[hpre hsz] hys].
   eapply (rpre_weaken_rule (λ '(h₀, h₁), r_ud_pre pp (h₀, h₁)));
     last by move=> ? ? /= [-> ->].
   subst ys.
-  simpl; simplify_linking.
+  simpl.
   (* UGETPP: reveal the (already set) pp *)
-  eapply (r_get_rhs_pin (ud_pp_loc (thf_chain P)) (Some pp));
+  rewrite (resolve_ud_gp true Datatypes.tt).
+  eapply (r_get_rhs_pin (ud_pp_loc (thf_hash P)) (Some pp));
     first by move=> ? ? [].
   simpl.
   eapply (r_put_rhs_pre ud_rev_loc true _
@@ -758,26 +845,31 @@ simplify_eq_rel arg.
 Qed.
 
 Lemma Rw_ideal_perfect (b : bool) (s : nat) (hsw : (s < (wcp_w P).-1)%nat) :
-  perfect (I_KOTS (shrincs_wots_scheme P)) (HGw s.+1 b) (R_ud b s ∘ SMUD_game (thf_chain P) (coll_chain P) (wcp_chain_count P) false).
+  perfect (I_KOTS (shrincs_wots_scheme P)) (HGw s.+1 b) (R_ud b s ∘ SMUD_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P) false).
 Proof.
 ssprove_share. eapply prove_perfect.
 eapply (eq_rel_perf_ind _ _ invR).
 { ssprove_invariant => //. }
 simplify_eq_rel arg.
 - destruct arg as [sp m].
-  ssprove_code_simpl. simpl.
+  simpl.
   ud_remember_rel pko 5%N.
   rewrite code_link_assertD.
   ssprove_sync => hpko.
-  ssprove_code_simpl; simpl; simplify_linking.
+  simpl.
   case: pko hpko => [a|] //= _.
-  (* UCOLLQ pin: pp is still unset, gets sampled here *)
-  eapply (r_get_rhs_pin (ud_pp_loc (thf_chain P)) None).
+  (* EVAL pin: pp is still unset, gets sampled here *)
+  rewrite (resolve_ud_eval false (wcp_encode_grind P (grind_adrs P) m 0)).
+  eapply r_bind_assertD_rhs.
+    by move=> s0 s1 _; exact: (wcp_encode_grind_not_chain P m 0).
+  move=> _.
+  eapply (r_get_bind_rhs (ud_pp_loc (thf_hash P)) None).
   { move=> s₀ s₁ [[hbase hrl] hrr].
     case: hbase => [[[[[[hig hcc1] hcc2] hcc3] hcr1] hcr2] hcr3].
     move: hcr1; rewrite !rel_app_cons /= => hcr1.
     move: hrr; rewrite /rem_inv /= => hrr.
     exact: hcr1 hrr. }
+  cbv beta iota.
   rewrite !bind_assoc; simpl.
   eapply r_scheme_bind; [exact _|].
   move=> pp.
@@ -810,15 +902,16 @@ simplify_eq_rel arg.
   rewrite code_link_bind.
   eapply r_bind.
   { apply: r_rw_loop_ideal_l => //.
-    by rewrite size_rev size_digits_w. }
+    exact: (wcp_digits_size P). }
   move=> xs ys.
   eapply rpre_hypothesis_rule => s₀ s₁ [[hpre hsz] hys].
   eapply (rpre_weaken_rule (λ '(h₀, h₁), r_ud_pre pp (h₀, h₁)));
     last by move=> ? ? /= [-> ->].
   subst ys.
-  simpl; simplify_linking.
+  simpl.
   (* UGETPP: reveal the (already set) pp *)
-  eapply (r_get_rhs_pin (ud_pp_loc (thf_chain P)) (Some pp));
+  rewrite (resolve_ud_gp false Datatypes.tt).
+  eapply (r_get_rhs_pin (ud_pp_loc (thf_hash P)) (Some pp));
     first by move=> ? ? [].
   simpl.
   eapply (r_put_rhs_pre ud_rev_loc true _
@@ -876,7 +969,7 @@ Lemma UDw_telescope (b : bool) (A : nom_package)
   (Adv (G_forge_sampledkey P b)
        (G_forge_uniformchains P b) A
      <= \sum_(0 <= s < (wcp_w P).-2)
-          AdvOf (SMUD_game (thf_chain P) (coll_chain P) (wcp_chain_count P)) (A ∘ R_ud b s))%R.
+          AdvOf (SMUD_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P)) (A ∘ R_ud b s))%R.
 Proof.
 (* The position [s] queried by the hybrid at index [s] is in range
    [s < w.-1]: the telescope runs [s] over [0 .. w.-2), and [w.-2 < w.-1]
@@ -886,16 +979,16 @@ have hw1 : (0 < (wcp_w P).-1)%nat by case: (wcp_w P) (wcp_Hw P) => [|[|w']].
 have hw2 : ((wcp_w P).-2 < (wcp_w P).-1)%nat by case: (wcp_w P) (wcp_Hw P) => [|[|w']].
 have hperf0 : perfect (I_KOTS (shrincs_wots_scheme P))
     (G_forge_sampledkey P b)
-    ((R_ud b 0 ∘ SMUD_game (thf_chain P) (coll_chain P) (wcp_chain_count P) true)%sep).
+    ((R_ud b 0 ∘ SMUD_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P) true)%sep).
 { exact: perfect_trans (G_forge_sampledkey_Hw0 b) (Rw_real_perfect b 0 hw1). }
 have hperfw : perfect (I_KOTS (shrincs_wots_scheme P))
     (G_forge_uniformchains P b)
-    ((R_ud b (wcp_w P).-2 ∘ SMUD_game (thf_chain P) (coll_chain P) (wcp_chain_count P) true)%sep).
+    ((R_ud b (wcp_w P).-2 ∘ SMUD_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P) true)%sep).
 { exact: perfect_trans (G_forge_uniformchains_Hww b) (Rw_real_perfect b (wcp_w P).-2 hw2). }
 have hadj : forall s : nat, s < (wcp_w P).-2 ->
     perfect (I_KOTS (shrincs_wots_scheme P))
-      ((R_ud b s ∘ SMUD_game (thf_chain P) (coll_chain P) (wcp_chain_count P) false)%sep)
-      ((R_ud b s.+1 ∘ SMUD_game (thf_chain P) (coll_chain P) (wcp_chain_count P) true)%sep).
+      ((R_ud b s ∘ SMUD_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P) false)%sep)
+      ((R_ud b s.+1 ∘ SMUD_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P) true)%sep).
 { move=> s hs2.
   exact: perfect_trans (perfect_sym (Rw_ideal_perfect b s (ltn_trans hs2 hw2)))
            (Rw_real_perfect b s.+1 (leq_ltn_trans hs2 hw2)). }
@@ -903,11 +996,11 @@ have h := Adv_hybrid_dep (n := (wcp_w P).-2)
   (Multi := fun b' => if b'
             then as_nom (G_forge_sampledkey P b)
             else as_nom (G_forge_uniformchains P b))
-  (Game := fun s b' => (R_ud b s ∘ SMUD_game (thf_chain P) (coll_chain P) (wcp_chain_count P) b')%sep)
+  (Game := fun s b' => (R_ud b s ∘ SMUD_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P) b')%sep)
   (A := A) hperf0 hperfw hadj.
-have -> : (\sum_(0 <= s < (wcp_w P).-2) AdvOf (SMUD_game (thf_chain P) (coll_chain P) (wcp_chain_count P)) (A ∘ R_ud b s)
+have -> : (\sum_(0 <= s < (wcp_w P).-2) AdvOf (SMUD_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P)) (A ∘ R_ud b s)
   = \sum_(0 <= s < (wcp_w P).-2)
-      AdvOf (λ b' : bool, (R_ud b s ∘ SMUD_game (thf_chain P) (coll_chain P) (wcp_chain_count P) b')%sep) A)%R.
+      AdvOf (λ b' : bool, (R_ud b s ∘ SMUD_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P) b')%sep) A)%R.
 { by apply: eq_big_nat => s _; rewrite Adv_reduction. }
 exact: h.
 Qed.

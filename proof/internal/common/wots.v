@@ -15,10 +15,8 @@
     counter is prepended to the signature.
 
     This is the shared, Stdlib-only ground-truth model for WOTS+C: the
-    VST tree bridges its C-refinement proof to it directly, and the
-    SSProve tree's headline theorem is instantiated against it (see
-    proof/internal/ssprove/axioms.v and theorem.v's PRF-keyed
-    instantiation). Its address handling comes from [Shrincs.internal.common.address]
+    VST tree bridges its C-refinement proof to it directly. Its address
+    handling comes from [Shrincs.internal.common.address]
     (the full shrincs-bip ADRS space) rather than a WOTS+C-only local
     record.
 

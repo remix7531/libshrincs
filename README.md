@@ -4,10 +4,10 @@ Formally verified [SHRINCS](https://eprint.iacr.org/2025/2203) constructions. Fi
 
 > **Status.** Proof-of-concept first construction (WOTS+C) toward full SHRINCS. The C in `src/` and its VST contracts are provisional and will change.
 
-Two independent, machine-checked proofs over one shared model (`proof/internal/common/`):
+The C correctness proof and the generic security reductions are machine-checked:
 
 - **`proof/internal/vst/`**: the C in `src/` is functionally correct (Rocq 9.2 + VST/CompCert).
-- **`proof/internal/ssprove/`**: the scheme is one-time known-message unforgeable (the valid-commit experiment `KOTS_vc_game`), reduced to standard hash assumptions (Rocq + SSProve/MathComp), and provably computes the same thing as the model the C is verified against.
+- **`proof/internal/ssprove/`**: generic WOTS+C one-time known-message security is bounded by explicit reductions against the hash games in `proof/games.v`.
 
 ## Build & verify
 
@@ -19,7 +19,7 @@ make audit       # proofs + the honesty gate; ends with the TRUST SURFACE table
 make check       # everything: static analysis, sanitizers, CompCert, ctgrind, proofs
 ```
 
-`make audit` is the claim of this repository: no admitted goals, and every assumption both proofs rest on enumerated in one table, including six named hash-game axioms (declared in [`proof/internal/ssprove/axioms.v`](proof/internal/ssprove/axioms.v), allowlisted in [`proof/assumptions/allowed.txt`](proof/assumptions/allowed.txt)) and the inherited library baselines.
+`make audit` checks proof gaps and enumerates the inherited library assumptions in [`proof/assumptions/allowed.txt`](proof/assumptions/allowed.txt). The security bound constructs each reduction and states its advantage explicitly.
 
 SHA-256 is defined by the FIPS 180-4 transcription in `proof/sha256.v`. The proofs in `proof/internal/vst/sha256/` establish that `src/sha256.c` implements that definition.
 
@@ -35,7 +35,7 @@ proof/assumptions/  the honesty gate: per-tree probes + one allowlist
 proof/STYLE.md      the proof style guide
 ```
 
-Start with [`proof/README.md`](proof/README.md) for how the trees fit together and what to verify by hand; each tree's own `README.md` has its reading guide.
+Start with [`proof/README.md`](proof/README.md) for how the trees fit together and what to verify by hand.
 
 ## License
 

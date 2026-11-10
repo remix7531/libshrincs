@@ -284,9 +284,8 @@ Definition adrs_ni (a : adrs) : fin (2^64) :=
     The chain index / position are now taken as bound-carrying [fin]
     fields directly (no [nat -> fin] clamp): every caller has the bound
     in hand -- the VST funspecs (chain index [< chain_count = 32],
-    position [< w-1 = 15]), the model's own [chain_iter] (dependent
-    Fixpoint), and the SSProve fold via its boundary totalizer
-    ([Shrincs.internal.ssprove.addressing.chain_of_nat] / [pos_of_nat]).  So the model is
+    position [< w-1 = 15]) and the model's own [chain_iter] (dependent
+    Fixpoint). So the model is
     exactly reachable-states: an illegal (out-of-range) chain/position
     is unrepresentable, not merely never built. *)
 

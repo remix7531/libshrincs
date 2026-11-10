@@ -140,16 +140,6 @@ Proof.
   apply Nat2Z.inj. exact E.
 Qed.
 
-(** NOTE: the model deliberately has NO saturating totalizer.  A TOTAL
-    [Z -> fin] clamp used to live here (and briefly at the SSProve tweak
-    boundary); the zero-clamp refactor deleted it everywhere.  The
-    reachable-states model is now EXACT -- every [fin] field is built
-    from a bound proof (via [fin_of_Z] / [fin_of_nat]), so a construct
-    that saturates out-of-range inputs is not part of the model's
-    vocabulary.  The one residual total adapter, at the SSProve
-    abstract-scheme boundary where a bare [nat] index arrives
-    ([Shrincs.internal.ssprove.addressing]'s [shrincs_wots_chain_adrs_tot]), is a
-    [Bool.bool_dec] exact-in-range / dummy-out-of-range wrapper -- NOT a
-    clamp: it never truncates, and its out-of-range branch is a distinct
-    unused address that is provably never reached.  [Shrincs.internal.common.fin] is now
-    pristine exact-ordinal algebra. *)
+(** The model builds every [fin] field from a bound proof via
+    [fin_of_Z] or [fin_of_nat]. It has no saturating totalizer, so an
+    out-of-range value is unrepresentable. *)

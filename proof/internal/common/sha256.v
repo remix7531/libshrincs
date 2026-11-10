@@ -10,7 +10,7 @@
     transcription a reviewer reads, pinned by eleven known-answer tests
     against sha256sum(1) and python3 hashlib -- re-typed into the
     model's own byte vocabulary. The hash computation is defined here.
-    Hash-game security remains an assumption of [Shrincs.internal.ssprove.axioms].
+    Hash-game security is stated through the experiments in [Shrincs.games].
 
     THE TYPE IS UNCHANGED, so no consumer changed with it, and it still
     states the two properties every consumer needs intrinsically rather

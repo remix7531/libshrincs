@@ -8,7 +8,7 @@
 #   1. proof gaps      -- no Admitted / admit. / give_up. in the tree.
 #   2. assumption confinement -- every Axiom/Parameter/Conjecture/Hypothesis
 #      declaration lives in an allowlisted file (model -> machine.v and the
-#      discharged address.v Hpb hypothesis; ssprove -> axioms.v; vst -> none).
+#      discharged address.v Hpb hypothesis; ssprove and vst permit none).
 #      Catches a smuggled assumption by SOURCE TEXT even if unused.
 #      A confinement check, not exact-name: a new assumption inside an allowed
 #      file is caught by gate 3 iff an audited theorem uses it.
@@ -141,7 +141,7 @@ gate2_model() {
 
 gate2_ssprove() {
   gate2_confined ssprove \
-    'internal/ssprove/axioms\.v:' \
+    '$^' \
     internal/ssprove "$ASSUMPTIONS_DIR"
 }
 
@@ -193,7 +193,7 @@ gate3_assumptions() {
 # allowlist.
 CLASSICAL_MODEL=()
 CLASSICAL_SSPROVE=(
-  R
+  Axioms.R
   boolp.constructive_indefinite_description
   boolp.functional_extensionality_dep
   boolp.propositional_extensionality

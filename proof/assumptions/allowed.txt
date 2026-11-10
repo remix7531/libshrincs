@@ -20,24 +20,10 @@
 # --- SSProve / mathcomp-analysis classical-logic baseline (inherited from
 #     the library, not asserted by this repo: excluded middle, choice,
 #     and extensionality) ---
-R                                          # mathcomp-analysis abstract real-number carrier (reals.Real.type)
+Axioms.R                                   # SSProve abstract real carrier
 boolp.constructive_indefinite_description  # classical choice, via mathcomp-analysis's boolp
 boolp.functional_extensionality_dep        # dependent functional extensionality (boolp)
 boolp.propositional_extensionality         # propositional extensionality (boolp)
-# --- the 6 real-valued advantage-bound Parameters (internal/ssprove/axioms.v) ---
-eps_prf                                    # PRF advantage bound
-eps_smud                                   # SM-UD advantage bound
-eps_stcrp                                  # STCRP advantage bound
-eps_tcr_pk                                 # SM-TCR advantage bound at the pk-compression hash
-eps_tcr_chain                              # SM-TCR advantage bound at the chain hash
-eps_pre                                    # SM-PRE advantage bound
-# --- the 6 named hash-game security assumptions (internal/ssprove/axioms.v) ---
-sha256_prf_secure                          # truncated-SHA256 is eps_prf-secure as a PRF
-sha256_smud_secure                         # truncated-SHA256 is eps_smud-secure (SM-UD)
-sha256_stcrp_secure                        # truncated-SHA256 is eps_stcrp-secure (STCRP)
-sha256_tcr_pk_secure                       # truncated-SHA256 is eps_tcr_pk-secure (SM-TCR @ pk-compression hash)
-sha256_tcr_chain_secure                    # truncated-SHA256 is eps_tcr_chain-secure (SM-TCR @ chain hash)
-sha256_pre_secure                          # truncated-SHA256 is eps_pre-secure (SM-PRE)
 
 [vst]
 # --- CompCert / Flocq / VST classical-logic baseline (inherited from the

@@ -10,21 +10,20 @@
     [R_chain_pre] routes G_post_chain's residual chain-meet case to an SM-PRE(F)
     PCHECK and is perfect on both sides of the SM-PRE pair
     ([R_chain_pre_real], [R_chain_pre_ideal]).  The shared chain substrate lives
-    in [Shrincs.internal.ssprove.hop.chain_common]; this file is the SM-PRE half built
+    in [Shrincs.internal.ssprove.wots.hop.chain_common]; this file is the SM-PRE half built
     over that substrate (with the shared [simpl never] directives
     re-declared locally, ahead of the proofs). *)
 
 From mathcomp.experimental_reals Require Import distr.
-From Shrincs.internal.ssprove.lib Require Import prelude sig.scheme sig.kots
-  games.thf games.smtcr games.smpre toolkit.sample_seq toolkit.relational_rules
+From Shrincs.internal.ssprove.lib Require Import prelude
+  toolkit.sample_seq toolkit.relational_rules
   toolkit.hop_tactics.
-From Shrincs.internal.common Require Import math.chain math.encoding.
 From Shrincs.internal.ssprove.lib Require Import chain.core.
-From Shrincs.internal.ssprove Require Import addressing.
-From Shrincs.internal.ssprove.wots Require Import addressing.
+From Shrincs Require Import games.
 From Shrincs.internal.ssprove.wots Require Import scheme games analysis
   hop.intermediates.
 From Shrincs.internal.ssprove.wots Require Import hop.chain_common.
+
 
 Import PackageNotation.
 #[local] Open Scope package_scope.
@@ -37,11 +36,11 @@ Context (P : wc_params).
 
 (** The SM-PRE game pair at this instance (a library-game pin) and the
     SM-PRE reduction's own location pins (library locations at the
-    file-local [thf_chain P] instance). *)
-Local Abbreviation SMP b := (SMPRE_game (thf_chain P) (coll_chain P) (wcp_chain_count P) b).
-Local Abbreviation ppp_loc := (pre_pp_loc (thf_chain P)).
-Local Abbreviation ptgts_loc := (pre_tgts_loc (thf_chain P)).
-Local Abbreviation ptws_loc := (pre_tws_loc (thf_chain P)).
+    file-local [thf_hash P] instance). *)
+Local Abbreviation SMP b := (SMPRE_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P) b).
+Local Abbreviation ppp_loc := (pre_pp_loc (thf_hash P)).
+Local Abbreviation ptgts_loc := (pre_tgts_loc (thf_hash P)).
+Local Abbreviation ptws_loc := (pre_tws_loc (thf_hash P)).
 Local Abbreviation prev_loc := pre_rev_loc.
 
 (* ------------------------------------------------------------------ *)
@@ -49,7 +48,7 @@ Local Abbreviation prev_loc := pre_rev_loc.
 
     The chain bookkeeping lists ([commit_queries], [pre_queries]) live
     over abstract (chain, position) tweaks; the SM-TCR/SM-PRE games on
-    [thf_chain] store ENCODED addresses.  [chain_common.wq] re-tags one
+    [thf_hash] store ENCODED addresses.  [chain_common.wq] re-tags one
     committed entry; positions are untouched, so all indices
     ([q_index], [pre_index]) are consumed unchanged. *)
 
@@ -64,9 +63,7 @@ Local Abbreviation qentry := ((nat * nat) * wcp_N P)%type.
 #[local] Arguments find_counter : simpl never.
 #[local] Arguments complete_ends : simpl never.
 #[local] Arguments shrincs_wots_verify : simpl never.
-#[local] Arguments digits_w : simpl never.
 #[local] Arguments th_eval : simpl never.
-#[local] Arguments tc_eval : simpl never.
 #[local] Arguments grind_prp : simpl never.
 #[local] Arguments decode_tweak : simpl never.
 #[local] Arguments intermediates.cp_pick : simpl never.
@@ -79,33 +76,21 @@ Local Abbreviation qentry := ((nat * nat) * wcp_N P)%type.
 (* ------------------------------------------------------------------ *)
 (** *** The oracle-routed loops *)
 
-(** PQUERY/PGETPP/PCHECK/PCOLLQ opsigs as committed to
-    [I_SMPRE (thf_chain P) (coll_chain P)]. *)
-Definition pr_pqo : opsig := (PQUERY, (th_T (thf_chain P), th_N (thf_chain P))).
-Definition pr_gpo : opsig := (PGETPP, ('unit, th_PP (thf_chain P))).
-Definition pr_cko : opsig := (PCHECK, ('nat × th_M (thf_chain P), 'bool)).
-Definition pr_cqo : opsig := (PCOLLQ, (tc_T (coll_chain P) × tc_M (coll_chain P), tc_N (coll_chain P))).
+(** PQUERY/PGETPP/PCHECK/EVAL opsigs as committed to
+    [I_SMPRE (thf_hash P)]. *)
+Definition pr_pqo : opsig := (PQUERY, (th_T (thf_hash P), th_N (thf_hash P))).
+Definition pr_gpo : opsig := (PGETPP, ('unit, th_PP (thf_hash P))).
+Definition pr_cko : opsig := (PCHECK, ('nat × th_M (thf_hash P), 'bool)).
+Definition pr_eval_op : opsig :=
+  (EVAL, (wc_adrs_ch P × wcp_HM P, wcp_N P)).
 
-(** The grinding loop through PCOLLQ ([ct_grind]'s twin). *)
-Fixpoint pr_grind (m : wcp_M P) (cs : seq nat) : raw_code (chList 'nat) :=
-  match cs with
-  | [::] => ret [::]
-  | c :: cs' =>
-      opr pr_cqo (encode_tweak P (grind_adrs P), inr (m, c))
-        (λ r,
-           hs ← pr_grind m cs' ;;
-           ret ((if r is inr h then h else 0) :: hs))
-  end.
+(** The grinding loop through EVAL. *)
+Local Abbreviation pr_grind :=
+  (grind_loop P).
 
 #[local] Instance pr_grind_valid (L : Locations) (m : wcp_M P) (cs : seq nat) :
-  ValidCode L (I_SMPRE (thf_chain P) (coll_chain P)) (pr_grind m cs).
-Proof.
-elim: cs => [|c cs IH] /=.
-- apply valid_ret.
-- eapply valid_opr; first by fmap_solve.
-  move=> r; eapply valid_bind; [exact: IH|].
-  move=> hs; apply valid_ret.
-Qed.
+  ValidCode L (I_SMPRE (thf_hash P)) (pr_grind m cs).
+Proof. apply: grind_loop_valid; fmap_solve. Qed.
 
 (** All chains from index [st] with digits [ds]: positive digits make
     the sigma PQUERY at the encoded chain address (the oracle hides
@@ -124,7 +109,7 @@ Fixpoint pr_chains (st : nat) (ds : seq nat) : raw_code (chList (wcp_N P)) :=
   end.
 
 #[local] Instance pr_chains_valid (L : Locations) st ds :
-  ValidCode L (I_SMPRE (thf_chain P) (coll_chain P)) (pr_chains st ds).
+  ValidCode L (I_SMPRE (thf_hash P)) (pr_chains st ds).
 Proof.
 elim: ds st => [|d ds IH] st /=.
 - apply valid_ret.
@@ -143,28 +128,29 @@ Qed.
 (** R's own locations (360+, see header). *)
 Definition r_chain_pre_pk_loc := mkloc 360 (None : option (Pk (shrincs_wots_scheme P))).
 Definition r_chain_pre_log_loc := mkloc 361 ([::] : seq (Msg (shrincs_wots_scheme P))).
-Definition r_chain_pre_sig_loc := mkloc 362 (None : option (Sig (shrincs_wots_scheme P))).
+Definition r_chain_pre_sig_loc := mkloc 362 (None : option (wc_sig_parts P)).
 
 (** THE reduction: plays [I_KOTS (shrincs_wots_scheme P)] using the SM-PRE
-    oracles.  See the header for the PCOLLQ pin in COMMIT. *)
-Definition R_chain_pre : package (I_SMPRE (thf_chain P) (coll_chain P)) (I_KOTS (shrincs_wots_scheme P)) :=
+    oracles.  See the header for the EVAL pin in COMMIT. *)
+Definition R_chain_pre : package (I_SMPRE (thf_hash P)) (I_KOTS (shrincs_wots_scheme P)) :=
   [package [fmap r_chain_pre_pk_loc ; r_chain_pre_log_loc ; r_chain_pre_sig_loc ] ;
     [ COMMIT ] : { SParam (shrincs_wots_scheme P) × Msg (shrincs_wots_scheme P) ~> Pk (shrincs_wots_scheme P) × 'option (Sig (shrincs_wots_scheme P)) } '(sp, m) {
       pko ← get r_chain_pre_pk_loc ;;
       #assert ~~ (isSome pko) ;;
-      _ ← opr pr_cqo (encode_tweak P (grind_adrs P), inr (m, 0)) (λ r, ret r) ;;
+      _ ← opr pr_eval_op (wcp_encode_grind P (grind_adrs P) m 0) (λ r, ret r) ;;
       hs ← pr_grind m (iota 0 (wcp_c_max P)) ;;
       #assert (isSome (intermediates.cp_pick P hs)) ;;
-      let c := (odflt (0, 0) (intermediates.cp_pick P hs)).1 in
-      let d := rev (digits_w (wcp_w P) (wcp_chain_count P) (odflt (0, 0) (intermediates.cp_pick P hs)).2) in
+      let c := (odflt (0, wcp_G0 P) (intermediates.cp_pick P hs)).1 in
+      let d := wcp_digits P (odflt (0, wcp_G0 P) (intermediates.cp_pick P hs)).2 in
       sgs ← pr_chains 0 d ;;
       pp ← opr pr_gpo Datatypes.tt (λ p, ret p) ;;
       #put r_chain_pre_pk_loc := Some (pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp d sgs)) ;;
       #put r_chain_pre_log_loc := [:: m] ;;
       #put r_chain_pre_sig_loc := Some (sgs, c) ;;
-      ret ((pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp d sgs)), Some (sgs, c))
+      ret ((pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp d sgs)), Some (wcp_sig_encode P (sgs, c)))
     } ;
-    [ KFORGE ] : { Msg (shrincs_wots_scheme P) × Sig (shrincs_wots_scheme P) ~> 'bool } '(mst, sgst) {
+    [ KFORGE ] : { Msg (shrincs_wots_scheme P) × Sig (shrincs_wots_scheme P) ~> 'bool } '(mst, sgw) {
+      let sgst := wcp_sig_decode P sgw in
       pk ← getSome r_chain_pre_pk_loc ;;
       log ← get r_chain_pre_log_loc ;;
       sgo ← get r_chain_pre_sig_loc ;;
@@ -185,7 +171,7 @@ Definition R_chain_pre : package (I_SMPRE (thf_chain P) (coll_chain P)) (I_KOTS 
                 | None =>
                     match wpre_dec P pk.1 (digest_of P pk.1 m sgc.2)
                             (digest_of P pk.1 mst sgst.2) sgc.1 sgst.1 with
-                    | Some jx => opr pr_cko jx (λ ans, ret ans)
+                    | Some (j, x) => opr pr_cko (j, wcp_encode_node P x) (λ ans, ret ans)
                     | None => ret true
                     end
                 end
@@ -198,26 +184,28 @@ Definition R_chain_pre : package (I_SMPRE (thf_chain P) (coll_chain P)) (I_KOTS 
 (* ------------------------------------------------------------------ *)
 (** *** Linked oracle bodies (resolve equations, computed once) *)
 
-Lemma resolve_pr_cq (b : bool) (t : tc_T (coll_chain P)) (x : tc_M (coll_chain P)) :
-  resolve (SMP b) pr_cqo (t, x) =
-  (ppo ← get ppp_loc ;;
+Lemma resolve_pr_eval (b : bool) (q : wc_adrs_ch P * wcp_HM P) :
+  resolve (SMP b) pr_eval_op q =
+  (#assert ~~ wcp_chain_class P q.1 ;;
+   ppo ← get ppp_loc ;;
    pp ← match ppo with
         | Some pp => ret pp
         | None => pp ← wcp_dPP P ;; #put ppp_loc := Some pp ;; ret pp
         end ;;
-   ret (tc_eval (coll_chain P) pp t x)).
+   ret (th_eval (thf_hash P) pp q.1 q.2)).
 Proof.
-by case: b; simplify_linking.
+by case: q => t x; case: b; simplify_linking.
 Qed.
 
-Lemma resolve_pr_pq (b : bool) (t : th_T (thf_chain P)) :
+Lemma resolve_pr_pq (b : bool) (t : th_T (thf_hash P)) :
   resolve (SMP b) pr_pqo t =
-  (revealed ← get prev_loc ;;
+  (#assert wcp_chain_class P t ;;
+   revealed ← get prev_loc ;;
    #assert ~~ revealed ;;
    tws ← get ptws_loc ;;
    #assert (size tws < wcp_chain_count P)%N ;;
    #assert (t \notin tws) ;;
-   x ← wcp_dN P ;;
+   x ← d_hash_message P ;;
    tgts ← get ptgts_loc ;;
    #put ptgts_loc := setm tgts (size tws) (t, x) ;;
    #put ptws_loc := rcons tws t ;;
@@ -226,7 +214,7 @@ Lemma resolve_pr_pq (b : bool) (t : th_T (thf_chain P)) :
         | Some pp => ret pp
         | None => pp ← wcp_dPP P ;; #put ppp_loc := Some pp ;; ret pp
         end ;;
-   ret (th_eval (thf_chain P) pp t x)).
+   ret (th_eval (thf_hash P) pp t x)).
 Proof.
 by case: b; simplify_linking.
 Qed.
@@ -244,7 +232,7 @@ Proof.
 by case: b; simplify_linking.
 Qed.
 
-Lemma resolve_pr_ck (j : nat) (x : th_M (thf_chain P)) :
+Lemma resolve_pr_ck (j : nat) (x : th_M (thf_hash P)) :
   resolve (SMP true) pr_cko (j, x) =
   (revealed ← get prev_loc ;;
    #assert revealed ;;
@@ -256,7 +244,7 @@ Lemma resolve_pr_ck (j : nat) (x : th_M (thf_chain P)) :
             | Some pp => ret pp
             | None => pp ← wcp_dPP P ;; #put ppp_loc := Some pp ;; ret pp
             end ;;
-       ret (th_eval (thf_chain P) pp t0 x == th_eval (thf_chain P) pp t0 x0)%B
+       ret (th_eval (thf_hash P) pp t0 x == th_eval (thf_hash P) pp t0 x0)%B
    | None => ret false
    end).
 Proof.
@@ -265,7 +253,7 @@ reflexivity.
 Qed.
 
 (** Ideal-side PCHECK enforces the reveal phase and then answers false. *)
-Lemma resolve_pr_ck_false (j : nat) (x : th_M (thf_chain P)) :
+Lemma resolve_pr_ck_false (j : nat) (x : th_M (thf_hash P)) :
   resolve (SMP false) pr_cko (j, x) =
   (revealed ← get prev_loc ;;
    #assert revealed ;;
@@ -278,7 +266,7 @@ Qed.
 (* ------------------------------------------------------------------ *)
 (** *** The invariant (header)
 
-    Follows the hop-invariant template (see [Shrincs.internal.ssprove.hop.grind]); the
+    Follows the hop-invariant template (see [Shrincs.internal.ssprove.wots.hop.grind]); the
     Some-branch delta here stores the per-chain pre-query list
     [qmap_from 0 [seq wq q | q <- pre_queries ...]]. *)
 
@@ -287,10 +275,10 @@ Definition IGNP : Locations :=
         r_chain_pre_sig_loc ; ppp_loc ; ptgts_loc ; ptws_loc ; prev_loc ].
 
 Definition RP (pko : option (Pk (shrincs_wots_scheme P))) (lg : seq (Msg (shrincs_wots_scheme P)))
-    (sgo : option (Sig (shrincs_wots_scheme P)))
-    (pko' : option (Pk (shrincs_wots_scheme P))) (lg' : seq (Msg (shrincs_wots_scheme P))) (sgo' : option (Sig (shrincs_wots_scheme P)))
-    (po : option (wcp_PP P)) (tg : {fmap nat -> (th_T (thf_chain P) × th_M (thf_chain P))})
-    (tw : seq (th_T (thf_chain P))) (rv : bool) : Prop :=
+    (sgo : option (wc_sig_parts P))
+    (pko' : option (Pk (shrincs_wots_scheme P))) (lg' : seq (Msg (shrincs_wots_scheme P))) (sgo' : option (wc_sig_parts P))
+    (po : option (wcp_PP P)) (tg : {fmap nat -> (th_T (thf_hash P) × th_M (thf_hash P))})
+    (tw : seq (th_T (thf_hash P))) (rv : bool) : Prop :=
   [/\ pko' = pko, lg' = lg, sgo' = sgo &
       match pko with
       | None =>
@@ -350,7 +338,7 @@ Definition pblk (po : option (wcp_PP P)) (rv : bool) (Q : seq qentry) : precond 
 
 Arguments pblk : simpl never.
 
-(** The lazy parameter sampling (put pp, at the PCOLLQ pin). *)
+(** The lazy parameter sampling (put pp, at the EVAL pin). *)
 Lemma pblk_set_pp (pp : wcp_PP P) rv Q s0 s1 :
   pblk None rv Q (s0, s1) ->
   pblk (Some pp) rv Q (s0, set_heap s1 ppp_loc (Some pp)).
@@ -369,7 +357,8 @@ Lemma pblk_qupd (pp : wcp_PP P) (Q : seq qentry) (t : nat * nat) (x : wcp_N P) s
   pblk (Some pp) false (rcons Q (t, x))
     (s0, set_heap (set_heap s1 ptgts_loc
             (setm (qmap_from 0 [seq chain_common.wq P q | q <- Q])
-                  (size [seq shrincs_wots_tweak P t' | t' <- unzip1 Q]) (shrincs_wots_tweak P t, x)))
+                  (size [seq shrincs_wots_tweak P t' | t' <- unzip1 Q])
+                  (shrincs_wots_tweak P t, wcp_encode_node P x)))
           ptws_loc (rcons [seq shrincs_wots_tweak P t' | t' <- unzip1 Q] (shrincs_wots_tweak P t))).
 Proof.
 move=> [h0 h1 h2 h3 h4]; split.
@@ -396,28 +385,31 @@ move=> [h0 h1 h2 h3 h4]; split.
 Qed.
 
 (* ------------------------------------------------------------------ *)
-(** *** Stepping one linked PCOLLQ (pp pinned: state untouched) *)
+(** *** Stepping one linked EVAL (pp pinned: state untouched) *)
 
-Lemma r_prcollq_known (b : bool) {B : choiceType} (pp : wcp_PP P)
-    (t : tc_T (coll_chain P)) (x : tc_M (coll_chain P)) rv (Q : seq qentry)
-    (c0 : raw_code B) (k1 : tc_N (coll_chain P) -> raw_code B) (post : postcond B B) :
+Lemma r_preval_known (b : bool) {B : choiceType} (pp : wcp_PP P)
+    (q : wc_adrs_ch P * wcp_HM P) rv (Q : seq qentry)
+    (c0 : raw_code B) (k1 : wcp_N P -> raw_code B) (post : postcond B B) :
+  ~~ wcp_chain_class P q.1 ->
   ⊢ ⦃ λ '(s0, s1), pblk (Some pp) rv Q (s0, s1) ⦄
-     c0 ≈ k1 (tc_eval (coll_chain P) pp t x) ⦃ post ⦄ ->
+     c0 ≈ k1 (th_eval (thf_hash P) pp q.1 q.2) ⦃ post ⦄ ->
   ⊢ ⦃ λ '(s0, s1), pblk (Some pp) rv Q (s0, s1) ⦄
-     c0 ≈ bind (resolve (SMP b) pr_cqo (t, x)) k1 ⦃ post ⦄.
+     c0 ≈ bind (resolve (SMP b) pr_eval_op q) k1 ⦃ post ⦄.
 Proof.
-move=> h.
-rewrite (resolve_pr_cq b t x).
+move=> hclass h.
+rewrite (resolve_pr_eval b q).
+eapply r_bind_assertD_rhs; first by [].
+move=> _.
 eapply (r_get_bind_rhs ppp_loc (Some pp)).
   by move=> s0 s1 [_ h' _ _ _].
 cbv beta iota.
 exact: h.
 Qed.
 
-(** Grinding loop through PCOLLQ. *)
+(** Grinding loop through EVAL. *)
 Lemma r_prgrind_spec (b : bool) {B : choiceType} (pp : wcp_PP P) (m : wcp_M P)
     (cs : seq nat) rv (Q : seq qentry)
-    (c0 : raw_code B) (k1 : chList 'nat -> raw_code B)
+    (c0 : raw_code B) (k1 : chList (wcp_G P) -> raw_code B)
     (post : postcond B B) :
   ⊢ ⦃ λ '(s0, s1), pblk (Some pp) rv Q (s0, s1) ⦄
      c0 ≈ k1 [seq wcp_H_grind P pp (grind_adrs P) (m, c) | c <- cs] ⦃ post ⦄ ->
@@ -427,9 +419,10 @@ Proof.
 elim: cs k1 => [|c cs IH] k1 h /=.
 - exact: h.
 - rewrite bind_assoc.
-  eapply (r_prcollq_known b).
+  eapply (r_preval_known b).
+    exact: (wcp_encode_grind_not_chain P m c).
   cbv beta.
-  rewrite (chain_common.ct_collq_H_E P).
+  rewrite (th_evalE_Tgr P).
   rewrite code_link_bind bind_assoc.
   apply: IH.
   exact: h.
@@ -458,6 +451,9 @@ Lemma r_prquery (b : bool) {B : choiceType} (pp : wcp_PP P)
 Proof.
 move=> hi hk hQr hbud hfresh h.
 rewrite (resolve_pr_pq b (chain_tweak P i k)).
+eapply r_bind_assertD_rhs.
+  by move=> s0 s1 _; exact: (wcp_tw_chain_class P i k).
+move=> _.
 eapply (r_get_bind_rhs prev_loc false).
   by move=> s0 s1 [_ _ h' _ _].
 cbv beta.
@@ -473,7 +469,7 @@ eapply r_bind_assertD_rhs.
   move=> s0 s1 _; apply: (chain_common.wtw_notin P (i, k) (unzip1 Q) hi hk _ hfresh).
   by move=> t' /(allP hQr) /andP[h1 h2]; split.
 move=> _.
-rewrite bind_assoc.
+rewrite /d_hash_message /= !bind_assoc.
 eapply r_scheme_bind; first exact: prog_valid.
 move=> x; cbv beta.
 eapply (r_get_bind_rhs ptgts_loc (qmap_from 0 [seq chain_common.wq P q | q <- Q])).
@@ -573,14 +569,14 @@ Lemma r_pr_tail (pp : wcp_PP P) (m : wcp_M P) (c : nat) (us : seq (wcp_N P)) :
       #put forge_sig_loc P := Some (wsigs P pp 0 (digest_of P pp m c) us, c) ;;
       ret ((pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp (digest_of P pp m c)
              (wsigs P pp 0 (digest_of P pp m c) us))),
-           Some (wsigs P pp 0 (digest_of P pp m c) us, c)))
+           Some (wcp_sig_encode P (wsigs P pp 0 (digest_of P pp m c) us, c))))
    ≈ (#put r_chain_pre_pk_loc := Some (pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp (digest_of P pp m c)
         (wsigs P pp 0 (digest_of P pp m c) us))) ;;
       #put r_chain_pre_log_loc := [:: m] ;;
       #put r_chain_pre_sig_loc := Some (wsigs P pp 0 (digest_of P pp m c) us, c) ;;
       ret ((pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp (digest_of P pp m c)
              (wsigs P pp 0 (digest_of P pp m c) us))),
-           Some (wsigs P pp 0 (digest_of P pp m c) us, c)))
+           Some (wcp_sig_encode P (wsigs P pp 0 (digest_of P pp m c) us, c))))
   ⦃ λ '(b0, s0) '(b1, s1), b0 = b1 /\ pr_inv (s0, s1) ⦄.
 Proof.
 move=> hgood hus.
@@ -625,7 +621,7 @@ Local Ltac pr_take_inv h := first [ exact: h | case: h => h _; pr_take_inv h ].
 (** *** THE real-side equivalence *)
 
 Lemma R_chain_pre_real :
-  perfect (I_KOTS (shrincs_wots_scheme P)) (intermediates.G_post_chain P) (R_chain_pre ∘ SMPRE_game (thf_chain P) (coll_chain P) (wcp_chain_count P) true).
+  perfect (I_KOTS (shrincs_wots_scheme P)) (intermediates.G_post_chain P) (R_chain_pre ∘ SMPRE_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P) true).
 Proof.
 ssprove_share. eapply prove_perfect.
 eapply (eq_rel_perf_ind _ _ pr_inv).
@@ -653,8 +649,11 @@ simplify_eq_rel arg.
     case: hRP => _ _ _; rewrite hrem0 => -[_ _ hpo htg [htw hrv]].
     by split. }
   simpl.
-  (* the PCOLLQ pin *)
-  rewrite (resolve_pr_cq true (encode_tweak P (grind_adrs P)) (inr (m, 0))).
+  (* the EVAL pin *)
+  rewrite (resolve_pr_eval true (wcp_encode_grind P (grind_adrs P) m 0)).
+  eapply r_bind_assertD_rhs.
+    by move=> s0 s1 _; exact: (wcp_encode_grind_not_chain P m 0).
+  move=> _.
   eapply (r_get_bind_rhs ppp_loc None).
     { by move=> s0 s1 [_ h _ _ _]. }
   cbv beta iota.
@@ -664,7 +663,7 @@ simplify_eq_rel arg.
   eapply r_put_bind_rhs.
     { move=> s0 s1 hpre; exact: (pblk_set_pp pp _ _ _ _ hpre). }
   simpl.
-  (* the grinding loop through PCOLLQ *)
+  (* the grinding loop through EVAL *)
   rewrite (code_link_bind (pr_grind m (iota 0 (wcp_c_max P)))).
   eapply (r_prgrind_spec true pp m).
   cbv beta.
@@ -698,8 +697,9 @@ simplify_eq_rel arg.
   - exact: (find_counter_good P pp m c E).
   - by rewrite hus (size_digest_of P).
 - (* KFORGE *)
-  destruct arg as [mst sgst].
+  destruct arg as [mst sgw].
   simpl.
+  move: (wcp_sig_decode P sgw) => sgst.
   sync_eq pko pko'.
     { move=> s0 s1 [[hinv hrem0] hrem1].
       case/pr_invE: hinv => _ [e1 _ _ _].
@@ -759,7 +759,7 @@ simplify_eq_rel arg.
                    apply r_ret => s0 s1 hpre; split=> //; pr_take_inv hpre.
                --- (* ChainMeet: PCHECK answers true = G_post_chain's true *)
                    simpl.
-                   rewrite (resolve_pr_ck j x).
+                   rewrite (resolve_pr_ck j (wcp_encode_node P x)).
                    eapply (r_get_bind_rhs prev_loc true).
                      { move=> s0 s1 [[[[[[hinv h1] h2] h3] h4] h5] h6].
                        case/pr_invE: hinv => _ [_ _ _ hmatch].
@@ -808,7 +808,7 @@ simplify_eq_rel arg.
                                   hgood husz hvd' hys hends hned.
                    rewrite -hsg E4 in hwin.
                    case: hwin => t [u [hqn hfeq]].
-                   have hgetm : getm tg j = Some (shrincs_wots_tweak P t, u).
+                   have hgetm : getm tg j = Some (shrincs_wots_tweak P t, wcp_encode_node P u).
                      { rewrite htg.
                        have := qmap_from_get 0
                          [seq chain_common.wq P q | q <- wpreq P 0 (digest_of P pk.1 m c) us] j.
@@ -832,7 +832,7 @@ Qed.
 (** *** THE ideal-side equivalence *)
 
 Lemma R_chain_pre_ideal :
-  perfect (I_KOTS (shrincs_wots_scheme P)) (G_forge_uniformchains P false) (R_chain_pre ∘ SMPRE_game (thf_chain P) (coll_chain P) (wcp_chain_count P) false).
+  perfect (I_KOTS (shrincs_wots_scheme P)) (G_forge_uniformchains P false) (R_chain_pre ∘ SMPRE_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P) false).
 Proof.
 ssprove_share. eapply prove_perfect.
 eapply (eq_rel_perf_ind _ _ pr_inv).
@@ -861,7 +861,10 @@ simplify_eq_rel arg.
     case: hRP => _ _ _; rewrite hrem0 => -[_ _ hpo htg [htw hrv]].
     by split. }
   simpl.
-  rewrite (resolve_pr_cq false (encode_tweak P (grind_adrs P)) (inr (m, 0))).
+  rewrite (resolve_pr_eval false (wcp_encode_grind P (grind_adrs P) m 0)).
+  eapply r_bind_assertD_rhs.
+    by move=> s0 s1 _; exact: (wcp_encode_grind_not_chain P m 0).
+  move=> _.
   eapply (r_get_bind_rhs ppp_loc None).
     { by move=> s0 s1 [_ h _ _ _]. }
   cbv beta iota.
@@ -902,8 +905,9 @@ simplify_eq_rel arg.
   - exact: (find_counter_good P pp m c E).
   - by rewrite hus (size_digest_of P).
 - (* KFORGE *)
-  destruct arg as [mst sgst].
+  destruct arg as [mst sgw].
   simpl.
+  move: (wcp_sig_decode P sgw) => sgst.
   sync_eq pko pko'.
     { move=> s0 s1 [[hinv hrem0] hrem1].
       case/pr_invE: hinv => _ [e1 _ _ _].
@@ -971,7 +975,7 @@ simplify_eq_rel arg.
                --- (* ChainMeet: ideal PCHECK answers false, as does
                       G_forge_uniformchains-ideal *)
                    simpl.
-                   rewrite (resolve_pr_ck_false j x).
+                   rewrite (resolve_pr_ck_false j (wcp_encode_node P x)).
                    eapply (r_get_bind_rhs prev_loc true).
                      { move=> s0 s1 [[[[[hinv h1] _] _] _] _].
                        case/pr_invE: hinv => _ [_ _ _ hmatch].

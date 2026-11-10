@@ -6,19 +6,20 @@
 
 (** * Shrincs.internal.ssprove.wots.bound.compress
 
-    The compression game-hop equality, peeled out of [Shrincs.internal.ssprove.theorem]
-    for parallel type-checking (see [Shrincs.internal.ssprove.bound.grind] for the
+    The compression game-hop equality, peeled out of [Shrincs.internal.ssprove.wots.theorem]
+    for parallel type-checking (see [Shrincs.internal.ssprove.wots.bound.grind] for the
     rationale).
 
     States that the [G_post_grind -> G_post_compress] advantage equals the SM-TCR
     advantage of the compression reduction [R_compress] (CompressHop's
     [R_compress_real] / [R_compress_ideal]). *)
 
-From Shrincs.internal.ssprove.lib Require Import prelude games.smtcr sig.scheme sig.kots.
-From Shrincs.internal.ssprove Require Import addressing.
+From Shrincs.internal.ssprove.lib Require Import prelude.
+From Shrincs Require Import games.
 From Shrincs.internal.ssprove.wots Require Import params scheme games analysis
   hop.grind hop.compress.
 From mathcomp Require Import reals.
+
 
 Import PackageNotation.
 Import GRing.Theory Num.Theory Order.POrderTheory.
@@ -37,7 +38,7 @@ Context (VA : ValidPackage (loc A) (I_KOTS (shrincs_wots_scheme P)) A_export A).
 (** [G_post_grind ~ G_post_compress] is the compression reduction's perfect hop. *)
 Lemma compress_hop_eq :
   Adv (intermediates.G_post_grind P) (intermediates.G_post_compress P) A
-    = AdvOf (SMTCR_game (thf_pkcompress P) (coll_pkcompress P) 1) (A ∘ R_compress P).
+    = AdvOf (SMTCR_game (thf_hash P) (wcp_pk_class P) 1) (A ∘ R_compress P).
 Proof.
 rewrite (Adv_perfect_l (R_compress_real P)).
 rewrite (Adv_perfect_r (R_compress_ideal P)).

@@ -20,18 +20,21 @@
 
       - the pure grinding-search picker [cp_pick] (+ [cp_zip_filter],
         [cp_pick_map]) and the two evaluation bridges [digestE],
-        [wendsE], all used by both [Shrincs.internal.ssprove.hop.compress] and the chain
-        hops.
+        [wendsE], all used by both [Shrincs.internal.ssprove.wots.hop.compress] and the chain
+        hops;
 
-    Everything here is pure (games and rewrite lemmas); the reductions
-    and relational proofs stay in their per-hop files. *)
+      - the grinding loop [grind_loop] that the UD, compress and chain
+        reductions run through the restricted evaluation oracle.
+
+    The reductions and relational proofs stay in their per-hop
+    files. *)
 
 From mathcomp.experimental_reals Require Import distr.
-From Shrincs.internal.ssprove.lib Require Import prelude sig.scheme sig.kots
+From Shrincs.internal.ssprove.lib Require Import prelude
   chain.core.
-From Shrincs.internal.common Require Import math.chain math.encoding.
-From Shrincs.internal.ssprove Require Import addressing.
+From Shrincs Require Import games.
 From Shrincs.internal.ssprove.wots Require Import scheme games analysis.
+
 
 Import PackageNotation.
 #[local] Open Scope package_scope.
@@ -48,10 +51,10 @@ Context (P : wc_params).
     predicate accepts; on the honest answer list it IS the scheme's
     grinding ([cp_pick_map]). *)
 
-Definition cp_pick (hs : seq nat) : option (nat * nat) :=
+Definition cp_pick (hs : seq (wcp_G P)) : option (nat * wcp_G P) :=
   ohead [seq ch <- zip (iota 0 (wcp_c_max P)) hs | grind_prp P ch.2].
 
-Lemma cp_zip_filter (f : nat -> nat) (p : nat -> bool) (cs : seq nat) :
+Lemma cp_zip_filter (T : Type) (f : nat -> T) (p : T -> bool) (cs : seq nat) :
   ohead [seq ch <- zip cs [seq f c | c <- cs] | p ch.2]
   = omap (fun c => (c, f c)) (ohead [seq c <- cs | p (f c)]).
 Proof.
@@ -62,7 +65,43 @@ Qed.
 Lemma cp_pick_map (pp : wcp_PP P) (m : wcp_M P) :
   cp_pick [seq wcp_H_grind P pp (grind_adrs P) (m, c) | c <- iota 0 (wcp_c_max P)]
   = omap (fun c => (c, wcp_H_grind P pp (grind_adrs P) (m, c))) (find_counter P pp m).
-Proof. by rewrite /cp_pick cp_zip_filter. Qed.
+Proof.
+rewrite /cp_pick cp_zip_filter /find_counter.
+congr (omap _ (ohead _)); apply: eq_filter => c.
+exact: grind_prpE.
+Qed.
+
+(* ------------------------------------------------------------------ *)
+(** ** The grinding loop
+
+    Every reduction that grinds before the seed is revealed runs this
+    loop: one EVAL query per counter, each using the encoded grinding
+    tweak and message under the hidden public seed. Every game gives
+    this operation the same identifier and message and result types. *)
+
+Fixpoint grind_loop (m : wcp_M P) (cs : seq nat)
+    : raw_code (chList (wcp_G P)) :=
+  match cs with
+  | [::] => ret [::]
+  | c :: cs' =>
+      opr (EVAL, (wc_adrs_ch P × wcp_HM P, wcp_N P))
+        (wcp_encode_grind P (grind_adrs P) m c)
+        (λ r,
+           hs ← grind_loop m cs' ;;
+           ret (r :: hs))
+  end.
+
+Lemma grind_loop_valid (L : Locations) (I : Interface) (m : wcp_M P) (cs : seq nat) :
+  fhas I (EVAL, (wc_adrs_ch P × wcp_HM P, wcp_N P)) ->
+  ValidCode L I (grind_loop m cs).
+Proof.
+move=> hI.
+elim: cs => [|c cs IH] /=.
+- apply valid_ret.
+- eapply valid_opr; first exact: hI.
+  move=> r; eapply valid_bind; [exact: IH|].
+  move=> hs; apply valid_ret.
+Qed.
 
 (* ------------------------------------------------------------------ *)
 (** ** Evaluation bridges (pure)
@@ -72,8 +111,7 @@ Proof. by rewrite /cp_pick cp_zip_filter. Qed.
     the verifier's [complete_ends]. *)
 
 Lemma digestE (pp : wcp_PP P) (m : wcp_M P) (c : nat) :
-  rev (digits_w (wcp_w P) (wcp_chain_count P) (wcp_H_grind P pp (grind_adrs P) (m, c)))
-  = digest_of P pp m c.
+  wcp_digits P (wcp_H_grind P pp (grind_adrs P) (m, c)) = digest_of P pp m c.
 Proof. by []. Qed.
 
 Lemma wendsE (pp : wcp_PP P) (ds : seq nat) (ys : seq (wcp_N P)) :
@@ -101,9 +139,10 @@ Definition G_post_grind : game (I_KOTS (shrincs_wots_scheme P)) :=
       #put forge_pk_loc P := Some (pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp (digest_of P pp m c) sg)) ;;
       #put forge_log_loc P := [:: m] ;;
       #put forge_sig_loc P := Some (sg, c) ;;
-      ret ((pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp (digest_of P pp m c) sg)), Some (sg, c))
+      ret ((pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp (digest_of P pp m c) sg)), Some (wcp_sig_encode P (sg, c)))
     } ;
-    [ KFORGE ] : { Msg (shrincs_wots_scheme P) × Sig (shrincs_wots_scheme P) ~> 'bool } '(mst, sgst) {
+    [ KFORGE ] : { Msg (shrincs_wots_scheme P) × Sig (shrincs_wots_scheme P) ~> 'bool } '(mst, sgw) {
+      let sgst := wcp_sig_decode P sgw in
       pk ← getSome forge_pk_loc P ;;
       log ← get forge_log_loc P ;;
       sgo ← getSome forge_sig_loc P ;;
@@ -136,9 +175,10 @@ Definition G_post_compress : game (I_KOTS (shrincs_wots_scheme P)) :=
       #put forge_pk_loc P := Some (pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp (digest_of P pp m c) sg)) ;;
       #put forge_log_loc P := [:: m] ;;
       #put forge_sig_loc P := Some (sg, c) ;;
-      ret ((pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp (digest_of P pp m c) sg)), Some (sg, c))
+      ret ((pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp (digest_of P pp m c) sg)), Some (wcp_sig_encode P (sg, c)))
     } ;
-    [ KFORGE ] : { Msg (shrincs_wots_scheme P) × Sig (shrincs_wots_scheme P) ~> 'bool } '(mst, sgst) {
+    [ KFORGE ] : { Msg (shrincs_wots_scheme P) × Sig (shrincs_wots_scheme P) ~> 'bool } '(mst, sgw) {
+      let sgst := wcp_sig_decode P sgw in
       pk ← getSome forge_pk_loc P ;;
       log ← get forge_log_loc P ;;
       sgo ← getSome forge_sig_loc P ;;
@@ -175,9 +215,10 @@ Definition G_post_chain : game (I_KOTS (shrincs_wots_scheme P)) :=
       #put forge_pk_loc P := Some (pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp (digest_of P pp m c) sg)) ;;
       #put forge_log_loc P := [:: m] ;;
       #put forge_sig_loc P := Some (sg, c) ;;
-      ret ((pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp (digest_of P pp m c) sg)), Some (sg, c))
+      ret ((pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp (digest_of P pp m c) sg)), Some (wcp_sig_encode P (sg, c)))
     } ;
-    [ KFORGE ] : { Msg (shrincs_wots_scheme P) × Sig (shrincs_wots_scheme P) ~> 'bool } '(mst, sgst) {
+    [ KFORGE ] : { Msg (shrincs_wots_scheme P) × Sig (shrincs_wots_scheme P) ~> 'bool } '(mst, sgw) {
+      let sgst := wcp_sig_decode P sgw in
       pk ← getSome forge_pk_loc P ;;
       log ← get forge_log_loc P ;;
       sgo ← getSome forge_sig_loc P ;;

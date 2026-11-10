@@ -6,8 +6,8 @@
 
 (** * Shrincs.internal.ssprove.wots.hop.chain_common
 
-    Shared substrate of the two chain hops [Shrincs.internal.ssprove.hop.chain_tcr]
-    (SM-TCR(F), G_post_compress -> G_post_chain) and [Shrincs.internal.ssprove.hop.chain_pre] (SM-PRE(F),
+    Shared substrate of the two chain hops [Shrincs.internal.ssprove.wots.hop.chain_tcr]
+    (SM-TCR(F), G_post_compress -> G_post_chain) and [Shrincs.internal.ssprove.wots.hop.chain_pre] (SM-PRE(F),
     G_post_chain -> G_forge_uniformchains-ideal): the section context and tweak/notation
     abbreviations, the pure re-tagging of the abstract chain
     bookkeeping into encoded addresses ([wq] and friends), the bridge
@@ -15,18 +15,17 @@
     honest key ([verify_from_ends] +
     [wtcr_decisionP]/[wpre_decisionP]/[wclassify_some]).  The shared
     [G_post_chain] endpoint of both chain hops is defined in
-    [Shrincs.internal.ssprove.hop.intermediates] (re-abbreviated by each half); keeping
+    [Shrincs.internal.ssprove.wots.hop.intermediates] (re-abbreviated by each half); keeping
     this substrate in its own file lets the TCR and PRE proofs
     type-check in parallel. *)
 
 From mathcomp.experimental_reals Require Import distr.
-From Shrincs.internal.ssprove.lib Require Import prelude sig.scheme sig.kots
-  games.thf games.smtcr games.smpre toolkit.sample_seq toolkit.relational_rules.
-From Shrincs.internal.common Require Import math.chain math.encoding.
+From Shrincs.internal.ssprove.lib Require Import prelude
+  toolkit.sample_seq toolkit.relational_rules.
 From Shrincs.internal.ssprove.lib Require Import chain.core.
-From Shrincs.internal.ssprove Require Import addressing.
-From Shrincs.internal.ssprove.wots Require Import addressing.
+From Shrincs Require Import games.
 From Shrincs.internal.ssprove.wots Require Import scheme games analysis.
+
 
 Import PackageNotation.
 #[local] Open Scope package_scope.
@@ -62,24 +61,25 @@ Context (P : wc_params).
 
     The chain bookkeeping lists ([commit_queries], [pre_queries]) live
     over abstract (chain, position) tweaks; the SM-TCR/SM-PRE games on
-    [thf_chain] store ENCODED addresses.  [wq] re-tags one committed entry;
+    [thf_hash] store encoded addresses and node messages. [wq] encodes one committed entry;
     positions are untouched, so all indices ([q_index], [pre_index])
     are consumed unchanged. *)
 
 Local Abbreviation qentry := ((nat * nat) * wcp_N P)%type.
 
-Definition wq (q : qentry) : wc_adrs_ch P * wcp_N P := (shrincs_wots_tweak P q.1, q.2).
+Definition wq (q : qentry) : wc_adrs_ch P * wcp_HM P :=
+  (shrincs_wots_tweak P q.1, wcp_encode_node P q.2).
 
 (** [unzip1] commutes with the re-tagging. *)
 Lemma unzip1_wq (Q : seq qentry) :
   unzip1 [seq wq q | q <- Q] = [seq shrincs_wots_tweak P t | t <- unzip1 Q].
 Proof. by rewrite /unzip1 -!map_comp; apply: eq_map => q. Qed.
 
-(** Freshness transfers along the re-tagging.  The tweak encoding is
-    only injective on in-range (chain, position) pairs (the exact tweak
-    clamps out-of-range indices), so freshness transfer is CONDITIONAL on
+(** Freshness transfers along the re-tagging.  The chain tweak is only
+    known to be injective on in-range (chain, position) pairs
+    ([shrincs_wots_tweak_inj]), so freshness transfer is CONDITIONAL on
     the queried tweak and every earlier tweak being in range; the
-    consumers discharge those ranges from [tcr_targets_mem_range]. *)
+    consumers discharge those ranges at each use. *)
 Lemma wtw_notin (t : nat * nat) (ts : seq (nat * nat)) :
   (t.1 < wcp_chain_count P)%nat -> (t.2 < (wcp_w P).-1)%nat ->
   (forall t', t' \in ts -> (t'.1 < wcp_chain_count P)%nat /\ (t'.2 < (wcp_w P).-1)%nat) ->
@@ -92,16 +92,12 @@ have heq : t = t' := shrincs_wots_tweak_inj P t t' ht1 ht'1 ht2 ht'2 e.
 by move: ht'; rewrite -heq (negbTE hnotin).
 Qed.
 
-(** [th_eval thf_chain] at a chain tweak is the wrapped chain hash: decoding
-    the untruncated chain tweak reproduces exactly the concrete chain
-    address ([decode_chain_tweak]), so [th_eval] computes the
-    scheme's real [F] at that address -- the untruncated index encoding
-    is invisible to the hash. *)
+(** [th_eval thf_hash] at a chain tweak and encoded node is the wrapped chain hash: it
+    computes the scheme's [F] at the chain address. *)
 Lemma th_eval_wtw pp (t : nat * nat) (x : wcp_N P) :
-  th_eval (thf_chain P) pp (shrincs_wots_tweak P t) x = wcp_F P pp (chain_adrs P t.1 t.2) x.
-Proof.
-by rewrite /shrincs_wots_tweak /th_eval /thf_chain /thf_chain_core /= core_decodeE decode_chain_tweak.
-Qed.
+  th_eval (thf_hash P) pp (shrincs_wots_tweak P t) (wcp_encode_node P x)
+  = wcp_F P pp (chain_adrs P t.1 t.2) x.
+Proof. by []. Qed.
 
 (** In range, the SM-TCR(F) oracle at a chain tweak IS the abstract total
     chain step [Fc]: [th_eval TF (wtw t)] evaluates [F] at the exact
@@ -110,7 +106,7 @@ Qed.
     [chainc]/[Fc]-computed chain values (positions are always [< w.-1 < w]). *)
 Lemma Fc_wtw pp (t : nat * nat) (x : wcp_N P) :
   (t.2 < wcp_w P)%N ->
-  th_eval (thf_chain P) pp (shrincs_wots_tweak P t) x
+  th_eval (thf_hash P) pp (shrincs_wots_tweak P t) (wcp_encode_node P x)
   = Fc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp t x.
 Proof.
 case: t => t1 t2 htw.
@@ -141,7 +137,7 @@ Qed.
 Lemma wcheck_bridge pp (m : wcp_M P) (c : nat) (us : seq (wcp_N P)) j t v (x : wcp_N P) :
   good_counter P pp m c -> size us = wcp_chain_count P ->
   qnth (wcommitq P pp 0 (digest_of P pp m c) us) j = Some (t, v) ->
-  th_eval (thf_chain P) pp (shrincs_wots_tweak P t) x
+  th_eval (thf_hash P) pp (shrincs_wots_tweak P t) (wcp_encode_node P x)
   = Fc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp t x.
 Proof.
 move=> hgood hus hqn.
@@ -176,7 +172,7 @@ Qed.
 Lemma wpre_check_bridge pp (m : wcp_M P) (c : nat) (us : seq (wcp_N P)) j t v (x : wcp_N P) :
   good_counter P pp m c -> size us = wcp_chain_count P ->
   qnth (wpreq P 0 (digest_of P pp m c) us) j = Some (t, v) ->
-  th_eval (thf_chain P) pp (shrincs_wots_tweak P t) x
+  th_eval (thf_hash P) pp (shrincs_wots_tweak P t) (wcp_encode_node P x)
   = Fc (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) pp t x.
 Proof.
 move=> hgood hus hqn.
@@ -190,20 +186,6 @@ have htlt := allP hpos t hin.
 apply: Fc_wtw.
 have hwpred : ((wcp_w P).-1 < wcp_w P)%N by rewrite ltn_predL; exact: (ltnW (wcp_Hw P)).
 exact: (ltn_trans htlt hwpred).
-Qed.
-
-(** Conversion bridge: the COLLQ answer at the grinding address,
-    post-processed by the loop's [inr]-projection, IS the scheme's
-    H_grind output (canonical tweaks compute).  Shared by both chain
-    halves (each uses it once in its COMMIT). *)
-Lemma ct_collq_H_E pp (m : wcp_M P) (c : nat) :
-  (if tc_eval (coll_chain P) pp (encode_tweak P (grind_adrs P)) (inr (m, c)) is inr h then h else 0)
-  = wcp_H_grind P pp (grind_adrs P) (m, c).
-Proof.
-rewrite /tc_eval /coll_chain /coll_chain_core /=.
-congr wcp_H_grind.
-rewrite core_decodeE.
-exact: (encode_tweakK P (grind_adrs P)).
 Qed.
 
 (* ------------------------------------------------------------------ *)
@@ -357,7 +339,7 @@ Qed.
 (** ** G_post_chain (the chain hops' shared endpoint)
 
     [G_post_chain] (G_post_compress with ALSO the ChainColl answers of the shared
-    classifier nulled) is defined in [Shrincs.internal.ssprove.hop.intermediates] so the
+    classifier nulled) is defined in [Shrincs.internal.ssprove.wots.hop.intermediates] so the
     hops type-check in parallel; the two chain halves abbreviate it as
     [intermediates.G_post_chain] under their own context. *)
 

@@ -46,7 +46,6 @@
     [sample uniform (2 ^ 256)] in the games. The two are equal but not
     feasibly convertible (2^256 in unary), so the mismatch makes the
     games file spin in conversion rather than fail.
-    [Shrincs.internal.ssprove.axioms] uses the same symbolic word-size convention.
 
     Byte order is BIG-ENDIAN throughout: [bytes_of_word ws w] renders
     [wunsigned w] most-significant byte first, matching both the SHA-256

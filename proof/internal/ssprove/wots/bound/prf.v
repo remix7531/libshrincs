@@ -7,17 +7,18 @@
 (** * Shrincs.internal.ssprove.wots.bound.prf
 
     The PRF game-hop equality, in its own file like the other
-    per-hop advantage bounds (Shrincs.internal.ssprove.bound.grind), so it type-checks
+    per-hop advantage bounds (Shrincs.internal.ssprove.wots.bound.grind), so it type-checks
     in parallel with them.
 
     States that the [G_forge_keyed -> G_forge_sampledkey] advantage (at either KOTS bit b)
     equals the PRF advantage of the derivation reduction [R_prf]
     (hop.prf's [R_prf_real] / [R_prf_ideal]). *)
 
-From Shrincs.internal.ssprove.lib Require Import prelude games.thf games.prf sig.scheme sig.kots.
-From Shrincs.internal.ssprove Require Import addressing.
+From Shrincs.internal.ssprove.lib Require Import prelude.
+From Shrincs Require Import games.
 From Shrincs.internal.ssprove.wots Require Import params scheme games hop.prf.
 From mathcomp Require Import reals.
+
 
 Import PackageNotation.
 Import GRing.Theory Num.Theory Order.POrderTheory.

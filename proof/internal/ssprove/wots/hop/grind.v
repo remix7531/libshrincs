@@ -9,12 +9,12 @@
     The S-TCR(Prop) grinding hop of the WOTS+C one-time security
     proof: the FIRST split of the forgery analysis at
     [G_forge_uniformchains], nulling the grinding-collision case
-    (case 1 / GRIND of [analysis.shrincs_wots_forgery_classify]).
+    (case 1 / GRIND of the analysis.v header).
     Delivered:
 
       [R_grind_real  : perfect (I_KOTS (shrincs_wots_scheme P))
                             (G_forge_uniformchains P true)
-                            (R_grind ∘ STCRP_game (thf_grind P) (coll_grind P) ... true)]
+                            (R_grind ∘ STCRP_game (thf_hash P) ... true)]
       [R_grind_ideal : perfect (I_KOTS (shrincs_wots_scheme P))
                             (intermediates.G_post_grind P)
                             (R_grind ∘ STCRP_game ... false)]
@@ -41,7 +41,7 @@
     - SQUERY hides pp, so COMMIT calls SGETPP directly AFTER the
       single query (no more queries are needed; this flips the STCRP
       phase, so KFORGE makes no SGETPP call).  The digest is decoded
-      from the SQUERY answer ([digits_w w chain_count res.1] = the signed digit
+      from the SQUERY answer ([wcp_digits P res.1] = the signed digit
       vector, [digest_resE]); the per-chain re-rooted sampling
       ([sample_sig_roots] at [Fw P]) and the pk compression are then
       pure/local, exactly [G_forge_uniformchains]'s COMMIT tail.
@@ -53,7 +53,7 @@
       true ([G_forge_uniformchains]'s answer; the remaining cases are
       absorbed by the later hops).
       Real side: freshness gives [mstar != m] ([notin_log_neq]) and
-      [wdigest_inj] (the [grind_range P] side condition) lifts the digit
+      [wdigest_inj] (the record law [wcp_digits_inj]) lifts the digit
       equality to the H_grind-output collision, so SCHECK answers true
       = [G_forge_uniformchains]-real's answer.  Ideal side: SCHECK answers
       false = [G_post_grind].
@@ -61,15 +61,9 @@
       no canonical inhabitant, so no [head] default; the nil branch
       is dead — the invariant gives [log = [:: m]] under a committed
       key).
-    - [grind_range P] ([forall pp a x, H_grind pp a x < w ^ chain_count]) is a
-      DATA-level side condition of [R_grind_real] ONLY (the ideal side
-      never inspects hash values), passed as an explicit lemma
-      argument (proof/STYLE.md's Honesty constraints section, "no smuggled
-      assumptions"; discharged at instantiation,
-      where H_grind outputs n-bit strings parsed as exactly chain_count base-w
-      digits).
-    - The dummy sampler [wcp_dM P : dist M] is data only (it feeds
-      [thf_grind]'s dummy [th_dM] record field; no game ever samples it).
+    - Injectivity of the digit reading is used by [R_grind_real] ONLY
+      (the ideal side never inspects hash values).  It is a law of the
+      parameter record, proved where the record is instantiated.
 
     ** Invariant
 
@@ -84,13 +78,13 @@
     Locations 330-332. *)
 
 From mathcomp.experimental_reals Require Import distr.
-From Shrincs.internal.ssprove.lib Require Import prelude sig.scheme sig.kots
-  games.thf games.stcrp toolkit.sample_seq toolkit.relational_rules.
-From Shrincs.internal.common Require Import math.chain math.encoding.
+From Shrincs.internal.ssprove.lib Require Import prelude
+  toolkit.sample_seq toolkit.relational_rules.
 From Shrincs.internal.ssprove.lib Require Import chain.core
   toolkit.hop_tactics.
-From Shrincs.internal.ssprove Require Import addressing.
+From Shrincs Require Import games.
 From Shrincs.internal.ssprove.wots Require Import params scheme games analysis hop.intermediates.
+
 
 Import PackageNotation.
 #[local] Open Scope package_scope.
@@ -103,41 +97,42 @@ Context (P : wc_params).
 (** The STCRP instance and its private STCRP locations, kept as
     file-local abbreviations (library-game pins at this instance). *)
 Local Abbreviation STB b :=
-  (STCRP_game (thf_grind P) (coll_grind P) (wcp_M P) (grind_enc P) (grind_prp P) (wcp_c_max P) 1 b).
-Local Abbreviation pp_loc' := (stcr_pp_loc (thf_grind P)).
-Local Abbreviation tgts_loc' := (stcr_tgts_loc (thf_grind P) (wcp_M P)).
-Local Abbreviation tws_loc' := (stcr_tws_loc (thf_grind P)).
+  (STCRP_game (thf_hash P) (wcp_grind_class P) (wcp_M P) (grind_enc P) (grind_prp P) (wcp_c_max P) 1 b).
+Local Abbreviation pp_loc' := (stcr_pp_loc (thf_hash P)).
+Local Abbreviation tgts_loc' := (stcr_tgts_loc (thf_hash P) (wcp_M P)).
+Local Abbreviation tws_loc' := (stcr_tws_loc (thf_hash P)).
 Local Abbreviation rev_loc' := stcr_rev_loc.
 
 (* ------------------------------------------------------------------ *)
 (** ** The reduction package *)
 
-(** SQUERY/SGETPP/SCHECK opsigs as committed to [I_STCRP (thf_grind P) (coll_grind P) (wcp_M P)]. *)
-Definition gsqo : opsig := (SQUERY, (th_T (thf_grind P) × wcp_M P, th_N (thf_grind P) × 'nat)).
-Definition ggpo : opsig := (SGETPP, ('unit, th_PP (thf_grind P))).
+(** SQUERY/SGETPP/SCHECK opsigs as committed to [I_STCRP (thf_hash P) (wcp_M P)]. *)
+Definition gsqo : opsig := (SQUERY, (th_T (thf_hash P) × wcp_M P, th_N (thf_hash P) × 'nat)).
+Definition ggpo : opsig := (SGETPP, ('unit, th_PP (thf_hash P))).
 Definition gcko : opsig := (SCHECK, ('nat × (wcp_M P × 'nat), 'bool)).
 
 (** R's own locations (330+, see header). *)
 Definition r_grind_pk_loc := mkloc 330 (None : option (Pk (shrincs_wots_scheme P))).
 Definition r_grind_log_loc := mkloc 331 ([::] : seq (Msg (shrincs_wots_scheme P))).
-Definition r_grind_sig_loc := mkloc 332 (None : option (Sig (shrincs_wots_scheme P))).
+Definition r_grind_sig_loc := mkloc 332 (None : option (wc_sig_parts P)).
 
 (** THE reduction: plays [I_KOTS (shrincs_wots_scheme P)] using the STCRP oracles. *)
-Definition R_grind : package (I_STCRP (thf_grind P) (coll_grind P) (wcp_M P)) (I_KOTS (shrincs_wots_scheme P)) :=
+Definition R_grind : package (I_STCRP (thf_hash P) (wcp_M P)) (I_KOTS (shrincs_wots_scheme P)) :=
   [package [fmap r_grind_pk_loc ; r_grind_log_loc ; r_grind_sig_loc ] ;
     [ COMMIT ] : { SParam (shrincs_wots_scheme P) × Msg (shrincs_wots_scheme P) ~> Pk (shrincs_wots_scheme P) × 'option (Sig (shrincs_wots_scheme P)) } '(sp, m) {
       pko ← get r_grind_pk_loc ;;
       #assert ~~ (isSome pko) ;;
       res ← opr gsqo (encode_tweak P (grind_adrs P), m) (λ r, ret r) ;;
       pp ← opr ggpo Datatypes.tt (λ p, ret p) ;;
-      sg ← sample_sig_roots (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) (wcp_dN P) pp 0 (rev (digits_w (wcp_w P) (wcp_chain_count P) res.1)) ;;
-      #put r_grind_pk_loc := Some (pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp (rev (digits_w (wcp_w P) (wcp_chain_count P) res.1)) sg)) ;;
+      sg ← sample_sig_roots (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) (wcp_dN P) pp 0 (wcp_digits P res.1) ;;
+      #put r_grind_pk_loc := Some (pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp (wcp_digits P res.1) sg)) ;;
       #put r_grind_log_loc := [:: m] ;;
       #put r_grind_sig_loc := Some (sg, res.2) ;;
-      ret ((pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp (rev (digits_w (wcp_w P) (wcp_chain_count P) res.1)) sg)),
-           Some (sg, res.2))
+      ret ((pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp (wcp_digits P res.1) sg)),
+           Some (wcp_sig_encode P (sg, res.2)))
     } ;
-    [ KFORGE ] : { Msg (shrincs_wots_scheme P) × Sig (shrincs_wots_scheme P) ~> 'bool } '(mst, sgst) {
+    [ KFORGE ] : { Msg (shrincs_wots_scheme P) × Sig (shrincs_wots_scheme P) ~> 'bool } '(mst, sgw) {
+      let sgst := wcp_sig_decode P sgw in
       pk ← getSome r_grind_pk_loc ;;
       log ← get r_grind_log_loc ;;
       sgo ← getSome r_grind_sig_loc ;;
@@ -167,9 +162,10 @@ Definition R_grind : package (I_STCRP (thf_grind P) (coll_grind P) (wcp_M P)) (I
 (* The SQUERY/SGETPP bodies do not depend on the real/ideal flag, so
    the whole COMMIT machinery below is parametric in [b]. *)
 
-Lemma resolve_gsq (b : bool) (t : th_T (thf_grind P)) (m : wcp_M P) :
+Lemma resolve_gsq (b : bool) (t : th_T (thf_hash P)) (m : wcp_M P) :
   resolve (STB b) gsqo (t, m) =
-  (revealed ← get rev_loc' ;;
+  (#assert (wcp_grind_class P t) ;;
+   revealed ← get rev_loc' ;;
    #assert ~~ revealed ;;
    tws ← get tws_loc' ;;
    #assert (size tws < 1)%N ;;
@@ -179,15 +175,18 @@ Lemma resolve_gsq (b : bool) (t : th_T (thf_grind P)) (m : wcp_M P) :
         | Some pp => ret pp
         | None => pp ← wcp_dPP P ;; #put pp_loc' := Some pp ;; ret pp
         end ;;
-   match [seq i <- iota 0 (wcp_c_max P) | grind_prp P (th_eval (thf_grind P) pp t (grind_enc P m i))] with
+   match [seq i <- iota 0 (wcp_c_max P) |
+     if wcp_grind_class P (grind_enc P t m i).1
+     then grind_prp P (th_eval (thf_hash P) pp (grind_enc P t m i).1 (grind_enc P t m i).2)
+     else false] with
    | i :: _ =>
        tgts ← get tgts_loc' ;;
        #put tgts_loc' := setm tgts (size tws) (t, (m, i)) ;;
        #put tws_loc' := rcons tws t ;;
-       ret (th_eval (thf_grind P) pp t (grind_enc P m i), i)
+       ret (th_eval (thf_hash P) pp (grind_enc P t m i).1 (grind_enc P t m i).2, i)
    | [::] =>
        #assert false ;;
-       ret (th_eval (thf_grind P) pp t (grind_enc P m 0), 0)
+       ret (th_eval (thf_hash P) pp (grind_enc P t m 0).1 (grind_enc P t m 0).2, 0)
    end).
 Proof.
 by case: b; simplify_linking.
@@ -218,8 +217,12 @@ Lemma resolve_gck (j : nat) (mc : wcp_M P) (ctr : nat) :
             | Some pp => ret pp
             | None => pp ← wcp_dPP P ;; #put pp_loc' := Some pp ;; ret pp
             end ;;
-       ret ((mc != m0) &&
-            (th_eval (thf_grind P) pp t0 (grind_enc P m0 i0) == th_eval (thf_grind P) pp t0 (grind_enc P mc ctr)))
+       ret (if wcp_grind_class P (grind_enc P t0 m0 i0).1 &&
+               wcp_grind_class P (grind_enc P t0 mc ctr).1
+            then (mc != m0) &&
+              (th_eval (thf_hash P) pp (grind_enc P t0 m0 i0).1 (grind_enc P t0 m0 i0).2 ==
+               th_eval (thf_hash P) pp (grind_enc P t0 mc ctr).1 (grind_enc P t0 mc ctr).2)
+            else false)
    | None => ret false
    end).
 Proof.
@@ -244,18 +247,23 @@ Qed.
 #[local] Arguments find_counter : simpl never.
 #[local] Arguments complete_ends : simpl never.
 #[local] Arguments shrincs_wots_verify : simpl never.
-#[local] Arguments digits_w : simpl never.
 #[local] Arguments th_eval : simpl never.
 #[local] Arguments grind_prp : simpl never.
 #[local] Arguments grind_enc : simpl never.
 #[local] Arguments Shrincs.internal.ssprove.wots.params.decode_tweak : simpl never.
 
-(** The SQUERY answer decodes to the signed digit vector (the [thf_grind]
-    tweak evaluates the scheme's H_grind at the canonical address, by
-    [decode_tweakK]-computation). *)
+(** The SQUERY answer decodes to the signed digit vector ([thf_hash]
+    at the grinding tweak evaluates the scheme's H_grind at the
+    grinding address, [th_evalE_Tgr]). *)
 Lemma digest_resE (pp : wcp_PP P) (m : wcp_M P) (c : nat) :
-  rev (digits_w (wcp_w P) (wcp_chain_count P) (th_eval (thf_grind P) pp (encode_tweak P (grind_adrs P)) (grind_enc P m c))) = digest_of P pp m c.
-Proof. by rewrite /grind_enc th_evalE_Tgr /digest_of. Qed.
+  wcp_digits P (th_eval (thf_hash P) pp
+    (grind_enc P (encode_tweak P (grind_adrs P)) m c).1
+    (grind_enc P (encode_tweak P (grind_adrs P)) m c).2) = digest_of P pp m c.
+Proof. by rewrite th_evalE_Tgr /digest_of. Qed.
+
+Lemma grind_enc_class (m : wcp_M P) (c : nat) :
+  wcp_grind_class P (grind_enc P (encode_tweak P (grind_adrs P)) m c).1.
+Proof. exact: wcp_encode_grind_class. Qed.
 
 (* ------------------------------------------------------------------ *)
 (** ** The invariant (header)
@@ -289,10 +297,10 @@ Definition IGNG : Locations :=
         pp_loc' ; tgts_loc' ; tws_loc' ; rev_loc' ].
 
 Definition RG (pko : option (Pk (shrincs_wots_scheme P))) (lg : seq (Msg (shrincs_wots_scheme P)))
-    (sgo : option (Sig (shrincs_wots_scheme P)))
-    (pko' : option (Pk (shrincs_wots_scheme P))) (lg' : seq (Msg (shrincs_wots_scheme P))) (sgo' : option (Sig (shrincs_wots_scheme P)))
-    (po : option (wcp_PP P)) (tg : {fmap nat -> (th_T (thf_grind P) × (wcp_M P × 'nat))})
-    (tw : seq (th_T (thf_grind P))) (rv : bool) : Prop :=
+    (sgo : option (wc_sig_parts P))
+    (pko' : option (Pk (shrincs_wots_scheme P))) (lg' : seq (Msg (shrincs_wots_scheme P))) (sgo' : option (wc_sig_parts P))
+    (po : option (wcp_PP P)) (tg : {fmap nat -> (th_T (thf_hash P) × (wcp_M P × 'nat))})
+    (tw : seq (th_T (thf_hash P))) (rv : bool) : Prop :=
   [/\ pko' = pko, lg' = lg, sgo' = sgo &
       match pko with
       | None =>
@@ -340,7 +348,7 @@ Proof. by move=> h1 h2; split. Qed.
     [::] or the single grinding target). *)
 
 Definition gblk (po : option (wcp_PP P)) (rv : bool)
-    (tw : seq (th_T (thf_grind P))) (tg : {fmap nat -> (th_T (thf_grind P) × (wcp_M P × 'nat))}) :
+    (tw : seq (th_T (thf_hash P))) (tg : {fmap nat -> (th_T (thf_hash P) × (wcp_M P × 'nat))}) :
     precond :=
   λ '(s0, s1),
   [/\ heap_ignore IGNG (s0, s1),
@@ -409,12 +417,12 @@ Lemma r_commit_tail (pp : wcp_PP P) (m : wcp_M P) (c : nat) :
       #put forge_pk_loc P := Some (pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp (digest_of P pp m c) sg)) ;;
       #put forge_log_loc P := [:: m] ;;
       #put forge_sig_loc P := Some (sg, c) ;;
-      ret ((pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp (digest_of P pp m c) sg)), Some (sg, c)))
+      ret ((pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp (digest_of P pp m c) sg)), Some (wcp_sig_encode P (sg, c))))
    ≈ (sg ← sample_sig_roots (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) (wcp_dN P) pp 0 (digest_of P pp m c) ;;
       #put r_grind_pk_loc := Some (pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp (digest_of P pp m c) sg)) ;;
       #put r_grind_log_loc := [:: m] ;;
       #put r_grind_sig_loc := Some (sg, c) ;;
-      ret ((pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp (digest_of P pp m c) sg)), Some (sg, c)))
+      ret ((pp, wcp_T_sf P pp (pk_adrs P) (complete_ends P pp (digest_of P pp m c) sg)), Some (wcp_sig_encode P (sg, c))))
   ⦃ λ '(b0, s0) '(b1, s1), b0 = b1 /\ grind_inv (s0, s1) ⦄.
 Proof.
 eapply r_scheme_bind; first exact: sample_sig_roots_valid.
@@ -438,9 +446,9 @@ Qed.
 (* ------------------------------------------------------------------ *)
 (** ** THE real-side equivalence *)
 
-Lemma R_grind_real (Hrange : grind_range P) :
+Lemma R_grind_real :
   perfect (I_KOTS (shrincs_wots_scheme P)) (G_forge_uniformchains P true)
-          (R_grind ∘ STCRP_game (thf_grind P) (coll_grind P) (wcp_M P) (grind_enc P) (grind_prp P) (wcp_c_max P) 1 true).
+          (R_grind ∘ STCRP_game (thf_hash P) (wcp_grind_class P) (wcp_M P) (grind_enc P) (grind_prp P) (wcp_c_max P) 1 true).
 Proof.
 ssprove_share. eapply prove_perfect.
 eapply (eq_rel_perf_ind _ _ grind_inv).
@@ -471,6 +479,8 @@ simplify_eq_rel arg.
   simpl.
   (* the single SQUERY: the oracle performs the grinding *)
   rewrite (resolve_gsq true (encode_tweak P (grind_adrs P)) m).
+  eapply r_bind_assertD_rhs; first by move=> ? ? _; exact: wcp_tw_grind_class.
+  move=> _.
   eapply (r_get_bind_rhs rev_loc' false).
     { by move=> s0 s1 [_ _ h _ _]. }
   cbv beta.
@@ -494,7 +504,12 @@ simplify_eq_rel arg.
   simpl.
   (* the in-oracle search is find_counter: split on its outcome *)
   have hfc := grind_search_find_ctr P pp m.
-  case E: [seq i <- iota 0 (wcp_c_max P) | grind_prp P (th_eval (thf_grind P) pp (encode_tweak P (grind_adrs P)) (grind_enc P m i))]
+  case E: [seq i <- iota 0 (wcp_c_max P) |
+    if wcp_grind_class P (grind_enc P (encode_tweak P (grind_adrs P)) m i).1
+    then grind_prp P (th_eval (thf_hash P) pp
+      (grind_enc P (encode_tweak P (grind_adrs P)) m i).1
+      (grind_enc P (encode_tweak P (grind_adrs P)) m i).2)
+    else false]
     => [|c crest]; rewrite E /= in hfc.
   + (* grinding failure: both sides abort *)
     rewrite -hfc /=.
@@ -513,14 +528,17 @@ simplify_eq_rel arg.
     eapply r_put_rhs_weak.
       { move=> s0 s1 hpre; exact: (gblk_set_rev _ _ _ _ _ hpre). }
     rewrite (code_link_bind (sample_sig_roots (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) (wcp_dN P) pp 0
-              (rev (digits_w (wcp_w P) (wcp_chain_count P) (th_eval (thf_grind P) pp (encode_tweak P (grind_adrs P)) (grind_enc P m c)))))).
+              (wcp_digits P (th_eval (thf_hash P) pp
+                (grind_enc P (encode_tweak P (grind_adrs P)) m c).1
+                (grind_enc P (encode_tweak P (grind_adrs P)) m c).2)))).
     rewrite (code_link_scheme _ _ _ _
               (sample_sig_roots_valid (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) (wcp_dN P) emptym _ pp 0 _)).
     rewrite !digest_resE.
     exact: r_commit_tail.
 - (* KFORGE *)
-  destruct arg as [mst sgst].
+  destruct arg as [mst sgw].
   simpl.
+  move: (wcp_sig_decode P sgw) => sgst.
   sync_eq pko pko'.
     { move=> s0 s1 [[hinv hrem0] hrem1].
       case/grind_invE: hinv => _ [e1 _ _ _].
@@ -597,8 +615,8 @@ simplify_eq_rel arg.
           by case: hmatch => mm [cc [sgg [_ _ hpo _ _]]]. }
       simpl.
       have hne : mst != m := notin_log_neq P m mst hfresh.
-      have hcol := wdigest_inj P pk.1 mst sgst.2 m c Hrange (eqP E1).
-      rewrite /grind_enc !th_evalE_Tgr hne hcol eqxx /=.
+      have hcol := wdigest_inj P pk.1 mst sgst.2 m c (eqP E1).
+      rewrite !grind_enc_class /= !th_evalE_Tgr hne hcol eqxx /=.
       apply r_ret => s0 s1 hpre; split=> //.
       by case: hpre => [[[[[[hinv _] _] _] _] _] _].
 Qed.
@@ -608,7 +626,7 @@ Qed.
 
 Lemma R_grind_ideal :
   perfect (I_KOTS (shrincs_wots_scheme P)) (intermediates.G_post_grind P)
-          (R_grind ∘ STCRP_game (thf_grind P) (coll_grind P) (wcp_M P) (grind_enc P) (grind_prp P) (wcp_c_max P) 1 false).
+          (R_grind ∘ STCRP_game (thf_hash P) (wcp_grind_class P) (wcp_M P) (grind_enc P) (grind_prp P) (wcp_c_max P) 1 false).
 Proof.
 ssprove_share. eapply prove_perfect.
 eapply (eq_rel_perf_ind _ _ grind_inv).
@@ -638,6 +656,8 @@ simplify_eq_rel arg.
     by split. }
   simpl.
   rewrite (resolve_gsq false (encode_tweak P (grind_adrs P)) m).
+  eapply r_bind_assertD_rhs; first by move=> ? ? _; exact: wcp_tw_grind_class.
+  move=> _.
   eapply (r_get_bind_rhs rev_loc' false).
     { by move=> s0 s1 [_ _ h _ _]. }
   cbv beta.
@@ -660,7 +680,12 @@ simplify_eq_rel arg.
     { move=> s0 s1 hpre; exact: (gblk_set_pp pp _ _ _ _ _ hpre). }
   simpl.
   have hfc := grind_search_find_ctr P pp m.
-  case E: [seq i <- iota 0 (wcp_c_max P) | grind_prp P (th_eval (thf_grind P) pp (encode_tweak P (grind_adrs P)) (grind_enc P m i))]
+  case E: [seq i <- iota 0 (wcp_c_max P) |
+    if wcp_grind_class P (grind_enc P (encode_tweak P (grind_adrs P)) m i).1
+    then grind_prp P (th_eval (thf_hash P) pp
+      (grind_enc P (encode_tweak P (grind_adrs P)) m i).1
+      (grind_enc P (encode_tweak P (grind_adrs P)) m i).2)
+    else false]
     => [|c crest]; rewrite E /= in hfc.
   + rewrite -hfc /=.
     exact: r_fail_bind_rhs.
@@ -677,14 +702,17 @@ simplify_eq_rel arg.
     eapply r_put_rhs_weak.
       { move=> s0 s1 hpre; exact: (gblk_set_rev _ _ _ _ _ hpre). }
     rewrite (code_link_bind (sample_sig_roots (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) (wcp_dN P) pp 0
-              (rev (digits_w (wcp_w P) (wcp_chain_count P) (th_eval (thf_grind P) pp (encode_tweak P (grind_adrs P)) (grind_enc P m c)))))).
+              (wcp_digits P (th_eval (thf_hash P) pp
+                (grind_enc P (encode_tweak P (grind_adrs P)) m c).1
+                (grind_enc P (encode_tweak P (grind_adrs P)) m c).2)))).
     rewrite (code_link_scheme _ _ _ _
               (sample_sig_roots_valid (wcp_PP P) (wcp_N P) (wcp_w P) (Fw P) (wcp_dN P) emptym _ pp 0 _)).
     rewrite !digest_resE.
     exact: r_commit_tail.
 - (* KFORGE *)
-  destruct arg as [mst sgst].
+  destruct arg as [mst sgw].
   simpl.
+  move: (wcp_sig_decode P sgw) => sgst.
   sync_eq pko pko'.
     { move=> s0 s1 [[hinv hrem0] hrem1].
       case/grind_invE: hinv => _ [e1 _ _ _].

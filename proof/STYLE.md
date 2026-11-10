@@ -190,7 +190,7 @@ around it.
 
 Trust-surface blocks are the load-bearing exception to "keep it short":
 `REVIEWER NOTE`, `AUDIT NOTE`, and `IMPORT DISCIPLINE` comments (see
-`axioms.v`, `thf.v`, `bridge.v`) exist to carry exactly the
+`games.v` and `internal/ssprove/wots/params.v`) exist to carry exactly the
 reasoning a reviewer cannot reconstruct from the statement alone — they are
 mandatory wherever the surrounding claim depends on them, and are not
 subject to trimming for brevity.
@@ -272,13 +272,12 @@ gate fails on these:
 1. **Build freshness** — every source file listed in `_RocqProject` has an
    up-to-date `.vo`.
 2. **No proof gaps** — no `Admitted.`, `admit.`, `give_up.` anywhere in the
-   tree's scope (Model → `model/`; Sec → `ssprove/` + `assumptions/`; Vst →
-   `vst/`).
+   tree's scope, `internal/common/` for Model, `internal/ssprove/` and
+   `assumptions/` for Sec, and `internal/vst/` for Vst.
 3. **No smuggled assumptions**: source text confines declarations to the
    allowed files. Model permits the `machine.v` module-type fields and
-   the discharged `Hpb` hypothesis in `address.v`. Sec permits the six
-   named hash-game axioms and their `eps_*` parameters in
-   `internal/ssprove/axioms.v`. Vst permits no assumption declarations. The probe
+   the discharged `Hpb` hypothesis in `address.v`. Sec and Vst permit no
+   assumption declarations. The probe
    checks the actual assumption cone, including declarations in allowed
    files. A theorem must not take an advantage bound or the existence of
    a reduction as a premise. Every reduction is constructed. The only

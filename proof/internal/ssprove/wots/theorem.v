@@ -34,19 +34,18 @@
     composes with it by the advantage triangle, so the ideal-key
     proof stack is never reopened.
 
-    Side conditions: [grind_range P] (H_grind outputs below
-    w^chain_count — discharged at instantiation when H_grind is an
-    (chain_count*log2 w)-bit hash), [wcp_Hcc] (at least one chain; see
-    Shrincs.internal.ssprove.wots.hop.prf) and the data sampler [wcp_dM]. *)
+    Side conditions are laws of the parameter record: injective digit,
+    node and chain-end encodings, static address classes and at least
+    one chain. *)
 
-From Shrincs.internal.ssprove.lib Require Import prelude games.thf games.smtcr games.smpre games.smud
-  games.stcrp games.prf sig.scheme sig.kots.
+From Shrincs.internal.ssprove.lib Require Import prelude.
 From Shrincs.internal.ssprove.lib Require Import chain.core.
-From Shrincs.internal.ssprove Require Import addressing.
+From Shrincs Require Import games.
 From Shrincs.internal.ssprove.wots Require Import scheme games analysis
   hop.grind hop.compress hop.chain_tcr hop.chain_pre hop.ud hop.prf
-  bound.grind bound.compress bound.chain_tcr bound.chain_pre bound.prf kots_link.
+  bound.grind bound.compress bound.chain_tcr bound.chain_pre bound.prf.
 From mathcomp Require Import reals.
+
 
 Import PackageNotation.
 Import GRing.Theory Num.Theory Order.POrderTheory.
@@ -76,32 +75,26 @@ Context (dK : dist K).
       advantage equals A's success probability.
     - Each RHS summand is one assumption's advantage [AdvOf _ (A ∘ R_)]
       at an EXPLICIT, constructed reduction — no advantage or
-      reduction-existence is assumed (assumptions/check.sh enforces this).
-    - [grind_range P] is the SOLE data side condition: H_grind's output
-      fits in [chain_count] base-w digits.  Satisfiable when H_grind is
-      an n-bit hash read as [chain_count] base-w digits; note it needs
-      [w >= 2] so that [w^chain_count > 0] — otherwise the bound is
-      [False] and the theorem is vacuous. *)
+      reduction-existence is assumed (audit/check.sh enforces this). *)
 Theorem shrincs_wots_secure_ideal_sk
-    (Hrange : grind_range P)
     (A : nom_package)
     (VA : ValidPackage (loc A) (I_KOTS (shrincs_wots_scheme P)) A_export A) :
   Adv (G_forge_sampledkey P true) (G_forge_sampledkey P false) A
     (* [w.-2] = number of internal chain positions hybridised by SM-UD;
        a truncated subtraction, so this sum is empty when [w < 2]. *)
     <= \sum_(0 <= s < (wcp_w P).-2)
-          AdvOf (SMUD_game (thf_chain P) (coll_chain P) (wcp_chain_count P)) (A ∘ R_ud P true s)
-     + AdvOf (STCRP_game (thf_grind P) (coll_grind P) (wcp_M P)
+          AdvOf (SMUD_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P)) (A ∘ R_ud P true s)
+     + AdvOf (STCRP_game (thf_hash P) (wcp_grind_class P) (wcp_M P)
                 (grind_enc P) (grind_prp P) (wcp_c_max P) 1) (A ∘ R_grind P)
-     + AdvOf (SMTCR_game (thf_pkcompress P) (coll_pkcompress P) 1) (A ∘ R_compress P)
-     + AdvOf (SMTCR_game (thf_chain P) (coll_chain P)
+     + AdvOf (SMTCR_game (thf_hash P) (wcp_pk_class P) 1) (A ∘ R_compress P)
+     + AdvOf (SMTCR_game (thf_hash P) (wcp_chain_class P)
                 (tcr_budget (wcp_chain_count P) (wcp_w P))) (A ∘ R_chain_tcr P)
-     + AdvOf (SMPRE_game (thf_chain P) (coll_chain P) (wcp_chain_count P)) (A ∘ R_chain_pre P)
+     + AdvOf (SMPRE_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P)) (A ∘ R_chain_pre P)
      + \sum_(0 <= s < (wcp_w P).-2)
-          AdvOf (SMUD_game (thf_chain P) (coll_chain P) (wcp_chain_count P)) (A ∘ R_ud P false s).
+          AdvOf (SMUD_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P)) (A ∘ R_ud P false s).
 Proof.
 (* The four hop-equalities are proved in dedicated files
-   (Shrincs.internal.ssprove.wots.Bound.{Grind,Compress,ChainTCR,ChainPRE}) so their heavy
+   (Shrincs.internal.ssprove.wots.bound.{grind,compress,chain_tcr,chain_pre}) so their heavy
    Adv_perfect_l/r rewrites type-check in parallel; here we only
    instantiate the resulting opaque lemmas.
 
@@ -117,59 +110,59 @@ have le6 : forall a b c d e f : R,
     a + (b + (c + (d + (e + f)))) <= a + b + c + d + e + f.
   by move=> a b c d e f; rewrite !GRing.addrA; exact: lexx.
 have hGR : Adv (G_forge_uniformchains P true) (intermediates.G_post_grind P) A
-           = AdvOf (STCRP_game (thf_grind P) (coll_grind P) (wcp_M P)
+           = AdvOf (STCRP_game (thf_hash P) (wcp_grind_class P) (wcp_M P)
                       (grind_enc P) (grind_prp P) (wcp_c_max P) 1) (A ∘ R_grind P).
   by apply: grind_hop_eq; assumption.
 have hCP : Adv (intermediates.G_post_grind P) (intermediates.G_post_compress P) A
-           = AdvOf (SMTCR_game (thf_pkcompress P) (coll_pkcompress P) 1) (A ∘ R_compress P).
+           = AdvOf (SMTCR_game (thf_hash P) (wcp_pk_class P) 1) (A ∘ R_compress P).
   by apply: compress_hop_eq; assumption.
 have hCT : Adv (intermediates.G_post_compress P) (intermediates.G_post_chain P) A
-           = AdvOf (SMTCR_game (thf_chain P) (coll_chain P)
+           = AdvOf (SMTCR_game (thf_hash P) (wcp_chain_class P)
                       (tcr_budget (wcp_chain_count P) (wcp_w P))) (A ∘ R_chain_tcr P).
   by apply: ctcr_hop_eq; assumption.
 have hPR : Adv (intermediates.G_post_chain P) (G_forge_uniformchains P false) A
-           = AdvOf (SMPRE_game (thf_chain P) (coll_chain P) (wcp_chain_count P)) (A ∘ R_chain_pre P).
+           = AdvOf (SMPRE_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P)) (A ∘ R_chain_pre P).
   by apply: cpre_hop_eq; assumption.
 have hUD1 : Adv (G_forge_sampledkey P true) (G_forge_uniformchains P true) A
             <= \sum_(0 <= s < (wcp_w P).-2)
-                  AdvOf (SMUD_game (thf_chain P) (coll_chain P) (wcp_chain_count P)) (A ∘ R_ud P true s).
+                  AdvOf (SMUD_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P)) (A ∘ R_ud P true s).
   exact: (UDw_telescope P true A VA).
 have hUD0 : Adv (G_forge_uniformchains P false) (G_forge_sampledkey P false) A
             <= \sum_(0 <= s < (wcp_w P).-2)
-                  AdvOf (SMUD_game (thf_chain P) (coll_chain P) (wcp_chain_count P)) (A ∘ R_ud P false s).
+                  AdvOf (SMUD_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P)) (A ∘ R_ud P false s).
   by rewrite Adv_sym; exact: (UDw_telescope P false A VA).
 have h5 : Adv (intermediates.G_post_chain P) (G_forge_sampledkey P false) A
-          <= AdvOf (SMPRE_game (thf_chain P) (coll_chain P) (wcp_chain_count P)) (A ∘ R_chain_pre P)
+          <= AdvOf (SMPRE_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P)) (A ∘ R_chain_pre P)
            + \sum_(0 <= s < (wcp_w P).-2)
-                AdvOf (SMUD_game (thf_chain P) (coll_chain P) (wcp_chain_count P)) (A ∘ R_ud P false s).
+                AdvOf (SMUD_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P)) (A ∘ R_ud P false s).
   eapply le_trans; first exact: (Adv_triangle (G2 := G_forge_uniformchains P false)).
   by rewrite hPR; apply: lerD; [exact: lexx | exact: hUD0].
 have h4 : Adv (intermediates.G_post_compress P) (G_forge_sampledkey P false) A
-          <= AdvOf (SMTCR_game (thf_chain P) (coll_chain P)
+          <= AdvOf (SMTCR_game (thf_hash P) (wcp_chain_class P)
                       (tcr_budget (wcp_chain_count P) (wcp_w P))) (A ∘ R_chain_tcr P)
-           + (AdvOf (SMPRE_game (thf_chain P) (coll_chain P) (wcp_chain_count P)) (A ∘ R_chain_pre P)
+           + (AdvOf (SMPRE_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P)) (A ∘ R_chain_pre P)
               + \sum_(0 <= s < (wcp_w P).-2)
-                   AdvOf (SMUD_game (thf_chain P) (coll_chain P) (wcp_chain_count P)) (A ∘ R_ud P false s)).
+                   AdvOf (SMUD_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P)) (A ∘ R_ud P false s)).
   eapply le_trans; first exact: (Adv_triangle (G2 := intermediates.G_post_chain P)).
   by rewrite hCT; apply: lerD; [exact: lexx | exact: h5].
 have h3 : Adv (intermediates.G_post_grind P) (G_forge_sampledkey P false) A
-          <= AdvOf (SMTCR_game (thf_pkcompress P) (coll_pkcompress P) 1) (A ∘ R_compress P)
-           + (AdvOf (SMTCR_game (thf_chain P) (coll_chain P)
+          <= AdvOf (SMTCR_game (thf_hash P) (wcp_pk_class P) 1) (A ∘ R_compress P)
+           + (AdvOf (SMTCR_game (thf_hash P) (wcp_chain_class P)
                        (tcr_budget (wcp_chain_count P) (wcp_w P))) (A ∘ R_chain_tcr P)
-              + (AdvOf (SMPRE_game (thf_chain P) (coll_chain P) (wcp_chain_count P)) (A ∘ R_chain_pre P)
+              + (AdvOf (SMPRE_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P)) (A ∘ R_chain_pre P)
                  + \sum_(0 <= s < (wcp_w P).-2)
-                      AdvOf (SMUD_game (thf_chain P) (coll_chain P) (wcp_chain_count P)) (A ∘ R_ud P false s))).
+                      AdvOf (SMUD_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P)) (A ∘ R_ud P false s))).
   eapply le_trans; first exact: (Adv_triangle (G2 := intermediates.G_post_compress P)).
   by rewrite hCP; apply: lerD; [exact: lexx | exact: h4].
 have h2 : Adv (G_forge_uniformchains P true) (G_forge_sampledkey P false) A
-          <= AdvOf (STCRP_game (thf_grind P) (coll_grind P) (wcp_M P)
+          <= AdvOf (STCRP_game (thf_hash P) (wcp_grind_class P) (wcp_M P)
                       (grind_enc P) (grind_prp P) (wcp_c_max P) 1) (A ∘ R_grind P)
-           + (AdvOf (SMTCR_game (thf_pkcompress P) (coll_pkcompress P) 1) (A ∘ R_compress P)
-              + (AdvOf (SMTCR_game (thf_chain P) (coll_chain P)
+           + (AdvOf (SMTCR_game (thf_hash P) (wcp_pk_class P) 1) (A ∘ R_compress P)
+              + (AdvOf (SMTCR_game (thf_hash P) (wcp_chain_class P)
                           (tcr_budget (wcp_chain_count P) (wcp_w P))) (A ∘ R_chain_tcr P)
-                 + (AdvOf (SMPRE_game (thf_chain P) (coll_chain P) (wcp_chain_count P)) (A ∘ R_chain_pre P)
+                 + (AdvOf (SMPRE_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P)) (A ∘ R_chain_pre P)
                     + \sum_(0 <= s < (wcp_w P).-2)
-                         AdvOf (SMUD_game (thf_chain P) (coll_chain P) (wcp_chain_count P)) (A ∘ R_ud P false s)))).
+                         AdvOf (SMUD_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P)) (A ∘ R_ud P false s)))).
   eapply le_trans; first exact: (Adv_triangle (G2 := intermediates.G_post_grind P)).
   by rewrite hGR; apply: lerD; [exact: lexx | exact: h3].
 eapply le_trans; first exact: (Adv_triangle (G2 := G_forge_uniformchains P true)).
@@ -187,23 +180,22 @@ Qed.
       PRF terms are the price of replacing the ideal chain starts by
       the PRF derivation, once on each side of the pair.
     - [wcp_Hcc] (at least one chain) is the PRF hop's data side
-      condition (Shrincs.internal.ssprove.wots.hop.prf header); [grind_range P] as above. *)
+      condition (Shrincs.internal.ssprove.wots.hop.prf header). *)
 Theorem shrincs_wots_secure
-    (Hrange : grind_range P)
     (A : nom_package)
     (VA : ValidPackage (loc A) (I_KOTS (shrincs_wots_scheme P)) A_export A) :
   Adv (G_forge_keyed P K PRF dK true) (G_forge_keyed P K PRF dK false) A
     <= AdvOf (PRF_game (khf_prf P K PRF dK) (wcp_chain_count P)) (A ∘ R_prf P K PRF dK true)
      + \sum_(0 <= s < (wcp_w P).-2)
-          AdvOf (SMUD_game (thf_chain P) (coll_chain P) (wcp_chain_count P)) (A ∘ R_ud P true s)
-     + AdvOf (STCRP_game (thf_grind P) (coll_grind P) (wcp_M P)
+          AdvOf (SMUD_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P)) (A ∘ R_ud P true s)
+     + AdvOf (STCRP_game (thf_hash P) (wcp_grind_class P) (wcp_M P)
                 (grind_enc P) (grind_prp P) (wcp_c_max P) 1) (A ∘ R_grind P)
-     + AdvOf (SMTCR_game (thf_pkcompress P) (coll_pkcompress P) 1) (A ∘ R_compress P)
-     + AdvOf (SMTCR_game (thf_chain P) (coll_chain P)
+     + AdvOf (SMTCR_game (thf_hash P) (wcp_pk_class P) 1) (A ∘ R_compress P)
+     + AdvOf (SMTCR_game (thf_hash P) (wcp_chain_class P)
                 (tcr_budget (wcp_chain_count P) (wcp_w P))) (A ∘ R_chain_tcr P)
-     + AdvOf (SMPRE_game (thf_chain P) (coll_chain P) (wcp_chain_count P)) (A ∘ R_chain_pre P)
+     + AdvOf (SMPRE_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P)) (A ∘ R_chain_pre P)
      + \sum_(0 <= s < (wcp_w P).-2)
-          AdvOf (SMUD_game (thf_chain P) (coll_chain P) (wcp_chain_count P)) (A ∘ R_ud P false s)
+          AdvOf (SMUD_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P)) (A ∘ R_ud P false s)
      + AdvOf (PRF_game (khf_prf P K PRF dK) (wcp_chain_count P)) (A ∘ R_prf P K PRF dK false).
 Proof.
 (* Same assembly discipline as [shrincs_wots_secure_ideal_sk] (performance
@@ -219,90 +211,24 @@ have hP1 : Adv (G_forge_keyed P K PRF dK true) (G_forge_sampledkey P true) A
 have hP0 : Adv (G_forge_sampledkey P false) (G_forge_keyed P K PRF dK false) A
            = AdvOf (PRF_game (khf_prf P K PRF dK) (wcp_chain_count P)) (A ∘ R_prf P K PRF dK false).
   by rewrite Adv_sym; apply: prf_hop_eq; assumption.
-have hMID := shrincs_wots_secure_ideal_sk Hrange A VA.
+have hMID := shrincs_wots_secure_ideal_sk A VA.
 have h2 : Adv (G_forge_sampledkey P true) (G_forge_keyed P K PRF dK false) A
           <= \sum_(0 <= s < (wcp_w P).-2)
-                AdvOf (SMUD_game (thf_chain P) (coll_chain P) (wcp_chain_count P)) (A ∘ R_ud P true s)
-           + AdvOf (STCRP_game (thf_grind P) (coll_grind P) (wcp_M P)
+                AdvOf (SMUD_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P)) (A ∘ R_ud P true s)
+           + AdvOf (STCRP_game (thf_hash P) (wcp_grind_class P) (wcp_M P)
                       (grind_enc P) (grind_prp P) (wcp_c_max P) 1) (A ∘ R_grind P)
-           + AdvOf (SMTCR_game (thf_pkcompress P) (coll_pkcompress P) 1) (A ∘ R_compress P)
-           + AdvOf (SMTCR_game (thf_chain P) (coll_chain P)
+           + AdvOf (SMTCR_game (thf_hash P) (wcp_pk_class P) 1) (A ∘ R_compress P)
+           + AdvOf (SMTCR_game (thf_hash P) (wcp_chain_class P)
                       (tcr_budget (wcp_chain_count P) (wcp_w P))) (A ∘ R_chain_tcr P)
-           + AdvOf (SMPRE_game (thf_chain P) (coll_chain P) (wcp_chain_count P)) (A ∘ R_chain_pre P)
+           + AdvOf (SMPRE_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P)) (A ∘ R_chain_pre P)
            + \sum_(0 <= s < (wcp_w P).-2)
-                AdvOf (SMUD_game (thf_chain P) (coll_chain P) (wcp_chain_count P)) (A ∘ R_ud P false s)
+                AdvOf (SMUD_game (thf_hash P) (wcp_chain_class P) (wcp_chain_count P)) (A ∘ R_ud P false s)
            + AdvOf (PRF_game (khf_prf P K PRF dK) (wcp_chain_count P)) (A ∘ R_prf P K PRF dK false).
   eapply le_trans; first exact: (Adv_triangle (G2 := G_forge_sampledkey P false)).
   by apply: lerD; [exact: hMID | rewrite hP0; exact: lexx].
 eapply le_trans; first exact: (Adv_triangle (G2 := G_forge_sampledkey P true)).
 eapply le_trans; first by apply: lerD; [rewrite hP1; exact: lexx | exact: h2].
 exact: le8.
-Qed.
-
-(* ------------------------------------------------------------------ *)
-(** ** The headline restated over the standard KOTS notion
-
-    [Shrincs.internal.ssprove.wots.kots_link] proves [G_forge_sampledkey]/[G_forge_keyed] are
-    PERFECTLY, and UNCONDITIONALLY, the generic valid-commit KOTS
-    experiment [KOTS_vc_game] (Shrincs.internal.ssprove.lib.sig.kots) at
-    [shrincs_wots_scheme P] / the keyed scheme [shrincs_wots_keyed P K PRF dK]
-    (no [Hrange] side condition on the linking lemmas themselves — see
-    that file's header). [AdvOf_perfect] swaps BOTH game bits (true and
-    false) of an [AdvOf] term at once given a [perfect] equivalence at
-    each bit, so composing it with [shrincs_wots_secure_ideal_sk] /
-    [shrincs_wots_secure] below carries the same bound over to the
-    standard notion's advantage, unchanged and with no new hop. *)
-
-(** [shrincs_wots_secure_ideal_sk], restated as a bound on A's forgery
-    advantage against the STANDARD known-message valid-commit
-    experiment [KOTS_vc_game (shrincs_wots_scheme P)] (ideal chain
-    starts) rather than the bespoke [G_forge_sampledkey]. *)
-Theorem shrincs_wots_secure_kots_ideal_sk
-    (Hrange : grind_range P)
-    (A : nom_package)
-    (VA : ValidPackage (loc A) (I_KOTS (shrincs_wots_scheme P)) A_export A) :
-  AdvOf (KOTS_vc_game (shrincs_wots_scheme P)) A
-    <= \sum_(0 <= s < (wcp_w P).-2)
-          AdvOf (SMUD_game (thf_chain P) (coll_chain P) (wcp_chain_count P)) (A ∘ R_ud P true s)
-     + AdvOf (STCRP_game (thf_grind P) (coll_grind P) (wcp_M P)
-                (grind_enc P) (grind_prp P) (wcp_c_max P) 1) (A ∘ R_grind P)
-     + AdvOf (SMTCR_game (thf_pkcompress P) (coll_pkcompress P) 1) (A ∘ R_compress P)
-     + AdvOf (SMTCR_game (thf_chain P) (coll_chain P)
-                (tcr_budget (wcp_chain_count P) (wcp_w P))) (A ∘ R_chain_tcr P)
-     + AdvOf (SMPRE_game (thf_chain P) (coll_chain P) (wcp_chain_count P)) (A ∘ R_chain_pre P)
-     + \sum_(0 <= s < (wcp_w P).-2)
-          AdvOf (SMUD_game (thf_chain P) (coll_chain P) (wcp_chain_count P)) (A ∘ R_ud P false s).
-Proof.
-rewrite -(AdvOf_perfect (G_forge_sampledkey_KOTS_vc P)).
-exact: shrincs_wots_secure_ideal_sk Hrange A VA.
-Qed.
-
-(** THE HEADLINE OVER THE STANDARD NOTION: [shrincs_wots_secure], restated
-    as a bound on A's forgery advantage against [KOTS_vc_game
-    (shrincs_wots_keyed P K PRF dK)] — the SAME 8-term bound, unchanged,
-    since [G_forge_keyed_KOTS_vc] links the two games perfectly at every
-    bit. A referee who only trusts the standard notion (Shrincs.internal.ssprove.lib.sig.kots)
-    reads this statement, not [shrincs_wots_secure]'s. *)
-Theorem shrincs_wots_secure_kots
-    (Hrange : grind_range P)
-    (A : nom_package)
-    (VA : ValidPackage (loc A) (I_KOTS (shrincs_wots_scheme P)) A_export A) :
-  AdvOf (KOTS_vc_game (shrincs_wots_keyed P K PRF dK)) A
-    <= AdvOf (PRF_game (khf_prf P K PRF dK) (wcp_chain_count P)) (A ∘ R_prf P K PRF dK true)
-     + \sum_(0 <= s < (wcp_w P).-2)
-          AdvOf (SMUD_game (thf_chain P) (coll_chain P) (wcp_chain_count P)) (A ∘ R_ud P true s)
-     + AdvOf (STCRP_game (thf_grind P) (coll_grind P) (wcp_M P)
-                (grind_enc P) (grind_prp P) (wcp_c_max P) 1) (A ∘ R_grind P)
-     + AdvOf (SMTCR_game (thf_pkcompress P) (coll_pkcompress P) 1) (A ∘ R_compress P)
-     + AdvOf (SMTCR_game (thf_chain P) (coll_chain P)
-                (tcr_budget (wcp_chain_count P) (wcp_w P))) (A ∘ R_chain_tcr P)
-     + AdvOf (SMPRE_game (thf_chain P) (coll_chain P) (wcp_chain_count P)) (A ∘ R_chain_pre P)
-     + \sum_(0 <= s < (wcp_w P).-2)
-          AdvOf (SMUD_game (thf_chain P) (coll_chain P) (wcp_chain_count P)) (A ∘ R_ud P false s)
-     + AdvOf (PRF_game (khf_prf P K PRF dK) (wcp_chain_count P)) (A ∘ R_prf P K PRF dK false).
-Proof.
-rewrite -(AdvOf_perfect (G_forge_keyed_KOTS_vc P K PRF dK)).
-exact: shrincs_wots_secure Hrange A VA.
 Qed.
 
 End WOTSCTheorem.

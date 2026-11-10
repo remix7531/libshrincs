@@ -6,19 +6,18 @@
 
 (** * Shrincs.internal.ssprove.wots.kots_link
 
-    The KOTS linking theorem: the two WOTS+C valid-commit known-message
-    games are, PERFECTLY and unconditionally, the generic valid-commit
-    KOTS game [KOTS_vc_game] (Shrincs.internal.ssprove.lib.sig.kots) instantiated at the two
-    WOTS+C schemes.
+    The KOTS linking theorem: the keyed WOTS+C valid-commit
+    known-message game is, PERFECTLY and unconditionally, the generic
+    valid-commit KOTS game [KOTS_vc_game] (Shrincs.games.kots)
+    instantiated at the keyed WOTS+C scheme.
 
-      [G_forge_keyed_KOTS_vc      : G_forge_keyed      ~  KOTS_vc_game (shrincs_wots_keyed ...)]
-      [G_forge_sampledkey_KOTS_vc : G_forge_sampledkey ~  KOTS_vc_game (shrincs_wots_scheme P)]
+      [G_forge_keyed_KOTS_vc : G_forge_keyed ~ KOTS_vc_game (shrincs_wots_keyed ...)]
 
-    Both are [perfect (I_KOTS (shrincs_wots_scheme P))] — no [Hrange] /
-    grinding-range side condition: the flat games are byte-for-byte the
+    It is [perfect (I_KOTS (shrincs_wots_scheme P))] with no
+    side condition: the flat game is byte-for-byte the
     KOTS experiment (same key generation, same one-time sign, same
-    forge check), the only reshaping being that they inline the
-    scheme's [keygen]/[sign] and carry an extra signature location
+    forge check), the only reshaping being that it inlines the
+    scheme's [keygen]/[sign] and carries an extra signature location
     ([forge_sig_loc], unread by KFORGE) that [KOTS_vc_game] omits.
 
     ** Proof shape (template: Shrincs.internal.ssprove.wots.hop.ud's endpoint hops)
@@ -31,18 +30,17 @@
     refusal pivot (Shrincs.internal.ssprove.wots.scheme): on [Some] both sides commit the
     same (pk, log) and return the same signature (the game's [#assert]
     is the scheme's non-refusal); on [None] the game aborts outright
-    while the KOTS side samples its key/chain starts and then fails on
+    while the KOTS side samples its key and then fails on
     the refused sign — related by [r_fail_scheme_rhs].  KFORGE reads
     the mirrored (pk, log) and both verify functions are the same
     [shrincs_wots_verify]. *)
 
 From mathcomp.experimental_reals Require Import distr.
-From Shrincs.internal.ssprove.lib Require Import prelude sig.scheme sig.kots
+From Shrincs.internal.ssprove.lib Require Import prelude
   toolkit.sample_seq toolkit.relational_rules.
-From Shrincs.internal.common Require Import math.chain math.encoding.
-From Shrincs.internal.ssprove Require Import addressing.
-From Shrincs.internal.ssprove.wots Require Import addressing.
+From Shrincs Require Import games.
 From Shrincs.internal.ssprove.wots Require Import scheme games hop.prf.
+
 
 Import PackageNotation.
 #[local] Open Scope package_scope.
@@ -131,70 +129,7 @@ simplify_eq_rel arg.
     * apply: r_fail_scheme_rhs; exact _.
 - (* KFORGE: read the mirrored (pk, log); both sides verify the same
      [shrincs_wots_verify] (the log-couple is invariant index 0) *)
-  destruct arg as [mst sgst].
-  eapply r_get_remember_lhs => pko.
-  eapply r_get_remember_rhs => pko'.
-  ssprove_rem_rel 1%N => e. subst pko'.
-  ssprove_sync => hpko.
-  eapply r_get_remember_lhs => log.
-  eapply r_get_remember_rhs => log'.
-  ssprove_rem_rel 0%N => e'. subst log'.
-  ssprove_forget_all.
-  case: b => /=; by apply r_ret.
-Qed.
-
-(* ------------------------------------------------------------------ *)
-(** ** The sampled-key link *)
-
-Lemma G_forge_sampledkey_KOTS_vc b :
-  perfect (I_KOTS (shrincs_wots_scheme P))
-    (G_forge_sampledkey P b)
-    (KOTS_vc_game (shrincs_wots_scheme P) b).
-Proof.
-ssprove_share. eapply prove_perfect.
-eapply (eq_rel_perf_ind _ _ (kinv (shrincs_wots_scheme P))).
-{ ssprove_invariant => //. }
-simplify_eq_rel arg.
-- (* COMMIT *)
-  destruct arg as [sp m].
-  ssprove_code_simpl. simpl.
-  (* sync the freshness gate (the pk-couple is invariant index 1) *)
-  eapply r_get_remember_lhs => pko.
-  eapply r_get_remember_rhs => pko'.
-  ssprove_rem_rel 1%N => e. subst pko'.
-  ssprove_sync => hpko.
-  (* couple the PKseed sample *)
-  eapply r_scheme_bind; [exact _|].
-  move=> pp.
-  (* the sign-refusal pivot (Shrincs.internal.ssprove.wots.scheme.find_counter) *)
-  case E: (find_counter P pp m) => [c|].
-  + (* Some c: both sides commit the same (pk, log) and issue the same signature *)
-    simpl.
-    eapply r_scheme_bind; [exact _|].
-    move=> xs.
-    rewrite (shrincs_wots_sign_Some P pp xs m c E).
-    simpl.
-    apply r_put_vs_put.
-    apply r_put_vs_put.
-    (* [forge_sig_loc] has no KOTS counterpart: an lhs-only write *)
-    apply r_put_lhs.
-    ssprove_restore_mem.
-    { ssprove_invariant. }
-    by apply r_ret.
-  + (* None: the game aborts, while the KOTS side samples its chain starts
-       and then fails on the refused sign (the swap-and-collapse
-       [r_fail_scheme_rhs]) *)
-    simpl.
-    eapply r_transR.
-    * eapply r_scheme_bind; [exact _|].
-      move=> xs.
-      rewrite (shrincs_wots_sign_None P pp xs m E).
-      simpl.
-      exact: (rreflexivity_rule fail).
-    * apply: r_fail_scheme_rhs; exact _.
-- (* KFORGE: read the mirrored (pk, log); both sides verify the same
-     [shrincs_wots_verify] (the log-couple is invariant index 0) *)
-  destruct arg as [mst sgst].
+  destruct arg as [mst sgw].
   eapply r_get_remember_lhs => pko.
   eapply r_get_remember_rhs => pko'.
   ssprove_rem_rel 1%N => e. subst pko'.
