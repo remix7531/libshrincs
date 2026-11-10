@@ -50,6 +50,7 @@ internal/vst/support/repr/int32.v
 
 sha256.v
 spec.v
+games.v
 
 internal/vst/sha256/clone.v
 internal/vst/sha256/sync.v
