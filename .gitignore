@@ -15,8 +15,8 @@ proof/clight/
 build/
 result
 result-*
-rocq_mcp_cache_*.v
+rocq_mcp_cache_*
 docs/
-proof/assumptions/*.out
-proof/assumptions/*.found
-proof/assumptions/*.normalized
+proof/audit/*.out
+proof/audit/*.found
+proof/audit/*.names

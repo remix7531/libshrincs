@@ -138,7 +138,14 @@ internal/ssprove/instance.v
 internal/ssprove/security.v
 
 # --- the honesty gate ---
-# The standalone assumption probes are compiled by assumptions/check.sh.
+# audit/probe.v and audit/statement.v are intentionally NOT listed here,
+# i.e. not part of the default build: probe.v is an axiom-fetch-heavy
+# `Print Assumptions` tail over the whole cone, and statement.v exists to
+# be type-checked against the built theorem, which only makes sense once
+# that theorem is built. `make audit` / audit/check.sh compiles each
+# standalone with coqc (gates 4 and 5), so the audit is unaffected; both
+# resolve under the same `-Q . Shrincs` root as everything else (and so
+# editor tooling reading this file resolves them too).
 
 # Public statements compose completed results over the canonical specification.
 theorem.v

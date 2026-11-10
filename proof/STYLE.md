@@ -227,27 +227,50 @@ comment. Generated files (`clight/`) are exempt.
 
 ## Honesty / audit constraints
 
-The honesty gate lives in `proof/assumptions/check.sh`, run by `make audit`.
-It reads the model, SSProve and VST sections of
-`proof/assumptions/allowed.txt`. Each tree has a standalone query under
-`proof/assumptions/`. The gate checks four properties per tree:
+The honesty gate lives in **`proof/audit/check.sh`** (run via `make audit`),
+reading its allowlist from **`proof/audit/allowed.txt`**. One scope, not
+three: the trees are gated together, since one theorem
+(`theorem.v`'s `shrincs_correct_and_secure`) spans all of
+them. The build gate checks seven properties:
 
-0. Build freshness: each registered source in the tree has an object at
-   least as new as its source. `proof/_RocqProject` registers the sources.
-1. No proof gaps: scanned sources contain no `Admitted.`, `admit.` or
-   `give_up.`. The standalone queries are excluded from this scan.
-2. No declared assumptions: scanned sources declare no `Axiom`,
-   `Parameter`, `Hypothesis` or `Conjecture`. Section `Context` and
-   `Variable` binders are discharged at `End`.
-3. Closed assumption base: the compiled query names must stay within the
-   corresponding section of `proof/assumptions/allowed.txt`. A dependency
-   that introduces another assumption fails the audit.
+0. **Built and reviewed**: every source registered in `proof/_RocqProject`
+   is tracked by git and has an object at least as new as its source.
+   The generated Clight programs are the tracking exception. No object
+   may exist without a registered source.
+1. **No proof gaps**: no `Admitted.`, `admit.`, `give_up.` in any source
+   registered or tracked by git, `audit/` excepted (its two files are
+   queries, not proofs). Gates 1 and 2 scan that combined source set.
+2. **No declared assumptions**: every top-level `Axiom`, `Parameter`, and
+   section `Hypothesis` or `Conjecture` under `proof/` is checked by source
+   text, and **no file may declare one**. The security statement names its
+   six reductions and bounds the forger by their advantages against the
+   hash games (PRF, SM-UD, STCRP, SM-TCR at the public key hash, SM-TCR at
+   the chain hash, SM-PRE), so no hardness axiom is needed.
+   There are no declaration exemptions. Section `Context` and `Variable`
+   binders are discharged at `End` and are exempt from this scan.
+   A theorem must not take an advantage
+   bound or the existence of a reduction as a premise — every reduction
+   is *constructed*; the only admissible hypotheses are data side
+   conditions (e.g. `Hrange`) and, in Sec, adversary-validity
+   (`ValidPackage`).
+3. **Headline pin** — `audit/probe.v` must literally probe
+   `shrincs_correct_and_secure` and `sha256_c_correct`, so neither
+   can be silently renamed or swapped for a weaker namesake.
+4. **Closed axiom base** — `Print Assumptions` on those two theorems must
+   stay within `allowed.txt`. Adding a dependency that drags in a new
+   axiom fails the audit.
+5. **Statement pin**: `audit/statement.v` carries reviewed copies of
+   both public statements and the kernel must accept each live
+   theorem at that exact type, so a dropped conjunct or a weakened bound
+   is a compile failure rather than a diff a reviewer has to notice.
+6. **Public import boundary**: `sha256.v`, `spec.v`, `contracts.v` and
+   `games.v` may not import `Shrincs.internal` modules.
 
-A theorem must not take an advantage bound or the existence of a
-reduction as a premise. Every reduction is constructed. Admissible
-premises express data side conditions or adversary validity. The cone
-check does not establish that a theorem states the intended claim. Its
-statement requires review.
+A theorem whose *statement* smuggles an advantage bound or a reduction's
+existence as a premise would still pass all seven gates. That anti-pattern
+is banned by this section, not caught mechanically. Gate 5 is what pins
+the public statements against silent drift once reviewed. It
+does not review it for you.
 
 ---
 

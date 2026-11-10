@@ -1,0 +1,31 @@
+# proof/audit/allowed.txt
+#
+# The allowed assumption cones of both public statements in Shrincs.theorem.
+# Gate 4 checks the compiled probe against these names and provenance notes.
+#
+# The project declares no assumption. Every name below is a baseline
+# inherited from SSProve, MathComp, CompCert, Flocq, VST or the standard
+# library. The security statement bounds the forger's advantage by the
+# advantages of six explicit reductions against the hash games, so the
+# hardness of those games is the reader's premise, not an axiom here.
+#
+# Blank lines, comments and section headers are ignored when extracting names.
+#
+# A name is spelled here exactly as `Print Assumptions` prints it in
+# probe.v's import context (shortest unambiguous qualid). That spelling
+# is import-context dependent -- `Axioms.R` prints bare as `R` under
+# different imports -- so each entry says what it IS, not just what it
+# is called.
+
+[classical baselines]
+# These principles are inherited from the proof libraries.
+Axioms.R                                   # SSProve's abstract real carrier (`Parameter R : realType`, SSProve.Crypt.Axioms) -- the type its probability semantics is valued in
+boolp.constructive_indefinite_description  # classical choice, via mathcomp-analysis's boolp
+boolp.functional_extensionality_dep        # dependent functional extensionality (mathcomp-analysis boolp)
+boolp.propositional_extensionality         # propositional extensionality (mathcomp-analysis boolp)
+Axioms.prop_ext                                         # propositional extensionality (CompCert's compcert.lib.Axioms -- a DIFFERENT Axioms module from Axioms.R's, same short name)
+ClassicalDedekindReals.sig_forall_dec                   # classical decidability of a forall over nat (Coq stdlib Reals)
+ClassicalDedekindReals.sig_not_dec                      # classical decidability of double negation (Coq stdlib Reals)
+Classical_Prop.classic                                  # excluded middle (Coq stdlib Classical)
+Ensembles.Extensionality_Ensembles                      # set extensionality (Coq stdlib Ensembles)
+FunctionalExtensionality.functional_extensionality_dep  # dependent functional extensionality (Coq stdlib, via CompCert/VST)

@@ -3,7 +3,7 @@
 #
 # This Makefile owns everything under proof/: clightgen extraction, the
 # generated Rocq Makefile.coq, and both proof trees (VST + SSProve) plus
-# the honesty gate (assumptions/). It is invoked from the repo root via
+# the honesty gate (audit/). It is invoked from the repo root via
 # `make -C proof <target>`; the root Makefile's extract/vst-prove/
 # ssprove-prove/prove/audit targets simply route here, so `make audit`
 # etc. from the repo root behave exactly as before the proof build moved.
@@ -14,7 +14,7 @@ NPROC := $(shell nproc)
 VST_DIR     = internal/vst
 CLIGHT_DIR  = clight
 SSPROVE_DIR = internal/ssprove
-AUDIT_DIR   = assumptions
+AUDIT_DIR   = audit
 
 # Cyan banner; blue success line.  Disable colors when NO_COLOR is set
 # (https://no-color.org/) so CI logs stay readable.
@@ -34,7 +34,7 @@ CLIGHT_VOFILES  := $(shell grep -E '^$(CLIGHT_DIR)/.*\.v$$' _RocqProject | sed '
 VST_VOFILES     := $(shell grep -E '^$(VST_DIR)/.*\.v$$' _RocqProject | sed 's/\.v$$/.vo/') $(CLIGHT_VOFILES)
 SSPROVE_VOFILES := $(shell grep -E '^$(SSPROVE_DIR)/.*\.v$$' _RocqProject | sed 's/\.v$$/.vo/')
 
-.PHONY: extract vst-prove ssprove-prove prove audit spec-test clean
+.PHONY: extract vst-prove ssprove-prove prove audit audit-test spec-test clean
 
 # ----- VST / Rocq -----------------------------------------------------------
 # Clight ASTs land in clight/ (single -Q . Shrincs
@@ -93,12 +93,15 @@ prove: Makefile.coq extract
 	@$(MAKE) -j $(NPROC) --no-print-directory -f Makefile.coq
 	@$(SUCCESS) "All Verifications Succeeded"
 
-# The literal specification and both proof stacks are compiled before the gates.
+# Both public statements and their dependencies are compiled before the gates.
 audit: vst-prove ssprove-prove
-	@$(MAKE) -j $(NPROC) --no-print-directory -f Makefile.coq spec.vo
+	@$(MAKE) -j $(NPROC) --no-print-directory -f Makefile.coq theorem.vo
 	@$(BANNER) "honesty gate"
 	@bash $(AUDIT_DIR)/check.sh
 	@$(SUCCESS) "Audit: all proofs green, trust surface unchanged"
+
+audit-test:
+	@bash $(AUDIT_DIR)/test.sh
 
 # spec.v against the reference vectors, evaluated by the kernel's virtual
 # machine. Minutes of work per key generation, so it is its own target.

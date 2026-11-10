@@ -11,7 +11,7 @@
 #   make ssprove-prove  SSProve / Rocq one-time-security proof
 #   make prove        both proofs
 #   make audit        vst-prove + ssprove-prove + the honesty gate
-#                      (proof/assumptions/check.sh: per-tree trust reports)
+#                      (proof/audit/check.sh: gates 0-5 + trust-surface report)
 #   make spec-test    proof/spec.v against the reference vectors in
 #                      test/spec/vectors/, evaluated inside the Rocq kernel
 #   make check        full CI gate: static + sanitizers + CompCert + ctgrind +
@@ -106,7 +106,7 @@ endif
 
 # ----- Top-level targets ----------------------------------------------------
 
-.PHONY: all lib test extract vst-prove ssprove-prove prove audit spec-test clean gen-vectors \
+.PHONY: all lib test extract vst-prove ssprove-prove prove audit audit-test spec-test clean gen-vectors \
         check-asan check-msan check-ccomp \
         check-ct check-ct-gcc check-ct-clang check-ct-ccomp \
         check check-no-prove check-tidy check-fanalyzer format check-format \
@@ -145,6 +145,9 @@ prove:
 audit:
 	@$(MAKE) --no-print-directory -C proof audit
 
+audit-test:
+	@$(MAKE) --no-print-directory -C proof audit-test
+
 spec-test:
 	@$(MAKE) --no-print-directory -C proof spec-test
 
@@ -170,6 +173,7 @@ check-no-prove:
 	@$(MAKE) --no-print-directory extract
 
 check: check-no-prove
+	@$(MAKE) --no-print-directory audit-test
 	@$(BANNER) "prove (Rocq + VST + SSProve)"
 	@$(MAKE) --no-print-directory prove
 	@$(BANNER) "audit (honesty gate)"
