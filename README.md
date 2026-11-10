@@ -17,17 +17,20 @@ The hash games use one `Th` on packed tweaks and byte sequence messages. Targets
 
 ## Build and verify
 
-`dune build` builds the C library. `dune build @check` runs the C compiler, sanitizer, source and constant-time test matrix. The Make targets below build and audit the proof stacks and check the specification vectors.
-
 ```sh
-make test       # C tests and shared reference vectors
-make prove      # both proof trees
-make audit      # proofs and the honesty gate
-make spec-test  # specification vectors in the Rocq kernel
-make check      # static analysis, sanitizers, compilers and proofs
+dune build                       # C library
+dune test                        # C tests and audit regressions
+dune build @proof/prove          # both proof trees
+dune build @proof/audit          # proofs and the honesty gate
+dune build @test/spec-test       # specification vectors in the Rocq kernel
+dune build @check                # source checks, sanitizers, compilers and proofs
 ```
 
-`make audit` checks source registration, proof gaps, declared assumptions, both public statement pins, their assumption cones and the public import boundary. The project declares no assumption. The cone holds only principles inherited from the proof libraries, recorded in [proof/audit/allowed.txt](proof/audit/allowed.txt). `make audit-test` runs the audit regressions and is included in `make check`.
+The build uses three Dune files under one `dune-project`. The root [dune](dune) builds the C library per compiler configuration, [test/dune](test/dune) builds and runs the tests, and [proof/dune](proof/dune) extracts the Clight programs, compiles the proofs and runs the audit. Objects live under `_build/default`. Touching a source or restoring its contents before the next build leaves its compiled objects unchanged. A changed comment can rebuild importers because Rocq records source positions in its objects.
+
+`dune build @proof/audit` checks source registration, proof gaps, declared assumptions, both public statement pins, their assumption cones and the public import boundary. Its trust surface report is `_build/default/proof/audit-report.txt`. The project declares no assumption. The cone holds only principles inherited from the proof libraries, recorded in [proof/audit/allowed.txt](proof/audit/allowed.txt). `dune build @proof/audit-test` runs the audit regressions and is included in `dune test` and `dune build @check`.
+
+To regenerate the reference vectors, run `python3 test/spec/gen_vectors.py --shrincs-bip ../shrincs-bip -o test/spec/vectors/wots_c.kat`. The generated case count must match the static target list in `test/dune`.
 
 SHA-256 is defined by the FIPS 180-4 transcription in `proof/sha256.v`. The proofs in `proof/internal/vst/sha256/` establish that `src/sha256.c` implements that definition.
 

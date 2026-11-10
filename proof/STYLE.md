@@ -16,7 +16,8 @@ for VST under `internal/vst/`. The audit files follow the same conventions.
 Every directory and file under `proof/` is `snake_case`
 (`support/contract/buffer.v`, `wots/hop/chain_tcr.v`,
 `lib/chain/core.v`, `internal/common/bytes.v`). There is one logical root, `Shrincs`,
-declared once in `proof/_RocqProject`. A qualified backend name starts with
+declared once as the theory `Shrincs` in `proof/dune` (no nested theory
+anywhere). A qualified backend name starts with
 `Shrincs.internal`, such as `Shrincs.internal.ssprove.wots.hop` or
 `Shrincs.internal.vst.support.contract.gprog`.
 
@@ -227,19 +228,22 @@ comment. Generated files (`clight/`) are exempt.
 
 ## Honesty / audit constraints
 
-The honesty gate lives in **`proof/audit/check.sh`** (run via `make audit`),
+The honesty gate lives in **`proof/audit/check.sh`** (run via
+`dune build @proof/audit`),
 reading its allowlist from **`proof/audit/allowed.txt`**. One scope, not
 three: the trees are gated together, since one theorem
 (`theorem.v`'s `shrincs_correct_and_secure`) spans all of
 them. The build gate checks seven properties:
 
-0. **Built and reviewed**: every source registered in `proof/_RocqProject`
-   is tracked by git and has an object at least as new as its source.
-   The generated Clight programs are the tracking exception. No object
-   may exist without a registered source.
+0. **Built and reviewed**: every source the theory compiled has its `.vo`
+   and is tracked by git. The theory in `proof/dune` takes every `.v` file
+   under `proof/`, so an untracked file there is compiled and this gate
+   refuses it. The generated Clight programs are the exception. Dune
+   rebuilds by content, so an object is never older than its source.
 1. **No proof gaps**: no `Admitted.`, `admit.`, `give_up.` in any source
-   registered or tracked by git, `audit/` excepted (its two files are
-   queries, not proofs). Gates 1 and 2 scan that combined source set.
+   the theory compiled, `audit/` excepted (its two files are queries, not
+   proofs). Gates 1 and 2 read the sources in the audit's sandbox, which
+   are exactly the ones that were compiled.
 2. **No declared assumptions**: every top-level `Axiom`, `Parameter`, and
    section `Hypothesis` or `Conjecture` under `proof/` is checked by source
    text, and **no file may declare one**. The security statement names its

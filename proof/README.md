@@ -18,8 +18,8 @@ The budgets and six reductions are explicit in the theorem. PRF uses the secret 
 
 `internal/ssprove/` contains the generic WOTS+C model and game hops. Its `instance.v` instantiates the model with the carriers, hashes and addresses of `spec.v`. Its proved adapters identify the model operations with the literal algorithms. `security.v` transfers correctness and the reduction bound to the concrete scheme.
 
-The C tests and specification checks read `test/spec/vectors/wots_c.kat`. Its generator verifies the pinned reference revision. `make spec-test` checks each case in the kernel virtual machine.
+The C tests and specification checks read `test/spec/vectors/wots_c.kat`. Its generator verifies the pinned reference revision. `dune build @test/spec-test` checks each case in the kernel virtual machine.
 
-`proof/_RocqProject` registers the sources under the single `Shrincs` root. `make audit` checks freshness, source registration, proof gaps, declared assumptions, both compiled statement pins, both assumption cones and the public import boundary. `make audit-test` exercises the scanners and gates. The unchanged allowlist in `audit/allowed.txt` records the inherited library principles. The full `make check` includes both audits and the specification vectors.
+`proof/dune` declares the single `Shrincs` theory, extracts the four Clight programs and compiles every proof source except the two standalone audit queries. Objects live under `_build/default/proof`. `proof/_RocqProject` supplies that load path to editors and MCP. The audit receives the tracked source list from the build, checks every compiled source against it, and enforces proof gaps, declared assumptions, both statement pins, both assumption cones and the public import boundary. `dune build @proof/audit-test` exercises the scanners and gates. The unchanged allowlist in `audit/allowed.txt` records the inherited library principles. The full `dune build @check` includes both audits and the specification vectors.
 
 See the root [README.md](../README.md) for build targets and [STYLE.md](STYLE.md) for proof style.

@@ -1,11 +1,8 @@
 {
-  // Load paths for VsRocq; keep in sync with proof/_RocqProject.
+  // Load path for VsRocq: the objects Dune writes. Keep in step with proof/_RocqProject.
   "vsrocq.args": [
-    "-Q", "proof/model", "Model",
-    "-Q", "proof/vst", "Vst",
-    "-Q", "proof/ssprove", "Sec",
-    "-Q", "proof/assumptions", "Assumptions",
-    "-w", "-deprecated-from-Coq,-notation-overridden,-ambiguous-paths"
+    "-Q", "_build/default/proof", "Shrincs",
+    "-w", "-deprecated-from-Coq,-notation-overridden,-ambiguous-paths,-notation-incompatible-format"
   ],
   "files.exclude": {
     "**/*.vo": true,
@@ -15,13 +12,7 @@
     "**/.*.aux": true,
     "**/.lia.cache": true,
     "**/.nia.cache": true,
-    "**/Makefile.coq": true,
-    "**/Makefile.coq.conf": true,
-    "**/.Makefile.coq.d": true,
-    "**/Makefile.rocq": true,
-    "**/Makefile.rocq.conf": true,
-    "**/.Makefile.rocq.conf.d": true,
-    "**/rocq_mcp_cache_*_.v": true,
-    "proof/assumptions/*.out": true
+    "_build": true,
+    "**/rocq_mcp_cache_*_.v": true
   }
 }

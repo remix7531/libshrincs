@@ -1,16 +1,20 @@
 #!/usr/bin/env bash
 # ============================================================================
-# The honesty gate.  ONE tree, seven gates.  Run inside `nix develop`, via
-# `make audit` or standalone once the tree is built:
+# The honesty gate. One tree, seven gates. Run by proof/dune:
 #
-#     nix develop -c bash proof/audit/check.sh
+#     nix develop . --command dune build @proof/audit
 #
-#   gate 0  build freshness -- every .v listed in _RocqProject is tracked
-#           by git and has an up-to-date .vo, and no .vo exists without a
-#           registered source (so the gates below read a tree that actually
-#           compiles, not just source text that looks right)
-#   gate 1  proof gaps -- no Admitted / admit. / give_up. in any tracked or
-#           registered source, EXCEPT audit/ itself (probe.v and statement.v
+# The rule runs this script in the build directory, next to the sources the
+# Shrincs theory compiled and their objects, and passes it the list of files
+# git tracks under proof/.
+#
+#   gate 0  built and reviewed -- every .v the theory compiled has its .vo
+#           and is tracked by git, the generated Clight programs excepted
+#           (so the gates below read a tree that actually compiles, and
+#           nothing is built that a reviewer cannot see). Dune rebuilds by
+#           content, so an object here is never older than its source.
+#   gate 1  proof gaps -- no Admitted / admit. / give_up. in any source the
+#           theory compiled, EXCEPT audit/ itself (probe.v and statement.v
 #           are queries, not proofs, and this file's own prose names them)
 #   gate 2  no declared assumptions -- no Axiom/Axioms/Conjecture/
 #           Parameter(s)/Hypothesis/Hypotheses declaration anywhere.
@@ -46,48 +50,51 @@ STATEMENT=$AUDIT/statement.v
 HEADLINE=shrincs_correct_and_secure
 SECOND=sha256_c_correct
 
-# No _RocqProject here: gates 4 and 5 compile standalone files that are
-# deliberately absent from the default build, so they get the load path and
-# the warning flags by hand.  Keep the -w list in sync with _RocqProject's.
+# Gates 4 and 5 compile standalone files that are deliberately outside the
+# theory, so they get the load path and the warning flags by hand.  Keep the
+# -w list in sync with the flags of the theory in proof/dune.
 COQFLAGS=(-q -Q . Shrincs -w -notation-overridden,-ambiguous-paths)
 
 fail() { printf 'AUDIT FAIL (%s): %s\n' "$1" "$2" >&2; exit 1; }
 
-# ---- the scanned sources ---------------------------------------------------
-# What the gates read is what git tracks plus what the build registers. A
-# stray untracked file is not part of the proof and is not scanned. A
-# registered source that git does not track would be built but never
-# reviewed, so gate 0 rejects it. The generated Clight programs are the one
-# exception: they are registered, rebuilt from the C by `make extract`, and
-# ignored by git.
-git rev-parse --is-inside-work-tree > /dev/null 2>&1 \
-  || fail "sources" "not inside a git work tree, so the tracked sources are unknown"
-mapfile -t registered < <(grep -E '^[a-z][A-Za-z0-9_/.]*\.v$' _RocqProject)
-mapfile -t sources < <(
-  { printf '%s\n' "${registered[@]}"; git ls-files -- '*.v' ":(exclude)$AUDIT/*"; } \
-    | sort -u | sed 's|^|./|')
+[ "$#" -eq 1 ] || fail "arguments" "expected one argument, the list of files git tracks under proof/"
+TRACKED=$1
+[ -s "$TRACKED" ] || fail "arguments" "$TRACKED is missing or empty, so the tracked sources are unknown"
 
-# ---- gate 0: build freshness ----------------------------------------------
-# Every source line of _RocqProject (they all start with a lowercase
-# directory or file name; flags start with `-`, comments with `#`).
-for vf in "${registered[@]}"; do
-  vo=${vf%.v}.vo
+# ---- the scanned sources ---------------------------------------------------
+# The theory in proof/dune compiles every .v file under proof/ except the
+# audit's own two queries, plus the Clight programs it generates from the C.
+# Those are exactly the .v files of this directory, and they are what the
+# gates read.
+mapfile -t sources < <(find . -name '*.v' -not -path "./$AUDIT/*" | sort)
+[ "${#sources[@]}" -gt 0 ] || fail "sources" "no source found (run through dune build @proof/audit)"
+
+# ---- gate 0: built and reviewed -------------------------------------------
+# A source git does not track would be compiled into the theory, and loadable
+# by any import that names it, without ever reaching a reviewer.
+for vf in "${sources[@]}"; do
+  [ -f "${vf%.v}.vo" ] || fail "gate 0" "${vf%.v}.vo missing"
   case "$vf" in
-    clight/*) ;;
-    *) git ls-files --error-unmatch -- "$vf" > /dev/null 2>&1 \
-         || fail "gate 0" "$vf is registered in _RocqProject but not tracked by git" ;;
+    ./clight/*) ;;
+    *) grep -qxF "proof/${vf#./}" "$TRACKED" \
+         || fail "gate 0" "${vf#./} is compiled into the theory but not tracked by git" ;;
   esac
-  [ -f "$vo" ] || fail "gate 0" "$vo missing (run make prove)"
-  [ "$vf" -nt "$vo" ] && fail "gate 0" "$vo older than $vf (run make prove)"
 done
-# A compiled file with no registered source is loadable under the Shrincs
-# root by any import that names it, and nothing above would rebuild or scan
-# it. The audit's own two queries are compiled by gates 4 and 5.
-stale=$(comm -23 \
-  <(find . -name '*.vo' -not -path "./$AUDIT/*" | sed -e 's|^\./||' -e 's|\.vo$|.v|' | sort) \
-  <(printf '%s\n' "${registered[@]}" | sort))
-[ -n "$stale" ] && fail "gate 0" "compiled file(s) with no source registered in _RocqProject:
-$stale"
+
+while IFS= read -r tracked_source; do
+  case "$tracked_source" in
+    proof/audit/*) continue ;;
+    proof/*.v)
+      [ -f "${tracked_source#proof/}" ] \
+        || fail "gate 0" "$tracked_source is tracked but absent from the theory" ;;
+    *) fail "arguments" "unexpected tracked source path: $tracked_source" ;;
+  esac
+done < "$TRACKED"
+
+while IFS= read -r object; do
+  [ -f "${object%.vo}.v" ] \
+    || fail "gate 0" "$object has no source in the theory"
+done < <(find . -name '*.vo' -not -path "./$AUDIT/*" | sort)
 
 # ---- gate 1: proof gaps ----------------------------------------------------
 GAP_RE='(^|[^A-Za-z_.])(Admitted|admit|give_up)\.'

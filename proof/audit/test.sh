@@ -176,43 +176,29 @@ grep -q 'expected to have type' "$temporary/weakened.out"
 expect_rejected bash audit/statement.sh "$temporary/interface.v" "$temporary/missing.out" -q
 grep -q 'Statement pin missing for sha256_c_correct' "$temporary/rejected.out"
 
-# An old bundled WOTS AST can be newer than all C inputs. Changing the
-# extraction recipe must still replace it with one AST per translation unit.
-mkdir -p "$temporary/extraction/proof/clight" "$temporary/extraction/src" "$temporary/extraction/include" "$temporary/bin"
-cp Makefile "$temporary/extraction/proof/Makefile"
-touch "$temporary/extraction/proof/_RocqProject"
-touch "$temporary/extraction/src/"{util,sha256,thash,wots}.c
-touch "$temporary/extraction/include/"{util,sha256,thash,wots}.h
-touch -t 200001010000 "$temporary/extraction/src/"*.c "$temporary/extraction/include/"*.h "$temporary/extraction/proof/Makefile"
-for unit in util sha256 thash wots; do
-  printf 'old bundled AST\n' > "$temporary/extraction/proof/clight/$unit.v"
-done
-touch -t 200101010000 "$temporary/extraction/proof/clight/"*.v
-cat > "$temporary/bin/clightgen" <<'EOF'
-#!/usr/bin/env bash
-set -eu
-output=
-source=
-sources=0
-while [ "$#" -gt 0 ]; do
-  case "$1" in
-    -o) output=$2; shift 2 ;;
-    *.c) source=$1; sources=$((sources + 1)); shift ;;
-    -include*) exit 1 ;;
-    *) shift ;;
-  esac
-done
-test -n "$output"
-test -n "$source"
-test "$sources" -eq 1
-printf '%s\n' "$source" > "$output"
-EOF
-chmod +x "$temporary/bin/clightgen"
-make --no-print-directory -s -C "$temporary/extraction/proof" -q extract
-touch "$temporary/extraction/proof/Makefile"
-PATH="$temporary/bin:$PATH" make --no-print-directory -s -C "$temporary/extraction/proof" extract
-for unit in util sha256 thash wots; do
-  grep -qx "../src/$unit.c" "$temporary/extraction/proof/clight/$unit.v"
-done
+# Gate 0 on a one-file theory: the list of tracked sources is required, an
+# object must exist, and a compiled source git does not track is refused.
+mkdir -p "$temporary/gate0/audit"
+cp audit/check.sh "$temporary/gate0/audit/check.sh"
+touch "$temporary/gate0/reviewed.v" "$temporary/gate0/reviewed.vo"
+printf 'proof/reviewed.v\n' > "$temporary/tracked.txt"
+expect_rejected bash "$temporary/gate0/audit/check.sh"
+grep -q 'AUDIT FAIL (arguments)' "$temporary/rejected.out"
+expect_rejected bash "$temporary/gate0/audit/check.sh" "$temporary/absent.txt"
+grep -q 'AUDIT FAIL (arguments)' "$temporary/rejected.out"
+touch "$temporary/gate0/stray.v" "$temporary/gate0/stray.vo"
+expect_rejected bash "$temporary/gate0/audit/check.sh" "$temporary/tracked.txt"
+grep -q 'AUDIT FAIL (gate 0): stray.v is compiled into the theory but not tracked by git' "$temporary/rejected.out"
+rm "$temporary/gate0/stray.v" "$temporary/gate0/stray.vo" "$temporary/gate0/reviewed.vo"
+expect_rejected bash "$temporary/gate0/audit/check.sh" "$temporary/tracked.txt"
+grep -q 'AUDIT FAIL (gate 0): ./reviewed.vo missing' "$temporary/rejected.out"
+
+touch "$temporary/gate0/reviewed.vo" "$temporary/gate0/orphan.vo"
+expect_rejected bash "$temporary/gate0/audit/check.sh" "$temporary/tracked.txt"
+grep -q 'AUDIT FAIL (gate 0): ./orphan.vo has no source in the theory' "$temporary/rejected.out"
+rm "$temporary/gate0/orphan.vo"
+printf 'proof/absent.v\n' >> "$temporary/tracked.txt"
+expect_rejected bash "$temporary/gate0/audit/check.sh" "$temporary/tracked.txt"
+grep -q 'AUDIT FAIL (gate 0): proof/absent.v is tracked but absent from the theory' "$temporary/rejected.out"
 
 printf 'Audit regression tests passed.\n'

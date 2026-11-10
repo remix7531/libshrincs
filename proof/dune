@@ -1,0 +1,121 @@
+(include_subdirs qualified)
+
+; One clightgen run per C file, and no -include anywhere: the four C sources
+; are four translation units, each verified as its own component and joined in
+; internal/vst/link.v. The programs land in clight/ so that the theory below
+; sees them as Shrincs.clight.*. Each rule depends on every header, so a new
+; #include can never leave a stale program behind.
+(subdir
+ clight
+ (rule
+  (target util.v)
+  (deps ../../src/util.c (glob_files ../../include/*.h) (glob_files ../../src/*.h))
+  (action
+   (run clightgen -normalize -I../../src -I../../include -Wp,-w -o %{target} ../../src/util.c)))
+ (rule
+  (target sha256.v)
+  (deps ../../src/sha256.c (glob_files ../../include/*.h) (glob_files ../../src/*.h))
+  (action
+   (run clightgen -normalize -I../../src -I../../include -Wp,-w -o %{target} ../../src/sha256.c)))
+ (rule
+  (target thash.v)
+  (deps ../../src/thash.c (glob_files ../../include/*.h) (glob_files ../../src/*.h))
+  (action
+   (run clightgen -normalize -I../../src -I../../include -Wp,-w -o %{target} ../../src/thash.c)))
+ (rule
+  (target wots.v)
+  (deps ../../src/wots.c (glob_files ../../include/*.h) (glob_files ../../src/*.h))
+  (action
+   (run clightgen -normalize -I../../src -I../../include -Wp,-w -o %{target} ../../src/wots.c))))
+
+(rocq.theory
+ (name Shrincs)
+ (modules :standard \ audit.probe audit.statement)
+ (theories
+  Stdlib
+  Ltac2
+  VST
+  compcert
+  Flocq
+  MenhirLib
+  mathcomp.boot
+  mathcomp.order
+  mathcomp.algebra
+  mathcomp.ssreflect
+  mathcomp.finite_group
+  mathcomp.field
+  mathcomp.solvable
+  mathcomp.analysis
+  mathcomp.reals
+  mathcomp.classical
+  mathcomp.finmap
+  mathcomp.bigenough
+  mathcomp.real_closed
+  mathcomp.experimental_reals
+  mathcomp.word
+  HB
+  elpi
+  elpi_elpi
+  SSProve
+  extructures
+  deriving
+  micromega_plugin
+  Equations)
+ (flags :standard -w -deprecated-from-Coq,-notation-overridden,-ambiguous-paths,-notation-incompatible-format)
+ (mode vo))
+
+(alias
+ (name prove)
+ (deps (glob_files_rec *.vo)))
+
+; A bare `dune build` builds the C library and nothing here: the proofs take
+; tens of minutes and are asked for by name.
+(alias
+ (name default)
+ (deps))
+
+; What git tracks under proof/. The audit refuses a source that is compiled
+; into the theory without being tracked. Git's index is not a file Dune can
+; watch, so the list is rewritten on every build. Dune hides the repository
+; from sandboxed actions, so git is pointed at it through INSIDE_DUNE, the
+; absolute path of the build context, which sits two levels below the root.
+(rule
+ (target tracked-sources.txt)
+ (deps (universe))
+ (action
+  (with-stdout-to
+   %{target}
+   (system "git -C \"$INSIDE_DUNE/../..\" ls-files -- 'proof/*.v'"))))
+
+; The honesty gate, run in a sandbox that holds every source the theory
+; compiled, every object, and the audit's own files. The report is the trust
+; surface table. Query outputs must stay out of the input set, because Dune
+; materializes dependencies as read-only files.
+(rule
+ (alias audit)
+ (target audit-report.txt)
+ (deps
+  (sandbox always)
+  tracked-sources.txt
+  (glob_files_rec *.vo)
+  (glob_files_rec *.v)
+  audit/check.sh
+  audit/statement.sh
+  audit/declarations.awk
+  audit/allowed.txt)
+ (action
+  (with-stdout-to
+   %{target}
+   (run bash audit/check.sh tracked-sources.txt))))
+
+(rule
+ (aliases audit-test runtest)
+ (deps
+  (sandbox always)
+  audit/test.sh
+  audit/check.sh
+  audit/statement.sh
+  audit/declarations.awk
+  audit/statement.v)
+ (action
+  (run bash audit/test.sh)))

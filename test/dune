@@ -8,6 +8,7 @@
 ;   dune build @test/check-ccomp    CompCert
 ;   dune build @test/check-fanalyzer  gcc's static analyzer (compile only)
 ;   dune build @test/check-ct       ctgrind under gcc, clang and CompCert
+;   dune build @test/spec-test      proof/spec.v against the reference vectors
 ;
 ; _DEFAULT_SOURCE exposes glibc's getrandom(2) and getline(3) to every test
 ; file. It is given on the command line because a per-file #define would race
@@ -202,3 +203,52 @@
  (action
   (run valgrind -q --error-exitcode=1 --track-origins=yes --leak-check=no
     --errors-for-leak-kinds=none ./ctgrind-ccomp)))
+
+; ----- The specification against the reference vectors ------------------------
+
+; spec/vectors/wots_c.kat holds results of the Python reference. kat_to_v.awk
+; turns each case into one Rocq file stating that the function of Shrincs.spec
+; returns the recorded result, and the kernel's virtual machine decides it.
+; The cases form a theory of their own, so Dune checks them in parallel and
+; keeps each result until the specification or its vector changes.
+;
+; The targets are listed one by one because Dune needs them before it runs
+; anything. A vector file with more or fewer cases than this list fails the
+; rule, which is the wanted outcome: regenerate the list with the vectors.
+(subdir
+ spec
+ (alias
+  (name default)
+  (deps))
+ (rule
+  (targets
+   case_001.v case_002.v case_003.v case_004.v case_005.v case_006.v case_007.v case_008.v
+   case_009.v case_010.v case_011.v case_012.v case_013.v case_014.v case_015.v case_016.v
+   case_017.v case_018.v case_019.v case_020.v case_021.v case_022.v case_023.v case_024.v
+   case_025.v case_026.v case_027.v case_028.v case_029.v case_030.v case_031.v case_032.v
+   case_033.v case_034.v case_035.v case_036.v case_037.v)
+  (deps generate.sh kat_to_v.awk vectors/wots_c.kat)
+  (action
+   (run bash generate.sh vectors/wots_c.kat . %{targets})))
+ (rule
+  (aliases runtest check)
+  (deps test.sh generate.sh kat_to_v.awk)
+  (action
+   (run bash test.sh)))
+ (rocq.theory
+  (name SpecTest)
+  (theories
+   Shrincs
+   Stdlib
+   mathcomp.boot
+   mathcomp.algebra
+   mathcomp.word
+   SSProve)
+  (flags :standard -w -notation-overridden,-ambiguous-paths,-abstract-large-number)
+  (mode vo)))
+
+(alias
+ (name spec-test)
+ (deps
+  (alias spec/check)
+  (glob_files spec/case_*.vo)))

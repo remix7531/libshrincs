@@ -13,7 +13,8 @@
 ; its compiler from the OCaml configuration, and the point of this matrix is
 ; to say which compiler builds what.
 ;
-; test/dune builds and runs the tests against these archives.
+; test/dune builds and runs the tests against these archives. proof/dune
+; reads the same C sources through clightgen and depends on nothing here.
 
 (alias
  (name default)
@@ -168,7 +169,8 @@
 
 ; ----- Everything -------------------------------------------------------------
 
-; The C gate: source checks and every compiler configuration with its tests.
+; The full gate: source checks, every compiler configuration and its tests,
+; the proofs, the audit with its regressions, and the specification vectors.
 (alias
  (name check)
  (deps
@@ -179,4 +181,8 @@
   (alias test/check-asan)
   (alias test/check-msan)
   (alias test/check-ccomp)
-  (alias test/check-ct)))
+  (alias test/check-ct)
+  (alias proof/prove)
+  (alias proof/audit)
+  (alias proof/audit-test)
+  (alias test/spec-test)))
