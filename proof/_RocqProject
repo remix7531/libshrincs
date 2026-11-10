@@ -121,6 +121,8 @@ internal/vst/link.v
 
 # --- ssprove: Lib (reusable hash-based-signature library slice) ---
 internal/ssprove/lib/prelude.v
+internal/ssprove/shape.v
+internal/ssprove/instance.v
 internal/ssprove/lib/fin_fin.v
 internal/ssprove/lib/sig/scheme.v
 internal/ssprove/lib/sig/kots.v
