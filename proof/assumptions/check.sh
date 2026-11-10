@@ -7,11 +7,8 @@
 #   0. build freshness -- every tree/*.v in _RocqProject has an up-to-date .vo.
 #   1. proof gaps      -- no Admitted / admit. / give_up. in the tree.
 #   2. assumption confinement -- every Axiom/Parameter/Conjecture/Hypothesis
-#      declaration lives in an allowlisted file (model -> machine.v and the
-#      discharged address.v Hpb hypothesis; ssprove and vst permit none).
+#      declaration is forbidden in every scanned source.
 #      Catches a smuggled assumption by SOURCE TEXT even if unused.
-#      A confinement check, not exact-name: a new assumption inside an allowed
-#      file is caught by gate 3 iff an audited theorem uses it.
 #   3. Print Assumptions cone diff -- compile the tree's assumptions/<tree>.v
 #      probe with coqc, extract the axiom names, diff against the tree's
 #      section of allowed.txt.  This is the real cone check; gate 2 is the belt
@@ -135,7 +132,7 @@ gate2_confined() {
 
 gate2_model() {
   gate2_confined model \
-    'internal/common/machine\.v:|internal/common/address\.v:.*Hypothesis Hpb' \
+    '$^' \
     internal/common sha256.v
 }
 

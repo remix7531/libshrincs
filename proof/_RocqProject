@@ -8,20 +8,6 @@
 # files (clight/*.v, `From Coq Require ...`); hand-written files
 # must not need it -- the codebase is otherwise deprecation-clean.
 
-internal/common/machine.v
-internal/common/fin.v
-internal/common/math/chain.v
-internal/common/math/encoding.v
-internal/common/bounded.v
-internal/common/byte.v
-internal/common/address.v
-internal/common/sha256.v
-internal/common/iteration.v
-internal/common/wots.v
-internal/common/theory/address.v
-internal/common/theory/wots.v
-internal/common/correct/wots.v
-
 # ONE AST PER .c FILE, in link order: nothing is -include'd into
 # anything, so a function that crosses a translation-unit boundary is
 # Internal in exactly one of these and External in the others. What
@@ -31,10 +17,15 @@ clight/sha256.v
 clight/thash.v
 clight/wots.v
 
-# --- SHA-256 definition and proof tree ---------------------------------
-# internal/common/bytes.v connects the byte representations. internal/vst/support/base.v provides
-# the shared CompSpecs used by SHA-256 and the WOTS+C contracts, with
-# word-codec bridges in internal/vst/support/repr/. sha256.v is canonical.
+# --- Public definitions ------------------------------------------------
+sha256.v
+spec.v
+contracts.v
+games.v
+
+# --- SHA-256 proof tree -------------------------------------------------
+# internal/common/bytes.v supplies word bounds. contracts.v provides the
+# shared CompSpecs, reused by internal/vst/support/base.v and every body.
 # internal/vst/sha256/clone.v carries derived facts, and sync.v pins the clone to
 # the canonical definition. The body proofs follow call order. vsu.v
 # assembles their component, and correct.v states its exported contract
@@ -47,11 +38,6 @@ internal/vst/support/settings.v
 internal/vst/support/repr/seqlist.v
 internal/vst/support/repr/words.v
 internal/vst/support/repr/int32.v
-
-sha256.v
-spec.v
-contracts.v
-games.v
 
 internal/vst/sha256/clone.v
 internal/vst/sha256/sync.v
@@ -68,52 +54,26 @@ internal/vst/sha256/verif/sha256.v
 internal/vst/sha256/vsu.v
 internal/vst/sha256/correct.v
 
-internal/vst/support/model/wots.v
-internal/vst/support/theory/pure.v
-internal/vst/support/contract/radrs.v
-internal/vst/support/contract/repr.v
-internal/vst/support/contract/public.v
-internal/vst/support/contract/lemmas/data_at.v
-internal/vst/support/tactics/slot.v
-internal/vst/support/contract/lemmas/cancel_hints.v
-internal/vst/support/contract/lemmas/byte_ok.v
-internal/vst/support/contract/lemmas/lengths.v
-internal/vst/support/contract/lemmas/arith_counter.v
-internal/vst/support/tactics/adrs_store.v
-internal/vst/support/contract/lemmas/arith_nibble.v
-internal/vst/support/contract/lemmas/arith_xor.v
-internal/vst/support/contract/lemmas/arith.v
-internal/vst/support/contract/lemmas/chain_blocks.v
-internal/vst/support/contract/lemmas/shrincs_wots_verify.v
-internal/vst/support/contract/lemmas.v
-internal/vst/support/contract/helpers_libc.v
-internal/vst/support/contract/helpers_thash.v
-internal/vst/support/contract/helpers_wots.v
-internal/vst/support/contract/helpers.v
+# --- WOTS+C against spec.v ----------------------------------------------
+# contracts.v (above) states the three entry points over spec.v.
+# internal/vst/shape.v relates the loops of spec.v to the loops of the C,
+# with no memory in it. Under internal/vst/support/: contract/helpers.v
+# has the contracts of the static functions and the two shared units,
+# theory/values.v the C values of words and bytes, contract/buffer.v the
+# buffer the C fills from the left, contract/gprog.v one proof context
+# per translation unit.
 internal/vst/shape.v
+internal/vst/support/contract/helpers.v
 internal/vst/support/theory/values.v
-internal/vst/support/contract/buffer.v
 internal/vst/support/contract/trusted.v
+internal/vst/support/contract/buffer.v
 internal/vst/support/contract/gprog.v
 
 internal/vst/util/body_shrincs_memset.v
 internal/vst/util/body_shrincs_memcpy.v
-internal/vst/util/body_shrincs_ct_memcmp.v
 internal/vst/util/body_shrincs_panic.v
-internal/vst/thash/body_shrincs_adrs_put32.v
 internal/vst/thash/body_shrincs_adrs_pack.v
 internal/vst/thash/body_shrincs_thash.v
-internal/vst/wots/body_shrincs_wots_t_sf.v
-internal/vst/wots/body_shrincs_wots_h_grind.v
-internal/vst/wots/body_shrincs_wots_derive_sk.v
-internal/vst/wots/body_shrincs_wots_chain_iter.v
-internal/vst/wots/body_shrincs_wots_chain_from_seed.v
-internal/vst/wots/body_shrincs_wots_map_digest.v
-internal/vst/wots/body_shrincs_wots_grind_to_constant_sum.v
-internal/vst/wots/body_shrincs_wots_pubkey_gen.v
-internal/vst/wots/body_shrincs_wots_sign.v
-internal/vst/wots/body_shrincs_wots_pubkey_from_sig.v
-internal/vst/wots/body_shrincs_wots_verify.v
 internal/vst/wots/body_shrincs_wots_c_t_sf.v
 internal/vst/wots/body_shrincs_wots_c_f.v
 internal/vst/wots/body_shrincs_wots_c_h_grind.v
@@ -127,9 +87,9 @@ internal/vst/wots/body_shrincs_wots_c_sign.v
 internal/vst/wots/body_shrincs_wots_c_pubkey_from_sig.v
 
 # --- the three remaining translation units as Verified Software Units,
-# then the link. internal/vst/sha256/vsu.v (above) is the fourth. Each component
+# then the link. internal/vst/sha256/vsu.v (above) is the fourth. Each vsu/ file
 # packages its TU's body proofs; link.v joins all four into one component
-# with Imports nil, exporting the four public entry points.
+# with Imports nil, exporting the three public entry points.
 internal/vst/util/component.v
 internal/vst/thash/component.v
 internal/vst/wots/component.v
@@ -137,16 +97,12 @@ internal/vst/link.v
 
 # --- ssprove: Lib (reusable hash-based-signature library slice) ---
 internal/ssprove/lib/prelude.v
-internal/ssprove/shape.v
-internal/ssprove/instance.v
-internal/ssprove/security.v
 internal/ssprove/lib/games/prf_derive.v
 internal/ssprove/lib/toolkit/sample_seq.v
 internal/ssprove/lib/toolkit/relational_rules.v
 internal/ssprove/lib/toolkit/hop_tactics.v
 internal/ssprove/lib/chain/core.v
 internal/ssprove/lib/chain/ud.v
-
 
 # --- ssprove: WOTS+C scheme + one-time security proof ---
 internal/ssprove/wots/params.v
@@ -173,12 +129,13 @@ internal/ssprove/wots/bound/chain_tcr.v
 internal/ssprove/wots/bound/chain_pre.v
 internal/ssprove/wots/bound/prf.v
 internal/ssprove/wots/theorem.v
+# --- ssprove: the model at the functions of spec.v ---
+# shape.v relates the loops of spec.v to closed forms, instance.v builds
+# the parameter record from spec.v and proves the model's scheme equal to
+# the specification's, and security.v states the two SSProve conjuncts.
+internal/ssprove/shape.v
+internal/ssprove/instance.v
+internal/ssprove/security.v
 
-# --- assumption audit ---
-# The three per-tree probe files assumptions/{model,ssprove,vst}.v are
-# intentionally NOT in the default build: ssprove.v is a ~35s serial
-# `Print Assumptions` tail on the headline theorem, and vst.v an
-# axiom-fetch-heavy compile over the whole VST body-proof surface.
-# `make audit` / assumptions/check.sh recompiles each standalone (gate 3),
-# so the audit is unaffected. The probes resolve under the same
-# `-Q . Shrincs` root as the default build.
+# --- the honesty gate ---
+# The standalone assumption probes are compiled by assumptions/check.sh.
