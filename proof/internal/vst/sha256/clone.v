@@ -10,7 +10,7 @@
     machine-checked proofs need and a reviewer does not.
 
     WHY A CLONE AND NOT AN IMPORT. Shrincs.sha256 is one of the files
-    a reviewer reads, and it earns that by containing nothing but
+    a reviewer reads, containing
     definitions, one faithfulness lemma and known-answer tests. The
     moment the body proofs under verif/ start needing sizes, prefix
     forms and step lemmas, those accumulate wherever the definitions
@@ -339,7 +339,7 @@ Definition compress_blocks (H : seq w32) (bs : seq Z) : seq w32 :=
     "the resulting 256-bit message digest of the message, M, is
          H_0^(N) || H_1^(N) || ... || H_7^(N)."
 
-    Both exported functions end this way, so it is named once. *)
+    The digest renderer is shared by the byte and word views. *)
 
 Definition digest_bytes (Hs : seq w32) : seq Z :=
   flatten [seq bytes_of_word U32 w | w <- Hs].

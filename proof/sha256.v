@@ -17,40 +17,20 @@
     own sentence sits immediately above it, so the Rocq reads as the
     continuation of the prose.
 
-    WHAT IS AND IS NOT HERE. Definitions, the one lemma that discharges
-    the only place this development specialises the standard
-    ([padbits_spec]), and known-answer tests. Nothing else. Every
-    derived fact the machine-checked proofs need -- sizes, prefix
-    forms of the schedule and the round fold, the single-block
-    shortcut -- lives in Shrincs.internal.vst.sha256.clone and NOT here, so
-    that this file stays a document.
-
-    [Shrincs.internal.vst.sha256.clone] keeps a private copy for derived proof facts.
-    [Shrincs.internal.vst.sha256.sync] checks each definition against this file in the
-    kernel. The known-answer tests therefore pin both spellings.
+    This file includes the big-endian word codecs, the byte-aligned
+    padding specialization ([padbits_spec]) and known-answer tests.
+    The private proof clone is checked against these definitions in
+    the kernel. The public C contract is in Shrincs.contracts.
 
     ONE EXPORTED FUNCTION. SS 6 below ends with [sha256], FIPS 180-4 in
-    full: no preprocessing shortcuts, so no length-field special case
-    to worry about. src/sha256.c exports exactly this one.
-
-    [Shrincs.internal.common.sha256] wraps these bytes for the shared model. The
-    hash-game assumptions in [Shrincs.internal.ssprove.axioms] concern that concrete hash.
+    full, including preprocessing. src/sha256.c exports this complete
+    digest through [shrincs_sha256].
 
     SCOPE TRAPS, all three silent, all three documented at length in
-    Shrincs.internal.common.bytes: [Z] arrives via [BinInt] and never [ZArith]; nat
+    the proof style guide: [Z] arrives via [BinInt] and never [ZArith]; nat
     annotations are [%nat] and never [%N]; hex literals need [Z_scope]
     opened BY NAME, because in this import context [%Z] is mathcomp's
     [int_scope]. *)
-
-(* floyd FIRST -- the import-order trap this repository documents: the
-   two notation stacks clash unless floyd is established before the
-   mathcomp surface. [words] Exports it, together with [w256] and the
-   |->32 notations the contracts at the foot of this file are written
-   in. *)
-From Shrincs.internal.vst.support.repr Require Import words.
-From Shrincs.clight Require Import sha256.
-
-From Shrincs.internal.common Require Import bytes.
 
 From HB Require Import structures.
 From mathcomp Require Import boot order algebra word_ssrZ word.
@@ -61,6 +41,39 @@ Set Bullet Behavior "Strict Subproofs".
 Set Default Goal Selector "!".
 
 Local Open Scope Z_scope.
+
+(* Big-endian wire bytes are shared by preprocessing and digest rendering. *)
+Definition wbits (ws : wsize) : nat := (wsize_size_minus_1 ws).+1.
+
+Definition wnbytes (ws : wsize) : nat := (wbits ws %/ 8)%nat.
+
+Section Codec.
+
+Variable ws : wsize.
+
+Definition byte_of_word (w : word ws) (i : nat) : Z :=
+  Z.land (Z.shiftr (wunsigned w) (Z.of_nat (8 * (wnbytes ws - 1 - i)))) 255.
+
+Definition bytes_of_word (w : word ws) : seq Z :=
+  [seq byte_of_word w i | i <- iota 0 (wnbytes ws)].
+
+Definition word_of_bytes (bs : seq Z) : word ws :=
+  wrepr ws (foldl (fun acc b => Z.lor (Z.shiftl acc 8) b) 0 bs).
+
+Lemma bytes_of_word_size (w : word ws) :
+  size (bytes_of_word w) = wnbytes ws.
+Proof. by rewrite size_map size_iota. Qed.
+
+Lemma byte_of_word_range (w : word ws) (i : nat) :
+  0 <= byte_of_word w i < 256.
+Proof.
+rewrite /byte_of_word.
+have -> : 255 = Z.ones 8 by [].
+rewrite (Z.land_ones _ 8 ltac:(by [])).
+by apply: Z.mod_pos_bound.
+Qed.
+
+End Codec.
 
 (* ================================================================= *)
 (** ** SS 3. Notation and conventions
@@ -268,7 +281,7 @@ Qed.
 
 (** The 64-bit big-endian encoding of the message length in bits --
     SS 5.1.1's "64-bit block equal to the number l". Rendered by the
-    codec in Shrincs.internal.common.bytes, shared with the C contracts. *)
+    big-endian codec above, shared with the C contracts. *)
 Definition len_bytes (n : Z) : seq Z := bytes_of_word U64 (wrepr U64 (8 * n)).
 
 (** SS 5.1.1 assembled: message, the 0x80 byte, the zero bytes, the
@@ -436,7 +449,7 @@ Definition sha256 (msg : seq Z) : word U256 := digest_of (sha256_words msg).
     produced by sha256sum(1) and python3 hashlib, and each lemma is
     closed inside the logic by [vm_compute] -- so they pin the
     DEFINITIONS above, not an extracted program. Via
-    Shrincs.internal.vst.sha256.sync they pin the VST side's clone too.
+    the clone synchronization proofs they pin the VST side's clone too.
 
     THE LENGTHS ARE CHOSEN, NOT ARBITRARY. SS 5.1.1's padding has one
     case split -- a message whose last partial block leaves room for
@@ -518,58 +531,3 @@ Lemma sha256_kat_200 :
 Proof. vm_compute. reflexivity. Qed.
 
 Local Close Scope sha_scope.
-
-(* ==================================================================== *)
-(** ** 7. The C contract: what src/sha256.c promises
-
-    One VST funspec for the function src/sha256.c exports,
-    [shrincs_sha256]. Each
-    postcondition names a function defined ABOVE in this file, so what
-    the C is asserted to compute is the transcription of FIPS 180-4 a
-    reader has just read, not a second description of it.
-
-    Reading key (notations from Shrincs.internal.vst.support.repr.words): [p |->32[sh] w] is
-    "the thirty-two bytes at p, with permission sh, are the big-endian
-    bytes of the word w"; [|->_32] is the same footprint with arbitrary
-    content. The [;] between SEP clauses is a SEPARATING conjunction,
-    so each contract already says the caller's buffers do not overlap
-    -- the formal counterpart of the [restrict] in include/sha256.h,
-    which CompCert drops during elaboration.
-
-    NOTHING ELSE IS IN THEM. No [gv : globals] and no resource for the
-    round constants: K and H^(0) are function locals in the C precisely
-    so that this contract is a function of its bytes alone. See
-    Shrincs.internal.vst.sha256.tables.
-
-    THAT src/sha256.c SATISFIES IT is Shrincs.internal.vst.sha256.correct, whose
-    [sha256_c_correct] packages the twelve semax_body proofs of
-    Shrincs.internal.vst.sha256.verif as one verified component exporting exactly
-    this one. It cannot be stated here: it needs the component, the
-    component is proved against Shrincs.internal.vst.sha256.clone, and the gate
-    tying the clone to this file (Shrincs.internal.vst.sha256.sync) is itself
-    downstream of this file. *)
-
-Local Open Scope Z_scope.
-Local Open Scope logic.
-
-(** SS 6.2 in general. [inlen < 2^61] is what makes the message length
-    in BITS fit the sixty-four-bit field SS 5.1.1 appends;
-    include/sha256.h states the same bound in the same words. *)
-Definition spec_sha256 : AST.ident * funspec :=
-  DECLARE _shrincs_sha256
-  WITH msg : list byte, out_ptr : Values.val, in_ptr : Values.val,
-       sh_in : share, sh_out : share
-  PRE [ tptr tuchar, tptr tuchar, tulong ]
-    PROP (readable_share sh_in; writable_share sh_out;
-          0 <= Zlength msg < two_p 61)
-    PARAMS (out_ptr; in_ptr; Vlong (Int64.repr (Zlength msg)))
-    SEP (data_at sh_in (tarray tuchar (Zlength msg)) (List.map Vubyte msg) in_ptr;
-         out_ptr |->_32[sh_out])
-  POST [ tvoid ]
-    PROP () RETURN ()
-    SEP (data_at sh_in (tarray tuchar (Zlength msg)) (List.map Vubyte msg) in_ptr;
-         out_ptr |->32[sh_out] (sha256 (List.map Byte.unsigned msg))).
-
-Local Close Scope logic.
-
-Local Close Scope Z_scope.

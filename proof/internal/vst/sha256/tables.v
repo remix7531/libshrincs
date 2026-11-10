@@ -17,14 +17,12 @@
     reads; and VST has no persistent read-only assertion, so ownership
     cannot be duplicated away. A global table would therefore appear in
     the PRE and the POST of every funspec from [sha256_compress_words]
-    outwards, including public key generation and verification
-    contracts, which have no business mentioning the
-    round constants of a hash. As locals, the two exported contracts
-    are functions of their bytes and nothing else, and the sha256
+    outwards, including the public WOTS+C contracts. As locals, the
+    exported SHA-256 contract is a function of its bytes, and the sha256
     component's init predicate is [emp].
 
-    Hoisting K to the callers of [sha256_compress_words] initializes it
-    once per call rather than once per block.
+    The two callers of [sha256_compress_words] initialise K once per
+    call and pass it through the internal contracts.
 
     THE ONE SECOND TRANSCRIPTION IN THE DEVELOPMENT lives at the foot
     of this file: [K_C] and [H0_C], the two tables as clightgen renders

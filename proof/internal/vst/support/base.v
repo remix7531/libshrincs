@@ -14,13 +14,9 @@
     floyd itself, the [compspecs] the whole tier elaborates against,
     and the name-hygiene note explaining what the merged stack shadows.
 
-    ONE THING THIS FILE IS NOT: free of [wots.c]. It Exports
-    Shrincs.clight.wots, because [CompSpecs] has to be built from some
-    program and all four Clight programs (util.c, sha256.c, thash.c, wots.c)
-    have the same empty composite environment:
-    Shrincs.internal.vst.sha256.vsu's [compspecs_agree] says so by [reflexivity].
-    The SHA-256 proofs and [Shrincs.internal.vst.support.contract.repr] both export this
-    instance, so contracts and callers use the same constant.
+    Shrincs.contracts provides [CompSpecs] and exports the WOTS+C
+    program. All four translation units have the same empty composite
+    environment, as [compspecs_agree] checks in the SHA component.
 
     [Shrincs.internal.vst.support.repr] supplies the
     mathcomp-seq to stdlib-list dictionary in [repr.seqlist], the
@@ -28,13 +24,11 @@
     notations in [repr.words]. *)
 
 From VST Require Export floyd.proofauto.
-From Shrincs.clight Require Export wots.
+From Shrincs Require Export contracts.
 
 From mathcomp Require Import boot order algebra word_ssrZ word.
 From SSProve.Crypt Require Import jasmin_word jasmin_wsize.
 From Shrincs.internal.common Require Export bytes.
-
-#[export] Instance CompSpecs : compspecs. make_compspecs prog. Defined.
 
 Set Bullet Behavior "Strict Subproofs".
 

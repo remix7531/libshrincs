@@ -165,7 +165,7 @@ reflexivity.
 Qed.
 
 (* ================================================================= *)
-(** ** The digest, and the two exported functions *)
+(** ** The digest and the exported function *)
 
 Lemma sync_digest_bytes : M.digest_bytes = S.digest_bytes.
 Proof. reflexivity. Qed.

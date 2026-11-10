@@ -50,6 +50,7 @@ internal/vst/support/repr/int32.v
 
 sha256.v
 spec.v
+contracts.v
 games.v
 
 internal/vst/sha256/clone.v
@@ -89,6 +90,8 @@ internal/vst/support/contract/helpers_libc.v
 internal/vst/support/contract/helpers_thash.v
 internal/vst/support/contract/helpers_wots.v
 internal/vst/support/contract/helpers.v
+internal/vst/shape.v
+internal/vst/support/contract/buffer.v
 internal/vst/support/contract/trusted.v
 internal/vst/support/contract/gprog.v
 
