@@ -6,8 +6,8 @@
 
 /* The SHRINCS tweakable hash: the one keyed-hash primitive every SHRINCS
    node type (WOTS+C chains and pk-compression, and -- once they land --
-   the XMSS/FORS tree hashes) instantiates, plus the ADRS field writer it
-   consumes. Kept in its own translation unit so future scheme sources
+   the XMSS/FORS tree hashes) instantiates, plus the address serializer
+   it consumes. Kept in its own translation unit so future scheme sources
    share it. */
 
 #ifndef SHRINCS_THASH_H
@@ -26,8 +26,17 @@
    SHRINCS adds larger messages (or switch to a streaming SHA-256). */
 #define SHRINCS_THASH_MAX_MSG 512
 
-/* Store v as 4 big-endian bytes at addr[off .. off+4). */
-void shrincs_adrs_put32(uint8_t addr[SHRINCS_THASH_ADDR_BYTES], unsigned off, uint32_t v);
+/* Address.pack of the reference:
+     addr := height(1) || index(8) || address_type(1) || word1(4) || word2(4) || word3(4),
+   every field big-endian. Each address class of the reference is one call
+   with its type flag and its payload words. */
+void shrincs_adrs_pack(uint8_t addr[SHRINCS_THASH_ADDR_BYTES],
+                       uint8_t height,
+                       uint64_t index,
+                       uint8_t address_type,
+                       uint32_t word1,
+                       uint32_t word2,
+                       uint32_t word3);
 
 /* The SHRINCS tweakable hash:
      out := SHA256(pk_seed || zeros(48) || addr || msg[:msglen])[:16].

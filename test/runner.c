@@ -6,11 +6,11 @@
 
 /* Test harness for libshrincs.
 
-   Runs SHA-256 KATs (including NIST CAVS vectors from test/sha256/vectors/) and WOTS+C
-   self-consistency / tamper checks.  WOTS+C has no upstream RFC test vectors, so there is
-   no cross-check against a reference implementation -- correctness rests on the VST proof
-   (`make prove`); these tests guard the compiled binary against regressions and feed the
-   sanitizer / ctgrind gates realistic inputs.
+   Runs SHA-256 KATs (including NIST CAVS vectors from test/sha256/vectors/), the WOTS+C
+   reference vectors of test/spec/vectors/ and WOTS+C self-consistency and tamper checks.
+   Correctness rests on the VST proof, built with dune build @proof/prove. These tests guard
+   the compiled binary against regressions and feed realistic inputs to the sanitizers and
+   ctgrind.
 
    Section drivers live in test/sha256/sha256.c and test/wots/wots.c; shared helpers in
    test/common.c. */

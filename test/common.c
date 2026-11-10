@@ -4,7 +4,7 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  */
 
-/* _DEFAULT_SOURCE (for getrandom(2) and getline(3)) is set in the Makefile so
+/* The build defines _DEFAULT_SOURCE (for getrandom(2) and getline(3)) so
    every test TU sees the same feature-test gates. */
 
 #include "common.h"
@@ -63,20 +63,4 @@ int fill_random(uint8_t *buf, size_t n)
 int read_exact(FILE *f, void *buf, size_t n)
 {
     return fread(buf, 1, n, f) == n ? 0 : -1;
-}
-
-/* A WOTS+C ADRS is 22 raw bytes; only the prefix [0..9) (height + index) is
-   caller-controlled -- the algorithms clobber [9..22). */
-void unpack_addr(shrincs_wots_addr addr, const uint8_t bytes[22])
-{
-    for (int i = 0; i < 22; i++) {
-        addr[i] = bytes[i];
-    }
-}
-
-void zero_addr(shrincs_wots_addr addr)
-{
-    for (int i = 0; i < 22; i++) {
-        addr[i] = 0;
-    }
 }

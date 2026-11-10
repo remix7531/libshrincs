@@ -20,8 +20,6 @@ const char *status_str(enum test_status s);
 /* CSPRNG: getrandom(2) with EINTR retry; /dev/urandom fallback. */
 int fill_random(uint8_t *buf, size_t n);
 int read_exact(FILE *f, void *buf, size_t n);
-void unpack_addr(shrincs_wots_addr addr, const uint8_t bytes[22]);
-void zero_addr(shrincs_wots_addr addr);
 
 /* RUN(T): invoke T, print "T ... <status>", bump local `failures` on T_FAIL / T_ERROR.
    Caller must have an `int failures` in scope. */

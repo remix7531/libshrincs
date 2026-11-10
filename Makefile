@@ -4,16 +4,19 @@
 # User-facing targets:
 #   make              build the C library only (build/libwots.a)
 #                      for the Clight ASTs use `make extract`
-#   make test         C library + self-consistency / tamper tests + SHA-256 KATs
+#   make test         C library + WOTS+C reference vectors + self-consistency /
+#                      tamper tests + SHA-256 KATs
 #   make extract      run clightgen (C -> Clight AST) for vst-prove
 #   make vst-prove    VST / Rocq proofs (implies extract)
 #   make ssprove-prove  SSProve / Rocq one-time-security proof
 #   make prove        both proofs
-#   make audit        vst-prove + ssprove-prove + the combined honesty gate
-#                      (assumptions/check.sh: per-tree gates + trust-surface report)
+#   make audit        vst-prove + ssprove-prove + the honesty gate
+#                      (proof/assumptions/check.sh: per-tree trust reports)
+#   make spec-test    proof/spec.v against the reference vectors in
+#                      test/spec/vectors/, evaluated inside the Rocq kernel
 #   make check        full CI gate: static + sanitizers + CompCert + ctgrind +
-#                      extract + prove + audit
-#   make check-ct     ctgrind: constant-time check on shrincs_wots_pubkey_gen + shrincs_wots_sign
+#                      extract + prove + audit + spec-test
+#   make check-ct     ctgrind: constant-time check on shrincs_wots_c_pubkey_gen + shrincs_wots_c_sign
 #                      under gcc, clang, and CompCert
 #   make format       reformat include/ + src/ + test/ in place (clang-format)
 #   make check-format CI gate: fails if any file isn't clang-format-clean
@@ -119,8 +122,11 @@ extract:
 test: $(MAIN)
 	./$(MAIN)
 
-# The generator requires the reference revision transcribed by proof/spec.v.
-# The committed vectors keep ordinary checks independent of that checkout.
+# Regenerate the committed WOTS+C reference vectors from a shrincs-bip
+# checkout. A manual developer step: the vectors are committed, so the
+# checks that read them need neither Python nor that checkout. The
+# generator refuses a checkout that is not at the commit proof/spec.v
+# transcribes. Override the path with SHRINCS_BIP=/path/to/shrincs-bip.
 SHRINCS_BIP ?= ../shrincs-bip
 gen-vectors:
 	python3 test/spec/gen_vectors.py --shrincs-bip $(SHRINCS_BIP) -o test/spec/vectors/wots_c.kat
@@ -134,7 +140,7 @@ ssprove-prove:
 prove:
 	@$(MAKE) --no-print-directory -C proof prove
 
-# `make audit` is the combined honesty gate for both proof trees; see
+# `make audit` is the honesty gate for the whole repository; see
 # proof/Makefile's `audit` target for the full recipe and its rationale.
 audit:
 	@$(MAKE) --no-print-directory -C proof audit
@@ -207,7 +213,7 @@ check-ccomp:
 	@$(BANNER) "C tests (CompCert)"
 	@$(MAKE) --no-print-directory test BUILD=build/ccomp CC=ccomp
 
-# ctgrind: run shrincs_wots_pubkey_gen and shrincs_wots_sign under valgrind with
+# ctgrind: run shrincs_wots_c_pubkey_gen and shrincs_wots_c_sign under valgrind with
 # sk_seed marked uninitialized.  Any branch or memory index dependent
 # on a secret byte is reported and --error-exitcode=1 fails the
 # build.  Run across gcc / clang / CompCert since each can lower
@@ -225,25 +231,25 @@ ct-bin:   $(CTGRIND)
 check-ct: check-ct-gcc check-ct-clang check-ct-ccomp
 
 check-ct-gcc:
-	@$(BANNER) "ctgrind on shrincs_wots_pubkey_gen+shrincs_wots_sign (gcc)"
+	@$(BANNER) "ctgrind on shrincs_wots_c_pubkey_gen+shrincs_wots_c_sign (gcc)"
 	@$(MAKE) --no-print-directory ct-bin BUILD=build/ct-gcc CC=gcc
 	valgrind -q --error-exitcode=1 --track-origins=yes \
 	    --leak-check=no --errors-for-leak-kinds=none ./build/ct-gcc/test/ctgrind
-	@$(SUCCESS) "shrincs_wots_pubkey_gen/shrincs_wots_sign: no secret-dependent branches (gcc)"
+	@$(SUCCESS) "shrincs_wots_c_pubkey_gen/shrincs_wots_c_sign: no secret-dependent branches (gcc)"
 
 check-ct-clang:
-	@$(BANNER) "ctgrind on shrincs_wots_pubkey_gen+shrincs_wots_sign (clang)"
+	@$(BANNER) "ctgrind on shrincs_wots_c_pubkey_gen+shrincs_wots_c_sign (clang)"
 	@$(MAKE) --no-print-directory ct-bin BUILD=build/ct-clang CC=clang
 	valgrind -q --error-exitcode=1 --track-origins=yes \
 	    --leak-check=no --errors-for-leak-kinds=none ./build/ct-clang/test/ctgrind
-	@$(SUCCESS) "shrincs_wots_pubkey_gen/shrincs_wots_sign: no secret-dependent branches (clang)"
+	@$(SUCCESS) "shrincs_wots_c_pubkey_gen/shrincs_wots_c_sign: no secret-dependent branches (clang)"
 
 check-ct-ccomp:
-	@$(BANNER) "ctgrind on shrincs_wots_pubkey_gen+shrincs_wots_sign (CompCert)"
+	@$(BANNER) "ctgrind on shrincs_wots_c_pubkey_gen+shrincs_wots_c_sign (CompCert)"
 	@$(MAKE) --no-print-directory ct-bin BUILD=build/ct-ccomp CC=ccomp HARNESS_CC=gcc
 	valgrind -q --error-exitcode=1 --track-origins=yes \
 	    --leak-check=no --errors-for-leak-kinds=none ./build/ct-ccomp/test/ctgrind
-	@$(SUCCESS) "shrincs_wots_pubkey_gen/shrincs_wots_sign: no secret-dependent branches (CompCert)"
+	@$(SUCCESS) "shrincs_wots_c_pubkey_gen/shrincs_wots_c_sign: no secret-dependent branches (CompCert)"
 
 # ----- C library + tests ----------------------------------------------------
 
@@ -258,7 +264,8 @@ $(LIB): $(LIB_OBJS)
 # Test harness sources.  Split across modules so each TU has one job:
 #   common.c   shared helpers (rng, status)
 #   sha256.c   SHA-256 KATs + NIST CAVS parser
-#   wots.c     WOTS+C self-consistency + tamper checks
+#   wots.c     WOTS+C reference vectors + self-consistency + tamper checks;
+#              includes src/wots.c to reach its static functions
 #   runner.c   banner + section drivers
 TEST_SRCS = test/common.c test/sha256/sha256.c test/wots/wots.c test/runner.c
 TEST_HDRS = test/common.h
