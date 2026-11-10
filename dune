@@ -1,0 +1,182 @@
+; The C library. One archive per compiler configuration, each in its own
+; directory under lib/. A rule compiles every source under src/ in a sandbox
+; and keeps only the archive, so a new translation unit needs no edit here:
+;
+;   lib/gcc        the default build, and what `dune build` produces
+;   lib/clang      the same flags under clang
+;   lib/ccomp      CompCert, the configuration the correctness theorem is about
+;   lib/asan       AddressSanitizer and UndefinedBehaviorSanitizer (gcc)
+;   lib/msan       MemorySanitizer (clang)
+;   lib/fanalyzer  gcc's static analyzer
+;
+; The compilers are named in the rules. A foreign_library stanza would take
+; its compiler from the OCaml configuration, and the point of this matrix is
+; to say which compiler builds what.
+;
+; test/dune builds and runs the tests against these archives.
+
+(alias
+ (name default)
+ (deps lib/gcc/libshrincs.a))
+
+(subdir
+ lib/gcc
+ (rule
+  (targets libshrincs.a)
+  (deps
+   (:sources (glob_files ../../src/*.c))
+   (glob_files ../../include/*.h)
+   (sandbox always))
+  (action
+   (progn
+    (run gcc -std=c99 -Wall -Wextra -Wpedantic -Werror -O2 -I../../src -I../../include -c
+      %{sources})
+    (system "ar rcs libshrincs.a *.o")))))
+
+(subdir
+ lib/clang
+ (alias
+  (name default)
+  (deps))
+ (rule
+  (targets libshrincs.a)
+  (deps
+   (:sources (glob_files ../../src/*.c))
+   (glob_files ../../include/*.h)
+   (sandbox always))
+  (action
+   (progn
+    (run clang -std=c99 -Wall -Wextra -Wpedantic -Werror -O2 -I../../src -I../../include -c
+      %{sources})
+    (system "ar rcs libshrincs.a *.o")))))
+
+; -Wno-unknown-pragmas silences the gcc-specific pragma in stdint.h. -Wp,-w
+; silences glibc's warning that _FORTIFY_SOURCE wants gcc: the Nix hardening
+; wrapper defines it after our flags, so it can only be quieted in the
+; preprocessor.
+(subdir
+ lib/ccomp
+ (alias
+  (name default)
+  (deps))
+ (rule
+  (targets libshrincs.a)
+  (deps
+   (:sources (glob_files ../../src/*.c))
+   (glob_files ../../include/*.h)
+   (sandbox always))
+  (action
+   (progn
+    (run ccomp -std=c99 -Wall -O2 -I../../src -I../../include -Wno-unknown-pragmas -Wp,-w -c
+      %{sources})
+    (system "ar rcs libshrincs.a *.o")))))
+
+(subdir
+ lib/asan
+ (alias
+  (name default)
+  (deps))
+ (rule
+  (targets libshrincs.a)
+  (deps
+   (:sources (glob_files ../../src/*.c))
+   (glob_files ../../include/*.h)
+   (sandbox always))
+  (action
+   (progn
+    (run gcc -std=c99 -Wall -Wextra -Wpedantic -Werror -O1 -g -fsanitize=address,undefined
+      -fno-omit-frame-pointer -fno-sanitize-recover=all -I../../src -I../../include -c %{sources})
+    (system "ar rcs libshrincs.a *.o")))))
+
+(subdir
+ lib/msan
+ (alias
+  (name default)
+  (deps))
+ (rule
+  (targets libshrincs.a)
+  (deps
+   (:sources (glob_files ../../src/*.c))
+   (glob_files ../../include/*.h)
+   (sandbox always))
+  (action
+   (progn
+    (run clang -std=c99 -Wall -Wextra -Wpedantic -Werror -O1 -g -fsanitize=memory
+      -fsanitize-memory-track-origins=2 -fno-omit-frame-pointer -fno-sanitize-recover=all
+      -I../../src -I../../include -c %{sources})
+    (system "ar rcs libshrincs.a *.o")))))
+
+(subdir
+ lib/fanalyzer
+ (alias
+  (name default)
+  (deps))
+ (rule
+  (targets libshrincs.a)
+  (deps
+   (:sources (glob_files ../../src/*.c))
+   (glob_files ../../include/*.h)
+   (sandbox always))
+  (action
+   (progn
+    (run gcc -std=c99 -Wall -Wextra -Wpedantic -Werror -O2 -fanalyzer -I../../src -I../../include
+      -c %{sources})
+    (system "ar rcs libshrincs.a *.o")))))
+
+; ----- Source checks ---------------------------------------------------------
+
+; Fails if any C file is not clang-format clean. To reformat in place, run
+; clang-format -i --style=file on the same files from the repository root.
+(rule
+ (alias check-format)
+ (deps
+  .clang-format
+  (:sources
+   (glob_files src/*.c)
+   (glob_files include/*.h)
+   (glob_files test/*.c)
+   (glob_files test/*.h)
+   (glob_files test/sha256/*.c)
+   (glob_files test/wots/*.c)
+   (glob_files test/ctgrind/*.c)))
+ (action
+  (run clang-format --dry-run --Werror --style=file %{sources})))
+
+; clang-tidy does not go through the Nix gcc wrapper, which is what adds
+; glibc's include path, so the system include directories are read off gcc and
+; passed as -isystem. test/ctgrind/ctgrind.c is left out: it needs valgrind's
+; headers. clang-tidy counts suppressed warnings on stderr even when it finds
+; nothing, so its output is shown only when it fails.
+(rule
+ (alias check-tidy)
+ (deps
+  .clang-tidy
+  (glob_files include/*.h)
+  test/common.h
+  (:sources
+   src/wots.c
+   src/thash.c
+   src/sha256.c
+   src/util.c
+   test/common.c
+   test/sha256/sha256.c
+   test/wots/wots.c
+   test/runner.c))
+ (action
+  (system
+    "out=$(clang-tidy --quiet --warnings-as-errors='*' %{sources} -- -std=c99 -Isrc -Iinclude -Itest -D_DEFAULT_SOURCE=1 $(echo | gcc -E -Wp,-v -xc - 2>&1 | sed -n 's|^ \\(/.*\\)|-isystem \\1|p') 2>&1) || { echo \"$out\"; exit 1; }")))
+
+; ----- Everything -------------------------------------------------------------
+
+; The C gate: source checks and every compiler configuration with its tests.
+(alias
+ (name check)
+ (deps
+  (alias check-format)
+  (alias check-tidy)
+  (alias test/runtest)
+  (alias test/check-fanalyzer)
+  (alias test/check-asan)
+  (alias test/check-msan)
+  (alias test/check-ccomp)
+  (alias test/check-ct)))

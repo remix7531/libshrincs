@@ -13,6 +13,7 @@ Makefile*.coq.conf
 _RocqProject.*
 proof/clight/
 build/
+_build/
 result
 result-*
 rocq_mcp_cache_*

@@ -17,6 +17,8 @@ The hash games use one `Th` on packed tweaks and byte sequence messages. Targets
 
 ## Build and verify
 
+`dune build` builds the C library. `dune build @check` runs the C compiler, sanitizer, source and constant-time test matrix. The Make targets below build and audit the proof stacks and check the specification vectors.
+
 ```sh
 make test       # C tests and shared reference vectors
 make prove      # both proof trees

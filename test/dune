@@ -1,0 +1,204 @@
+; The C tests. The test binary is built once per compiler configuration of the
+; library (see the root dune file) and run from the workspace root, because it
+; opens its vector files by paths that start with test/.
+;
+;   dune test                       the default build (gcc)
+;   dune build @test/check-asan     AddressSanitizer and UBSan
+;   dune build @test/check-msan     MemorySanitizer
+;   dune build @test/check-ccomp    CompCert
+;   dune build @test/check-fanalyzer  gcc's static analyzer (compile only)
+;   dune build @test/check-ct       ctgrind under gcc, clang and CompCert
+;
+; _DEFAULT_SOURCE exposes glibc's getrandom(2) and getline(3) to every test
+; file. It is given on the command line because a per-file #define would race
+; with header include order.
+
+; Nothing here is built by a bare `dune build`. The ctgrind harness needs
+; valgrind, which the devshell only has on Linux.
+(alias
+ (name default)
+ (deps))
+
+; ----- gcc, the default ------------------------------------------------------
+
+(rule
+ (target main)
+ (deps
+  (:sources common.c sha256/sha256.c wots/wots.c runner.c)
+  (:library ../lib/gcc/libshrincs.a)
+  ../src/wots.c
+  common.h
+  (glob_files ../include/*.h))
+ (action
+  (run gcc -std=c99 -Wall -Wextra -Wpedantic -Werror -O2 -I../src -I../include -I.
+    -D_DEFAULT_SOURCE=1 -o %{target} %{sources} %{library})))
+
+(rule
+ (alias runtest)
+ (deps
+  main
+  (glob_files sha256/vectors/*)
+  spec/vectors/wots_c.kat)
+ (action
+  (chdir
+   %{workspace_root}
+   (run test/main))))
+
+; ----- AddressSanitizer and UndefinedBehaviorSanitizer -----------------------
+
+(rule
+ (target main-asan)
+ (deps
+  (:sources common.c sha256/sha256.c wots/wots.c runner.c)
+  (:library ../lib/asan/libshrincs.a)
+  ../src/wots.c
+  common.h
+  (glob_files ../include/*.h))
+ (action
+  (run gcc -std=c99 -Wall -Wextra -Wpedantic -Werror -O1 -g -fsanitize=address,undefined
+    -fno-omit-frame-pointer -fno-sanitize-recover=all -I../src -I../include -I.
+    -D_DEFAULT_SOURCE=1 -o %{target} %{sources} %{library})))
+
+(rule
+ (alias check-asan)
+ (deps
+  main-asan
+  (glob_files sha256/vectors/*)
+  spec/vectors/wots_c.kat)
+ (action
+  (chdir
+   %{workspace_root}
+   (run test/main-asan))))
+
+; ----- MemorySanitizer --------------------------------------------------------
+
+; Clang only, and every linked object must be instrumented, so this runs the
+; plain C test path and nothing that pulls in an uninstrumented library.
+(rule
+ (target main-msan)
+ (deps
+  (:sources common.c sha256/sha256.c wots/wots.c runner.c)
+  (:library ../lib/msan/libshrincs.a)
+  ../src/wots.c
+  common.h
+  (glob_files ../include/*.h))
+ (action
+  (run clang -std=c99 -Wall -Wextra -Wpedantic -Werror -O1 -g -fsanitize=memory
+    -fsanitize-memory-track-origins=2 -fno-omit-frame-pointer -fno-sanitize-recover=all
+    -I../src -I../include -I. -D_DEFAULT_SOURCE=1 -o %{target} %{sources} %{library})))
+
+(rule
+ (alias check-msan)
+ (deps
+  main-msan
+  (glob_files sha256/vectors/*)
+  spec/vectors/wots_c.kat)
+ (action
+  (chdir
+   %{workspace_root}
+   (run test/main-msan))))
+
+; ----- CompCert ---------------------------------------------------------------
+
+(rule
+ (target main-ccomp)
+ (deps
+  (:sources common.c sha256/sha256.c wots/wots.c runner.c)
+  (:library ../lib/ccomp/libshrincs.a)
+  ../src/wots.c
+  common.h
+  (glob_files ../include/*.h))
+ (action
+  (run ccomp -std=c99 -Wall -O2 -I../src -I../include -Wno-unknown-pragmas -Wp,-w -I.
+    -D_DEFAULT_SOURCE=1 -o %{target} %{sources} %{library})))
+
+(rule
+ (alias check-ccomp)
+ (deps
+  main-ccomp
+  (glob_files sha256/vectors/*)
+  spec/vectors/wots_c.kat)
+ (action
+  (chdir
+   %{workspace_root}
+   (run test/main-ccomp))))
+
+; ----- gcc -fanalyzer ---------------------------------------------------------
+
+; Compiling is the check. The binary is never run.
+(rule
+ (target main-fanalyzer)
+ (deps
+  (:sources common.c sha256/sha256.c wots/wots.c runner.c)
+  (:library ../lib/fanalyzer/libshrincs.a)
+  ../src/wots.c
+  common.h
+  (glob_files ../include/*.h))
+ (action
+  (run gcc -std=c99 -Wall -Wextra -Wpedantic -Werror -O2 -fanalyzer -I../src -I../include -I.
+    -D_DEFAULT_SOURCE=1 -o %{target} %{sources} %{library})))
+
+(alias
+ (name check-fanalyzer)
+ (deps main-fanalyzer))
+
+; ----- ctgrind ----------------------------------------------------------------
+
+; The harness marks sk_seed undefined and runs key generation and signing
+; under valgrind. A branch or a memory index that depends on a secret byte is
+; an error, and --error-exitcode=1 turns it into a failed build. It runs under
+; three compilers because each can lower constant-time source to branchy code
+; differently. valgrind's header location comes from pkg-config, hence the
+; shell. CompCert cannot compile valgrind's client-request inline assembly, so
+; its harness is built by gcc against the CompCert library.
+
+(rule
+ (target ctgrind-gcc)
+ (deps
+  (:source ctgrind/ctgrind.c)
+  (:library ../lib/gcc/libshrincs.a)
+  (glob_files ../include/*.h))
+ (action
+  (system
+    "gcc -std=c99 -Wall -Wextra -Wpedantic -Werror -O1 -g -I../src -I../include $(pkg-config --cflags valgrind) -o %{target} %{source} %{library}")))
+
+(rule
+ (target ctgrind-clang)
+ (deps
+  (:source ctgrind/ctgrind.c)
+  (:library ../lib/clang/libshrincs.a)
+  (glob_files ../include/*.h))
+ (action
+  (system
+    "clang -std=c99 -Wall -Wextra -Wpedantic -Werror -O1 -g -I../src -I../include $(pkg-config --cflags valgrind) -o %{target} %{source} %{library}")))
+
+(rule
+ (target ctgrind-ccomp)
+ (deps
+  (:source ctgrind/ctgrind.c)
+  (:library ../lib/ccomp/libshrincs.a)
+  (glob_files ../include/*.h))
+ (action
+  (system
+    "gcc -std=c99 -Wall -Wextra -Wpedantic -Werror -O1 -g -I../src -I../include $(pkg-config --cflags valgrind) -o %{target} %{source} %{library}")))
+
+(rule
+ (alias check-ct)
+ (deps ctgrind-gcc spec/vectors/wots_c.kat)
+ (action
+  (run valgrind -q --error-exitcode=1 --track-origins=yes --leak-check=no
+    --errors-for-leak-kinds=none ./ctgrind-gcc)))
+
+(rule
+ (alias check-ct)
+ (deps ctgrind-clang spec/vectors/wots_c.kat)
+ (action
+  (run valgrind -q --error-exitcode=1 --track-origins=yes --leak-check=no
+    --errors-for-leak-kinds=none ./ctgrind-clang)))
+
+(rule
+ (alias check-ct)
+ (deps ctgrind-ccomp spec/vectors/wots_c.kat)
+ (action
+  (run valgrind -q --error-exitcode=1 --track-origins=yes --leak-check=no
+    --errors-for-leak-kinds=none ./ctgrind-ccomp)))

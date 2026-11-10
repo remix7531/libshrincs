@@ -94,6 +94,7 @@
 
           generalPackages = [
             pkgs.clang
+            pkgs.dune_3
             pkgs.gcc
             pkgs.gmp
             pkgs.gmp.dev
@@ -107,6 +108,7 @@
           ];
 
           rocqPackages = [
+            proofOcamlPackages.ocaml
             rocq.coq
             server
           ];

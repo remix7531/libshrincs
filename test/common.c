@@ -4,7 +4,7 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  */
 
-/* The build defines _DEFAULT_SOURCE (for getrandom(2) and getline(3)) so
+/* _DEFAULT_SOURCE (for getrandom(2) and getline(3)) is set in test/dune so
    every test TU sees the same feature-test gates. */
 
 #include "common.h"
