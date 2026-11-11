@@ -161,8 +161,11 @@ if ! bash "$AUDIT/statement.sh" "$PINNED" "$STATEMENT" "$AUDIT/statement.out" "$
 fi
 
 # ---- gate 6: public definition imports -------------------------------------
-if ! hits=$(awk -v forbid_internal=1 -f "$AUDIT/declarations.awk" \
-    sha256.v spec.v contracts.v games.v); then
+# Every source at the top level is a public definition file, except
+# theorem.v, which composes the internal results.
+mapfile -t public < <(find . -maxdepth 1 -name '*.v' -not -name theorem.v | sort)
+[ "${#public[@]}" -gt 0 ] || fail "gate 6" "no public definition file found"
+if ! hits=$(awk -v forbid_internal=1 -f "$AUDIT/declarations.awk" "${public[@]}"); then
   fail "gate 6" "$hits"
 fi
 
