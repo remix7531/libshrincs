@@ -1,16 +1,22 @@
 #!/usr/bin/env bash
 set -eu
 
-statement=$1
-output=$2
-shift 2
+names=$1
+statement=$2
+output=$3
+shift 3
 
-for theorem in shrincs_correct_and_secure sha256_c_correct; do
+if ! [ -s "$names" ]; then
+  printf 'No theorem names in %s\n' "$names" >&2
+  exit 1
+fi
+
+while IFS= read -r theorem; do
   if ! grep -q "^Check ($theorem :" "$statement"; then
     printf 'Statement pin missing for %s in %s\n' "$theorem" "$statement" >&2
     exit 1
   fi
-done
+done < "$names"
 
 if ! coqc "$@" "$statement" > "$output" 2>&1; then
   grep -v '^Fetching opaque proofs from disk' "$output" >&2 || true

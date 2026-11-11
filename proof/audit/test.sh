@@ -158,23 +158,26 @@ EOF
 awk '/^Check \(sha256_c_correct :/ { pin = 1 } pin { print } pin && /\)\./ { exit }' \
   audit/statement.v > "$temporary/pin.v"
 test -s "$temporary/pin.v"
+printf '%s\n' shrincs_correct_and_secure sha256_c_correct > "$temporary/pinned.names"
 cat "$temporary/interface.v" > "$temporary/positive.v"
 cat >> "$temporary/positive.v" <<'EOF'
 Theorem sha256_c_correct : True /\ True.
 Proof. split; exact I. Qed.
 EOF
 cat "$temporary/pin.v" >> "$temporary/positive.v"
-bash audit/statement.sh "$temporary/positive.v" "$temporary/positive.out" -q
+bash audit/statement.sh "$temporary/pinned.names" "$temporary/positive.v" "$temporary/positive.out" -q
 cat "$temporary/interface.v" > "$temporary/weakened.v"
 cat >> "$temporary/weakened.v" <<'EOF'
 Theorem sha256_c_correct : True.
 Proof. exact I. Qed.
 EOF
 cat "$temporary/pin.v" >> "$temporary/weakened.v"
-expect_rejected bash audit/statement.sh "$temporary/weakened.v" "$temporary/weakened.out" -q
+expect_rejected bash audit/statement.sh "$temporary/pinned.names" "$temporary/weakened.v" "$temporary/weakened.out" -q
 grep -q 'expected to have type' "$temporary/weakened.out"
-expect_rejected bash audit/statement.sh "$temporary/interface.v" "$temporary/missing.out" -q
+expect_rejected bash audit/statement.sh "$temporary/pinned.names" "$temporary/interface.v" "$temporary/missing.out" -q
 grep -q 'Statement pin missing for sha256_c_correct' "$temporary/rejected.out"
+expect_rejected bash audit/statement.sh "$temporary/absent.names" "$temporary/positive.v" "$temporary/positive.out" -q
+grep -q 'No theorem names in' "$temporary/rejected.out"
 
 # Gate 0 on a one-file theory: the list of tracked sources is required, an
 # object must exist, and a compiled source git does not track is refused.
@@ -200,5 +203,22 @@ rm "$temporary/gate0/orphan.vo"
 printf 'proof/absent.v\n' >> "$temporary/tracked.txt"
 expect_rejected bash "$temporary/gate0/audit/check.sh" "$temporary/tracked.txt"
 grep -q 'AUDIT FAIL (gate 0): proof/absent.v is tracked but absent from the theory' "$temporary/rejected.out"
+
+# Gate 3 takes the public claims from theorem.v: a tree without one is refused,
+# a claim in another form is refused, and every claim must be probed.
+mkdir -p "$temporary/gate3/audit"
+cp audit/check.sh audit/declarations.awk "$temporary/gate3/audit/"
+touch "$temporary/gate3/theorem.v" "$temporary/gate3/theorem.vo"
+printf 'proof/theorem.v\n' > "$temporary/tracked3.txt"
+expect_rejected bash "$temporary/gate3/audit/check.sh" "$temporary/tracked3.txt"
+grep -q 'AUDIT FAIL (gate 3): theorem.v states no Theorem' "$temporary/rejected.out"
+printf 'Theorem claim : True.\nProof. exact I. Qed.\nLemma unpinned : True.\nProof. exact I. Qed.\n' \
+  > "$temporary/gate3/theorem.v"
+expect_rejected bash "$temporary/gate3/audit/check.sh" "$temporary/tracked3.txt"
+grep -q 'AUDIT FAIL (gate 3): theorem.v states a claim that is not a one-line Theorem command' "$temporary/rejected.out"
+printf 'Theorem claim : True.\nProof. exact I. Qed.\n' > "$temporary/gate3/theorem.v"
+printf 'Print Assumptions other.\n' > "$temporary/gate3/audit/probe.v"
+expect_rejected bash "$temporary/gate3/audit/check.sh" "$temporary/tracked3.txt"
+grep -q 'AUDIT FAIL (gate 3): audit/probe.v does not probe claim' "$temporary/rejected.out"
 
 printf 'Audit regression tests passed.\n'

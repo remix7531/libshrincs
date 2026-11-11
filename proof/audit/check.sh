@@ -20,9 +20,9 @@
 #           Parameter(s)/Hypothesis/Hypotheses declaration anywhere.
 #           Catches a smuggled assumption by SOURCE TEXT even when nothing
 #           uses it, which no cone check can see.
-#   gate 3  headline pin -- audit/probe.v must probe the two literal
-#           theorem names below, so neither can be silently renamed,
-#           dropped, or replaced by a weaker namesake in the probe
+#   gate 3  headline pin -- audit/probe.v must probe every Theorem that
+#           theorem.v states, so none can be dropped from the probe or
+#           replaced there by a weaker namesake
 #   gate 4  cone diff -- the actual Print Assumptions cone of BOTH probed
 #           theorems must be a subset of audit/allowed.txt
 #   gate 5  statement pins -- audit/statement.v carries reviewed copies
@@ -47,8 +47,7 @@ AUDIT=audit
 ALLOWED=$AUDIT/allowed.txt
 PROBE=$AUDIT/probe.v
 STATEMENT=$AUDIT/statement.v
-HEADLINE=shrincs_correct_and_secure
-SECOND=sha256_c_correct
+PINNED=$AUDIT/pinned.names
 
 # Gates 4 and 5 compile standalone files that are deliberately outside the
 # theory, so they get the load path and the warning flags by hand.  Keep the
@@ -110,12 +109,20 @@ if ! hits=$(awk -f "$AUDIT/declarations.awk" "${sources[@]}"); then
   fail "gate 2" "$hits"
 fi
 # ---- gate 3: headline pin --------------------------------------------------
+# The public claims are the Theorem commands of theorem.v, each written
+# `Theorem name :` on one line. A claim in any other form would escape the
+# probe and the statement pin, so it is refused here.
 # Cheap, and it runs before the two slow compiles: a probe that no longer
 # names the theorems proves nothing about them.
-grep -q "^Print Assumptions $HEADLINE\." "$PROBE" \
-  || fail "gate 3" "$PROBE does not probe $HEADLINE"
-grep -q "^Print Assumptions $SECOND\." "$PROBE" \
-  || fail "gate 3" "$PROBE does not probe $SECOND"
+sed -n 's/^Theorem \([A-Za-z_][A-Za-z0-9_]*\) :.*/\1/p' theorem.v > "$PINNED"
+[ -s "$PINNED" ] || fail "gate 3" "theorem.v states no Theorem, so there is nothing to pin"
+claims=$(grep -cE '^(Theorem|Lemma|Corollary|Fact|Proposition|Remark) ' theorem.v)
+[ "$claims" -eq "$(wc -l < "$PINNED")" ] \
+  || fail "gate 3" "theorem.v states a claim that is not a one-line Theorem command"
+while IFS= read -r theorem; do
+  grep -q "^Print Assumptions $theorem\." "$PROBE" \
+    || fail "gate 3" "$PROBE does not probe $theorem"
+done < "$PINNED"
 
 # ---- gate 4: cone diff -----------------------------------------------------
 found=$AUDIT/probe.found
@@ -149,7 +156,7 @@ $extra"
 # only if the KERNEL accepts the LIVE theorem at the pasted type.  The grep
 # guards the pin itself, so statement.v cannot quietly stop pinning by
 # deleting its Check.
-if ! bash "$AUDIT/statement.sh" "$STATEMENT" "$AUDIT/statement.out" "${COQFLAGS[@]}"; then
+if ! bash "$AUDIT/statement.sh" "$PINNED" "$STATEMENT" "$AUDIT/statement.out" "${COQFLAGS[@]}"; then
   fail "gate 5" "$STATEMENT does not compile -- the built theorem's statement has drifted from the reviewed copy"
 fi
 
@@ -163,8 +170,7 @@ fi
 echo "gates 0-6 green"
 printf '\n'
 printf '================================================================================\n'
-printf 'TRUST SURFACE: %s\n' "$HEADLINE"
-printf '               %s\n' "(and $SECOND, probed alongside it)"
+printf 'TRUST SURFACE: %s\n' "$(paste -sd ' ' "$PINNED")"
 printf '================================================================================\n'
 printf '%-2s %-54s %s\n' "" "ASSUMPTION" "PROVENANCE"
 grep -E '^[A-Za-z_]' "$ALLOWED" | while IFS= read -r line; do
