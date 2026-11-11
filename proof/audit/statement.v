@@ -5,7 +5,7 @@
  *)
 
 From Shrincs Require Import contracts.
-From Shrincs Require Import games theorem.
+From Shrincs Require Import games schemes theorem.
 From Shrincs.internal.vst.support Require Import base.
 From Shrincs.internal.vst Require Import link.
 From Shrincs.internal.vst.sha256 Require Import vsu.
@@ -18,7 +18,7 @@ From mathcomp Require Import boot order reals.
 From Shrincs.internal.ssprove.lib Require Import prelude.
 From Shrincs Require Import spec.
 
-Module Scheme := Shrincs.games.
+Module Scheme := Shrincs.schemes.
 Module Hash := Shrincs.contracts.
 
 Import ListNotations.

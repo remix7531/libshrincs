@@ -9,7 +9,7 @@ Two machine-checked proofs use the literal specification in [proof/spec.v](proof
 
 The statements and composition proofs in [proof/theorem.v](proof/theorem.v) connect both proofs. Correctness and security quantify over the node height, node index, tree balance and tree depth.
 
-[proof/spec.v](proof/spec.v) transcribes the WOTS+C part of the shrincs-bip Python reference at commit `86cfca6`. The C tests and kernel specification checks read the same reference vectors. [proof/contracts.v](proof/contracts.v) states the C contracts, and [proof/games.v](proof/games.v) defines the security experiments and concrete scheme. These files and the SHA definition import no internal proof modules.
+[proof/spec.v](proof/spec.v) transcribes the WOTS+C part of the shrincs-bip Python reference at commit `86cfca6`. The C tests and kernel specification checks read the same reference vectors. [proof/contracts.v](proof/contracts.v) states the C contracts, [proof/games.v](proof/games.v) defines the security experiments and [proof/schemes.v](proof/schemes.v) instantiates them at the specification. These files and the SHA definition import no internal proof modules.
 
 The adversary commits a message before key generation. Successful signing returns the public key and signature. Failed signing aborts the experiment. Later forgery queries succeed only for a valid signature on a different message. This is the experiment proved here. The theorem makes no equivalence claim about another security notion or about the full FXMSS construction.
 
@@ -43,7 +43,8 @@ test/spec/               reference generator and kernel specification checks
 proof/spec.v             the literal WOTS+C specification
 proof/sha256.v           the FIPS 180-4 definition and word codecs
 proof/contracts.v        the public C contracts and shared CompSpecs
-proof/games.v            the security experiments and concrete scheme
+proof/games.v            the security experiments
+proof/schemes.v          the hash instances and the concrete scheme
 proof/theorem.v          the public statements and composition proofs
 proof/internal/common/   shared word bounds
 proof/internal/vst/      functional correctness of the C

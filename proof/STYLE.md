@@ -2,7 +2,8 @@
 
 This guide covers the public specifications and both internal backends.
 `spec.v` transcribes the reference, `sha256.v` defines SHA, `contracts.v`
-owns public C contracts and `games.v` owns the security experiments.
+owns public C contracts, `games.v` owns the security experiments and
+`schemes.v` instantiates them at the specification.
 `theorem.v` composes completed proofs. Use short specification comments to
 explain the role of each definition group, game behavior, constraints and
 invariants. Reading guidance belongs in `README.md`.
@@ -218,7 +219,7 @@ comment. Generated files (`clight/`) are exempt.
   natural numbers, since `%N` belongs to the binary natural-number scope.
   Open `Z_scope` by name for integer literals, since `%Z` can select
   MathComp's integer scope.
-- The four public definition files must import no internal proof module.
+- The five public definition files must import no internal proof module.
   They may import external libraries and generated Clight programs.
   `sha256.v` owns the word codecs. `contracts.v` owns shared `CompSpecs`.
 - Keep VST memory lemmas and SSProve algorithm correspondence proofs in
@@ -268,8 +269,8 @@ them. The build gate checks seven properties:
    both public statements and the kernel must accept each live
    theorem at that exact type, so a dropped conjunct or a weakened bound
    is a compile failure rather than a diff a reviewer has to notice.
-6. **Public import boundary**: `sha256.v`, `spec.v`, `contracts.v` and
-   `games.v` may not import `Shrincs.internal` modules.
+6. **Public import boundary**: no source at the top level of `proof/`
+   except `theorem.v` may import `Shrincs.internal` modules.
 
 A theorem whose *statement* smuggles an advantage bound or a reduction's
 existence as a premise would still pass all seven gates. That anti-pattern

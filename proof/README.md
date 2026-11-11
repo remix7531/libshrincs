@@ -1,6 +1,6 @@
 # The proof
 
-Read `spec.v` for the literal WOTS+C algorithms, `sha256.v` for the FIPS 180-4 hash definition, `contracts.v` for the public C contracts and `games.v` for the security experiments. These four files import no `Shrincs.internal` module. `theorem.v` composes completed proofs over those definitions.
+Read `spec.v` for the literal WOTS+C algorithms, `sha256.v` for the FIPS 180-4 hash definition, `contracts.v` for the public C contracts, `games.v` for the security experiments and `schemes.v` for their instances at the specification. These five files import no `Shrincs.internal` module. `theorem.v` composes completed proofs over those definitions.
 
 `spec.v` transcribes the WOTS+C part of shrincs-bip `impl/shrincs.py` at commit `86cfca6`. The C computes those same functions. Its public interface exports key generation, signing and public key recovery, with the reference parameter order and internally constructed addresses. Signing and recovery distinguish success from failure, and their contracts leave output contents unspecified on failure. Fixed-size byte strings are tuples throughout both proofs.
 

@@ -8,7 +8,7 @@
 
     The two SSProve conjuncts of the public theorem, stated over the functions of Shrincs.spec. Both come from the generic model at the record [wc_sha256]: [keyed_scheme_adapter] identifies the scheme built from the three entry points of the specification with the model's keyed scheme, so its KOTS game is the game the reductions are proved against. *)
 
-From Shrincs Require Import spec games.
+From Shrincs Require Import spec games schemes.
 From Shrincs.internal.ssprove Require Import shape instance.
 From Shrincs.internal.ssprove.wots Require Import scheme kots_link theorem
   hop.grind hop.compress hop.chain_tcr hop.chain_pre hop.ud hop.prf.

@@ -9,7 +9,7 @@
     [wc_sha256] is the parameter record of the security proof with the carriers, hashes and tweaks of the specification, at one node of one tree. The lemmas after it show that the model's key generation, signing and verification at this record are [wots_c_pubkey_gen], [wots_c_sign] and [wots_c_pubkey_from_sig]. Shrincs.internal.ssprove.security concludes from them that the model's keyed scheme is the scheme of the public statement, so no second scheme definition stands between the two. *)
 
 From Shrincs.internal.ssprove.lib Require Import prelude chain.core.
-From Shrincs Require Import spec games.
+From Shrincs Require Import spec games schemes.
 From Shrincs.internal.ssprove Require Import shape.
 From Shrincs.internal.ssprove.wots Require Import scheme games hop.prf.
 From mathcomp Require Import word_ssrZ word.
