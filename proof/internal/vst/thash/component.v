@@ -24,7 +24,7 @@
     three by linking against [Shrincs.internal.vst.util.component]'s and
     [Shrincs.internal.vst.sha256.vsu]'s components.
 
-    THE INTERFACE IS BOTH FUNCTIONS. [include/thash.h] declares
+    THE INTERFACE IS BOTH FUNCTIONS. [src/thash.h] declares
     [shrincs_thash] and [shrincs_adrs_pack] alike, and neither is
     [static] in the C: this is the SHARED tweakable-hash layer, kept in
     its own translation unit so the coming FXMSS/FORS sources link
@@ -57,7 +57,7 @@ Local Open Scope logic.
     ambient compspecs is sound for every unit here. *)
 Definition thash_QP : QP.program Clight.function := ltac:(QPprog prog).
 
-(** Both functions [include/thash.h] declares. *)
+(** Both functions [src/thash.h] declares. *)
 Definition thash_ASI : funspecs := G_thash.
 
 (* ================================================================= *)

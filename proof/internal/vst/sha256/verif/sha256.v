@@ -35,7 +35,7 @@
     THE LENGTH FIELD. The C stores [inlen >> 29] and
     [(uint32_t)inlen << 3] as the two halves of the 64-bit bit-length.
     Exactness of the high half is what [0 <= Zlength msg < 2^61] in
-    the funspec (and include/sha256.h) is for; [len_bytes_split] is
+    the funspec (and src/sha256.h) is for; [len_bytes_split] is
     where that bound is discharged, and it is 64-bit reasoning, so the
     bounds are [Int64.max_unsigned] and NOT [Int.max_unsigned].
 

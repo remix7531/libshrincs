@@ -29,7 +29,8 @@
   (:library ../lib/gcc/libshrincs.a)
   ../src/wots.c
   common.h
-  (glob_files ../include/*.h))
+  (glob_files ../include/*.h)
+  (glob_files ../src/*.h))
  (action
   (run gcc -std=c99 -Wall -Wextra -Wpedantic -Werror -O2 -I../src -I../include -I.
     -D_DEFAULT_SOURCE=1 -o %{target} %{sources} %{library})))
@@ -54,7 +55,8 @@
   (:library ../lib/asan/libshrincs.a)
   ../src/wots.c
   common.h
-  (glob_files ../include/*.h))
+  (glob_files ../include/*.h)
+  (glob_files ../src/*.h))
  (action
   (run gcc -std=c99 -Wall -Wextra -Wpedantic -Werror -O1 -g -fsanitize=address,undefined
     -fno-omit-frame-pointer -fno-sanitize-recover=all -I../src -I../include -I.
@@ -82,7 +84,8 @@
   (:library ../lib/msan/libshrincs.a)
   ../src/wots.c
   common.h
-  (glob_files ../include/*.h))
+  (glob_files ../include/*.h)
+  (glob_files ../src/*.h))
  (action
   (run clang -std=c99 -Wall -Wextra -Wpedantic -Werror -O1 -g -fsanitize=memory
     -fsanitize-memory-track-origins=2 -fno-omit-frame-pointer -fno-sanitize-recover=all
@@ -108,7 +111,8 @@
   (:library ../lib/ccomp/libshrincs.a)
   ../src/wots.c
   common.h
-  (glob_files ../include/*.h))
+  (glob_files ../include/*.h)
+  (glob_files ../src/*.h))
  (action
   (run ccomp -std=c99 -Wall -O2 -I../src -I../include -Wno-unknown-pragmas -Wp,-w -I.
     -D_DEFAULT_SOURCE=1 -o %{target} %{sources} %{library})))
@@ -134,7 +138,8 @@
   (:library ../lib/fanalyzer/libshrincs.a)
   ../src/wots.c
   common.h
-  (glob_files ../include/*.h))
+  (glob_files ../include/*.h)
+  (glob_files ../src/*.h))
  (action
   (run gcc -std=c99 -Wall -Wextra -Wpedantic -Werror -O2 -fanalyzer -I../src -I../include -I.
     -D_DEFAULT_SOURCE=1 -o %{target} %{sources} %{library})))
@@ -158,7 +163,8 @@
  (deps
   (:source ctgrind/ctgrind.c)
   (:library ../lib/gcc/libshrincs.a)
-  (glob_files ../include/*.h))
+  (glob_files ../include/*.h)
+  (glob_files ../src/*.h))
  (action
   (system
     "gcc -std=c99 -Wall -Wextra -Wpedantic -Werror -O1 -g -I../src -I../include $(pkg-config --cflags valgrind) -o %{target} %{source} %{library}")))
@@ -168,7 +174,8 @@
  (deps
   (:source ctgrind/ctgrind.c)
   (:library ../lib/clang/libshrincs.a)
-  (glob_files ../include/*.h))
+  (glob_files ../include/*.h)
+  (glob_files ../src/*.h))
  (action
   (system
     "clang -std=c99 -Wall -Wextra -Wpedantic -Werror -O1 -g -I../src -I../include $(pkg-config --cflags valgrind) -o %{target} %{source} %{library}")))
@@ -178,7 +185,8 @@
  (deps
   (:source ctgrind/ctgrind.c)
   (:library ../lib/ccomp/libshrincs.a)
-  (glob_files ../include/*.h))
+  (glob_files ../include/*.h)
+  (glob_files ../src/*.h))
  (action
   (system
     "gcc -std=c99 -Wall -Wextra -Wpedantic -Werror -O1 -g -I../src -I../include $(pkg-config --cflags valgrind) -o %{target} %{source} %{library}")))

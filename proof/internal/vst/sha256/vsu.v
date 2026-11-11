@@ -9,7 +9,7 @@
     The twelve [semax_body] proofs of this directory, assembled into
     ONE object: the sha256 translation unit is a verified component
     that imports nothing, claims no globals, and exports exactly the
-    one function include/sha256.h declares.
+    one function src/sha256.h declares.
 
         VSU  Externs=nil  Imports=nil  sha256_QP
              Exports=[spec_sha256]  InitPred=emp
@@ -70,7 +70,7 @@ Local Open Scope logic.
     at all. *)
 Definition sha256_QP : QP.program Clight.function := ltac:(QPprog prog).
 
-(** The interface: exactly the one function include/sha256.h
+(** The interface: exactly the one function src/sha256.h
     declares. Everything else src/sha256.c defines is private. *)
 Definition sha256_ASI : funspecs := [ spec_sha256 ].
 

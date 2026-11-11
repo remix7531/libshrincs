@@ -28,7 +28,7 @@
     function owns it -- once per call -- so it never crosses the
     interface.
 
-    Argument order is output first, matching include/sha256.h.
+    Argument order is output first, matching src/sha256.h.
 
     SIZES ARE 64-BIT. The target is [bitsize 64] (check the [Module
     Info] block of Shrincs.clight.sha256), so [size_t] is [tulong], a
@@ -187,7 +187,7 @@ Definition spec_sha256_compress_words : ident * funspec :=
     and the only thing shrincs_sha256() below does with the message
     bytes.
 
-    Internal to the translation unit -- include/sha256.h exports one
+    Internal to the translation unit -- src/sha256.h exports one
     function and this is not it -- but it still needs a contract,
     because shrincs_sha256's body calls it twice. *)
 (* [Z.mul 64 n] spelled out rather than [64 * n]: with floyd's [logic]
@@ -220,10 +220,10 @@ Definition spec_sha256_compress_blocks : ident * funspec :=
     Non-overlap of [in] and [out] is
     the separating [;] between the SEP clauses -- the formal
     counterpart of the [restrict] on the C parameters
-    (include/sha256.h), which CompCert drops during elaboration. *)
+    (src/sha256.h), which CompCert drops during elaboration. *)
 
 (** SS 6.2 in general. [inlen < 2^61] is what makes the message length
-    in BITS fit the 64-bit field SS 5.1.1 appends; include/sha256.h
+    in BITS fit the 64-bit field SS 5.1.1 appends; src/sha256.h
     states the same bound in the same words. *)
 Definition spec_sha256 : ident * funspec :=
   DECLARE _shrincs_sha256
