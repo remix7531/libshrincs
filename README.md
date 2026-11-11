@@ -37,7 +37,8 @@ SHA-256 is defined by the FIPS 180-4 transcription in `proof/sha256.v`. The proo
 ## Layout
 
 ```text
-src/ include/            the C library
+include/shrincs.h        the public C interface
+src/                     the C library and its internal headers
 test/                    C tests, vectors and ctgrind
 test/spec/               reference generator and kernel specification checks
 proof/spec.v             the literal WOTS+C specification

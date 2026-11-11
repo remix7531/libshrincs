@@ -23,7 +23,7 @@
 
 #include <memcheck.h>
 
-#include "wots.h"
+#include "shrincs.h"
 
 int main(void)
 {

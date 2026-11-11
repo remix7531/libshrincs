@@ -109,7 +109,7 @@ Definition shrincs_wots_c_pubkey_gen_spec : ident * funspec :=
          at_ sh_sk_seed sk_seed sk_seed_ptr;
          at_ sh_pk_seed pk_seed pk_seed_ptr).
 
-(* shrincs_wots_c_sign returns SHRINCS_WOTS_OK (0) and writes the signature when the reference returns one. It returns SHRINCS_WOTS_SIGN_FAILED (-2) when the reference returns None, and then the content of [signature] is not specified. *)
+(* shrincs_wots_c_sign returns SHRINCS_OK (0) and writes the signature when the reference returns one. It returns SHRINCS_SIGN_FAILED (-2) when the reference returns None, and then the content of [signature] is not specified. *)
 Definition shrincs_wots_c_sign_spec : ident * funspec :=
   DECLARE _shrincs_wots_c_sign
   WITH signature_ptr : Values.val, message_digest_ptr : Values.val,
@@ -137,7 +137,7 @@ Definition shrincs_wots_c_sign_spec : ident * funspec :=
          at_ sh_sk_seed sk_seed sk_seed_ptr;
          at_ sh_pk_seed pk_seed pk_seed_ptr).
 
-(* shrincs_wots_c_pubkey_from_sig returns SHRINCS_WOTS_OK (0) and writes the recovered public key when the reference returns one. It returns SHRINCS_WOTS_VERIFY_FAILED (-1) when the reference returns None, and then the content of [pk] is not specified. *)
+(* shrincs_wots_c_pubkey_from_sig returns SHRINCS_OK (0) and writes the recovered public key when the reference returns one. It returns SHRINCS_VERIFY_FAILED (-1) when the reference returns None, and then the content of [pk] is not specified. *)
 Definition shrincs_wots_c_pubkey_from_sig_spec : ident * funspec :=
   DECLARE _shrincs_wots_c_pubkey_from_sig
   WITH pk_ptr : Values.val, signature_ptr : Values.val, message_digest_ptr : Values.val,

@@ -7,7 +7,7 @@
 #ifndef SHRINCS_WOTS_TEST_COMMON_H
 #define SHRINCS_WOTS_TEST_COMMON_H
 
-#include "wots.h"
+#include "shrincs.h"
 
 #include <stddef.h>
 #include <stdint.h>

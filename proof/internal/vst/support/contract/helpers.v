@@ -6,7 +6,7 @@
 
 (** * contract.helpers: the contracts of the functions a client cannot call
 
-    One funspec per function of [src/util.c], [src/thash.c] and [src/wots.c] that [include/wots.h] does not declare. The three it does declare and SHA-256 have their public contracts in [Shrincs.contracts].
+    One funspec per function of [src/util.c], [src/thash.c] and [src/wots.c] that [include/shrincs.h] does not declare. The three it does declare and SHA-256 have their public contracts in [Shrincs.contracts].
 
     Every WOTS+C helper is named after a function of the reference, and its postcondition names that function of [Shrincs.spec] on the values the caller passed. A buffer is quantified as a tuple, so its length is in its type. A machine integer is quantified as a word and passed as the C integer of its value.
 

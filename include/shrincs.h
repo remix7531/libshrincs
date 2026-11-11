@@ -4,8 +4,8 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  */
 
-#ifndef SHRINCS_WOTS_H
-#define SHRINCS_WOTS_H
+#ifndef SHRINCS_H
+#define SHRINCS_H
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -29,10 +29,10 @@
 #define SHRINCS_WOTS_PK_BYTES      16  /* T_sf hash of the chain tips (= n) */
 #define SHRINCS_WOTS_SIG_BYTES     514 /* 2-byte counter + chain_count * n = 2 + 32*16 */
 
-enum shrincs_wots_result {
-    SHRINCS_WOTS_OK = 0,
-    SHRINCS_WOTS_VERIFY_FAILED = -1, /* the reference's None from wots_c_pubkey_from_sig */
-    SHRINCS_WOTS_SIGN_FAILED = -2,   /* grinding exhausted 2^16 counters (negligible) */
+enum shrincs_status {
+    SHRINCS_OK = 0,
+    SHRINCS_VERIFY_FAILED = -1, /* the reference's None from wots_c_pubkey_from_sig */
+    SHRINCS_SIGN_FAILED = -2,   /* grinding exhausted 2^16 counters (negligible) */
 };
 
 /* Common preconditions for all three functions:
@@ -54,8 +54,8 @@ void shrincs_wots_c_pubkey_gen(uint8_t pk[static restrict SHRINCS_WOTS_PK_BYTES]
                                uint8_t tree_depth);
 
 /* WOTS+C signing: grind for the smallest constant-sum counter, then iterate each chain secret
-   up to its index; the 16-bit counter is prepended to the signature.  Returns SHRINCS_WOTS_OK,
-   or SHRINCS_WOTS_SIGN_FAILED if grinding is exhausted, in which case signature is
+   up to its index; the 16-bit counter is prepended to the signature.  Returns SHRINCS_OK,
+   or SHRINCS_SIGN_FAILED if grinding is exhausted, in which case signature is
    unspecified. */
 int shrincs_wots_c_sign(uint8_t signature[static restrict SHRINCS_WOTS_SIG_BYTES],
                         const uint8_t message_digest[static restrict SHRINCS_WOTS_MSG_BYTES],
@@ -67,10 +67,10 @@ int shrincs_wots_c_sign(uint8_t signature[static restrict SHRINCS_WOTS_SIG_BYTES
                         uint8_t tree_depth);
 
 /* WOTS+C public key from a signature.  Reads the counter from the head of signature, returns
-   SHRINCS_WOTS_VERIFY_FAILED unless the digest is constant-sum, else completes the chains and
+   SHRINCS_VERIFY_FAILED unless the digest is constant-sum, else completes the chains and
    T_sf-compresses to the 16-byte public key the signature commits to and returns
-   SHRINCS_WOTS_OK.  The caller compares pk with the expected public key.  On
-   SHRINCS_WOTS_VERIFY_FAILED pk is unspecified. */
+   SHRINCS_OK.  The caller compares pk with the expected public key.  On
+   SHRINCS_VERIFY_FAILED pk is unspecified. */
 int shrincs_wots_c_pubkey_from_sig(uint8_t pk[static restrict SHRINCS_WOTS_PK_BYTES],
                                    const uint8_t signature[static restrict SHRINCS_WOTS_SIG_BYTES],
                                    const uint8_t message_digest[static restrict SHRINCS_WOTS_MSG_BYTES],

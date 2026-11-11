@@ -6,9 +6,9 @@
 
 /* WOTS+C (grinding / constant-sum Winternitz) for the SHRINCS stateful leaf, n = 16, w = 16,
    chain_count = 32. Reference spec: shrincs-bip/impl/shrincs.py, whose function and constant
-   names the code below keeps. Public API in wots.h. */
+   names the code below keeps. Public API in shrincs.h. */
 
-#include "wots.h"
+#include "shrincs.h"
 #include "sha256.h"
 #include "util.h"
 #include "thash.h"
@@ -226,7 +226,7 @@ int shrincs_wots_c_sign(uint8_t signature[static restrict SHRINCS_WOTS_SIG_BYTES
     uint8_t indexes[WOTS_C_CHAIN_COUNT];
     int grinded = shrincs_wots_c_grind_to_constant_sum(indexes, pk_seed, message_digest, node_height, node_index);
     if (grinded < 0) {
-        return SHRINCS_WOTS_SIGN_FAILED;
+        return SHRINCS_SIGN_FAILED;
     }
     /* counter.to_bytes(2) is prepended; the chains follow from byte 2. */
     uint32_t counter = (uint32_t)grinded;
@@ -237,7 +237,7 @@ int shrincs_wots_c_sign(uint8_t signature[static restrict SHRINCS_WOTS_SIG_BYTES
         shrincs_wots_c_prf(chain, pk_seed, sk_seed, node_height, node_index, tree_balanced, tree_depth, i);
         shrincs_wots_c_chain_iter(chain, 0, indexes[i], pk_seed, node_height, node_index, i);
     }
-    return SHRINCS_WOTS_OK;
+    return SHRINCS_OK;
 }
 
 int shrincs_wots_c_pubkey_from_sig(uint8_t pk[static restrict SHRINCS_WOTS_PK_BYTES],
@@ -253,7 +253,7 @@ int shrincs_wots_c_pubkey_from_sig(uint8_t pk[static restrict SHRINCS_WOTS_PK_BY
     uint32_t counter = ((uint32_t)signature[0] << 8) + (uint32_t)signature[1];
     /* Constant-sum gate: reject unless the digest at counter sums to the target. */
     if (shrincs_wots_c_map_digest(indexes, pk_seed, message_digest, node_height, node_index, counter) == 0) {
-        return SHRINCS_WOTS_VERIFY_FAILED;
+        return SHRINCS_VERIFY_FAILED;
     }
     for (uint32_t i = 0; i < WOTS_C_CHAIN_COUNT; i++) {
         uint8_t *tip = wots_pk + ((size_t)i * N);
@@ -261,5 +261,5 @@ int shrincs_wots_c_pubkey_from_sig(uint8_t pk[static restrict SHRINCS_WOTS_PK_BY
         shrincs_wots_c_chain_iter(tip, indexes[i], WOTS_C_CHAIN_MAX, pk_seed, node_height, node_index, i);
     }
     shrincs_wots_c_t_sf(pk, pk_seed, node_height, node_index, wots_pk);
-    return SHRINCS_WOTS_OK;
+    return SHRINCS_OK;
 }

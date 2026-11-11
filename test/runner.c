@@ -15,7 +15,7 @@
    Section drivers live in test/sha256/sha256.c and test/wots/wots.c; shared helpers in
    test/common.c. */
 
-#include "wots.h"
+#include "shrincs.h"
 
 #include <stdio.h>
 

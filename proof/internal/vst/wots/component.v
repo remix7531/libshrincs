@@ -6,7 +6,7 @@
 
 (** * Shrincs.internal.vst.wots.component: src/wots.c as a Verified Software Unit
 
-    The component exports exactly the three functions declared in include/wots.h. Every static helper has a body proof and a contract in its internal context. Its imports are the contracts of calls to the utility, SHA-256 and tweakable-hash translation units. Shrincs.internal.vst.link discharges them. *)
+    The component exports exactly the three functions declared in include/shrincs.h. Every static helper has a body proof and a contract in its internal context. Its imports are the contracts of calls to the utility, SHA-256 and tweakable-hash translation units. Shrincs.internal.vst.link discharges them. *)
 
 From Shrincs.internal.vst.support Require Import contract.gprog.
 From Shrincs.internal.vst.wots Require Import

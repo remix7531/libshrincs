@@ -405,9 +405,9 @@ static enum kat_result kat_sign(const struct kat_case *c)
     int result = shrincs_wots_c_sign(
         signature, message_digest, sk_seed, pk_seed, node_height, node_index, tree_balanced, tree_depth);
     if (strcmp(output, "none") == 0) {
-        return result == SHRINCS_WOTS_SIGN_FAILED ? KAT_AGREES : KAT_MISMATCH;
+        return result == SHRINCS_SIGN_FAILED ? KAT_AGREES : KAT_MISMATCH;
     }
-    if (result != SHRINCS_WOTS_OK || kat_hex(output, expected, sizeof expected)) {
+    if (result != SHRINCS_OK || kat_hex(output, expected, sizeof expected)) {
         return KAT_MISMATCH;
     }
     return kat_compare(signature, expected, sizeof signature);
@@ -431,9 +431,9 @@ static enum kat_result kat_pubkey_from_sig(const struct kat_case *c)
     }
     int result = shrincs_wots_c_pubkey_from_sig(pk, signature, message_digest, pk_seed, node_height, node_index);
     if (strcmp(output, "none") == 0) {
-        return result == SHRINCS_WOTS_VERIFY_FAILED ? KAT_AGREES : KAT_MISMATCH;
+        return result == SHRINCS_VERIFY_FAILED ? KAT_AGREES : KAT_MISMATCH;
     }
-    if (result != SHRINCS_WOTS_OK || kat_hex(output, expected, sizeof expected)) {
+    if (result != SHRINCS_OK || kat_hex(output, expected, sizeof expected)) {
         return KAT_MISMATCH;
     }
     return kat_compare(pk, expected, sizeof pk);
@@ -517,7 +517,7 @@ static int run_wots_kat(const char *path, int *agree, int *absent)
 /* ---------- Self-consistency ----------
 
    Fresh random inputs on every run: sign, then check that the public key recovered from the
-   signature is the generated one. Signing can in principle fail (SHRINCS_WOTS_SIGN_FAILED) if
+   signature is the generated one. Signing can in principle fail (SHRINCS_SIGN_FAILED) if
    2^16 counters are exhausted without hitting the constant digit sum; that is negligible, so
    treating it as T_ERROR flags a broken grinding loop rather than a spurious FAIL. */
 
@@ -573,8 +573,7 @@ static int verifies(const uint8_t pk[SHRINCS_WOTS_PK_BYTES],
 {
     uint8_t recovered[SHRINCS_WOTS_PK_BYTES];
     if (shrincs_wots_c_pubkey_from_sig(
-            recovered, signature, in->message_digest, in->pk_seed, in->node_height, in->node_index) !=
-        SHRINCS_WOTS_OK) {
+            recovered, signature, in->message_digest, in->pk_seed, in->node_height, in->node_index) != SHRINCS_OK) {
         return 0;
     }
     return memcmp(recovered, pk, SHRINCS_WOTS_PK_BYTES) == 0;
@@ -585,7 +584,7 @@ static enum test_status roundtrip(const struct wots_inputs *in)
     uint8_t pk[SHRINCS_WOTS_PK_BYTES];
     uint8_t signature[SHRINCS_WOTS_SIG_BYTES];
     keygen(pk, in);
-    if (sign(signature, in) != SHRINCS_WOTS_OK) {
+    if (sign(signature, in) != SHRINCS_OK) {
         return T_ERROR;
     }
     return verifies(pk, signature, in) ? T_OK : T_FAIL;
@@ -633,7 +632,7 @@ static enum test_status test_wots_sign_twice(void)
     if (random_inputs(&in)) {
         return T_ERROR;
     }
-    if (sign(first, &in) != SHRINCS_WOTS_OK || sign(second, &in) != SHRINCS_WOTS_OK) {
+    if (sign(first, &in) != SHRINCS_OK || sign(second, &in) != SHRINCS_OK) {
         return T_ERROR;
     }
     return memcmp(first, second, SHRINCS_WOTS_SIG_BYTES) == 0 ? T_OK : T_FAIL;
@@ -655,7 +654,7 @@ static enum test_status tampered(enum tamper what)
         return T_ERROR;
     }
     keygen(pk, &in);
-    if (sign(signature, &in) != SHRINCS_WOTS_OK) {
+    if (sign(signature, &in) != SHRINCS_OK) {
         return T_ERROR;
     }
     switch (what) {
