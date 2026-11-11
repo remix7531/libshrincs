@@ -16,7 +16,7 @@ The budgets and six reductions are explicit in the theorem. PRF uses the secret 
 
 `internal/vst/` proves the C bodies, builds each translation unit as a component and links them. `support/` holds helper contracts, memory lemmas and tactics. Its `base.v` reuses the shared `CompSpecs` from `contracts.v`. The private SHA clone is checked against the public SHA definition by `sha256/sync.v`, and `sha256/correct.v` identifies the exported component contract with the public one.
 
-`internal/ssprove/` contains the generic WOTS+C model and game hops. Its `instance.v` instantiates the model with the carriers, hashes and addresses of `spec.v`. Its proved adapters identify the model operations with the literal algorithms. `security.v` transfers correctness and the reduction bound to the concrete scheme.
+`internal/ssprove/` contains the generic WOTS+C model and game hops under `wots/`. `hash.v` identifies the hash calls of `spec.v` with `Th` at the tweak of their address. `wots/instance.v` instantiates the model with the carriers, hashes and addresses of `spec.v`. Its proved adapters identify the model operations with the literal algorithms. `wots/security.v` transfers correctness and the reduction bound to the concrete scheme.
 
 The C tests and specification checks read `test/spec/vectors/wots_c.kat`. Its generator verifies the pinned reference revision. `dune build @test/spec-test` checks each case in the kernel virtual machine.
 

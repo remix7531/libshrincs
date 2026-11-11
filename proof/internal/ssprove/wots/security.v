@@ -4,12 +4,13 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Shrincs.internal.ssprove.security: correctness and the KOTS bound of Shrincs.spec
+(** * Shrincs.internal.ssprove.wots.security: correctness and the KOTS bound of Shrincs.spec
 
     The two SSProve conjuncts of the public theorem, stated over the functions of Shrincs.spec. Both come from the generic model at the record [wc_sha256]: [keyed_scheme_adapter] identifies the scheme built from the three entry points of the specification with the model's keyed scheme, so its KOTS game is the game the reductions are proved against. *)
 
 From Shrincs Require Import spec games schemes.
-From Shrincs.internal.ssprove Require Import shape instance.
+From Shrincs.internal.ssprove Require Import shape.
+From Shrincs.internal.ssprove.wots Require Import instance.
 From Shrincs.internal.ssprove.wots Require Import scheme kots_link theorem
   hop.grind hop.compress hop.chain_tcr hop.chain_pre hop.ud hop.prf.
 From Shrincs.internal.ssprove.lib Require Import prelude.

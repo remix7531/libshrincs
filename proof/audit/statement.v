@@ -9,7 +9,7 @@ From Shrincs Require Import games schemes theorem.
 From Shrincs.internal.vst.support Require Import base.
 From Shrincs.internal.vst Require Import link.
 From Shrincs.internal.vst.sha256 Require Import vsu.
-From Shrincs.internal.ssprove Require Import instance.
+From Shrincs.internal.ssprove.wots Require Import instance.
 From Shrincs.internal.ssprove.wots Require Import
   hop.prf hop.ud hop.grind hop.compress hop.chain_tcr hop.chain_pre.
 From VST.floyd Require Import VSU.
