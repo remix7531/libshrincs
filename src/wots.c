@@ -12,22 +12,7 @@
 #include "sha256.h"
 #include "util.h"
 #include "thash.h"
-
-#define N 16 /* hash output = sha256(...)[:16] */
-
-/* The reference's WOTS+C parameters and derived constants. */
-#define WOTS_C_CHAIN_BITS   4
-#define WOTS_C_CHAIN_COUNT  32    /* ceildiv(128, WOTS_C_CHAIN_BITS) */
-#define WOTS_C_CHAIN_MAX    15    /* 2**WOTS_C_CHAIN_BITS - 1: the index of a chain tip */
-#define WOTS_C_CONSTANT_SUM 240   /* ceildiv(WOTS_C_CHAIN_COUNT * WOTS_C_CHAIN_MAX, 2) */
-#define COUNTER_BYTES       2     /* 16-bit grinding counter */
-#define COUNTER_COUNT       65536 /* 2**16: grinding tries range(2**16) */
-
-/* ADRS type flags. */
-#define SF_WOTS_C_HASH  16
-#define SF_WOTS_C_PK    17
-#define SF_WOTS_C_PRF   21
-#define SF_WOTS_C_GRIND 22
+#include "params.h"
 
 /* Enum constants, so each product and each offset is one integer constant
    and not an int expression widened into an array size or a pointer sum. */
