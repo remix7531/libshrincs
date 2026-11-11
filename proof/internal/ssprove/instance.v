@@ -110,15 +110,15 @@ Lemma H_grind_encoding_Th (pk_seed : Bytes 16) (ADRS : Address)
 Proof. by rewrite H_grind_Th_grind grinding_encoding_Th. Qed.
 
 Lemma grinding_tweak_chain_class (t : tweak) (digest : Bytes 32) :
-  shrincs_wots_chain_class (grinding_tweak t digest) = shrincs_wots_chain_class t.
+  wots_c_hash_class (grinding_tweak t digest) = wots_c_hash_class t.
 Proof. by case: t => [[[[[height index] address_type] word1] word2] word3]. Qed.
 
 Lemma grinding_tweak_pkcompress_class (t : tweak) (digest : Bytes 32) :
-  shrincs_wots_pkcompress_class (grinding_tweak t digest) = shrincs_wots_pkcompress_class t.
+  wots_c_pk_class (grinding_tweak t digest) = wots_c_pk_class t.
 Proof. by case: t => [[[[[height index] address_type] word1] word2] word3]. Qed.
 
 Lemma grinding_tweak_grind_class (t : tweak) (digest : Bytes 32) :
-  shrincs_wots_grind_class (grinding_tweak t digest) = shrincs_wots_grind_class t.
+  wots_c_grind_class (grinding_tweak t digest) = wots_c_grind_class t.
 Proof. by case: t => [[[[[height index] address_type] word1] word2] word3]. Qed.
 
 (*  Digits  *)
@@ -133,19 +133,19 @@ rewrite /spec_digits -[WOTS_C_CHAIN_COUNT]/(16.*2) -[X in X.*2](size_tuple g).
 exact: base_2b_nibbles.
 Qed.
 
-Lemma size_spec_digits (g : bytes 16) : size (spec_digits g) = chain_count_shrincs.
+Lemma size_spec_digits (g : bytes 16) : size (spec_digits g) = wots_c_chain_count.
 Proof. by rewrite spec_digitsE size_nibbles size_tuple. Qed.
 
-Lemma spec_digits_wf (g : bytes 16) : all (fun d => d < w_shrincs) (spec_digits g).
+Lemma spec_digits_wf (g : bytes 16) : all (fun d => d < wots_c_w) (spec_digits g).
 Proof. by rewrite spec_digitsE; exact: nibbles_lt. Qed.
 
 Lemma spec_digits_inj : injective spec_digits.
 Proof. by move=> g1 g2; rewrite !spec_digitsE => /nibbles_inj h; exact: val_inj. Qed.
 
-Lemma wots_c_Hcc : 0 < chain_count_shrincs.
+Lemma wots_c_Hcc : 0 < wots_c_chain_count.
 Proof. by []. Qed.
 
-Lemma wots_c_Hw : 1 < w_shrincs.
+Lemma wots_c_Hw : 1 < wots_c_w.
 Proof. by []. Qed.
 
 Section AtTheAnchor.
@@ -164,47 +164,47 @@ Definition tw_pk : tweak := tweak_of (WotsCPk node_height node_index).
 
 Definition tw_grind : tweak := tweak_of (WotsCGrind node_height node_index).
 
-Lemma tw_chain_class (i pos : nat) : shrincs_wots_chain_class (tw_chain i pos).
+Lemma tw_chain_class (i pos : nat) : wots_c_hash_class (tw_chain i pos).
 Proof. by []. Qed.
 
 Lemma tw_chain_not_pkcompress_class (i pos : nat) :
-  ~~ shrincs_wots_pkcompress_class (tw_chain i pos).
+  ~~ wots_c_pk_class (tw_chain i pos).
 Proof. by []. Qed.
 
-Lemma tw_pk_class : shrincs_wots_pkcompress_class tw_pk.
+Lemma tw_pk_class : wots_c_pk_class tw_pk.
 Proof. by []. Qed.
 
-Lemma tw_grind_class : shrincs_wots_grind_class tw_grind.
+Lemma tw_grind_class : wots_c_grind_class tw_grind.
 Proof. by []. Qed.
 
-Lemma tw_grind_not_chain_class : ~~ shrincs_wots_chain_class tw_grind.
+Lemma tw_grind_not_chain_class : ~~ wots_c_hash_class tw_grind.
 Proof. by []. Qed.
 
-Lemma tw_grind_not_pkcompress_class : ~~ shrincs_wots_pkcompress_class tw_grind.
+Lemma tw_grind_not_pkcompress_class : ~~ wots_c_pk_class tw_grind.
 Proof. by []. Qed.
 
 Lemma tw_grind_encoded_not_chain_class (digest : Bytes 32) :
-  ~~ shrincs_wots_chain_class (grinding_tweak tw_grind digest).
+  ~~ wots_c_hash_class (grinding_tweak tw_grind digest).
 Proof. by rewrite grinding_tweak_chain_class tw_grind_not_chain_class. Qed.
 
 Lemma tw_grind_encoded_class (digest : Bytes 32) :
-  shrincs_wots_grind_class (grinding_tweak tw_grind digest).
+  wots_c_grind_class (grinding_tweak tw_grind digest).
 Proof. by rewrite grinding_tweak_grind_class tw_grind_class. Qed.
 
 Lemma tw_grind_encoded_not_pkcompress_class (digest : Bytes 32) :
-  ~~ shrincs_wots_pkcompress_class (grinding_tweak tw_grind digest).
+  ~~ wots_c_pk_class (grinding_tweak tw_grind digest).
 Proof. by rewrite grinding_tweak_pkcompress_class tw_grind_not_pkcompress_class. Qed.
 
 (* A chain index and a chain position fit a 32 bit word, so distinct ones give distinct tweaks. *)
-Lemma chain_index_lt (i : nat) : i < chain_count_shrincs -> i < 2 ^ 32.
+Lemma chain_index_lt (i : nat) : i < wots_c_chain_count -> i < 2 ^ 32.
 Proof. exact: (@ltn_2_32 i 5 isT). Qed.
 
-Lemma chain_position_lt (pos : nat) : pos < w_shrincs.-1 -> pos < 2 ^ 32.
+Lemma chain_position_lt (pos : nat) : pos < wots_c_w.-1 -> pos < 2 ^ 32.
 Proof. by move=> hp; apply: (@ltn_2_32 pos 4 isT); exact: (ltn_trans hp). Qed.
 
 Lemma tw_chain_inj (i pos i' pos' : nat) :
-  i < chain_count_shrincs -> i' < chain_count_shrincs ->
-  pos < w_shrincs.-1 -> pos' < w_shrincs.-1 ->
+  i < wots_c_chain_count -> i' < wots_c_chain_count ->
+  pos < wots_c_w.-1 -> pos' < wots_c_w.-1 ->
   tw_chain i pos = tw_chain i' pos' -> i = i' /\ pos = pos'.
 Proof.
 move=> hi hi' hp hp' h.
@@ -216,7 +216,7 @@ split.
 Qed.
 
 Lemma tw_prf_inj (i i' : nat) :
-  i < chain_count_shrincs -> i' < chain_count_shrincs -> tw_prf i = tw_prf i' -> i = i'.
+  i < wots_c_chain_count -> i' < wots_c_chain_count -> tw_prf i = tw_prf i' -> i = i'.
 Proof.
 move=> hi hi' h.
 have hc : uint U32 i = uint U32 i' := congr1 (fun t : tweak => t.1.2) h.
@@ -231,8 +231,8 @@ Definition wc_sha256 : wc_params := {|
   wcp_M  := bytes 32 ;
   wcp_Tw := tweak ;
   wcp_HM := 'list ('word U8) ;
-  wcp_w := w_shrincs ;
-  wcp_chain_count := chain_count_shrincs ;
+  wcp_w := wots_c_w ;
+  wcp_chain_count := wots_c_chain_count ;
   wcp_Hcc := wots_c_Hcc ;
   wcp_Hw  := wots_c_Hw ;
   wcp_tw_chain := tw_chain ;
@@ -246,10 +246,10 @@ Definition wc_sha256 : wc_params := {|
   wcp_encode_node_inj := fun x y h => val_inj h ;
   wcp_encode_ends := fun xs => flatten [seq tval x | x <- xs] ;
   wcp_encode_ends_inj := @flatten_rows_inj 16 isT ;
-  wcp_encode_grind := shrincs_wots_grind_enc ;
-  wcp_chain_class := shrincs_wots_chain_class ;
-  wcp_pk_class := shrincs_wots_pkcompress_class ;
-  wcp_grind_class := shrincs_wots_grind_class ;
+  wcp_encode_grind := wots_c_grind_enc ;
+  wcp_chain_class := wots_c_hash_class ;
+  wcp_pk_class := wots_c_pk_class ;
+  wcp_grind_class := wots_c_grind_class ;
   wcp_tw_chain_class := tw_chain_class ;
   wcp_tw_pk_class := tw_pk_class ;
   wcp_tw_grind_class := tw_grind_class ;
@@ -268,7 +268,7 @@ Definition wc_sha256 : wc_params := {|
   wcp_dPP := dBytes 16 ;
   wcp_dN  := dBytes 16 ;
   wcp_constant_sum := WOTS_C_CONSTANT_SUM ;
-  wcp_c_max        := c_max_shrincs ;
+  wcp_c_max        := wots_c_counter_max ;
 |}.
 
 Local Abbreviation P := wc_sha256.
@@ -283,17 +283,17 @@ Proof. by rewrite H_grind_encoding_Th. Qed.
 
 (* The model's fold over a chain is the specification's loop. The bound keeps every position under the guard of the model's step. *)
 Lemma chainc_chain_iter (pp : bytes 16) (i : nat) (x : bytes 16) (s n : nat) :
-  s + n <= w_shrincs ->
+  s + n <= wots_c_w ->
   model_chain pp i x s n
   = wots_c_chain_iter x s (s + n) pp node_height node_index (uint U32 i).
 Proof.
 elim: n x s => [|n IH] x s hs.
 - by rewrite /wots_c_chain_iter /range addn0 subnn.
-- have hsw : s < w_shrincs.
+- have hsw : s < wots_c_w.
     by apply: (leq_trans _ hs); rewrite addnS ltnS leq_addr.
   rewrite (chainc_shift (wcp_PP P) (wcp_N P) (wcp_w P) (chainf P) pp i x s n).
   rewrite (FcE (wcp_PP P) (wcp_N P) (wcp_w P) (chainf P) pp i s x hsw).
-  have hs' : s.+1 + n <= w_shrincs by rewrite addSnnS.
+  have hs' : s.+1 + n <= wots_c_w by rewrite addSnnS.
   rewrite (IH _ _ hs') /wots_c_chain_iter /range.
   have -> : s.+1 + n - s.+1 = n by rewrite addKn.
   have -> : s + n.+1 - s = n.+1 by rewrite addKn.
@@ -309,13 +309,13 @@ Proof. by have := nth_digest_of_lt P pp m c i. Qed.
 
 Lemma pubkey_adapter (pp k : bytes 16) :
   wots_c_pubkey_gen k pp node_height node_index tree_balanced tree_depth
-  = shrincs_wots_pubkey_gen P (bytes 16) shrincs_wots_prf pp k.
+  = shrincs_wots_pubkey_gen P (bytes 16) shrincs_prf pp k.
 Proof.
 rewrite /shrincs_wots_pubkey_gen /shrincs_wots_pubkey /derive_sk chain_ends_mkseq.
 rewrite /wots_c_pubkey_gen T_sf_Th /wcp_T_sf.
 apply: (congr1 (fun xs : seq (bytes 16) => Th pp tw_pk (flatten [seq tval x | x <- xs]))).
 apply/eq_in_map => i _.
-have hd : 0 + (wcp_w P).-1 <= w_shrincs by rewrite add0n leq_pred.
+have hd : 0 + (wcp_w P).-1 <= wots_c_w by rewrite add0n leq_pred.
 by rewrite (chainc_chain_iter pp i _ 0 _ hd) ?add0n PRF_Th.
 Qed.
 
@@ -337,7 +337,7 @@ Qed.
 Lemma sign_adapter (pp k : bytes 16) (m : bytes 32) :
   wots_c_sign m k pp node_height node_index tree_balanced tree_depth
   = omap (wcp_sig_encode P)
-      (shrincs_wots_sign P pp (derive_sk P (bytes 16) shrincs_wots_prf pp k) m).
+      (shrincs_wots_sign P pp (derive_sk P (bytes 16) shrincs_prf pp k) m).
 Proof.
 rewrite /wots_c_sign grind_adapter /shrincs_wots_sign.
 case: (find_counter P pp m) => [c|]; last by [].
@@ -349,7 +349,7 @@ rewrite /derive_sk (sign_chains_mkseq P pp _ _ (size_digest_of P pp m c)).
 rewrite -sig_of_tuple.
 congr (sig_of _ c).
 apply/eq_in_map => i _.
-have hd : 0 + nth 0 (digest_of P pp m c) i <= w_shrincs.
+have hd : 0 + nth 0 (digest_of P pp m c) i <= wots_c_w.
   exact: (leq_trans (digit_le pp m c i) (leq_pred _)).
 by rewrite (chainc_chain_iter pp i _ 0 _ hd) PRF_Th.
 Qed.
@@ -375,7 +375,7 @@ congr (Th pp tw_pk (flatten [seq tval x | x <- _])).
 apply/eq_in_map => i _.
 have hle := digit_le pp m (sig_ctr sg) i.
 have hd : nth 0 (digest_of P pp m (sig_ctr sg)) i
-          + ((wcp_w P).-1 - nth 0 (digest_of P pp m (sig_ctr sg)) i) <= w_shrincs.
+          + ((wcp_w P).-1 - nth 0 (digest_of P pp m (sig_ctr sg)) i) <= wots_c_w.
   by rewrite (subnKC hle) leq_pred.
 by rewrite (chainc_chain_iter pp i _ _ _ hd) (subnKC hle).
 Qed.

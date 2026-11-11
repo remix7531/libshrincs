@@ -597,13 +597,13 @@ Definition tweak : choice_type :=
   'word U8 × 'word U64 × 'word U8 × 'word U32 × 'word U32 × 'word U32.
 
 (* The address type fixes each target class before the public seed is sampled. *)
-Definition shrincs_wots_chain_class (t : tweak) : bool :=
+Definition wots_c_hash_class (t : tweak) : bool :=
   t.1.1.1.2 == SF_WOTS_C_HASH.
 
-Definition shrincs_wots_pkcompress_class (t : tweak) : bool :=
+Definition wots_c_pk_class (t : tweak) : bool :=
   t.1.1.1.2 == SF_WOTS_C_PK.
 
-Definition shrincs_wots_grind_class (t : tweak) : bool :=
+Definition wots_c_grind_class (t : tweak) : bool :=
   t.1.1.1.2 == SF_WOTS_C_GRIND.
 
 (* Grinding puts the first twelve digest bytes in the tweak payload and the remaining bytes in the message. The anchor and address type stay fixed. *)
@@ -623,32 +623,32 @@ Definition Th (pk_seed : Bytes 16) (t : tweak) (M : seq UInt8) : Bytes 16 :=
   slice (sha256 (pk_seed ++ zeros 48 ++ pack height index address_type word1 word2 word3 ++ M)) 0 16.
 
 (* The PRF key is the secret seed. Its input contains the public seed and the tweak. *)
-Definition shrincs_wots_prf (pk_seed : bytes 16) (t : tweak) (sk_seed : bytes 16) : bytes 16 :=
+Definition shrincs_prf (pk_seed : bytes 16) (t : tweak) (sk_seed : bytes 16) : bytes 16 :=
   Th pk_seed t sk_seed.
 
-Definition w_shrincs : nat := 2 ^ WOTS_C_CHAIN_BITS.
-Definition chain_count_shrincs : nat := WOTS_C_CHAIN_COUNT.
-Definition c_max_shrincs : nat := 2 ^ 16.
+Definition wots_c_w : nat := 2 ^ WOTS_C_CHAIN_BITS.
+Definition wots_c_chain_count : nat := WOTS_C_CHAIN_COUNT.
+Definition wots_c_counter_max : nat := 2 ^ 16.
 
 (* The chain games sample hidden sixteen-byte inputs and encode them as byte sequences. Compression and grinding choose their target messages. *)
-Definition shrincs_wots_thf : thf := {|
+Definition shrincs_thf : thf := {|
   th_PP := bytes 16; th_T := tweak; th_M := 'list ('word U8); th_N := bytes 16;
   th_eval := Th;
   th_dPP := dBytes 16;
   th_dM := {code x ← dBytes 16 ;; ret (tval x)};
   th_dN := dBytes 16 |}.
 
-Definition shrincs_wots_khf_prf : khf := {|
+Definition shrincs_khf_prf : khf := {|
   kh_K := bytes 16; kh_M := bytes 16 × tweak; kh_N := bytes 16;
-  kh_eval := fun k pt => shrincs_wots_prf pt.1 pt.2 k;
+  kh_eval := fun k pt => shrincs_prf pt.1 pt.2 k;
   kh_dK := dBytes 16; kh_dN := dBytes 16 |}.
 
-Definition shrincs_wots_grind_enc (t : tweak) (m : bytes 32) (c : nat)
+Definition wots_c_grind_enc (t : tweak) (m : bytes 32) (c : nat)
     : tweak * seq UInt8 :=
   (grinding_tweak t m, grinding_message m (uint U16 c)).
 
 (* This is the digit-sum test used by grinding and recovery in the specification. *)
-Definition shrincs_wots_grind_prp (g : bytes 16) : bool :=
+Definition wots_c_grind_prp (g : bytes 16) : bool :=
   sumn (base_2b g WOTS_C_CHAIN_BITS WOTS_C_CHAIN_COUNT) == WOTS_C_CONSTANT_SUM.
 
 Section AtTheAnchor.

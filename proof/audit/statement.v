@@ -52,26 +52,26 @@ Check (shrincs_correct_and_secure :
        A_export A ->
      let P := wc_sha256 node_height node_index tree_balanced tree_depth in
      AdvOf (Scheme.wots_c_kots_game node_height node_index tree_balanced tree_depth) A
-     <= AdvOf (PRF_game shrincs_wots_khf_prf chain_count_shrincs)
-          (A ∘ R_prf P (bytes 16) shrincs_wots_prf (dBytes 16) true)%sep
-      + \sum_(0 <= s < w_shrincs.-2)
-          AdvOf (SMUD_game shrincs_wots_thf shrincs_wots_chain_class chain_count_shrincs)
+     <= AdvOf (PRF_game shrincs_khf_prf wots_c_chain_count)
+          (A ∘ R_prf P (bytes 16) shrincs_prf (dBytes 16) true)%sep
+      + \sum_(0 <= s < wots_c_w.-2)
+          AdvOf (SMUD_game shrincs_thf wots_c_hash_class wots_c_chain_count)
             (A ∘ R_ud P true s)%sep
-      + AdvOf (STCRP_game shrincs_wots_thf shrincs_wots_grind_class (bytes 32)
-                 shrincs_wots_grind_enc shrincs_wots_grind_prp c_max_shrincs 1)
+      + AdvOf (STCRP_game shrincs_thf wots_c_grind_class (bytes 32)
+                 wots_c_grind_enc wots_c_grind_prp wots_c_counter_max 1)
           (A ∘ R_grind P)%sep
-      + AdvOf (SMTCR_game shrincs_wots_thf shrincs_wots_pkcompress_class 1)
+      + AdvOf (SMTCR_game shrincs_thf wots_c_pk_class 1)
           (A ∘ R_compress P)%sep
-      + AdvOf (SMTCR_game shrincs_wots_thf shrincs_wots_chain_class
-                 (tcr_budget chain_count_shrincs w_shrincs))
+      + AdvOf (SMTCR_game shrincs_thf wots_c_hash_class
+                 (tcr_budget wots_c_chain_count wots_c_w))
           (A ∘ R_chain_tcr P)%sep
-      + AdvOf (SMPRE_game shrincs_wots_thf shrincs_wots_chain_class chain_count_shrincs)
+      + AdvOf (SMPRE_game shrincs_thf wots_c_hash_class wots_c_chain_count)
           (A ∘ R_chain_pre P)%sep
-      + \sum_(0 <= s < w_shrincs.-2)
-          AdvOf (SMUD_game shrincs_wots_thf shrincs_wots_chain_class chain_count_shrincs)
+      + \sum_(0 <= s < wots_c_w.-2)
+          AdvOf (SMUD_game shrincs_thf wots_c_hash_class wots_c_chain_count)
             (A ∘ R_ud P false s)%sep
-      + AdvOf (PRF_game shrincs_wots_khf_prf chain_count_shrincs)
-          (A ∘ R_prf P (bytes 16) shrincs_wots_prf (dBytes 16) false)%sep)).
+      + AdvOf (PRF_game shrincs_khf_prf wots_c_chain_count)
+          (A ∘ R_prf P (bytes 16) shrincs_prf (dBytes 16) false)%sep)).
 
 Check (sha256_c_correct :
   @VSU NullExtension.Espec nil nil sha256_QP (Hash.spec_sha256 :: nil) emp).

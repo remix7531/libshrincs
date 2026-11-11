@@ -119,13 +119,14 @@ The same object gets one name in `Model`, `Vst`, and `Sec`:
 
 Two distinct concrete layers, kept distinct:
 
-- **`_shrincs`** — the concrete SHRINCS *parameters* (numbers): `w_shrincs = 16`,
-  `chain_count_shrincs = 32`, `c_max_shrincs = 2^16`.
+- **`wots_c_`**: the concrete WOTS+C *parameters* (numbers), under the prefix
+  `spec.v` uses for the scheme: `wots_c_w = 16`, `wots_c_chain_count = 32`,
+  `wots_c_counter_max = 2^16`.
 - **`_sha256`** — the parameter record at the *hash functions* of `spec.v`
   (`wc_sha256`), which instantiates the abstract hash interface.
 
-An identifier never mixes the two; `_shrincs` answers "which numbers", `_sha256`
-answers "which hash".
+An identifier never mixes the two. The `wots_c_` names answer "which numbers",
+`_sha256` answers "which hash".
 
 ## Comments
 
