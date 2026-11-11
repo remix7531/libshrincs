@@ -22,4 +22,15 @@ The C tests and specification checks read `test/spec/vectors/wots_c.kat`. Its ge
 
 `proof/dune` declares the single `Shrincs` theory, extracts the four Clight programs and compiles every proof source except the two standalone audit queries. Objects live under `_build/default/proof`. `proof/_RocqProject` supplies that load path to editors and MCP. The audit receives the tracked source list from the build, checks every compiled source against it, and enforces proof gaps, declared assumptions, both statement pins, both assumption cones and the public import boundary. `dune build @proof/audit-test` exercises the scanners and gates. The unchanged allowlist in `audit/allowed.txt` records the inherited library principles. The full `dune build @check` includes both audits and the specification vectors.
 
+## Where files go
+
+- The top level of `proof/` is the audit surface and nothing else: `spec.v`, `sha256.v`, `contracts.v`, `games.v`, `schemes.v` and `theorem.v`. The audit applies the import boundary to every file at this level except `theorem.v`.
+- `theorem.v` composes completed results. No backend proof and no public definition imports it. Every `Theorem` it states must be probed in `audit/probe.v` and pinned in `audit/statement.v`.
+- `internal/ssprove/` holds one directory per scheme, today `wots/`. `lib/` is independent of any scheme: it imports `games.v` and neither `spec.v` nor `schemes.v`. `hash.v` identifies the specification hashes with `Th` for every address class.
+- `internal/vst/` holds one directory per C translation unit, with one `body_<function>.v` per C function and a `component.v` that builds the unit. A file holds one `semax_body`, because one file is checked on one core. `sha256/verif/logical.v` is the exception, with six short proofs. `support/` holds what several units share, and `link.v` joins the units.
+- `internal/vst/sha256/clone.v` is a private restatement of `sha256.v`, and `sync.v` proves that the two agree. A new derived fact about SHA-256 goes in `clone.v`, never in `sha256.v`.
+- `internal/common/` holds word and byte facts that depend on neither backend.
+- Every source under `proof/` is compiled into the theory, and the audit refuses one that git does not track.
+- A name added to `audit/allowed.txt` changes the trust surface, and the commit message says so.
+
 See the root [README.md](../README.md) for build targets and [STYLE.md](STYLE.md) for proof style.
