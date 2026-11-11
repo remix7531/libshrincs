@@ -8,7 +8,7 @@ owns public C contracts, `games.v` owns the security experiments and
 explain the role of each definition group, game behavior, constraints and
 invariants. Reading guidance belongs in `README.md`.
 
-The backend style sections use `Model` for shared Gallina proofs under
+The backend style sections use `Common` for shared Gallina proofs under
 `internal/common/`, `Sec` for SSProve under `internal/ssprove/`, and `Vst`
 for VST under `internal/vst/`. The audit files follow the same conventions.
 
@@ -39,7 +39,7 @@ convention in the `Sec` tree — this guide keeps calling them `Vst` and
 | type / record / inductive names  | `lowercase` snake_case  | `adrs`, `sig_scheme`, `byte`      |
 | inductive constructors           | `CamelCase`             | `Vint`-style                      |
 | record builders                  | lowercase `mk*`         | `mkint`, `mk` (as CompCert does)  |
-| definitions / functions / lemmas | `lowercase` snake_case  | `to_byte`, `set_payload_a`        |
+| definitions / functions / lemmas | `lowercase` snake_case  | `int_to_bytes`, `tweak_of`        |
 
 Documented exceptions (deliberate, not drift):
 
@@ -48,7 +48,7 @@ Documented exceptions (deliberate, not drift):
   evaluators, and the game/reduction zoo (`G0w`, `Fw`, `RC`, `*_loc`, ...). These
   mirror the security paper, the way CompCert keeps `Vint`.
 - **C-macro mirrors** keep the C `#define` spelling in ALL_CAPS: the address
-  type/layer tags `SF_SHRINCS_WOTS_*`, `SL_*`, so the proof reads against the C.
+  type flags `SF_WOTS_C_*`, so the proof reads against the C and the reference.
 - **External names embedded in an identifier** keep their source casing: a lemma
   about the `Vint` constructor or a `Tarray` is `..._Vint` / `..._Tarray`; a
   MathComp view is `andP` / `eqP`. Do not snake_case a name you do not own.
@@ -63,15 +63,17 @@ name in all three trees.
 
 ### Scheme prefix
 
-- Every WOTS+C-specific top-level definition and lemma carries the
-  `shrincs_wots_` prefix (already established: `shrincs_wots_chain_adrs`,
-  `shrincs_wots_chain_iter`, `shrincs_wots_derive_sk`, `shrincs_wots_pk_adrs`,
-  `shrincs_wots_hash_adrs`, `shrincs_wots_prf_adrs`, ...). The scheme record is
-  `shrincs_wots_scheme`.
+- Public definitions that belong to WOTS+C carry the `wots_c_` prefix of the
+  reference (`wots_c_sign`, `wots_c_hash_class`, `wots_c_scheme`). The hash
+  instances that every SHRINCS construction shares carry `shrincs_`
+  (`shrincs_thf`, `shrincs_prf`).
+- The generic WOTS+C model under `Shrincs.internal.ssprove.wots` carries the
+  `shrincs_wots_` prefix (`shrincs_wots_scheme`, `shrincs_wots_sign`,
+  `shrincs_wots_verify`).
 - Generic, scheme-agnostic machinery (the hash-based-signature library slice in
   `Shrincs.internal.ssprove.lib.*`, pure mathematics, the machine integers) does NOT
-  take the prefix — it is reusable across the SHRINCS family, so it stays named
-  by what it is (`chain_cat`, `Word.repr`, `digits_w`), not by WOTS+C.
+  take a prefix. It is reusable across the SHRINCS family, so it stays named
+  by what it is (`qnth_cat_r`, `tweak_lt`), not by WOTS+C.
 
 ### Lemma-name suffixes (uniform across trees)
 
@@ -86,35 +88,21 @@ name in all three trees.
 | `_Zlength`   | a fact about `Zlength` (a `Z`)                             |
 
 `_inj` and `_congr` are **different facts** — injectivity of the whole map vs.
-"agrees on the relevant part, so the outputs agree" (e.g.
-`shrincs_wots_hash_adrs_congr : adrs_struct_eq b a -> ... b i = ... a i`). Keep
+"agrees on the relevant part, so the outputs agree". Keep
 both; do not rename one into the other.
 
 ### Length lemmas are subject-first
 
 Domain lemmas put the subject first: `<subject>_length` / `<subject>_Zlength`
-(`to_byte_length`, `pkgen_block_Zlength`, `chain_tips_Zlength`). The
+(`parse_block_Zlength`, `words_to_vals_Zlength`, `bytes_of_word_Zlength`). The
 `length_<subject>` / `Zlength_<subject>` word order is reserved for the small
 set of generic list helpers that mirror a VST/stdlib lemma of that exact name
 (`Zlength_app`, `Zlength_map`), where matching the ecosystem name aids search.
-Do not have both orders for one fact. (On the VST side this shakes out as
-predominantly `<subject>_Zlength` — `pkgen_block_Zlength`, `chain_Zlength` —
-with `Zlength_<subject>` kept only for the generic helpers that shadow a
-Floyd lemma of that name, e.g. `Zlength_concat_fixed`.)
+Do not have both orders for one fact.
 
 ### One concept, one name across trees
 
-The same object gets one name in `Model`, `Vst`, and `Sec`:
-
-- `shrincs_wots_hash_adrs` (model) and `shrincs_wots_chain_adrs` (Sec) look like a
-  naming duplication but are NOT: the model primitive
-  `shrincs_wots_hash_adrs (a : adrs) (i : nat) : adrs` sets the HASH type tag
-  (matching the C `SF_SHRINCS_WOTS_HASH`), while
-  `shrincs_wots_chain_adrs (t) (i pos) : adrs_sf` is the Sec tweak-space wrapper
-  that calls it. Different arity, different type; keep both distinct names.
-- the per-scheme constant `constant_sum` (a `nat`) is the one definition; the VST
-  reflection `constant_sum_eq : Z.of_nat constant_sum = 240` and the concrete
-  instantiation live beside it under the `_eq` / instantiation-suffix rules.
+The same object gets one name in `Common`, `Vst`, and `Sec`.
 
 ### Instantiation namespaces
 
@@ -134,14 +122,13 @@ An identifier never mixes the two. The `wots_c_` names answer "which numbers",
 Shared taxonomy across all three trees:
 
 - **File header** — a `(** * <Module>` doc comment followed by a prose
-  paragraph stating what the file defines/proves and its place in the proof
-  (Model: its slot in the L0-L3 stack; Sec/Vst: what it proves and how it
-  fits). `(** ... *)` doc comments describe the `Definition`/`Lemma`
+  paragraph stating what the file defines/proves and its place in the
+  proof. `(** ... *)` doc comments describe the `Definition`/`Lemma`
   immediately below them and never appear inside a `Proof`; `(* ... *)` plain
   comments are for everything inside proofs.
 - **Section banner** — a fixed-width rule then a `(** ** Title *)`, used to
   mark the major phases of a file. The exact glyph/width differs slightly
-  per tree (Model and Vst use 65 `=` between `(* ` and ` *)`, 71 characters
+  per tree (Common and Vst use 65 `=` between `(* ` and ` *)`, 71 characters
   total; Sec uses 66 `-`, 72 characters total) — see each tree's section
   below for the exact rule and worked example; this is a real, harmless
   divergence, not something to harmonize away.
@@ -205,7 +192,7 @@ comment. Generated files (`clight/`) are exempt.
 - Blank lines separate logical phases of a proof (setup, each hop/stage, the
   final assembly); no blank lines inside a run of similar steps (a block of
   `Local Abbreviation`, a block of `assert`/`set`). This applies to the
-  proof-script-heavy Sec and Vst trees; Model's files are mostly
+  proof-script-heavy Sec and Vst trees; Common's files are mostly
   `Definition`s and rarely need it.
 
 ## Imports
@@ -259,9 +246,10 @@ them. The build gate checks seven properties:
    is *constructed*; the only admissible hypotheses are data side
    conditions (e.g. `Hrange`) and, in Sec, adversary-validity
    (`ValidPackage`).
-3. **Headline pin** — `audit/probe.v` must literally probe
-   `shrincs_correct_and_secure` and `sha256_c_correct`, so neither
-   can be silently renamed or swapped for a weaker namesake.
+3. **Headline pin**: `audit/probe.v` must probe every `Theorem` that
+   `theorem.v` states, today `shrincs_correct_and_secure` and
+   `sha256_c_correct`, so none can be dropped from the probe or swapped
+   there for a weaker namesake.
 4. **Closed axiom base** — `Print Assumptions` on those two theorems must
    stay within `allowed.txt`. Adding a dependency that drags in a new
    axiom fails the audit.
@@ -280,10 +268,9 @@ does not review it for you.
 
 ---
 
-# Model
+# Common
 
-Except for the representation and SHA interfaces listed above, Model
-files are ordinary Gallina + `lia`/`induction`/`cbn`/stdlib rewrites
+Files under `internal/common/` are ordinary Gallina + `lia`/`induction`/`cbn`/stdlib rewrites
 (no ssreflect idiom, no VST tactics). One tactic per line; `by (...)` for
 1-3 tactic leaves; `{ }` blocks with `-`/`+`/`*` bullets for branching.
 
@@ -309,7 +296,7 @@ top of **SSProve** (state-separating proofs).
     (`move=> hgood hus.`, `case: hpre => s1c [hpre1 ->].`).
   Do not chain two independent high-level steps just to save a line.
 - **`by [ ... ]` / `by tac`** closes a goal that finishes in 1-3 tactics; prefer it
-  for leaf goals (`Proof. by rewrite -addn1 chain_cat. Qed.`, `by []`). For
+  for leaf goals (`Proof. by case: ADRS. Qed.`, `by []`). For
   anything longer, open the proof out into lines.
 - **`Set Default Goal Selector "!"`** is on project-wide (in `prelude.v`): a tactic
   must solve exactly the goal it is written against. Multiple goals are dispatched
@@ -338,12 +325,12 @@ top of **SSProve** (state-separating proofs).
 ## Naming
 
 - **Hypotheses use a lowercase `h` prefix + a short descriptive tail**: `hpre`,
-  `hgood`, `hus`, `hrange`, `hpp`. Reserve capital `H...` only where an existing
+  `hgood`, `hus`, `hpp`. Reserve capital `H...` only where an existing
   convention already uses it; do not introduce VST-style `H`-names. Name
   hypotheses at introduction (`move=> hgood hus.`) rather than relying on
   autogenerated `H`/`H0`.
 - **Lemmas** are named `operation_operand` or `predicate_subject`:
-  `chain_cat`, `chain_rcons`, `unzip1_wq`, `qnth_cat_r`, `tlt_notin`,
+  `qnth_nth`, `qnth_cat_r`, `unzip1_wq`, `tlt_notin`,
   `th_eval_wtw`. The name should let a reader predict the statement. Note the
   `_inj`/`_congr` split from the shared table is load-bearing here: the tweak
   maps have injectivity lemmas conditional on their index bounds
@@ -521,7 +508,7 @@ per-tree numbers/examples):
 
 ## Context & Naming
 
-- Hypothesis names: `H` prefix + descriptive (`Hd0`, `Hchain`, `Hr_z_bnd`).
+- Hypothesis names: `H` prefix + descriptive (`Hd0`, `Hchain`).
 - Intermediate values: `set (name := expr).` with short descriptive names.
 - `clear` intermediates as soon as they are no longer needed. Large VST contexts slow down tactics significantly.
 - Use `clear -` (keep only listed hypotheses) at stage boundaries to reset the context.
