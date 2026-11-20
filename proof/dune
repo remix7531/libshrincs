@@ -30,7 +30,7 @@
 
 (rocq.theory
  (name Shrincs)
- (modules :standard \ audit.probe audit.statement)
+ (modules :standard \ audit.probe audit.statement audit.guards)
  (theories
   Stdlib
   Ltac2
@@ -102,6 +102,8 @@
   audit/check.sh
   audit/statement.sh
   audit/declarations.awk
+  audit/guard_inventory.py
+  audit/guard_inventory.v.in
   audit/allowed.txt)
  (action
   (with-stdout-to

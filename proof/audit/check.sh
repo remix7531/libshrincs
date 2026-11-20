@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# The honesty gate. One tree, seven gates. Run by proof/dune:
+# The honesty gate. One tree, eight gates. Run by proof/dune:
 #
 #     nix develop . --command dune build @proof/audit
 #
@@ -31,6 +31,7 @@
 #           a dropped conjunct or a weakened bound is a compile failure
 #           here rather than a diff a reviewer has to notice
 #   gate 6  public definitions import no Shrincs.internal module
+#   gate 7  full-type pins for all guard lemmas and a pinned guard per game
 #
 #   (KNOWN TRAP: coqc chats "Fetching opaque proofs from disk" on stderr;
 #   the grep -v strip below is why gates 4 and 5 shell out to coqc
@@ -169,8 +170,16 @@ if ! hits=$(awk -v forbid_internal=1 -f "$AUDIT/declarations.awk" "${public[@]}"
   fail "gate 6" "$hits"
 fi
 
+# ---- gate 7: protocol-abort guards ----------------------------------------
+# Reviewed full-type pins plus kernel-classified game coverage (including
+# inferred aliases and nested modules). Dune supplies the compiled sources.
+# Do not compare mtimes: Dune builds by content.
+if ! python3 "$AUDIT/guard_inventory.py" "$AUDIT/guards.v" "$AUDIT" "${COQFLAGS[@]}"; then
+  fail "gate 7" "protocol-abort guard coverage or statement pin failed"
+fi
+
 # ---- TRUST SURFACE ---------------------------------------------------------
-echo "gates 0-6 green"
+echo "gates 0-7 green"
 printf '\n'
 printf '================================================================================\n'
 printf 'TRUST SURFACE: %s\n' "$(paste -sd ' ' "$PINNED")"
