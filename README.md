@@ -28,7 +28,7 @@ dune build @check                # source checks, sanitizers, compilers and proo
 
 The build uses three Dune files under one `dune-project`. The root [dune](dune) builds the C library per compiler configuration, [test/dune](test/dune) builds and runs the tests, and [proof/dune](proof/dune) extracts the Clight programs, compiles the proofs and runs the audit. Objects live under `_build/default`. Touching a source or restoring its contents before the next build leaves its compiled objects unchanged. A changed comment can rebuild importers because Rocq records source positions in its objects.
 
-`dune build @proof/audit` checks source registration, proof gaps, declared assumptions, both public statement pins, their assumption cones and the public import boundary. Its trust surface report is `_build/default/proof/audit-report.txt`. The project declares no assumption. The cone holds only principles inherited from the proof libraries, recorded in [proof/audit/allowed.txt](proof/audit/allowed.txt). `dune build @proof/audit-test` runs the audit regressions and is included in `dune test` and `dune build @check`.
+`dune build @proof/audit` checks source registration, proof gaps, declared assumptions, both public statement pins, their assumption cones, the public import boundary and the protocol-abort guard pins. Its trust surface report is `_build/default/proof/audit-report.txt`. The project declares no assumption. The cone holds only principles inherited from the proof libraries, recorded in [proof/audit/allowed.txt](proof/audit/allowed.txt). `dune build @proof/audit-test` runs the audit regressions and is included in `dune test` and `dune build @check`.
 
 To regenerate the reference vectors, run `python3 test/spec/gen_vectors.py --shrincs-bip ../shrincs-bip -o test/spec/vectors/wots_c.kat`. The generated case count must match the static target list in `test/dune`.
 
@@ -50,7 +50,7 @@ proof/theorem.v          the public statements and composition proofs
 proof/internal/common/   shared word bounds
 proof/internal/vst/      functional correctness of the C
 proof/internal/ssprove/  one-time security of the scheme
-proof/audit/             theorem pins, source gates and assumption allowlist
+proof/audit/             theorem and guard pins, source gates and assumption allowlist
 proof/STYLE.md           the proof style guide
 ```
 

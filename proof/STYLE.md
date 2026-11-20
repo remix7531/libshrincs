@@ -70,6 +70,9 @@ name in all three trees.
 - The generic WOTS+C model under `Shrincs.internal.ssprove.wots` carries the
   `shrincs_wots_` prefix (`shrincs_wots_scheme`, `shrincs_wots_sign`,
   `shrincs_wots_verify`).
+- The generic FXMSS model under `Shrincs.internal.ssprove.fxmss` carries the
+  `shrincs_fxmss_` prefix (`shrincs_fxmss_sign`, `shrincs_fxmss_recover`,
+  `shrincs_fxmss_verify`).
 - Generic, scheme-agnostic machinery (the hash-based-signature library slice in
   `Shrincs.internal.ssprove.lib.*`, pure mathematics, the machine integers) does NOT
   take a prefix. It is reusable across the SHRINCS family, so it stays named
@@ -222,7 +225,7 @@ The honesty gate lives in **`proof/audit/check.sh`** (run via
 reading its allowlist from **`proof/audit/allowed.txt`**. One scope, not
 three: the trees are gated together, since one theorem
 (`theorem.v`'s `shrincs_correct_and_secure`) spans all of
-them. The build gate checks seven properties:
+them. The build gate checks eight properties:
 
 0. **Built and reviewed**: every source the theory compiled has its `.vo`
    and is tracked by git. The theory in `proof/dune` takes every `.v` file
@@ -230,8 +233,8 @@ them. The build gate checks seven properties:
    refuses it. The generated Clight programs are the exception. Dune
    rebuilds by content, so an object is never older than its source.
 1. **No proof gaps**: no `Admitted.`, `admit.`, `give_up.` in any source
-   the theory compiled, `audit/` excepted (its two files are queries, not
-   proofs). Gates 1 and 2 read the sources in the audit's sandbox, which
+   the theory compiled, `audit/` excepted (its three files pin and query
+   statements). Gates 1 and 2 read the sources in the audit's sandbox, which
    are exactly the ones that were compiled.
 2. **No declared assumptions**: every top-level `Axiom`, `Parameter`, and
    section `Hypothesis` or `Conjecture` under `proof/` is checked by source
@@ -259,9 +262,17 @@ them. The build gate checks seven properties:
    is a compile failure rather than a diff a reviewer has to notice.
 6. **Public import boundary**: no source at the top level of `proof/`
    except `theorem.v` may import `Shrincs.internal` modules.
+7. **Protocol-abort guards**: `audit/guard_inventory.py` uses the kernel to
+   identify games in `games.v`, `schemes.v` and the non-guard SSProve sources,
+   including inferred aliases and nested modules. Every game must occur by
+   its qualified name in an `AdvOf` guard pin. `audit/guards.v` checks the
+   full type of every lemma in the SSProve `guard` directories, so a weakened
+   or deleted guard is a compile failure. The guards are regression tests
+   for the rule that a game does all its aborting reads before it branches
+   on its bit; the gate does not prove that rule.
 
 A theorem whose *statement* smuggles an advantage bound or a reduction's
-existence as a premise would still pass all seven gates. That anti-pattern
+existence as a premise would still pass all eight gates. That anti-pattern
 is banned by this section, not caught mechanically. Gate 5 is what pins
 the public statements against silent drift once reviewed. It
 does not review it for you.
@@ -342,7 +353,12 @@ top of **SSProve** (state-separating proofs).
   `R_prf`, with their perfect-indistinguishability lemmas `R_*_real` /
   `R_*_ideal` and the matching `*_loc` location set (prefixes `forge_`,
   `ud_hybrid_`, `r_ud_`, `r_grind_`, `r_compress_`, `r_chain_tcr_`,
-  `r_chain_pre_`, `r_prf_`). Match these names when extending the tree.
+  `r_chain_pre_`, `r_prf_`). FXMSS also uses `R_prf_msg`, `R_reprogram`,
+  `R_tree` and `R_paired`; its composed reductions in `fxmss/theorem.v`
+  carry `fxmss_R_` (`fxmss_R_prf`, `fxmss_R_prf_msg`, `fxmss_R_grind`,
+  `fxmss_R_ud`, `fxmss_R_chain_tcr`, `fxmss_R_chain_pre`,
+  `fxmss_R_compress`, `fxmss_R_tree`, `fxmss_R_paired`).
+  Match these names when extending the tree.
 - **Parameters travel as one record.** Files take a single
   `Context (P : wc_params)` (`Shrincs.internal.ssprove.wots.params`); scheme and game constants are
   plain definitions applied to `P` (`digest_of P`, `shrincs_wots_scheme P`,
