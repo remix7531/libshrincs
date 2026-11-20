@@ -4,9 +4,19 @@
  * Copyright (c) 2026 remix7531 <remix7531@mailbox.org>
  *)
 
-(** * Shrincs.spec: the WOTS+C slice of the SHRINCS reference
+(** * Shrincs.spec: the WOTS+C and stateful FXMSS reference
 
-    A transcription of impl/shrincs.py from shrincs-bip, commit 4fe68e3a68fd58be6b0e19436ff6fb7a3357a291. Read it side by side with that file. Sections, names, parameter order and loop structure are the Python's. Only what WOTS+C uses is transcribed: the stateless path, FXMSS, HMAC and [xor] are left out.
+    A transcription of impl/shrincs.py from shrincs-bip, commit
+    4fe68e3a68fd58be6b0e19436ff6fb7a3357a291.
+
+    WOTS+C preserves the reference names, parameter order and loop
+    structure. The stateful tree functions preserve their reference
+    argument order; decreasing byte heights bound recursion. The
+    [shrincs_sf_keygen], [shrincs_sf_sign] and [shrincs_sf_verify] functions
+    project the corresponding [shrincs_*] reference functions onto the
+    stateful path. Key generation takes the partner root as input, and
+    signing and verification omit the stateless fallback. The envelope
+    helpers factor expressions from those functions.
 
     How the Python is rendered:
 
@@ -14,6 +24,12 @@
     - A [UIntN] that is only stored or serialised is a word. Loop counters, chain positions and base-2^b digits, which the Python counts with, are [nat]. [uint] converts one where it enters an address or a byte string.
     - [for i in range(n): out[i] = e] is [[tuple of [seq e | i <- iota 0 n]]], a loop that updates one variable is a [foldl], and the grinding loop that returns on its first hit is [for_first].
     - [x[a : a + n]] is [slice x a n].
+    - For the new stateful functions, failed assertions, input-domain
+      checks and out-of-range recursive coordinates return [None] (or
+      [false] in verification). Thus [option] also totalizes reference-domain
+      rejection; it does not always correspond to a Python [Optional]
+      annotation. [hmac_sha256_total] is the unchecked computation used by
+      the PRF game; reference callers use [hmac_sha256] and enforce its domain.
 
     [sha256] is Shrincs.sha256's FIPS 180-4 transcription behind a lock, so nothing below can compute through it. *)
 
@@ -116,6 +132,8 @@ Definition WOTS_C_CONSTANT_SUM : nat :=
 
 Definition FXMSS_SIGNATURE_SIZE_MIN : nat := 2 + WOTS_C_CHAINS_SIZE + 16.
 Definition FXMSS_SIGNATURE_SIZE_MAX : nat := 2 + WOTS_C_CHAINS_SIZE + 16 * FXMSS_HEIGHT.
+Definition SHRINCS_SF_SIGNATURE_SIZE_MIN : nat := 1 + 16 + 1 + FXMSS_SIGNATURE_SIZE_MIN.
+Definition SHRINCS_SF_SIGNATURE_SIZE_MAX : nat := 1 + 16 + 8 + FXMSS_SIGNATURE_SIZE_MAX.
 
 Definition FXMSS_SHAPE_UNBALANCED : UInt8 := uint U8 0.
 Definition FXMSS_SHAPE_BALANCED : UInt8 := uint U8 1.
@@ -354,3 +372,132 @@ Definition fxmss_pubkey_from_sig (leaf_index : UInt64) (leaf_height : UInt8)
         else H pk_seed parent [tuple of node ++ sibling]) node (range 0 leaf_depth))
     else None
   else None.
+
+(*  SHRINCS stateful path  *)
+
+(* Stateful projection: the stateless root is supplied as
+   partner. This does not implement the stateless root computation. *)
+Definition shrincs_sf_keygen (seed : Bytes 48) (sf_structure : Bytes 2)
+    (partner : Bytes 16) : option (Bytes 82 * Bytes 48) :=
+  let tree_shape := nth (uint U8 0) sf_structure 0 in
+  if (tree_shape == FXMSS_SHAPE_UNBALANCED) || (tree_shape == FXMSS_SHAPE_BALANCED) then
+    let sk_seed := slice seed 0 16 in
+    let sk_prf := slice seed 16 16 in
+    let pk_seed := slice seed 32 16 in
+    let sl_root := partner in
+    let tree_balanced := tree_shape == FXMSS_SHAPE_BALANCED in
+    if fxmss_node sk_seed (uint U64 0) (uint U8 FXMSS_HEIGHT) pk_seed
+         tree_balanced (nth (uint U8 0) sf_structure 1) is Some sf_root then
+      Some ([tuple of sk_seed ++ sk_prf ++ pk_seed ++ sl_root ++ sf_structure ++ sf_root],
+            [tuple of pk_seed ++ sl_root ++ sf_root])
+    else None
+  else None.
+
+Definition shrincs_extract_pubkey (shrincs_seckey : Bytes 82) : Bytes 48 :=
+  [tuple of slice shrincs_seckey 32 32 ++ slice shrincs_seckey 66 16].
+
+(* The result retains Python's (index, height) order. *)
+Definition shrincs_sf_leaf_select (sf_structure : Bytes 2) (state_ctr : option UInt64)
+    : option (UInt64 * UInt8) :=
+  if state_ctr is Some state_ctr then
+    let tree_shape := nth (uint U8 0) sf_structure 0 in
+    let tree_depth := Z.to_nat (wunsigned (nth (uint U8 0) sf_structure 1)) in
+    if tree_depth == 0 then None
+    else if tree_shape == FXMSS_SHAPE_UNBALANCED then
+      if Z.eqb (wunsigned state_ctr) (Z.of_nat tree_depth) then
+        Some (uint U64 0, uint U8 (FXMSS_HEIGHT - tree_depth))
+      else if Z.ltb (wunsigned state_ctr) (Z.of_nat tree_depth) then
+        Some (uint U64 1, uint U8 (FXMSS_HEIGHT - 1 - Z.to_nat (wunsigned state_ctr)))
+      else None
+    else if tree_shape == FXMSS_SHAPE_BALANCED then
+      if Z.ltb (wunsigned state_ctr) (Z.pow 2 (Z.of_nat tree_depth)) then
+        Some (state_ctr, uint U8 (FXMSS_HEIGHT - tree_depth))
+      else None
+    else None
+  else None.
+
+(* Validate variable-length inputs before byte conversion
+   and before the SHA/HMAC preimages are formed. *)
+Definition shrincs_sf_message_domain (message ctx : seq UInt8) : bool :=
+  Z.leb (Z.of_nat (size message)) (Z.sub (Z.pow 2 61) 384) && (size ctx <= 255).
+
+(* Callers check shrincs_sf_message_domain first. *)
+Definition shrincs_sf_bound_message (message ctx : seq UInt8) (sl_root : Bytes 16)
+    : seq UInt8 :=
+  int_to_bytes (uint U8 0) 1 ++ int_to_bytes (uint U8 (size ctx)) 1 ++ ctx ++ sl_root ++ message.
+
+Definition shrincs_sf_index_size (leaf_height : UInt8) : nat :=
+  ceildiv (minn (FXMSS_HEIGHT - Z.to_nat (wunsigned leaf_height)) 64) 8.
+
+Definition shrincs_sf_signature_size (leaf_height : UInt8) : nat :=
+  17 + shrincs_sf_index_size leaf_height + 2 + WOTS_C_CHAINS_SIZE
+    + (FXMSS_HEIGHT - Z.to_nat (wunsigned leaf_height)) * 16.
+
+(* Check the integer-to-bytes domain before serialization. *)
+Definition shrincs_sf_encode (leaf_height : UInt8) (R : Bytes 16) (leaf_index : UInt64)
+    (fxmss_signature : seq UInt8) : option (seq UInt8) :=
+  let leaf_index_size := shrincs_sf_index_size leaf_height in
+  if Z.ltb (wunsigned leaf_index) (Z.pow 2 (Z.of_nat (8 * leaf_index_size))) then
+    Some (int_to_bytes leaf_height 1 ++ R ++ int_to_bytes leaf_index leaf_index_size ++ fxmss_signature)
+  else None.
+
+(* Stateful projection: unavailable leaves return None.
+   The experiment in schemes.v supplies persistent state consumption. *)
+Definition shrincs_sf_sign (message ctx : seq UInt8) (shrincs_seckey : Bytes 82)
+    (state_ctr : option UInt64) : option (seq UInt8) :=
+  if shrincs_sf_message_domain message ctx then
+    let sk_seed := slice shrincs_seckey 0 16 in
+    let sk_prf := slice shrincs_seckey 16 16 in
+    let pk_seed := slice shrincs_seckey 32 16 in
+    let sl_root := slice shrincs_seckey 48 16 in
+    let sf_structure := slice shrincs_seckey 64 2 in
+    let sf_root := slice shrincs_seckey 66 16 in
+    if shrincs_sf_leaf_select sf_structure state_ctr is Some (leaf_index, leaf_height) then
+      let bound_message := shrincs_sf_bound_message message ctx sl_root in
+      if PRF_msg_sf sk_prf pk_seed leaf_height leaf_index bound_message is Some R then
+        let message_digest := H_msg_sf R pk_seed sf_root leaf_height leaf_index bound_message in
+        let tree_balanced := nth (uint U8 0) sf_structure 0 == FXMSS_SHAPE_BALANCED in
+        if fxmss_sign message_digest sk_seed leaf_index leaf_height pk_seed tree_balanced
+             (nth (uint U8 0) sf_structure 1) is Some fxmss_signature then
+          shrincs_sf_encode leaf_height R leaf_index fxmss_signature
+        else None
+      else None
+    else None
+  else None.
+
+(* Parsing refuses the stateless indicator, validates the
+   full length, then reads fixed-width fields. No short input is zero-padded. *)
+Definition shrincs_sf_parse (signature : seq UInt8)
+    : option (UInt8 * Bytes 16 * UInt64 * seq UInt8) :=
+  if signature is indicator :: _ then
+    if indicator == uint U8 FXMSS_HEIGHT then None
+    else if (SHRINCS_SF_SIGNATURE_SIZE_MIN <= size signature) &&
+            (size signature <= SHRINCS_SF_SIGNATURE_SIZE_MAX) then
+      let leaf_height := indicator in
+      let leaf_depth := FXMSS_HEIGHT - Z.to_nat (wunsigned leaf_height) in
+      let leaf_index_size := shrincs_sf_index_size leaf_height in
+      if size signature == shrincs_sf_signature_size leaf_height then
+        let R := slice signature 1 16 in
+        let leaf_index := int_from_bytes U64 (slice signature 17 leaf_index_size) in
+        if Z.ltb (wunsigned leaf_index) (Z.pow 2 (Z.of_nat (minn 64 leaf_depth))) then
+          Some (leaf_height, R, leaf_index, drop (17 + leaf_index_size) signature)
+        else None
+      else None
+    else None
+  else None.
+
+(* The fixed key tuple enforces the 48-byte public-key check;
+   this projection rejects the stateless branch. *)
+Definition shrincs_sf_verify (message signature ctx : seq UInt8) (shrincs_pubkey : Bytes 48)
+    : bool :=
+  if shrincs_sf_message_domain message ctx then
+    let pk_seed := slice shrincs_pubkey 0 16 in
+    let sl_root := slice shrincs_pubkey 16 16 in
+    let sf_root := slice shrincs_pubkey 32 16 in
+    if shrincs_sf_parse signature is Some (leaf_height, R, leaf_index, fxmss_signature) then
+      let bound_message := shrincs_sf_bound_message message ctx sl_root in
+      let message_digest := H_msg_sf R pk_seed sf_root leaf_height leaf_index bound_message in
+      if fxmss_pubkey_from_sig leaf_index leaf_height fxmss_signature message_digest pk_seed
+        is Some root then root == sf_root else false
+    else false
+  else false.
