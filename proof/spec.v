@@ -106,11 +106,19 @@ Definition base_2b (x : seq UInt8) (b outlen : nat) : seq nat :=
 (*  Parameters  *)
 Definition WOTS_C_CHAIN_BITS : nat := 4.
 
+Definition FXMSS_HEIGHT : nat := 255.
+
 (*  Derived constants  *)
 Definition WOTS_C_CHAIN_COUNT : nat := ceildiv 128 WOTS_C_CHAIN_BITS.
 Definition WOTS_C_CHAINS_SIZE : nat := WOTS_C_CHAIN_COUNT * 16.
 Definition WOTS_C_CONSTANT_SUM : nat :=
   ceildiv (WOTS_C_CHAIN_COUNT * (2 ^ WOTS_C_CHAIN_BITS - 1)) 2.
+
+Definition FXMSS_SIGNATURE_SIZE_MIN : nat := 2 + WOTS_C_CHAINS_SIZE + 16.
+Definition FXMSS_SIGNATURE_SIZE_MAX : nat := 2 + WOTS_C_CHAINS_SIZE + 16 * FXMSS_HEIGHT.
+
+Definition FXMSS_SHAPE_UNBALANCED : UInt8 := uint U8 0.
+Definition FXMSS_SHAPE_BALANCED : UInt8 := uint U8 1.
 
 (*  ADRS type flags  *)
 Definition SF_WOTS_C_HASH : UInt8 := uint U8 16.
@@ -265,4 +273,84 @@ Definition wots_c_pubkey_from_sig (signature : Bytes (2 + WOTS_C_CHAINS_SIZE))
           (2 ^ WOTS_C_CHAIN_BITS - 1) pk_seed node_height node_index (uint U32 i)
       | i <- iota 0 WOTS_C_CHAIN_COUNT]] in
     Some (T_sf pk_seed (WotsCPk node_height node_index) (concat wots_pk))
+  else None.
+
+(*  FXMSS algorithms  *)
+
+(* Fuel bounds decreasing byte heights. Check the leaf case
+   before the Python assertions; check child coordinates before word conversion. *)
+Fixpoint fxmss_node_at (fuel : nat) (sk_seed : Bytes 16) (node_index : UInt64)
+    (node_height : UInt8) (pk_seed : Bytes 16) (tree_balanced : bool)
+    (tree_depth : UInt8) : option (Bytes 16) :=
+  if fuel is fuel'.+1 then
+    let height := Z.to_nat (wunsigned node_height) in
+    let node_depth := FXMSS_HEIGHT - height in
+    if (node_depth == Z.to_nat (wunsigned tree_depth)) ||
+       (~~ tree_balanced && (node_index == uint U64 1)) then
+      Some (wots_c_pubkey_gen sk_seed pk_seed node_height node_index tree_balanced tree_depth)
+    else if (if tree_balanced then node_depth < Z.to_nat (wunsigned tree_depth)
+             else node_index == uint U64 0) then
+      let lchild_index := Z.mul 2 (wunsigned node_index) in
+      if (0 < height) && Z.ltb (Z.add lchild_index 1) (Z.pow 2 64) then
+        let child_height := uint U8 (height - 1) in
+        if fxmss_node_at fuel' sk_seed (wrepr U64 lchild_index) child_height
+             pk_seed tree_balanced tree_depth is Some lchild then
+          if fxmss_node_at fuel' sk_seed (wrepr U64 (Z.add lchild_index 1)) child_height
+               pk_seed tree_balanced tree_depth is Some rchild then
+            Some (H pk_seed (FxmssTree node_height node_index) [tuple of lchild ++ rchild])
+          else None
+        else None
+      else None
+    else None
+  else None.
+
+Definition fxmss_node (sk_seed : Bytes 16) (node_index : UInt64) (node_height : UInt8)
+    (pk_seed : Bytes 16) (tree_balanced : bool) (tree_depth : UInt8) : option (Bytes 16) :=
+  fxmss_node_at (Z.to_nat (wunsigned node_height)).+1
+    sk_seed node_index node_height pk_seed tree_balanced tree_depth.
+
+(* Authentication siblings are appended bottom-up. *)
+Definition fxmss_sign (message_digest : Bytes 32) (sk_seed : Bytes 16)
+    (leaf_index : UInt64) (leaf_height : UInt8) (pk_seed : Bytes 16)
+    (tree_balanced : bool) (tree_depth : UInt8) : option (seq UInt8) :=
+  let height := Z.to_nat (wunsigned leaf_height) in
+  let leaf_depth := FXMSS_HEIGHT - height in
+  if (if tree_balanced then leaf_depth == Z.to_nat (wunsigned tree_depth)
+      else (leaf_index == uint U64 1) || (leaf_depth == Z.to_nat (wunsigned tree_depth))) then
+    if wots_c_sign message_digest sk_seed pk_seed leaf_height leaf_index
+         tree_balanced tree_depth is Some sig then
+      foldl (fun sig j =>
+        if sig is Some sig then
+          let sibling_index := Z.lxor (Z.div (wunsigned leaf_index) (Z.pow 2 (Z.of_nat j))) 1 in
+          let sibling_height := height + j in
+          if Z.ltb sibling_index (Z.pow 2 64) && (sibling_height < 256) then
+            if fxmss_node sk_seed (wrepr U64 sibling_index) (uint U8 sibling_height)
+                 pk_seed tree_balanced tree_depth is Some sibling then
+              Some (sig ++ sibling)
+            else None
+          else None
+        else None) (Some (tval sig)) (range 0 leaf_depth)
+    else None
+  else None.
+
+(* The exact length check precedes every padded slice. *)
+Definition fxmss_pubkey_from_sig (leaf_index : UInt64) (leaf_height : UInt8)
+    (signature : seq UInt8) (message_digest : Bytes 32) (pk_seed : Bytes 16)
+    : option (Bytes 16) :=
+  let height := Z.to_nat (wunsigned leaf_height) in
+  let leaf_depth := FXMSS_HEIGHT - height in
+  if (size signature == 2 + WOTS_C_CHAINS_SIZE + leaf_depth * 16) &&
+     Z.ltb (wunsigned leaf_index) (Z.pow 2 (Z.of_nat (minn 64 leaf_depth))) then
+    let wots_sig := slice signature 0 (2 + WOTS_C_CHAINS_SIZE) in
+    let xmss_auth := drop (2 + WOTS_C_CHAINS_SIZE) signature in
+    if wots_c_pubkey_from_sig wots_sig message_digest pk_seed leaf_height leaf_index
+      is Some node then
+      Some (foldl (fun (node : Bytes 16) k =>
+        let parent := FxmssTree (uint U8 (height + k + 1))
+          (wrepr U64 (Z.div (wunsigned leaf_index) (Z.pow 2 (Z.of_nat (k + 1))))) in
+        let sibling := slice xmss_auth (k * 16) 16 in
+        if Z.eqb (Z.modulo (Z.div (wunsigned leaf_index) (Z.pow 2 (Z.of_nat k))) 2) 1 then
+          H pk_seed parent [tuple of sibling ++ node]
+        else H pk_seed parent [tuple of node ++ sibling]) node (range 0 leaf_depth))
+    else None
   else None.
