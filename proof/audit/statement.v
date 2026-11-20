@@ -12,7 +12,9 @@ From Shrincs.internal.vst.sha256 Require Import vsu.
 From Shrincs.internal.ssprove.wots Require Import instance.
 From Shrincs.internal.ssprove.wots Require Import
   hop.prf hop.ud hop.grind hop.compress hop.chain_tcr hop.chain_pre.
+From Shrincs.internal.ssprove.fxmss Require Import theorem.
 From VST.floyd Require Import VSU.
+From SSProve.Crypt Require Import jasmin_word jasmin_wsize.
 From Stdlib Require Import List.
 From mathcomp Require Import boot order reals.
 From Shrincs.internal.ssprove.lib Require Import prelude.
@@ -72,6 +74,50 @@ Check (shrincs_correct_and_secure :
             (A ∘ R_ud P false s)%sep
       + AdvOf (PRF_game shrincs_khf_prf wots_c_chain_count)
           (A ∘ R_prf P (bytes 16) shrincs_prf (dBytes 16) false)%sep)).
+
+Check (shrincs_fxmss_correct_and_secure :
+  (forall (seed : Bytes 48) (sf_structure : Bytes 2) (partner : Bytes 16),
+     let tree_shape := nth (uint U8 0) sf_structure 0 in
+     let tree_depth := Z.to_nat (wunsigned (nth (uint U8 0) sf_structure 1)) in
+     ((tree_shape == FXMSS_SHAPE_BALANCED) && (1 <= tree_depth <= 64)%nat
+     || (tree_shape == FXMSS_SHAPE_UNBALANCED) && (1 <= tree_depth)%nat)%bool ->
+     exists seckey pubkey,
+       shrincs_sf_keygen seed sf_structure partner = Some (seckey, pubkey))
+  /\
+  (forall seed sf_structure partner seckey pubkey message ctx state signature,
+     shrincs_sf_keygen seed sf_structure partner = Some (seckey, pubkey) ->
+     shrincs_sf_sign message ctx seckey state = Some signature ->
+     shrincs_sf_verify message signature ctx pubkey = true)
+  /\
+  (forall (q_s q_h : nat) (LA : Locations)
+          (c : raw_code (fxmss_sf_message × fxmss_sf_signature)%pack)
+          (vc : ValidCode LA (stateful_rom.I_EUCMA_prefix fxmss_sf_scheme) c),
+     let A := fxmss_forger LA c vc in
+     AdvOf (fxmss_eucma_game q_s q_h) A
+     <= AdvOf (PRF_game shrincs_khf_prf (2 ^ 64 * wots_c_chain_count).+1)
+          (A ∘ fxmss_R_prf q_s q_h)%sep
+      + AdvOf (PRF_game shrincs_khf_prf_msg q_s.+1)
+          (A ∘ fxmss_R_prf_msg q_s q_h)%sep
+      + ((2 ^ 64)%nat)%:R * ((q_h + 1)%:R / ((2 ^ 256)%nat)%:R)
+      + (q_h + q_s + 1)%:R / ((2 ^ 128)%nat)%:R
+      + AdvOf (fxmss_grind_game (2 ^ 64))
+          (A ∘ fxmss_R_grind q_s q_h)%sep
+      + \sum_(0 <= s < wots_c_w.-2)
+          AdvOf (SMUD_game shrincs_thf wots_c_hash_class
+                   (2 ^ 64 * wots_c_chain_count))
+            (A ∘ fxmss_R_ud q_s q_h s)%sep
+      + AdvOf (SMTCR_game shrincs_thf wots_c_hash_class
+                 (2 ^ 64 * (wots_c_chain_count * wots_c_w)))
+          (A ∘ fxmss_R_chain_tcr q_s q_h)%sep
+      + AdvOf (SMPRE_game shrincs_thf wots_c_hash_class
+                 (2 ^ 64 * wots_c_chain_count))
+          (A ∘ fxmss_R_chain_pre q_s q_h)%sep
+      + AdvOf (SMTCR_game shrincs_thf wots_c_pk_class (2 ^ 64))
+          (A ∘ fxmss_R_compress q_s q_h)%sep
+      + AdvOf (fxmss_tree_game (2 ^ 64 - 1))
+          (A ∘ fxmss_R_tree q_s q_h)%sep
+      + AdvOf (fxmss_tcrx_game (2 ^ 65 - 1))
+          (A ∘ fxmss_R_paired q_s q_h)%sep)).
 
 Check (sha256_c_correct :
   @VSU NullExtension.Espec nil nil sha256_QP (Hash.spec_sha256 :: nil) emp).
