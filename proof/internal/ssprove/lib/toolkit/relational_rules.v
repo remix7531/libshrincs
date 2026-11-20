@@ -357,4 +357,35 @@ move=> he h.
 exact: (r_pr_code_rhs_state pre pre post c0 c1 c1' id he (fun _ _ h => h) h).
 Qed.
 
+(* ------------------------------------------------------------------ *)
+(** ** Deterministic return facts *)
+
+Lemma r_ret_lhs_fact {A B : choiceType} (x : A) (c : raw_code B)
+  (pre : precond) (post : postcond A B) :
+⊢ ⦃ pre ⦄ ret x ≈ c ⦃ post ⦄ ->
+⊢ ⦃ pre ⦄ ret x ≈ c
+  ⦃ fun '(y,s0) '(z,s1) => y = x /\ post (y,s0) (z,s1) ⦄.
+Proof.
+move=> hc.
+apply from_sem_jdg.
+move=> [s0 s1].
+rewrite /RulesStateProb.θ /= /SpecificationMonads.MonoCont_order /=.
+move=> pi [hp hpost].
+have hh := to_sem_jdg _ _ _ _ hc (s0,s1).
+rewrite /RulesStateProb.θ /= /SpecificationMonads.MonoCont_order /= in hh.
+case: (hh (fun '(a,b) => post a b) (conj hp (fun _ _ h => h))) => d [hd hpos].
+exists d; split; first exact: hd.
+move=> [y t0] [z t1] hpositive.
+apply: hpost.
+split; last exact: hpos hpositive.
+have he : (x,s0) = (y,t0).
+{
+  case: (eqVneq (x,s0) (y,t0)) => [he|hne]; first exact: he.
+  have hn : (x,s0) <> (y,t0) by apply/eqP.
+  have hz := @lmg_SDistr_unit _ _ (x,s0) d (proj1 hd) (y,t0) (z,t1) hn.
+  by rewrite hz Order.POrderTheory.ltxx in hpositive.
+}
+by case: he.
+Qed.
+
 End SemanticRules.
