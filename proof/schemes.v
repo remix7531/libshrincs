@@ -168,3 +168,28 @@ Definition wots_c_scheme : sig_scheme := {|
 Definition wots_c_kots_game := KOTS_vc_game wots_c_scheme.
 
 End AtTheAnchor.
+
+(* FXMSS grinding consumes a target even when the bounded search fails. *)
+Definition fxmss_grind_game (p : nat) :=
+  stcrp_option.STCRP_option_game shrincs_thf wots_c_grind_class
+    (bytes 32) wots_c_grind_enc wots_c_grind_prp wots_c_counter_max p.
+
+(* Tree and compression targets share paired address coordinates. *)
+Definition fxmss_tree_class (t : tweak) : bool :=
+  t.1.1.1.2 == SF_FXMSS_TREE.
+
+Definition fxmss_paired_class (t : tweak) : bool :=
+  wots_c_pk_class t || fxmss_tree_class t.
+
+Definition fxmss_partner (t : tweak) : tweak :=
+  let: (h, i, tag, a, b, c) := t in
+  if tag == SF_WOTS_C_PK then (h, i, SF_FXMSS_TREE, a, b, c)
+  else if tag == SF_FXMSS_TREE then (h, i, SF_WOTS_C_PK, a, b, c)
+  else t.
+
+Definition fxmss_tcrx_game (p : nat) :=
+  tcrx.TCRX_game shrincs_thf fxmss_paired_class fxmss_partner p.
+
+(* Tree collision resistance is an instance of the existing SM-TCR game. *)
+Definition fxmss_tree_game (p : nat) :=
+  smtcr.SMTCR_game shrincs_thf fxmss_tree_class p.
