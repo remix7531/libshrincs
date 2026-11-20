@@ -669,3 +669,103 @@ Definition STCRP_option_game (b : bool) : game I_STCRP_option :=
 
 End STCRPOptionGame.
 End stcrp_option.
+
+Module tcrx.
+
+Import PackageNotation.
+#[local] Close Scope Z_scope.
+#[local] Open Scope package_scope.
+#[local] Open Scope sep_scope.
+
+Section TCRXGame.
+Context (T : thf) (target_class : th_T T -> bool)
+        (partner : th_T T -> th_T T) (p : nat).
+
+Definition XQUERY : nat := 1010.
+Definition XGETPP : nat := 1011.
+Definition XCHECK : nat := 1012.
+
+Definition tcrx_pp_loc := mkloc 1010 (None : option (th_PP T)).
+Definition tcrx_tgts_loc :=
+  mkloc 1011 (emptym : {fmap nat → (th_T T × th_M T)}).
+Definition tcrx_tws_loc := mkloc 1012 ([::] : seq (th_T T)).
+Definition tcrx_rev_loc := mkloc 1013 (false : bool).
+
+Definition I_TCRX :=
+  [interface
+    [ XQUERY ] : { th_T T × th_M T ~> th_N T } ;
+    [ XGETPP ] : { 'unit ~> th_PP T } ;
+    [ XCHECK ] : { 'nat × (th_T T × th_M T) ~> 'bool } ;
+    [ EVAL ] : { th_T T × th_M T ~> th_N T }
+  ].
+
+(* Targets occupy distinct partner orbits in a static class. The intended
+   partner is an involution preserving that class. After revelation, XCHECK
+   accepts a different message at the target tweak or its partner with the
+   same hash. EVAL is available only outside the whole static target class. *)
+Definition TCRX_game (b : bool) : game I_TCRX :=
+  [package [fmap tcrx_pp_loc ; tcrx_tgts_loc ; tcrx_tws_loc ; tcrx_rev_loc ] ;
+    [ XQUERY ] : { th_T T × th_M T ~> th_N T } '(t, m) {
+      #assert (target_class t) ;;
+      revealed ← get tcrx_rev_loc ;;
+      #assert ~~ revealed ;;
+      tws ← get tcrx_tws_loc ;;
+      #assert (size tws < p)%N ;;
+      #assert (t \notin tws) ;;
+      #assert (partner t \notin tws) ;;
+      tgts ← get tcrx_tgts_loc ;;
+      #put tcrx_tgts_loc := setm tgts (size tws) (t, m) ;;
+      #put tcrx_tws_loc := rcons tws t ;;
+      ppo ← get tcrx_pp_loc ;;
+      pp ← match ppo with
+           | Some pp => ret pp
+           | None =>
+               pp ← th_dPP T ;;
+               #put tcrx_pp_loc := Some pp ;;
+               ret pp
+           end ;;
+      ret (th_eval T pp t m)
+    } ;
+    [ XGETPP ] : { 'unit ~> th_PP T } (_) {
+      ppo ← get tcrx_pp_loc ;;
+      pp ← match ppo with
+           | Some pp => ret pp
+           | None =>
+               pp ← th_dPP T ;;
+               #put tcrx_pp_loc := Some pp ;;
+               ret pp
+           end ;;
+      #put tcrx_rev_loc := true ;;
+      ret pp
+    } ;
+    [ XCHECK ] : { 'nat × (th_T T × th_M T) ~> 'bool } '(j, (t, m)) {
+      revealed ← get tcrx_rev_loc ;;
+      #assert revealed ;;
+      pp ← getSome tcrx_pp_loc ;;
+      if b then
+        tgts ← get tcrx_tgts_loc ;;
+        match getm tgts j with
+        | Some (t0, m0) =>
+            ret (target_class t && ((t == t0) || (t == partner t0)) &&
+                 (m != m0) && (th_eval T pp t m == th_eval T pp t0 m0))
+        | None => ret false
+        end
+      else
+        ret false
+    } ;
+    [ EVAL ] : { th_T T × th_M T ~> th_N T } '(t, m) {
+      #assert ~~ (target_class t) ;;
+      ppo ← get tcrx_pp_loc ;;
+      pp ← match ppo with
+           | Some pp => ret pp
+           | None =>
+               pp ← th_dPP T ;;
+               #put tcrx_pp_loc := Some pp ;;
+               ret pp
+           end ;;
+      ret (th_eval T pp t m)
+    }
+  ].
+
+End TCRXGame.
+End tcrx.
