@@ -769,3 +769,191 @@ Definition TCRX_game (b : bool) : game I_TCRX :=
 
 End TCRXGame.
 End tcrx.
+
+Module stateful_rom.
+
+Import PackageNotation.
+#[local] Close Scope Z_scope.
+#[local] Open Scope package_scope.
+#[local] Open Scope sep_scope.
+
+(* Stateful ROM callbacks contain only data and pure computations. In
+   particular, failure does not hide the successor, and neither signer nor
+   verifier owns a second oracle table. Coherence is proved in the backend. *)
+Record stateful_rom_scheme := {
+  sf_Sk : choice_type;
+  sf_Pk : choice_type;
+  sf_Setup : choice_type;
+  sf_Msg : choice_type;
+  sf_Sig : choice_type;
+  sf_Hin : choice_type;
+  sf_Hout : choice_type;
+  sf_setup_valid : sf_Setup -> bool;
+  sf_message_valid : sf_Msg -> bool;
+  sf_hash_valid : sf_Hin -> bool;
+  sf_keygen : sf_Setup -> dist (sf_Sk × sf_Pk);
+  sf_digest : dist sf_Hout;
+  sf_sign_next : sf_Sk -> sf_Msg -> sf_Sk;
+  sf_sign_query : sf_Sk -> sf_Msg -> option sf_Hin;
+  sf_sign_finish : sf_Sk -> sf_Msg -> sf_Hout -> option sf_Sig;
+  sf_verify_query : sf_Pk -> sf_Msg -> sf_Sig -> option sf_Hin;
+  sf_verify_finish : sf_Pk -> sf_Msg -> sf_Sig -> sf_Hout -> bool
+}.
+
+Definition GEN : nat := 1400.
+Definition SIGN : nat := 1401.
+Definition HASH : nat := 1402.
+Definition FORGE : nat := 1403.
+
+Definition sf_scnt_loc := mkloc 1402 (0 : nat).
+Definition sf_hcnt_loc := mkloc 1403 (0 : nat).
+Definition sf_done_loc := mkloc 1404 false.
+
+Section Experiment.
+Context (S : stateful_rom_scheme).
+
+Definition sf_st_loc := mkloc 1400 (None : option (sf_Sk S × sf_Pk S)).
+Definition sf_log_loc := mkloc 1401 ([::] : seq (sf_Msg S)).
+Definition sf_rom_loc :=
+  mkloc 1405 (emptym : chMap (sf_Hin S) (sf_Hout S)).
+Definition sf_locations : Locations :=
+  [fmap sf_st_loc; sf_log_loc; sf_scnt_loc; sf_hcnt_loc;
+    sf_done_loc; sf_rom_loc].
+
+Definition I_EUCMA_prefix :=
+  [interface
+    [ GEN ] : { sf_Setup S ~> sf_Pk S };
+    [ SIGN ] : { sf_Msg S ~> 'option (sf_Sig S) };
+    [ HASH ] : { sf_Hin S ~> 'option (sf_Hout S) }
+  ].
+
+Definition I_EUCMA :=
+  [interface
+    [ GEN ] : { sf_Setup S ~> sf_Pk S };
+    [ SIGN ] : { sf_Msg S ~> 'option (sf_Sig S) };
+    [ HASH ] : { sf_Hin S ~> 'option (sf_Hout S) };
+    [ FORGE ] : { sf_Msg S × sf_Sig S ~> 'bool }
+  ].
+
+Definition shared_lookup (x : sf_Hin S) : raw_code (sf_Hout S) :=
+  table ← get sf_rom_loc ;;
+  match getm table x with
+  | Some md => ret md
+  | None =>
+      md ← sf_digest S ;;
+      #put sf_rom_loc := setm table x md ;;
+      ret md
+  end.
+
+Definition gen_body (sp : sf_Setup S) : raw_code (sf_Pk S) :=
+  #assert sf_setup_valid S sp ;;
+  st ← get sf_st_loc ;;
+  #assert ~~ isSome st ;;
+  done ← get sf_done_loc ;;
+  #assert ~~ done ;;
+  '(sk, pk) ← sf_keygen S sp ;;
+  #put sf_st_loc := Some (sk, pk) ;;
+  ret pk.
+
+(* Every admitted signing query is logged before validity or success is known,
+   so a forgery on an attempted message never counts. *)
+Definition sign_body (q_s : nat) (cm : sf_Msg S) :
+    raw_code ('option (sf_Sig S)) :=
+  st ← getSome sf_st_loc ;;
+  done ← get sf_done_loc ;;
+  #assert ~~ done ;;
+  count ← get sf_scnt_loc ;;
+  #assert (count < q_s) ;;
+  #put sf_scnt_loc := count.+1 ;;
+  log ← get sf_log_loc ;;
+  #put sf_log_loc := cm :: log ;;
+  if sf_message_valid S cm then
+    #put sf_st_loc := Some (sf_sign_next S st.1 cm, st.2) ;;
+    match sf_sign_query S st.1 cm with
+    | None => ret None
+    | Some x =>
+        md ← shared_lookup x ;;
+        ret (sf_sign_finish S st.1 cm md)
+    end
+  else ret None.
+
+(* Only external calls spend q_h; repeats and domain refusals spend a slot. *)
+Definition hash_body (q_h : nat) (x : sf_Hin S) :
+    raw_code ('option (sf_Hout S)) :=
+  done ← get sf_done_loc ;;
+  #assert ~~ done ;;
+  count ← get sf_hcnt_loc ;;
+  #assert (count < q_h) ;;
+  #put sf_hcnt_loc := count.+1 ;;
+  if sf_hash_valid S x then
+    md ← shared_lookup x ;;
+    ret (Some md)
+  else ret None.
+
+Definition check_body (candidate : sf_Msg S × sf_Sig S) : raw_code 'bool :=
+  st ← getSome sf_st_loc ;;
+  done ← get sf_done_loc ;;
+  #assert ~~ done ;;
+  #put sf_done_loc := true ;;
+  log ← get sf_log_loc ;;
+  if sf_message_valid S candidate.1 then
+    match sf_verify_query S st.2 candidate.1 candidate.2 with
+    | None => ret false
+    | Some x =>
+        md ← shared_lookup x ;;
+        ret (sf_verify_finish S st.2 candidate.1 candidate.2 md &&
+             (candidate.1 \notin log))
+    end
+  else ret false.
+
+(* Every read, parse and potentially partial sampler is common to both bits.
+   The terminal lookup is outside q_h, giving q_h + q_s + 1 total lookups. *)
+Definition forge_body (b : bool) (candidate : sf_Msg S × sf_Sig S) :
+    raw_code 'bool :=
+  verdict ← check_body candidate ;;
+  ret (b && verdict).
+
+Definition EUCMA_game (q_s q_h : nat) (b : bool) : game I_EUCMA.
+Proof.
+  notypeclasses refine [package sf_locations;
+    [ GEN ] : { sf_Setup S ~> sf_Pk S } (sp) { gen_body sp };
+    [ SIGN ] : { sf_Msg S ~> 'option (sf_Sig S) } (cm) { sign_body q_s cm };
+    [ HASH ] : { sf_Hin S ~> 'option (sf_Hout S) } (x) { hash_body q_h x };
+    [ FORGE ] : { sf_Msg S × sf_Sig S ~> 'bool } (c) { forge_body b c }
+  ].
+  ssprove_valid.
+  all: unfold forge_body, check_body, hash_body, sign_body, gen_body,
+    shared_lookup.
+  all: ssprove_valid.
+Defined.
+
+Definition measure (c : raw_code (sf_Msg S × sf_Sig S)) : raw_code 'bool :=
+  candidate ← c ;;
+  opr (mkopsig FORGE (sf_Msg S × sf_Sig S) 'bool) candidate (fun b => ret b).
+
+Lemma prefix_sub : fsubmap I_EUCMA_prefix I_EUCMA.
+Proof.
+  apply fhas_fsubmap => kv hkv.
+  fmap_invert hkv; by fmap_solve.
+Qed.
+
+(* An EU-CMA adversary runs prefix code for its queries and returns one
+   candidate forgery, which exactly one terminal FORGE call judges. The
+   adversary cannot call FORGE itself or return its own success bit. *)
+Definition canonical_forger (LA : Locations) (c : raw_code (sf_Msg S × sf_Sig S))
+    (vc : ValidCode LA I_EUCMA_prefix c) : package I_EUCMA A_export.
+Proof.
+  notypeclasses refine [package LA;
+    [ RUN.1 ] : { 'unit ~> 'bool } (_) { measure c }
+  ].
+  ssprove_valid.
+  unfold measure.
+  eapply valid_bind.
+  - exact: valid_injectMap c prefix_sub vc.
+  - move=> candidate.
+    apply: valid_opr => [|v]; first by fmap_solve.
+    exact: valid_ret.
+Defined.
+
+End Experiment.
+End stateful_rom.
