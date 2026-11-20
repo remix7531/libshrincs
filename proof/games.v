@@ -557,3 +557,115 @@ Export smtcr smpre smud stcrp prf kots.
 
 Definition tcr_budget (chain_count w : nat) : nat :=
   chain_count + chain_count * w.
+
+Module stcrp_option.
+
+Import PackageNotation.
+#[local] Close Scope Z_scope.
+#[local] Open Scope package_scope.
+#[local] Open Scope sep_scope.
+
+Section STCRPOptionGame.
+Context (T : thf) (target_class : th_T T -> bool).
+Context (Mb : choice_type) (enc : th_T T -> Mb -> nat -> th_T T * th_M T)
+        (prp : th_N T -> bool) (cap : nat) (p : nat).
+
+Definition SQUERY : nat := 1000.
+Definition SGETPP : nat := 1001.
+Definition SCHECK : nat := 1002.
+
+Definition stcr_option_pp_loc := mkloc 1000 (None : option (th_PP T)).
+Definition stcr_option_tgts_loc :=
+  mkloc 1001 (emptym : {fmap nat → (th_T T × (Mb × 'nat))}).
+Definition stcr_option_tws_loc := mkloc 1002 ([::] : seq (th_T T)).
+Definition stcr_option_rev_loc := mkloc 1003 (false : bool).
+
+Definition I_STCRP_option :=
+  [interface
+    [ SQUERY ] : { th_T T × Mb ~> 'option (th_N T × 'nat) } ;
+    [ SGETPP ] : { 'unit ~> th_PP T } ;
+    [ SCHECK ] : { 'nat × (Mb × 'nat) ~> 'bool } ;
+    [ EVAL ] : { th_T T × th_M T ~> th_N T }
+  ].
+
+(* Every admitted query reserves its base tweak and consumes a slot, including
+   search exhaustion, which returns None. Only successful slots are recorded.
+   SCHECK requires revelation on both bits. Candidate counters are unrestricted.
+   EVAL is available only outside the whole static target class. *)
+Definition STCRP_option_game (b : bool) : game I_STCRP_option :=
+  [package [fmap stcr_option_pp_loc ; stcr_option_tgts_loc ; stcr_option_tws_loc ; stcr_option_rev_loc ] ;
+    [ SQUERY ] : { th_T T × Mb ~> 'option (th_N T × 'nat) } '(t, m) {
+      #assert (target_class t) ;;
+      revealed ← get stcr_option_rev_loc ;;
+      #assert ~~ revealed ;;
+      tws ← get stcr_option_tws_loc ;;
+      #assert (size tws < p)%N ;;
+      #assert (t \notin tws) ;;
+      #put stcr_option_tws_loc := rcons tws t ;;
+      ppo ← get stcr_option_pp_loc ;;
+      pp ← match ppo with
+           | Some pp => ret pp
+           | None =>
+               pp ← th_dPP T ;;
+               #put stcr_option_pp_loc := Some pp ;;
+               ret pp
+           end ;;
+      let found := [seq i <- iota 0 cap |
+        let q := enc t m i in
+        if target_class q.1 then prp (th_eval T pp q.1 q.2) else false] in
+      match found with
+      | i :: _ =>
+          tgts ← get stcr_option_tgts_loc ;;
+          #put stcr_option_tgts_loc := setm tgts (size tws) (t, (m, i)) ;;
+          ret (Some (th_eval T pp (enc t m i).1 (enc t m i).2, i))
+      | [::] =>
+          ret None
+      end
+    } ;
+    [ SGETPP ] : { 'unit ~> th_PP T } (_) {
+      ppo ← get stcr_option_pp_loc ;;
+      pp ← match ppo with
+           | Some pp => ret pp
+           | None =>
+               pp ← th_dPP T ;;
+               #put stcr_option_pp_loc := Some pp ;;
+               ret pp
+           end ;;
+      #put stcr_option_rev_loc := true ;;
+      ret pp
+    } ;
+    [ SCHECK ] : { 'nat × (Mb × 'nat) ~> 'bool } '(j, (m, ctr)) {
+      revealed ← get stcr_option_rev_loc ;;
+      #assert revealed ;;
+      pp ← getSome stcr_option_pp_loc ;;
+      if b then
+        tgts ← get stcr_option_tgts_loc ;;
+        match getm tgts j with
+        | Some (t0, (m0, i0)) =>
+            let target := enc t0 m0 i0 in
+            let candidate := enc t0 m ctr in
+            ret (if target_class target.1 && target_class candidate.1 then
+                   (m != m0) &&
+                   (th_eval T pp target.1 target.2 == th_eval T pp candidate.1 candidate.2)
+                 else false)
+        | None => ret false
+        end
+      else
+        ret false
+    } ;
+    [ EVAL ] : { th_T T × th_M T ~> th_N T } '(t, m) {
+      #assert ~~ (target_class t) ;;
+      ppo ← get stcr_option_pp_loc ;;
+      pp ← match ppo with
+           | Some pp => ret pp
+           | None =>
+               pp ← th_dPP T ;;
+               #put stcr_option_pp_loc := Some pp ;;
+               ret pp
+           end ;;
+      ret (th_eval T pp t m)
+    }
+  ].
+
+End STCRPOptionGame.
+End stcrp_option.
