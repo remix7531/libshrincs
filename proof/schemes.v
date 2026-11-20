@@ -354,3 +354,21 @@ Definition fxmss_forger (LA : Locations)
     (c : raw_code (fxmss_sf_message × fxmss_sf_signature))
     (vc : ValidCode LA (stateful_rom.I_EUCMA_prefix fxmss_sf_scheme) c) :=
   stateful_rom.canonical_forger fxmss_sf_scheme LA c vc.
+
+(* Both randomizer paths share sk_prf, so their PRF replacement must use
+   one keyed function: a reduction for either path cannot evaluate the other
+   without that secret. The selector chooses the HMAC key padding: true uses
+   sk_prf || ff^48 for stateful data pk_seed || height || index || bound_message;
+   false uses sk_prf || 00^48 for stateless data opt_rand || message.
+   Both branches use the specification's HMAC computation. The stateless
+   PRF_msg_sl is not otherwise transcribed here. The specification's length
+   guard is discharged for every honest query by the internal adapter. *)
+Definition shrincs_khf_prf_msg : khf := {|
+  kh_K := bytes 16; kh_M := 'bool × 'list ('word U8); kh_N := bytes 16;
+  kh_eval := fun k m =>
+    let key := if m.1 then k ++ replicate (uint U8 255) 48 else k in
+    slice (hmac_sha256_total key m.2) 0 16;
+  kh_dK := dBytes 16; kh_dN := dBytes 16 |}.
+
+Definition shrincs_prf_msg_game (q : nat) :=
+  prf.PRF_game shrincs_khf_prf_msg q.
