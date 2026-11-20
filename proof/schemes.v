@@ -10,6 +10,7 @@
 
 From Shrincs Require Import games.
 From mathcomp Require Import word_ssrZ word.
+From mathcomp.experimental_reals Require Import distr.
 From SSProve.Crypt Require Import jasmin_word jasmin_wsize.
 From Shrincs Require Import spec.
 
@@ -83,6 +84,41 @@ Definition shrincs_prf (pk_seed : bytes 16) (t : tweak) (sk_seed : bytes 16) : b
 Definition wots_c_w : nat := 2 ^ WOTS_C_CHAIN_BITS.
 Definition wots_c_chain_count : nat := WOTS_C_CHAIN_COUNT.
 Definition wots_c_counter_max : nat := 2 ^ 16.
+
+Lemma dByte_lossless : LosslessCode dByte.
+Proof.
+  rewrite /dByte.
+  apply Lossless_sample.
+  - exact: LosslessOp_uniform.
+  - move=> x; apply Lossless_ret.
+Qed.
+
+Lemma dBytes_lossless n : LosslessCode (dBytes n).
+Proof.
+  rewrite /dBytes /=.
+  elim: n => [|n ih].
+  - apply Lossless_ret.
+  - rewrite /= /dByte /=.
+    apply Lossless_sample.
+    + exact: LosslessOp_uniform.
+    + move=> x.
+      rewrite /LosslessCode (Pr_fst_bind (sample_bytes_valid n)).
+      under eq_dlet do rewrite Pr_fst_ret.
+      rewrite -pr_predT pr_dlet.
+      under eq_exp do rewrite pr_dunit /=.
+      by rewrite exp_cst pr_predT ih GRing.mulr1.
+Qed.
+
+Lemma dBytes_map_lossless n (A : choice_type)
+    (f : bytes n -> A) :
+  LosslessCode (x ← dBytes n ;; ret (f x)).
+Proof.
+  rewrite /LosslessCode (Pr_fst_bind (prog_valid (dBytes n))).
+  under eq_dlet do rewrite Pr_fst_ret.
+  rewrite -pr_predT pr_dlet.
+  under eq_exp do rewrite pr_dunit /=.
+  by rewrite exp_cst pr_predT (dBytes_lossless n) GRing.mulr1.
+Qed.
 
 (* The chain games sample hidden sixteen-byte inputs and encode them as byte sequences. Compression and grinding choose their target messages. *)
 Definition shrincs_thf : thf := {|
