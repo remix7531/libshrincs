@@ -16,8 +16,8 @@
     machinery of SSProve's stock rules does not provide under an
     induction over an unbounded query sequence. *)
 
-From mathcomp.experimental_reals Require Import distr.
 From Shrincs.internal.ssprove.lib Require Import prelude.
+From mathcomp.experimental_reals Require Import distr.
 From SSProve.Crypt Require Import SubDistr Couplings.
 
 Import PackageNotation.
@@ -313,6 +313,48 @@ Proof.
 move=> hin h; rewrite /heap_ignore => ℓ' hl'.
 rewrite get_set_heap_neq; last exact: h.
 by apply/eqP => e; rewrite e hin in hl'.
+Qed.
+
+(* ------------------------------------------------------------------ *)
+(** ** Exact denotational transport *)
+
+Lemma r_pr_code_rhs_state {A B : choiceType} (pre pre' : precond)
+    (post : postcond A B) (c0 : raw_code A) (c1 c1' : raw_code B)
+    (f : heap -> heap) :
+  (forall h0 h1, pre (h0,h1) -> Pr_code c1 h1 = Pr_code c1' (f h1)) ->
+  (forall h0 h1, pre (h0,h1) -> pre' (h0,f h1)) ->
+  ⊢ ⦃ pre' ⦄ c0 ≈ c1' ⦃ post ⦄ ->
+  ⊢ ⦃ pre ⦄ c0 ≈ c1 ⦃ post ⦄.
+Proof.
+move=> he hf h.
+eapply from_sem_jdg.
+intros [s0 s1].
+hnf.
+intro P.
+hnf.
+intros [hp hpost].
+pose proof (to_sem_jdg _ _ _ _ h (s0,f s1)) as hh.
+hnf in hh.
+specialize (hh P).
+hnf in hh.
+cbn in hh |- *.
+have [d [hd hs]] := hh (conj (hf _ _ hp) hpost).
+exists d; split; last exact hs.
+have he' := he s0 s1 hp.
+cbn in he'.
+rewrite /SubDistr.SDistr_obligation_2 !SDistr_rightneutral in he'.
+cbn in he'.
+by rewrite he'.
+Qed.
+
+Lemma r_pr_code_rhs {A B : choiceType} (pre : precond)
+    (post : postcond A B) (c0 : raw_code A) (c1 c1' : raw_code B) :
+  (forall h0 h1, pre (h0,h1) -> Pr_code c1 h1 = Pr_code c1' h1) ->
+  ⊢ ⦃ pre ⦄ c0 ≈ c1' ⦃ post ⦄ ->
+  ⊢ ⦃ pre ⦄ c0 ≈ c1 ⦃ post ⦄.
+Proof.
+move=> he h.
+exact: (r_pr_code_rhs_state pre pre post c0 c1 c1' id he (fun _ _ h => h) h).
 Qed.
 
 End SemanticRules.
