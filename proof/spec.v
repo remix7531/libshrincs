@@ -85,6 +85,11 @@ Qed.
 Definition concat (m n : nat) (array : m.-tuple (Bytes n)) : Bytes (m * n) :=
   Tuple (concat_size array).
 
+(* Equal lengths are intrinsic to the two tuples. *)
+Definition xor (n : nat) (s1 s2 : Bytes n) : Bytes n :=
+  [tuple of [seq wxor (nth (uint U8 0) s1 i) (nth (uint U8 0) s2 i)
+             | i <- iota 0 n]].
+
 Definition base_2b (x : seq UInt8) (b outlen : nat) : seq nat :=
   let: (baseb, _, _, _) :=
     foldl (fun '(baseb, j, acc, bits_filled) i =>
@@ -162,12 +167,28 @@ End Addresses.
 HB.lock Definition sha256 (message : seq UInt8) : Bytes 32 :=
   int_to_bytes (Shrincs.sha256.sha256 [seq wunsigned b | b <- message]) 32.
 
+(* The HMAC computation, separated from its input
+   domain check so the keyed-function experiment can use a total function. *)
+Definition hmac_sha256_total (key message : seq UInt8) : Bytes 32 :=
+  let padded_key := slice (key ++ zeros (64 - size key)) 0 64 in
+  let inner := sha256 (xor padded_key (replicate (uint U8 54) 64) ++ message) in
+  sha256 (xor padded_key (replicate (uint U8 92) 64) ++ inner).
+
+(* The Python domain permits no long-key hashing branch. *)
+Definition hmac_sha256 (key message : seq UInt8) : option (Bytes 32) :=
+  if (size key <= 64) && Z.leb (Z.of_nat (size message)) (Z.sub (Z.pow 2 61) 65) then
+    Some (hmac_sha256_total key message)
+  else None.
+
 Definition T_sf (pk_seed : Bytes 16) (ADRS : Address) (M_l : Bytes WOTS_C_CHAINS_SIZE)
     : Bytes 16 :=
   slice (sha256 (pk_seed ++ zeros 48 ++ to_bytes ADRS ++ M_l)) 0 16.
 
 Definition F (pk_seed : Bytes 16) (ADRS : Address) (M_1 : Bytes 16) : Bytes 16 :=
   slice (sha256 (pk_seed ++ zeros 48 ++ to_bytes ADRS ++ M_1)) 0 16.
+
+Definition H (pk_seed : Bytes 16) (ADRS : Address) (M_2 : Bytes 32) : Bytes 16 :=
+  slice (sha256 (pk_seed ++ zeros 48 ++ to_bytes ADRS ++ M_2)) 0 16.
 
 Definition H_grind (pk_seed : Bytes 16) (ADRS : Address) (digest : Bytes 32) (counter : UInt16)
     : Bytes 16 :=
@@ -176,6 +197,19 @@ Definition H_grind (pk_seed : Bytes 16) (ADRS : Address) (digest : Bytes 32) (co
 
 Definition PRF (pk_seed sk_seed : Bytes 16) (ADRS : Address) : Bytes 16 :=
   slice (sha256 (pk_seed ++ zeros 48 ++ to_bytes ADRS ++ sk_seed)) 0 16.
+
+(* As for sha256, the domain bound is checked by callers:
+   the inner preimage has 57 bytes before M. *)
+Definition H_msg_sf (R pk_seed sf_root : Bytes 16) (leaf_height : UInt8)
+    (leaf_index : UInt64) (M : seq UInt8) : Bytes 32 :=
+  let leaf := int_to_bytes leaf_height 1 ++ int_to_bytes leaf_index 8 in
+  sha256 (R ++ pk_seed ++ sha256 (R ++ pk_seed ++ sf_root ++ leaf ++ M) ++ leaf).
+
+Definition PRF_msg_sf (sk_prf pk_seed : Bytes 16) (leaf_height : UInt8)
+    (leaf_index : UInt64) (M : seq UInt8) : option (Bytes 16) :=
+  let leaf := int_to_bytes leaf_height 1 ++ int_to_bytes leaf_index 8 in
+  if hmac_sha256 (sk_prf ++ replicate (uint U8 255) 48) (pk_seed ++ leaf ++ M)
+    is Some digest then Some (slice digest 0 16) else None.
 
 (*  WOTS+C algorithms  *)
 
