@@ -23,9 +23,12 @@ Definition optional_bytes_of {n : nat} (x : option (n.-tuple (word U8))) : optio
   omap (fun y : n.-tuple (word U8) => bytes_of y) x.
 Definition grinded_of (r : word U16 * seq nat) : nat * seq nat := (Z.to_nat (wunsigned r.1), r.2).
 
-(* [sha256] is locked, so the hash calls are exposed and unlocked before the virtual machine runs. The cast is checked once, at [Qed]. *)
+(* [sha256] is locked, so the hash calls are exposed and unlocked before
+   the virtual machine runs. The cast is checked once, at [Qed]. Signer
+   refusal cases return before hashing and need no executable hash adapter. *)
 Ltac run :=
-  unfold wots_c_pubkey_from_sig, wots_c_sign, wots_c_pubkey_gen, wots_c_map_digest,
+  unfold shrincs_sf_verify, shrincs_sf_parse, fxmss_pubkey_from_sig, H_msg_sf, H,
+    wots_c_pubkey_from_sig, wots_c_sign, wots_c_pubkey_gen, wots_c_map_digest,
     wots_c_grind_to_constant_sum, wots_c_chain_iter, PRF, H_grind, F, T_sf;
   rewrite ?sha256.unlock;
   vm_cast_no_check (erefl true).

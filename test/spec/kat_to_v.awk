@@ -29,6 +29,27 @@ function bytes(hex,    list, position) {
 
 function fixed(name, size) { return "(fixed " size " " bytes(need(name)) ")" }
 
+function fixed_checked(name, size,    value) {
+  value = need(name)
+  if ((value == "empty" ? 0 : length(value) / 2) != size)
+    fail("field " name " must contain " size " bytes")
+  return fixed(name, size)
+}
+
+function state() {
+  return need("state") == "none" ? "None" : "(Some " word("U64", "state") ")"
+}
+
+function znumber(value) {
+  if (value !~ /^[0-9]+$/) fail("not an integer: " value)
+  return value == "0" ? "Z0" : "(Zpos " value "%positive)"
+}
+
+function optional_sequence(call,    output) {
+  output = need("output")
+  return "omap bytes_of (" call ") == " (output == "none" ? "None" : "Some " bytes(output))
+}
+
 # "1 2 3" becomes "[:: 1; 2; 3]".
 function numbers(text,    list) {
   if (text !~ /^[0-9]+( [0-9]+)*$/) fail("not a list of integers: " text)
@@ -94,6 +115,20 @@ function statement(    f, output, parts) {
     return optional_bytes("wots_c_sign " fixed("message_digest", 32) " " fixed("sk_seed", 16) " " fixed("pk_seed", 16) " " anchor() " " shape())
   if (f == "wots_c_pubkey_from_sig")
     return optional_bytes("wots_c_pubkey_from_sig " fixed("signature", "(2 + WOTS_C_CHAINS_SIZE)") " " fixed("message_digest", 32) " " fixed("pk_seed", 16) " " anchor())
+  if (f == "shrincs_sf_verify")
+    return "shrincs_sf_verify (free " bytes(need("message")) ") (free " bytes(need("signature")) ") (free " bytes(need("ctx")) ") " fixed_checked("pubkey", 48) " == " boolean("output")
+  if (f == "shrincs_sf_sign")
+    return optional_sequence("shrincs_sf_sign (free " bytes(need("message")) ") (free " bytes(need("ctx")) ") " fixed_checked("seckey", 82) " " state())
+  if (f == "shrincs_extract_pubkey")
+    return "bytes_of (shrincs_extract_pubkey " fixed_checked("seckey", 82) ") == " bytes(output)
+  if (f == "shrincs_sf_leaf_select") {
+    if (output != "none" && split(output, parts, " : ") != 2) fail("not a selected leaf: " output)
+    return "omap (fun p => (wunsigned p.1, Z.to_nat (wunsigned p.2))) (shrincs_sf_leaf_select " fixed_checked("structure", 2) " " state() ") == " (output == "none" ? "None" : "Some (" znumber(parts[1]) ", " parts[2] ")")
+  }
+  if (f == "shrincs_sf_consume") {
+    if (split(output, parts, " : ") != 3 || parts[1] != "none") fail("not a final consumption result: " output)
+    return "shrincs_sf_consume " fixed_checked("structure", 2) " " state() " == (None, Some (wrepr U64 " znumber(parts[2]) ", wrepr U8 " znumber(parts[3]) "))"
+  }
   fail("unknown function " f)
 }
 
@@ -104,9 +139,14 @@ function emit(    file, name) {
   file = out "/" name ".v"
   print "(* Generated from " FILENAME " by test/spec/kat_to_v.awk: " field["function"] ". *)" > file
   print "From Stdlib Require Import BinInt." > file
-  print "From mathcomp Require Import boot." > file
+  if (field["function"] ~ /^shrincs_/)
+    print "From mathcomp Require Import boot algebra word_ssrZ." > file
+  else
+    print "From mathcomp Require Import boot." > file
   print "From SSProve.Crypt Require Import jasmin_word jasmin_wsize." > file
   print "From Shrincs Require Import spec." > file
+  if (field["function"] == "shrincs_sf_consume")
+    print "From Shrincs Require Import schemes." > file
   print "From SpecTest Require Import harness." > file
   print "" > file
   print "Example " name " :" > file

@@ -260,3 +260,25 @@
  (deps
   (alias spec/check)
   (glob_files spec/case_*.vo)))
+
+; Stateful cases share the same literal-spec harness and strict KAT parser.
+(subdir
+ fxmss_spec
+ (alias (name default) (deps))
+ (rule
+  (targets
+   case_001.v case_002.v case_003.v case_004.v case_005.v case_006.v
+   case_007.v case_008.v case_009.v case_010.v case_011.v case_012.v
+   case_013.v case_014.v case_015.v case_016.v case_017.v case_018.v
+   case_019.v case_020.v case_021.v case_022.v case_023.v case_024.v)
+  (deps ../spec/generate.sh ../spec/kat_to_v.awk ../spec/vectors/fxmss.kat)
+  (action (run bash ../spec/generate.sh ../spec/vectors/fxmss.kat . %{targets})))
+ (rocq.theory
+  (name FxmssSpecTest)
+  (theories Shrincs SpecTest Stdlib mathcomp.boot mathcomp.algebra mathcomp.word SSProve)
+  (flags :standard -w -notation-overridden,-ambiguous-paths,-abstract-large-number)
+  (mode vo)))
+
+(alias
+ (name spec-test)
+ (deps (glob_files fxmss_spec/case_*.vo)))
