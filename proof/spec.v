@@ -6,7 +6,7 @@
 
 (** * Shrincs.spec: the WOTS+C slice of the SHRINCS reference
 
-    A transcription of impl/shrincs.py from shrincs-bip, branch easy-formalization-arithmetic, commit 86cfca6ddcf79da87cd9a6d0ddc388cf43176b95. Read it side by side with that file. Sections, names, parameter order and loop structure are the Python's. Only what WOTS+C uses is transcribed: the stateless path, FXMSS, HMAC and [xor] are left out.
+    A transcription of impl/shrincs.py from shrincs-bip, commit 4fe68e3a68fd58be6b0e19436ff6fb7a3357a291. Read it side by side with that file. Sections, names, parameter order and loop structure are the Python's. Only what WOTS+C uses is transcribed: the stateless path, FXMSS, HMAC and [xor] are left out.
 
     How the Python is rendered:
 
@@ -110,6 +110,7 @@ Definition WOTS_C_CONSTANT_SUM : nat :=
 (*  ADRS type flags  *)
 Definition SF_WOTS_C_HASH : UInt8 := uint U8 16.
 Definition SF_WOTS_C_PK : UInt8 := uint U8 17.
+Definition SF_FXMSS_TREE : UInt8 := uint U8 18.
 Definition SF_WOTS_C_PRF : UInt8 := uint U8 21.
 Definition SF_WOTS_C_GRIND : UInt8 := uint U8 22.
 
@@ -134,7 +135,8 @@ Inductive Address :=
   | WotsCPrf (height : UInt8) (index : UInt64) (tree_balanced : bool) (tree_depth : UInt8)
       (chain_index : UInt32)
   | WotsCPk (height : UInt8) (index : UInt64)
-  | WotsCGrind (height : UInt8) (index : UInt64).
+  | WotsCGrind (height : UInt8) (index : UInt64)
+  | FxmssTree (height : UInt8) (index : UInt64).
 
 Definition to_bytes (self : Address) : Bytes 22 :=
   match self with
@@ -148,6 +150,8 @@ Definition to_bytes (self : Address) : Bytes 22 :=
       pack height index SF_WOTS_C_PK (uint U32 0) (uint U32 0) (uint U32 0)
   | WotsCGrind height index =>
       pack height index SF_WOTS_C_GRIND (uint U32 0) (uint U32 0) (uint U32 0)
+  | FxmssTree height index =>
+      pack height index SF_FXMSS_TREE (uint U32 0) (uint U32 0) (uint U32 0)
   end.
 
 End Addresses.

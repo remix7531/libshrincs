@@ -35,6 +35,8 @@ Definition tweak_of (ADRS : Address) : tweak :=
       (height, index, SF_WOTS_C_PK, uint U32 0, uint U32 0, uint U32 0)
   | WotsCGrind height index =>
       (height, index, SF_WOTS_C_GRIND, uint U32 0, uint U32 0, uint U32 0)
+  | FxmssTree height index =>
+      (height, index, SF_FXMSS_TREE, uint U32 0, uint U32 0, uint U32 0)
   end.
 
 Lemma to_bytes_tweak_of (ADRS : Address) :

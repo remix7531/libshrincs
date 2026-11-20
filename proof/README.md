@@ -2,7 +2,7 @@
 
 Read `spec.v` for the literal WOTS+C algorithms, `sha256.v` for the FIPS 180-4 hash definition, `contracts.v` for the public C contracts, `games.v` for the security experiments and `schemes.v` for their instances at the specification. These five files import no `Shrincs.internal` module. `theorem.v` composes completed proofs over those definitions.
 
-`spec.v` transcribes the WOTS+C part of shrincs-bip `impl/shrincs.py` at commit `86cfca6`. The C computes those same functions. Its public interface exports key generation, signing and public key recovery, with the reference parameter order and internally constructed addresses. Signing and recovery distinguish success from failure, and their contracts leave output contents unspecified on failure. Fixed-size byte strings are tuples throughout both proofs.
+`spec.v` transcribes the WOTS+C part of shrincs-bip `impl/shrincs.py` at commit `4fe68e3`. The C computes those same functions. Its public interface exports key generation, signing and public key recovery, with the reference parameter order and internally constructed addresses. Signing and recovery distinguish success from failure, and their contracts leave output contents unspecified on failure. Fixed-size byte strings are tuples throughout both proofs.
 
 The headline theorem has three conjuncts. A successfully generated signature recovers the generated public key. The linked C component satisfies the three public contracts with no remaining imports. The advantage in the concrete KOTS experiment is bounded by the advantages of six explicit reductions against the declared hash games. Correctness and security quantify over the node height, node index, tree balance and tree depth. The standalone SHA theorem states its public complete-digest contract.
 
