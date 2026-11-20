@@ -221,4 +221,46 @@ printf 'Print Assumptions other.\n' > "$temporary/gate3/audit/probe.v"
 expect_rejected bash "$temporary/gate3/audit/check.sh" "$temporary/tracked3.txt"
 grep -q 'AUDIT FAIL (gate 3): audit/probe.v does not probe claim' "$temporary/rejected.out"
 
+# The command-output mode shares the declaration scanner's lexer. Check the
+# exact enclosing scopes, modifier removal and comment/string masking.
+cat > "$temporary/scoped_commands.v" <<'EOF'
+From Stdlib Require Import Strings.String.
+Module Outer.
+Module Export Inner.
+Section Parameters.
+Variable E : Type.
+Section Nested.
+#[local] Program Definition identity (x : E) := x.
+(* Module Fake. (* Section Hidden. *) End Fake. *)
+(* "*)" "(*" *)
+Definition text := "End Nested.
+Module Fake. ""quoted"" (* not a comment *)"%string.
+End Nested.(* Axiom hidden : True. *)
+End Parameters.
+End Inner.
+End Outer.
+Module Alias := Outer.Inner.
+Redirect "ignored.out" Time #[local] Definition value := 0.
+EOF
+cat > "$temporary/scoped_commands.expected" <<'EOF'
+		From Stdlib Require Import Strings.String
+		Module Outer
+Outer		Module Export Inner
+Outer.Inner		Section Parameters
+Outer.Inner	Parameters	Variable E : Type
+Outer.Inner	Parameters	Section Nested
+Outer.Inner	Parameters.Nested	Definition identity (x : E) := x
+Outer.Inner	Parameters.Nested	Definition text := STRING %string
+Outer.Inner	Parameters.Nested	End Nested
+Outer.Inner	Parameters	End Parameters
+Outer.Inner		End Inner
+Outer		End Outer
+		Module Alias := Outer.Inner
+		Definition value := 0
+EOF
+awk -v emit_commands=1 -f audit/declarations.awk "$temporary/scoped_commands.v" \
+  > "$temporary/scoped_commands.actual"
+diff -u "$temporary/scoped_commands.expected" "$temporary/scoped_commands.actual"
+printf 'Audit command-output fixture passed.\n'
+
 printf 'Audit regression tests passed.\n'

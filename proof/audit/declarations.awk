@@ -1,8 +1,41 @@
 # Rocq commands end at a dot followed by whitespace, a comment, or EOF.
 # Comments nest. Quotes inside strings are escaped by doubling them.
+# With -v emit_commands=1, emit three tab-separated fields per command:
+# enclosing module path, enclosing section path, and normalized command.
+# Scope-opening and End commands carry the scope BEFORE the command.
+# This mode reports errors on stderr and leaves declaration checks to callers.
 function reject(message) {
-  print FILENAME ":" command_line ": " message
+  if (emit_commands) print FILENAME ":" command_line ": " message > "/dev/stderr"
+  else print FILENAME ":" command_line ": " message
   failed = 1
+}
+
+function scoped_command(text,    parts, kind, name, scope_index, modules, sections) {
+  if (text ~ /^(Module|Section|End)( |$)/) {
+    if (match(text, /^(Module|Section|End) (Import |Export )?([[:alnum:]_']+)$/, parts)) {
+      kind = parts[1]
+      name = parts[3]
+      if (kind == "End" && (!scope_depth || scope_name[scope_depth] != name)) {
+        reject("unmatched End " name)
+        return
+      }
+    } else if (text !~ /^Module (Import |Export )?[[:alnum:]_']+ *:= *[[:alnum:]_.']+$/) {
+      reject("unsupported scope " text "; extend inventory")
+      return
+    }
+  }
+  for (scope_index = 1; scope_index <= scope_depth; scope_index++) {
+    if (scope_kind[scope_index] == "Module")
+      modules = modules (modules == "" ? "" : ".") scope_name[scope_index]
+    else sections = sections (sections == "" ? "" : ".") scope_name[scope_index]
+  }
+  printf "%s\t%s\t%s\n", modules, sections, text
+  if (kind == "End") scope_depth--
+  else if (kind == "Module" || kind == "Section") {
+    scope_depth++
+    scope_kind[scope_depth] = kind
+    scope_name[scope_depth] = name
+  }
 }
 
 function imports_internal_module(text,    prefix, modules, module_count, module_index) {
@@ -27,7 +60,8 @@ function declaration(    text, depth, attribute_index, character) {
   gsub(/[[:space:]]+/, " ", text)
   sub(/^ /, "", text)
   sub(/ $/, "", text)
-  while (text ~ /^(#\[|Local |Global |Polymorphic |Monomorphic |Time |Timeout [0-9]+ |Redirect STRING )/) {
+  while (text ~ /^(#\[|Local |Global |Polymorphic |Monomorphic |Time |Timeout [0-9]+ |Redirect STRING )/ ||
+         (emit_commands && text ~ /^Program /)) {
     if (text ~ /^#\[/) {
       depth = 1
       for (attribute_index = 3; attribute_index <= length(text) && depth; attribute_index++) {
@@ -43,6 +77,7 @@ function declaration(    text, depth, attribute_index, character) {
     else sub(/^[A-Za-z]+ +/, "", text)
   }
 
+  if (emit_commands) { scoped_command(text); return }
   if (forbid_internal && imports_internal_module(text))
     reject("internal import in public definition: " text)
   if (text !~ /^(Axioms?|Conjectures?|Parameters?|Hypothesis|Hypotheses) /) return
@@ -55,6 +90,7 @@ FNR == 1 {
   comment_depth = 0
   comment_string = 0
   in_string = 0
+  if (emit_commands) scope_depth = 0
 }
 
 {
@@ -94,6 +130,7 @@ ENDFILE {
   if (comment_depth) reject("unclosed comment")
   if (in_string) reject("unclosed string")
   if (command ~ /[^[:space:]]/) reject("unfinished Rocq command")
+  if (emit_commands && scope_depth) reject("unclosed scope")
 }
 
 END { exit failed ? 1 : 0 }
