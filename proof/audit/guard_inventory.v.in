@@ -1,0 +1,19 @@
+(* SPDX-License-Identifier: MIT
+ *
+ * libshrincs - formally verified SHRINCS implementations.
+ *)
+
+(* Classify a definition by its inferred result type, under all its binders. *)
+From Shrincs.internal.ssprove.lib Require Import prelude.
+
+Ltac guard_find_game found t :=
+  let t := eval hnf in t in
+  lazymatch t with
+  | game ?E => found
+  | forall x : ?A, @?B x =>
+    let h := fresh "h" in let a := fresh "a" in
+    assert (h : forall a : A, True) by
+      (intro a; let u := constr:(B a) in guard_find_game found u; exact I);
+    clear h
+  | _ => idtac
+  end.

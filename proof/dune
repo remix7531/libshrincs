@@ -116,6 +116,8 @@
   audit/check.sh
   audit/statement.sh
   audit/declarations.awk
+  audit/guard_inventory.py
+  audit/guard_inventory.v.in
   audit/statement.v)
  (action
   (run bash audit/test.sh)))

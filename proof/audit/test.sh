@@ -221,6 +221,214 @@ printf 'Print Assumptions other.\n' > "$temporary/gate3/audit/probe.v"
 expect_rejected bash "$temporary/gate3/audit/check.sh" "$temporary/tracked3.txt"
 grep -q 'AUDIT FAIL (gate 3): audit/probe.v does not probe claim' "$temporary/rejected.out"
 
+# Gate 7 uses an independent, small game interface. The production classifier
+# and pin compiler still run in Rocq; inferred result types are not mocked.
+audit_directory=$PWD/audit
+base=$temporary/guard_base
+mkdir -p "$base/internal/ssprove/lib/guard" "$base/audit"
+cat > "$base/internal/ssprove/lib/prelude.v" <<'EOF'
+Inductive game (E : Type) : Type := Game : game E.
+Definition AdvOf {E : Type} (_ : game E) : Prop := True /\ True.
+EOF
+cat > "$base/games.v" <<'EOF'
+From Shrincs.internal.ssprove.lib Require Import prelude.
+Definition explicit : game nat := Game nat.
+Module Outer.
+Module Inner.
+Section Parameters.
+Variable E : Type.
+Definition nested := Game E.
+End Parameters.
+End Inner.
+End Outer.
+Module Alias := Outer.
+EOF
+cat > "$base/schemes.v" <<'EOF'
+From Shrincs Require Import games.
+Definition inferred (n : nat) := if Nat.eqb n 0 then explicit else explicit.
+EOF
+cat > "$base/internal/ssprove/lib/guard/fixture.v" <<'EOF'
+From Shrincs.internal.ssprove.lib Require Import prelude.
+From Shrincs Require Import games schemes.
+Lemma explicit_guard : AdvOf explicit.
+Proof. exact (conj I I). Qed.
+Module Outer.
+Section Parameters.
+Variable E : Type.
+Lemma nested_guard : AdvOf (games.Outer.Inner.nested E).
+Proof. exact (conj I I). Qed.
+End Parameters.
+End Outer.
+Lemma inferred_guard (n : nat) : AdvOf (Shrincs.schemes.inferred n).
+Proof. exact (conj I I). Qed.
+EOF
+cat > "$base/audit/guards.v" <<'EOF'
+From Shrincs.internal.ssprove.lib Require Import prelude guard.fixture.
+From Shrincs Require Import games schemes.
+Check (Shrincs.internal.ssprove.lib.guard.fixture.explicit_guard : AdvOf Shrincs.games.explicit).
+Check (Shrincs.internal.ssprove.lib.guard.fixture.Outer.nested_guard : forall E, AdvOf (Shrincs.games.Outer.Inner.nested E)).
+Check (Shrincs.internal.ssprove.lib.guard.fixture.inferred_guard : forall n, AdvOf (Shrincs.schemes.inferred n)).
+EOF
+for source in internal/ssprove/lib/prelude games schemes internal/ssprove/lib/guard/fixture; do
+  coqc -q -Q "$base" Shrincs "$base/$source.v"
+done
+
+guard_reset() {
+  rm -rf "$temporary/gate7"
+  cp -R "$base" "$temporary/gate7"
+}
+
+guard_check() (
+  cd "$temporary/gate7"
+  python3 "$audit_directory/guard_inventory.py" audit/guards.v audit -q -Q . Shrincs
+)
+
+guard_accept() {
+  guard_check > "$temporary/accepted.out" 2>&1 || {
+    cat "$temporary/accepted.out" >&2
+    exit 1
+  }
+  grep -qxF 'guard coverage: 3 games, 3 pinned guards' "$temporary/accepted.out"
+  printf 'Gate 7 fixture %s: accepted (3 games, 3 pinned guards).\n' "$1"
+}
+
+guard_reject() {
+  expect_rejected guard_check
+  grep -qF "$2" "$temporary/rejected.out"
+  printf 'Gate 7 fixture %s: rejected: %s\n' "$1" "$2"
+}
+
+guard_compile() {
+  coqc -q -Q "$temporary/gate7" Shrincs "$temporary/gate7/$1.v"
+}
+
+guard_reset
+guard_accept inferred_alias_and_nested_scopes
+
+# Declaration wrappers must not hide an inferred game from the inventory.
+cat > "$temporary/gate7/schemes.v" <<'EOF'
+From Stdlib Require Import Program.Tactics.
+From Shrincs Require Import games.
+#[local] Program Definition inferred (n : nat) :=
+  if Nat.eqb n 0 then explicit else explicit.
+EOF
+guard_compile schemes
+guard_compile internal/ssprove/lib/guard/fixture
+guard_accept declaration_modifiers
+
+# Apparent declarations, module boundaries and pins are inert in comments
+# and strings, including doubled quotes and quotes inside nested comments.
+guard_reset
+cat >> "$temporary/gate7/schemes.v" <<'EOF'
+From Stdlib Require Import Strings.String.
+(* Module Fake. (* Definition missing := explicit. *) End Fake. *)
+(* "*)" "(*" *)
+Definition text := "Module Fake. Definition missing := explicit.
+End Fake. ""quoted"" (* not a comment *)"%string.
+EOF
+cat >> "$temporary/gate7/internal/ssprove/lib/guard/fixture.v" <<'EOF'
+(* Lemma fake : True. (* Theorem also_fake : True. *) *)
+From Stdlib Require Import Strings.String.
+Definition text := "Lemma fake : True. Module Unclosed."%string.
+EOF
+cat >> "$temporary/gate7/audit/guards.v" <<'EOF'
+(* Check (Shrincs.internal.ssprove.lib.guard.fixture.fake : True). *)
+From Stdlib Require Import Strings.String.
+Definition text := "Check (Shrincs.internal.ssprove.lib.guard.fixture.fake : True)."%string.
+EOF
+guard_compile schemes
+guard_compile internal/ssprove/lib/guard/fixture
+guard_accept fake_declarations
+
+guard_reset
+cat >> "$temporary/gate7/schemes.v" <<'EOF'
+Definition unguarded := inferred.
+EOF
+guard_compile schemes
+guard_reject missing_game_guard 'Shrincs.schemes.unguarded has no pinned guard'
+
+guard_reset
+cat >> "$temporary/gate7/internal/ssprove/lib/guard/fixture.v" <<'EOF'
+Lemma unpinned : True.
+Proof. exact I. Qed.
+EOF
+guard_compile internal/ssprove/lib/guard/fixture
+guard_reject missing_full_type_pin 'Shrincs.internal.ssprove.lib.guard.fixture.unpinned has no full-type Check'
+
+guard_reset
+sed -i 's/Lemma explicit_guard : AdvOf explicit\./Lemma explicit_guard : True./; 0,/exact (conj I I)/s//exact I/' \
+  "$temporary/gate7/internal/ssprove/lib/guard/fixture.v"
+guard_compile internal/ssprove/lib/guard/fixture
+guard_reject weakened_guard 'expected to have type'
+grep -qF 'audit/guards.v does not compile' "$temporary/rejected.out"
+
+# A fake pin may neither cover a game nor count as the lemma's full-type pin.
+for hiding in comment string; do
+  guard_reset
+  pin=$(sed -n '/^Check .*\.inferred_guard /p' "$base/audit/guards.v")
+  sed -i '/^Check .*\.inferred_guard /d' "$temporary/gate7/audit/guards.v"
+  if [ "$hiding" = comment ]; then
+    printf '(* outer (* %s *) *)\n' "$pin" >> "$temporary/gate7/audit/guards.v"
+  else
+    printf 'From Stdlib Require Import Strings.String.\nDefinition text := "%s"%%string.\n' "$pin" \
+      >> "$temporary/gate7/audit/guards.v"
+  fi
+  guard_reject "fake_pin_in_$hiding" 'Shrincs.schemes.inferred has no pinned guard'
+  grep -qF 'Shrincs.internal.ssprove.lib.guard.fixture.inferred_guard has no full-type Check' \
+    "$temporary/rejected.out"
+done
+
+# A compiled module signature is outside the scanner's supported scopes;
+# refusing it is safer than silently skipping declarations in its body.
+guard_reset
+printf 'Module Type Signature. End Signature.\n' >> "$temporary/gate7/games.v"
+guard_compile games
+guard_reject unsupported_scope 'unsupported scope Module Type Signature'
+
+# Malformed-source cases exercise the scanner directly.
+
+guard_reset
+printf 'End Missing.\n' >> "$temporary/gate7/games.v"
+guard_reject unmatched_end 'unmatched End Missing'
+
+guard_reset
+printf 'Section Unclosed.\n' >> "$temporary/gate7/games.v"
+guard_reject unclosed_scope 'unclosed scope'
+
+for kind in comment string comment_string; do
+  guard_reset
+  case "$kind" in
+    comment) input='(* unclosed'; diagnostic='unclosed comment' ;;
+    string) input='Definition text := "unclosed'; diagnostic='unclosed string' ;;
+    comment_string) input='(* "unclosed'; diagnostic='unclosed string in comment' ;;
+  esac
+  printf '%s\n' "$input" >> "$temporary/gate7/games.v"
+  guard_reject "unterminated_$kind" "$diagnostic"
+done
+
+guard_reset
+printf 'Definition unfinished := 0\n' >> "$temporary/gate7/games.v"
+guard_reject unfinished_command 'unfinished Rocq command'
+
+guard_reset
+rm "$temporary/gate7/games.vo"
+guard_reject missing_object 'games.v: inventory needs a built .vo'
+
+guard_reset
+rm "$temporary/gate7/audit/guards.v"
+guard_reject missing_guards 'audit/guards.v missing'
+
+# Neither an empty game inventory nor an empty pin set is a passing audit.
+guard_reset
+printf 'Definition value := 0.\n' > "$temporary/gate7/games.v"
+printf 'Definition value := 0.\n' > "$temporary/gate7/schemes.v"
+guard_compile games
+guard_compile schemes
+rm "$temporary/gate7/internal/ssprove/lib/guard/fixture.v"
+guard_reject empty_games 'empty guard inventory'
+printf '(* No pins. *)\n' > "$temporary/gate7/audit/guards.v"
+guard_reject empty_inventory 'empty guard inventory'
+
 # The command-output mode shares the declaration scanner's lexer. Check the
 # exact enclosing scopes, modifier removal and comment/string masking.
 cat > "$temporary/scoped_commands.v" <<'EOF'
