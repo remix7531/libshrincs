@@ -45,6 +45,44 @@ Lemma to_bytes_tweak_of (ADRS : Address) :
      Shrincs.spec.pack height index address_type word1 word2 word3).
 Proof. by case: ADRS. Qed.
 
+(* Tree tweaks contain the parent coordinates and no payload. *)
+Lemma tweak_of_fxmss_tree (height : UInt8) (index : UInt64) :
+  tweak_of (FxmssTree height index)
+  = (height, index, SF_FXMSS_TREE, uint U32 0, uint U32 0, uint U32 0).
+Proof. by []. Qed.
+
+Lemma to_bytes_fxmss_tree (height : UInt8) (index : UInt64) :
+  to_bytes (FxmssTree height index)
+  = Shrincs.spec.pack height index SF_FXMSS_TREE (uint U32 0) (uint U32 0) (uint U32 0).
+Proof. by []. Qed.
+
+Lemma to_bytes_fxmss_tree_payload (height : UInt8) (index : UInt64) :
+  to_bytes (FxmssTree height index)
+  = [tuple of int_to_bytes height 1 ++ int_to_bytes index 8
+              ++ int_to_bytes SF_FXMSS_TREE 1 ++ zeros 12].
+Proof.
+apply: val_inj.
+change (int_to_bytes height 1 ++ int_to_bytes index 8 ++ int_to_bytes SF_FXMSS_TREE 1
+        ++ int_to_bytes (uint U32 0) 4 ++ int_to_bytes (uint U32 0) 4 ++ int_to_bytes (uint U32 0) 4
+    = int_to_bytes height 1 ++ int_to_bytes index 8 ++ int_to_bytes SF_FXMSS_TREE 1 ++ zeros 12).
+by congr (_ ++ _ ++ _ ++ _).
+Qed.
+
+Lemma tweak_of_fxmss_tree_inj :
+  injective (fun '(height, index) => tweak_of (FxmssTree height index)).
+Proof. by move=> [h1 i1] [h2 i2] /= [-> ->]. Qed.
+
+(* H uses Th at the tweak of its address. *)
+Lemma H_Th (pk_seed : Bytes 16) (ADRS : Address) (M_2 : Bytes 32) :
+  H pk_seed ADRS M_2 = Th pk_seed (tweak_of ADRS) M_2.
+Proof. by case: ADRS. Qed.
+
+Lemma H_fxmss_tree_Th (pk_seed : Bytes 16) (height : UInt8) (index : UInt64)
+    (M_2 : Bytes 32) :
+  H pk_seed (FxmssTree height index) M_2
+  = Th pk_seed (height, index, SF_FXMSS_TREE, uint U32 0, uint U32 0, uint U32 0) M_2.
+Proof. by []. Qed.
+
 (* The specification hash calls use Th at the tweak of their address, with the grinding byte encoding proved below. *)
 Lemma F_Th (pk_seed : Bytes 16) (ADRS : Address) (M_1 : Bytes 16) :
   F pk_seed ADRS M_1 = Th pk_seed (tweak_of ADRS) M_1.
