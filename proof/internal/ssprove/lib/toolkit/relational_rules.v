@@ -388,4 +388,71 @@ have he : (x,s0) = (y,t0).
 by case: he.
 Qed.
 
+(* ------------------------------------------------------------------ *)
+(** ** Reflexivity with separate read and write obligations *)
+
+Fixpoint code_stable (pre : precond) {A : choiceType} (c : raw_code A) : Prop :=
+  match c with
+  | ret _ => True
+  | opr _ _ _ => False
+  | getr l k => get_pre_cond l pre /\ forall x, code_stable pre (k x)
+  | putr l v k => put_pre_cond l v pre /\ code_stable pre k
+  | sampler _ k => forall x, code_stable pre (k x)
+  end.
+
+Lemma code_stable_bind (pre : precond) {A B : choiceType}
+    (c : raw_code A) (k : A -> raw_code B) :
+  code_stable pre c -> (forall x, code_stable pre (k x)) ->
+  code_stable pre (bind c k).
+Proof.
+elim: c => [x|o x f ih|l f ih|l v c ih|o f ih] /= => hc hk //.
+- (* Reads preserve the precondition and continue. *)
+  case: hc => hg hc; split=> // x; exact: ih x (hc x) hk.
+- (* Writes preserve the precondition and continue. *)
+  case: hc => hp hc; split=> //; exact: ih hc hk.
+- (* Every sample continuation is stable. *)
+  move=> x; exact: ih x (hc x) hk.
+Qed.
+
+Lemma code_stable_valid {A : choiceType} (L : Locations) (pre : precond)
+    (c : raw_code A) :
+  ValidCode L [interface] c ->
+  (forall l, fhas L l -> get_pre_cond l pre) ->
+  (forall l v, fhas L l -> put_pre_cond l v pre) ->
+  code_stable pre c.
+Proof.
+move=> hc hg hp.
+elim: hc => /=.
+- by [].
+- by move=> [o [S T]] x k.
+- move=> l k hl _ ih; split; [exact: hg l hl | exact ih].
+- move=> l v k hl _ ih; split; [exact: hp l v hl | exact ih].
+- by move=> o k _ ih.
+Qed.
+
+Lemma r_code_stable {A : choiceType} (pre : precond) (c : raw_code A) :
+  code_stable pre c ->
+  ⊢ ⦃ λ '(s0,s1), pre (s0,s1) ⦄ c ≈ c
+  ⦃ λ '(x,s0) '(y,s1), x = y /\ pre (s0,s1) ⦄.
+Proof.
+elim: c => [x|o x k ih|l k ih|l v c ih|o k ih] /=.
+- move=> _; apply: r_ret; by [].
+- by [].
+- (* Couple a read under its read-specific obligation. *)
+  move=> [hg hk].
+  eapply (rsame_head_cmd_alt (cmd_get l)).
+  + exact: cmd_get_preserve_pre hg.
+  + by move=> x; apply: ih; exact: hk.
+- (* Couple a write under its write-specific obligation. *)
+  move=> [hp hc].
+  eapply (@rsame_head_cmd_alt _ _ (fun _ => _) (fun _ => _) (cmd_put l v)).
+  + exact: cmd_put_preserve_pre hp.
+  + by move=> []; apply: ih.
+- (* Couple the sample and preserve every continuation. *)
+  move=> hk.
+  eapply (rsame_head_cmd_alt (cmd_sample o)).
+  + apply: cmd_sample_preserve_pre.
+  + by move=> x; apply: ih; exact: hk.
+Qed.
+
 End SemanticRules.
